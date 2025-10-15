@@ -1,0 +1,35 @@
+# Exclude files from Docker build context to speed up builds
+node_modules
+npm-debug.log
+Dockerfile*
+**/.git
+.git
+.gitignore
+
+# Nx / build artifacts
+.dist
+/dist
+/tmp
+/tmp/**
+/.nx
+
+# Tests and coverage
+coverage
+**/*.spec.ts
+**/*.spec.tsx
+**/*.test.ts
+**/*.test.tsx
+
+# Local data and uploads
+/uploads
+/data
+/data/**
+
+# IDE/editor files
+.vscode
+.idea
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -8,11 +8,17 @@
       "executor": "@nx/js:swc",
       "options": {
         "outputPath": "dist/apps/korfbal-stream-api",
-        "main": "apps/korfbal-stream-api/src/main.ts",
+        "main": "apps/korfbal-stream-api/src/start.ts",
         "tsConfig": "apps/korfbal-stream-api/tsconfig.app.json",
         "skipTypeCheck": true,
+        "generatePackageJson": true,
         "assets": [
           "apps/korfbal-stream-api/src/assets",
+          {
+            "input": "apps/korfbal-stream-api",
+            "glob": ".env",
+            "output": "."
+          },
           {
             "input": "apps/korfbal-stream-api",
             "glob": "prisma/schema.prisma",
@@ -22,16 +28,15 @@
       }
     },
     "serve": {
-      "executor": "@nx/js:node",
+      "executor": "nx:run-commands",
       "options": {
-        "buildTarget": "@korfbal-stream-kit/korfbal-stream-api:build"
+        "command": "tsx watch apps/korfbal-stream-api/src/main.ts"
       }
     },
     "dev": {
-      "executor": "@nx/js:node",
+      "executor": "nx:run-commands",
       "options": {
-        "buildTarget": "@korfbal-stream-kit/korfbal-stream-api:build",
-        "watch": true
+        "command": "tsx watch apps/korfbal-stream-api/src/main.ts"
       }
     },
     "test": {

@@ -1,4 +1,41 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-/* You can add global styles to this file, and also import other style files */
+
+:root {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+/* Simple container paddings */
+.container {
+  @apply mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+/* Table styles */
+.table {
+  @apply w-full text-left text-sm;
+}
+.table thead th {
+  @apply sticky top-0 bg-gray-100 dark:bg-gray-800 font-semibold text-gray-700 dark:text-gray-200 px-3 py-2;
+}
+.table tbody td {
+  @apply border-t border-gray-200 dark:border-gray-700 px-3 py-2 text-gray-800 dark:text-gray-100;
+}
+
+/* Mobile card list */
+.card-list {
+  @apply grid grid-cols-1 gap-3;
+}
+.card {
+  @apply rounded-md border border-gray-200 dark:border-gray-700 p-3 bg-white dark:bg-gray-900 shadow-sm;
+}
+.card .label { @apply text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400; }
+.card .value { @apply text-sm text-gray-900 dark:text-gray-100; }

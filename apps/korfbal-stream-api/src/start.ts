@@ -1,10 +1,10 @@
-import { execSync } from 'node:child_process';
-import { logger } from './utils/logger';
+import {execSync} from 'node:child_process';
+import {logger} from './utils/logger';
 import app from './main';
-import { config } from './services/config';
+import {config} from './services/config';
 
 function run(cmd: string) {
-  logger.info({ msg: 'exec', cmd });
+  logger.info("",{ msg: 'exec', cmd });
   execSync(cmd, { stdio: 'inherit' });
 }
 

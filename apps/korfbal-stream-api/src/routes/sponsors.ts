@@ -19,9 +19,9 @@ sponsorsRouter.get('/', async (req, res, next) => {
       prisma.sponsor.count({ where }),
     ]);
 
-    res.json({ items, page, limit, total, pages: Math.ceil(total / limit) || 1 });
+    return res.json({ items, page, limit, total, pages: Math.ceil(total / limit) || 1 });
   } catch (err) {
-    logger.error('GET /sponsors failed', err as any);
+    logger.error('GET /sponsors failed', err);
     return next(err);
   }
 });

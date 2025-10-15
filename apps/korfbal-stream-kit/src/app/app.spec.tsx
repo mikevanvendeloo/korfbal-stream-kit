@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 
 import App from './app';
@@ -13,16 +13,13 @@ describe('App', () => {
     expect(baseElement).toBeTruthy();
   });
 
-  it('should have a greeting as the title', () => {
-    const { getAllByText } = render(
+  it('shows navigation with Sponsors link', () => {
+    render(
       <BrowserRouter>
         <App />
       </BrowserRouter>
     );
-    expect(
-      getAllByText(
-        new RegExp('Welcome @korfbal-stream-kit/korfbal-stream-kit', 'gi')
-      ).length > 0
-    ).toBeTruthy();
+    expect(screen.getByText('Korfbal Stream Kit')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Sponsors' }).length).toBeGreaterThan(0);
   });
 });

@@ -16,6 +16,7 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022",
-    "customConditions": ["@korfbal-stream-kit/source"]
+    "customConditions": ["@korfbal-stream-kit/korfbal-stream-kit"],
+    "paths": {}
   }
 }

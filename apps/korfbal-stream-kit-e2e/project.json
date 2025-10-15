@@ -1,0 +1,14 @@
+
+{
+  "name": "@korfbal-stream-kit/korfbal-stream-kit-e2e",
+  "implicitDependencies": ["@korfbal-stream-kit/korfbal-stream-kit"],
+  "targets": {
+    "e2e": {
+      "executor": "@nx/playwright:e2e",
+      "options": {
+        "playwrightConfig": "apps/korfbal-stream-kit-e2e/playwright.config.ts",
+        "headless": true
+      }
+    }
+  }
+}

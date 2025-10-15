@@ -1,0 +1,59 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@korfbal-stream-kit/korfbal-stream-kit",
+  "projectType": "application",
+  "sourceRoot": "apps/korfbal-stream-kit/src",
+  "targets": {
+    "build": {
+      "executor": "@nx/vite:build",
+      "options": {
+        "outputPath": "dist/apps/korfbal-stream-kit",
+        "configFile": "apps/korfbal-stream-kit/vite.config.ts"
+      }
+    },
+    "serve": {
+      "executor": "@nx/vite:dev-server",
+      "options": {
+        "buildTarget": "@korfbal-stream-kit/korfbal-stream-kit:build",
+        "hmr": true
+      },
+      "configurations": {
+        "production": {
+          "buildTarget": "@korfbal-stream-kit/korfbal-stream-kit:build:production",
+          "hmr": false
+        }
+      }
+    },
+    "preview": {
+      "executor": "@nx/vite:preview-server",
+      "options": {
+        "buildTarget": "@korfbal-stream-kit/korfbal-stream-kit:build",
+        "port": 4300
+      }
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "options": {
+        "passWithNoTests": false,
+        "reportsDirectory": "apps/korfbal-stream-kit/test-output/vitest",
+        "configFile": "apps/korfbal-stream-kit/vite.config.ts"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "lintFilePatterns": [
+          "apps/korfbal-stream-kit/**/*.{ts,tsx,js,jsx}"
+        ]
+      }
+    },
+    "typecheck": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "tsConfig": "apps/korfbal-stream-kit/tsconfig.app.json",
+        "noEmit": true
+      }
+    }
+  },
+  "tags": []
+}
