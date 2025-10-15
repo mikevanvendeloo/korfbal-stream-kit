@@ -43,6 +43,12 @@ Thumbs.db
 .cursor/rules/nx-rules.mdc
 .github/instructions/nx.instructions.md
 
+# Local runtime data
+/data/postgres
+/uploads
+
 vite.config.*.timestamp*
 vitest.config.*.timestamp*
 test-output
+/korfbal-stream-kit.iml
+/error.log

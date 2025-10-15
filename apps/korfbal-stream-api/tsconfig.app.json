@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../../dist/apps/korfbal-stream-api",
+    "module": "es2020",
+    "target": "es2020",
+    "moduleResolution": "bundler",
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "types": ["node"],
+    "rootDir": "."
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.spec.ts"]
+}

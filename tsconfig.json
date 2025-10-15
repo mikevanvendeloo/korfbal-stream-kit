@@ -8,6 +8,9 @@
     },
     {
       "path": "./apps/korfbal-stream-kit"
+    },
+    {
+      "path": "./apps/korfbal-stream-api"
     }
   ]
 }
