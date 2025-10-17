@@ -2,18 +2,21 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "name": "@korfbal-stream-kit/korfbal-stream-api",
   "projectType": "application",
+  "root": "apps/korfbal-stream-api",
   "sourceRoot": "apps/korfbal-stream-api/src",
   "targets": {
     "build": {
-      "executor": "@nx/js:swc",
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
       "options": {
+        "platform": "node",
         "outputPath": "dist/apps/korfbal-stream-api",
-        "main": "apps/korfbal-stream-api/src/start.ts",
+        "format": ["cjs"],
+        "bundle": false,
+        "main": "apps/korfbal-stream-api/src/main.ts",
         "tsConfig": "apps/korfbal-stream-api/tsconfig.app.json",
-        "skipTypeCheck": true,
-        "generatePackageJson": true,
         "assets": [
-          "apps/korfbal-stream-api/src/assets",
           {
             "input": "apps/korfbal-stream-api",
             "glob": ".env",
@@ -24,7 +27,35 @@
             "glob": "prisma/schema.prisma",
             "output": "."
           }
-        ]
+        ],
+        "generatePackageJson": true,
+        "esbuildOptions": {
+          "sourcemap": true,
+          "outExtension": {
+            ".js": ".js"
+          }
+        }
+      },
+      "configurations": {
+        "development": {},
+        "production": {
+          "generateLockfile": true,
+          "esbuildOptions": {
+            "sourcemap": false,
+            "outExtension": {
+              ".js": ".js"
+            }
+          }
+        }
+      }
+    },
+    "package": {
+      "executor": "@nx/js:package",
+      "dependsOn": ["build"],
+      "options": {
+        "outputPath": "dist/apps/korfbal-stream-api",
+        "project": "apps/korfbal-stream-api/project.json",
+        "externalDependencies": "all"
       }
     },
     "serve": {
@@ -49,7 +80,9 @@
     "lint": {
       "executor": "@nx/eslint:lint",
       "options": {
-        "lintFilePatterns": ["apps/korfbal-stream-api/**/*.ts"]
+        "lintFilePatterns": [
+          "apps/korfbal-stream-api/**/*.ts"
+        ]
       }
     },
     "typecheck": {
@@ -57,6 +90,32 @@
       "options": {
         "tsConfig": "apps/korfbal-stream-api/tsconfig.app.json",
         "noEmit": true
+      }
+    },
+    "docker:run": {
+      "executor": "@nx/docker:run",
+      "options": {
+        "image": "korfbal-stream-api:latest",
+        "ports": [
+          "3000:3000"
+        ],
+        "env": {
+          "NODE_ENV": "production",
+          "HOST": "0.0.0.0",
+          "PORT": "3000"
+        }
+      }
+    },
+    "docker:build": {
+      "dependsOn": ["package"],
+      "executor": "@nx/docker:build",
+      "options": {
+        "context": ".",
+        "file": "apps/korfbal-stream-api/Dockerfile",
+        "tags": [
+          "your-registry/korfbal-stream-api:latest"
+        ],
+        "push": true
       }
     }
   },

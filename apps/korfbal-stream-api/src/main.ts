@@ -1,13 +1,16 @@
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import path from 'node:path';
+import fs from 'node:fs';
 import swaggerUi from 'swagger-ui-express';
-import { logger } from './utils/logger';
-import { sponsorsRouter } from './routes/sponsors';
-import { prisma } from './services/prisma';
-import { config } from './services/config';
-import { errorHandler } from './middleware/error';
+import {logger} from './utils/logger';
+import {sponsorsRouter} from './routes/sponsors';
+import {matchRouter} from './routes/match';
+import {scoreboardRouter} from './routes/scoreboard';
+import {vmixRouter} from './routes/vmix';
+import {prisma} from './services/prisma';
+import {config, logConfig, requireConfig} from './services/config';
+import {errorHandler} from './middleware/error';
 
 const app = express();
 
@@ -20,7 +23,7 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
-  next();
+  return next();
 });
 
 const methodEmojis: Record<string, string> = {
@@ -83,6 +86,15 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
 // Sponsors endpoints
 app.use('/api/sponsors', sponsorsRouter);
+
+// Match endpoints
+app.use('/api/match', matchRouter);
+
+// Scoreboard endpoints
+app.use('/api/scoreboard', scoreboardRouter);
+
+// vMix endpoints
+app.use('/api/vmix', vmixRouter);
 
 // OpenAPI JSON
 const openapi = {
@@ -231,10 +243,15 @@ if (process.env.NODE_ENV !== 'test') {
     logger.error('Unhandled rejection', reason as any);
   });
 
+  requireConfig();
+
   const server = app.listen(port, () => {
     logger.info(`🚀 API Server running on http://localhost:${port}`);
     logger.info(`📊 Health check: http://localhost:${port}/api/health`);
     logger.info(`📚 Sponsors API: http://localhost:${port}/api/sponsors`);
+    logger.info(`📚 MatchSchedule API: http://localhost:${port}/api/matches`);
+    logger.info(`📚 Scoreboard API: http://localhost:${port}/api/scoreboard`);
+    logConfig();
   });
 
   server.on('error', (err) => {

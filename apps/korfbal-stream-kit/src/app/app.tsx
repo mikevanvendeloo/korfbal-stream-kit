@@ -1,5 +1,7 @@
 import { Route, Routes, Link } from 'react-router-dom';
 import SponsorsPage from '../pages/SponsorsPage';
+import ScoreboardPage from '../pages/ScoreboardPage';
+import MatchSchedulePage from '../pages/MatchSchedulePage';
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider';
 
 function Nav() {
@@ -10,6 +12,8 @@ function Nav() {
         <nav className="flex items-center gap-4 text-sm">
           <Link to="/" className="font-semibold text-gray-900 dark:text-gray-100">Korfbal Stream Kit</Link>
           <Link to="/sponsors" className="text-gray-700 dark:text-gray-300 hover:underline">Sponsors</Link>
+          <Link to="/scoreboard" className="text-gray-700 dark:text-gray-300 hover:underline">Scoreboard</Link>
+          <Link to="/matches/schedule" className="text-gray-700 dark:text-gray-300 hover:underline">Match schedule</Link>
         </nav>
         <button onClick={toggle} className="text-sm px-3 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
           {theme === 'dark' ? 'Light' : 'Dark'} mode
@@ -26,8 +30,10 @@ export function App() {
         <Nav />
         <main>
           <Routes>
-            <Route path="/" element={<div className="container py-6 text-gray-800 dark:text-gray-100">Welkom! Ga naar <Link className="underline" to="/sponsors">Sponsors</Link>.</div>} />
+            <Route path="/" element={<div className="container py-6 text-gray-800 dark:text-gray-100">Welkom! Ga naar <><Link className="underline" to="/sponsors">Sponsors</Link>, <Link className="underline" to="/scoreboard">Scoreboard</Link> of <Link className="underline" to="/matches/schedule">Match schedule</Link></>.</div>} />
             <Route path="/sponsors" element={<SponsorsPage />} />
+            <Route path="/scoreboard" element={<ScoreboardPage />} />
+            <Route path="/matches/schedule" element={<MatchSchedulePage />} />
           </Routes>
         </main>
       </div>

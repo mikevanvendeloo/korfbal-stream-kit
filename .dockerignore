@@ -7,11 +7,19 @@ Dockerfile*
 .gitignore
 
 # Nx / build artifacts
-.dist
+dist
 /dist
 /tmp
 /tmp/**
-/.nx
+.nx
+.github
+.vscode
+.idea
+*.log
+.env
+.env.local
+tmp
+coverage
 
 # Tests and coverage
 coverage

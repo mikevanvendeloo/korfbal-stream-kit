@@ -9,7 +9,7 @@ services:
       - "5432:5432"
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
-  api:
+  korfbal-stream-api:
     build:
       context: .
       dockerfile: apps/korfbal-stream-api/Dockerfile
@@ -25,6 +25,21 @@ services:
       - ./uploads:/app/uploads
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3333/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
       interval: 10s
       timeout: 5s
       retries: 5

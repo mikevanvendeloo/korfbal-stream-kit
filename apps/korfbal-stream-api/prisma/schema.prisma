@@ -20,5 +20,30 @@ model Sponsor {
   type        SponsorType
   logoUrl     String
   websiteUrl  String
+  categories  String?
   createdAt   DateTime     @default(now())
+}
+
+model MatchSchedule {
+  id                 Int       @id @default(autoincrement())
+  externalId         String    @unique
+  date               DateTime
+  homeTeamName       String
+  awayTeamName       String
+  accommodationName  String?
+  accommodationRoute String?
+  attendanceTime     DateTime?
+  isPracticeMatch    Boolean   @default(false)
+  isHomeMatch        Boolean   @default(false)
+  isCompetitiveMatch Boolean   @default(false)
+  fieldName          String?
+  refereeName        String?
+  reserveRefereeName String?
+  homeScore          Int?
+  awayScore          Int?
+  color              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([date])
 }

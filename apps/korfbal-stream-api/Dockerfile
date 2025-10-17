@@ -1,26 +1,31 @@
 # Builder stage
 FROM node:22-alpine AS builder
 WORKDIR /workspace
+# Install build dependencies
+RUN apk add --no-cache python3 make g++ openssl
 
 # Install only the dependencies needed for building
 COPY package*.json nx.json ./
+COPY apps/korfbal-stream-api/project.json ./apps/korfbal-stream-api/
 # Use npm ci only when a lockfile is present to avoid noisy errors in CI/build logs
 RUN npm config set fetch-timeout 60000 && \
     npm config set fetch-retries 3 && \
-    sh -c "if [ -f package-lock.json ]; then npm ci --verbose; else npm i --verbose; fi"
+    npm install --verbose --ignore-scripts
+
 # Copy TypeScript configurations and source files
 COPY tsconfig.base.json tsconfig.json ./
 COPY apps/korfbal-stream-api/tsconfig*.json apps/korfbal-stream-api/
-COPY apps/korfbal-stream-api/.swcrc apps/korfbal-stream-api/
 COPY apps/korfbal-stream-api/prisma apps/korfbal-stream-api/prisma
 COPY apps/korfbal-stream-api/src apps/korfbal-stream-api/src
+
+COPY apps/korfbal-stream-api/ apps/korfbal-stream-api/
 
 # Generate Prisma client (needed during build)
 RUN npx prisma generate --schema=apps/korfbal-stream-api/prisma/schema.prisma
 
-
-# Build the API with Nx (SWC)
-RUN npx nx build @korfbal-stream-kit/korfbal-stream-api
+# Build the API with Nx (esbuild)
+ENV NX_DAEMON=false
+RUN npx -y nx build @korfbal-stream-kit/korfbal-stream-api --skip-nx-cache --verbose
 
 # Runtime stage
 FROM node:22-alpine AS runner
@@ -39,9 +44,11 @@ COPY --from=builder /workspace/dist/apps/korfbal-stream-api/package.json ./packa
 ENV PRISMA_SCHEMA_PATH=apps/korfbal-stream-api/prisma/schema.prisma
 
 # Install production dependencies only (no lockfile here; pruned deps are minimal)
-RUN npm i --omit=dev --no-audit --no-fund && \
+# Skip postinstall scripts (like @prisma/engines) here to avoid Docker build hangs and generate explicitly next.
+RUN npm i --omit=dev --no-audit --no-fund --ignore-scripts && \
     npx prisma generate --schema=./prisma/schema.prisma
 
 EXPOSE 3333
+ENV HOST=0.0.0.0
 ENV PORT=3333
 CMD ["node", "main.js"]

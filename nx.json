@@ -84,7 +84,14 @@
       "options": {
         "targetName": "test"
       },
-      "exclude": ["korfbal-stream-vmix-api-e2e/**/*"]
+      "exclude": ["korfbal-stream-vmix-api-e2e/**/*", "apps/api-e2e/**/*"]
+    },
+    {
+      "plugin": "@nx/docker",
+      "options": {
+        "buildTarget": "docker:build",
+        "runTarget": "docker:run"
+      }
     }
   ],
   "targetDefaults": {
@@ -108,6 +115,11 @@
     },
     "typecheck": {
       "cache": true
+    },
+    "@nx/esbuild:esbuild": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
     }
   },
   "generators": {

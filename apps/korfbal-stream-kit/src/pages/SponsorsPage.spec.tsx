@@ -70,3 +70,60 @@ describe('SponsorsPage', () => {
     });
   });
 });
+
+
+it('has an Upload sponsors button that posts the Excel and refetches', async () => {
+  const qc = new QueryClient();
+  const origFetch = global.fetch as any;
+  const calls: Array<{ url: string; method: string }> = [];
+  const mock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : (input as URL).toString();
+    const method = init?.method || 'GET';
+    calls.push({ url, method });
+    const u = new URL(url, 'http://localhost');
+    if (u.pathname.endsWith('/api/sponsors/upload-excel') && method === 'POST') {
+      return { ok: true, json: async () => ({ ok: true, created: 2, updated: 0 }) } as any;
+    }
+    if (u.pathname.endsWith('/api/sponsors') && method === 'GET') {
+      return { ok: true, json: async () => mockData } as any;
+    }
+    return { ok: false, status: 404 } as any;
+  }) as any;
+  // @ts-ignore
+  global.fetch = mock;
+
+  render(
+    <ThemeProvider>
+      <QueryClientProvider client={qc}>
+        <SponsorsPage />
+      </QueryClientProvider>
+    </ThemeProvider>
+  );
+
+  // Wait for initial load
+  await waitFor(() => expect(mock).toHaveBeenCalled());
+
+  // Click upload button -> opens file input; simulate selecting a file
+  const btn = screen.getByLabelText('upload-sponsors');
+  const input = screen.getByLabelText('sponsors-file') as HTMLInputElement;
+
+  // Fire click (no effect needed in jsdom), then change file
+  fireEvent.click(btn);
+
+  const file = new File([new Uint8Array([1,2,3])], 'sponsors.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const dt = {
+    target: { files: [file] },
+  } as any;
+  fireEvent.change(input, dt);
+
+  // Expect POST called and then GET refetch called again
+  await waitFor(() => {
+    expect(calls.some((c) => c.url.includes('/api/sponsors/upload-excel') && c.method === 'POST')).toBe(true);
+  });
+
+  // After upload, a GET for sponsors should have been made at least twice (initial + refetch)
+  const getCalls = calls.filter((c) => c.url.includes('/api/sponsors') && c.method === 'GET');
+  expect(getCalls.length).toBeGreaterThanOrEqual(2);
+
+  global.fetch = origFetch;
+});

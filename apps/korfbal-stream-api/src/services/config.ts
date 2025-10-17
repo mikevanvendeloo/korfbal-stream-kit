@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
-import { z } from 'zod';
+import {z} from 'zod';
+import {logger} from "../utils/logger";
 
 type NodeEnv = 'development' | 'test' | 'production' | string;
 
@@ -15,6 +16,10 @@ const EnvSchema = z.object({
     .default('3333' as unknown as any),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required').or(z.string().length(0)).default(''),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
+  SCOREBOARD_BASE_URL: z.string().url().default('http://10.12.0.62/scoreboard'),
+  SHOTCLOCK_BASE_URL: z.string().url().default('http://10.12.0.61/shotclock'),
+  MATCH_SCHEDULE_BASE_URL: z.string().url().default('https://api.sportclubvrijwilligersmanagement.nl/v1'),
+  MATCH_SCHEDULE_API_TOKEN: z.string().optional().or(z.literal('')).default(''),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
@@ -33,23 +38,42 @@ if (!parsed.success) {
 const env = parsed.success
   ? parsed.data
   : // Fallback with minimal defaults for tests
-    ({
-      NODE_ENV: (process.env.NODE_ENV || 'test') as NodeEnv,
-      PORT: Number(process.env.PORT || 3333),
-      DATABASE_URL: process.env.DATABASE_URL || '',
-      LOG_LEVEL: (process.env.LOG_LEVEL || 'info') as 'error' | 'warn' | 'info' | 'debug',
-    } as any);
+  ({
+    NODE_ENV: (process.env.NODE_ENV || 'test') as NodeEnv,
+    PORT: Number(process.env.PORT || 3333),
+    DATABASE_URL: process.env.DATABASE_URL || '',
+    LOG_LEVEL: (process.env.LOG_LEVEL || 'info') as 'error' | 'warn' | 'info' | 'debug',
+    SCOREBOARD_BASE_URL: process.env.SCOREBOARD_BASE_URL || 'http://10.12.0.62/scoreboard',
+    SHOTCLOCK_BASE_URL: process.env.SHOTCLOCK_BASE_URL || 'http://10.12.0.61/shotclock',
+    MATCH_SCHEDULE_BASE_URL: process.env.MATCH_SCHEDULE_BASE_URL || 'https://api.sportclubvrijwilligersmanagement.nl/v1',
+    MATCH_SCHEDULE_API_TOKEN: process.env.MATCH_SCHEDULE_API_TOKEN || '',
+  } as any);
 
 export const config = {
   nodeEnv: env.NODE_ENV as NodeEnv,
   port: Number(env.PORT),
   databaseUrl: env.DATABASE_URL,
   logLevel: env.LOG_LEVEL,
+  scoreBoardBaseUrl: env.SCOREBOARD_BASE_URL as string,
+  shotClockBaseUrl: env.SHOTCLOCK_BASE_URL as string,
+  matchScheduleBaseUrl: env.MATCH_SCHEDULE_BASE_URL as string,
+  matchScheduleApiToken: ((env.MATCH_SCHEDULE_API_TOKEN || '') as string),
 };
 
 export function requireConfig() {
   if (!config.databaseUrl && config.nodeEnv !== 'test') {
     throw new Error('DATABASE_URL must be set');
   }
+  if (!config.matchScheduleApiToken && config.nodeEnv !== 'test') {
+    throw new Error('MATCH_SCHEDULE_API_TOKEN must be set');
+  }
   return config;
+}
+
+export function logConfig() {
+  logger.info('Config:', {
+    ...config,
+    databaseUrl: config.databaseUrl ? config.databaseUrl.replace(/\/.*@/g, '***:***@') : 'not set',
+    matchScheduleApiToken: config.matchScheduleApiToken ? '***' : 'not set'
+  })
 }
