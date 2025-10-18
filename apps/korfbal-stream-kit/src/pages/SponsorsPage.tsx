@@ -2,6 +2,7 @@ import { useSponsors } from '../hooks/useSponsors';
 import { SponsorsTable } from '../components/SponsorsTable';
 import { useRef, useState } from 'react';
 import { uploadSponsorsExcel } from '../lib/api';
+import { MdRefresh, MdUploadFile } from 'react-icons/md';
 
 export default function SponsorsPage() {
   const [type, setType] = useState<undefined | 'premium' | 'goud' | 'zilver' | 'brons'>(undefined);
@@ -49,14 +50,20 @@ export default function SponsorsPage() {
             <option value="brons">Brons</option>
           </select>
           <button
+            aria-label="refresh-sponsors"
             onClick={() => refetch()}
-            className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+            className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center"
+            title="Vernieuwen"
           >
-            Vernieuwen {isFetching ? '…' : ''}
+            {/* icon-only */}
+            <MdRefresh className="w-5 h-5" />
+            <span className="sr-only">Vernieuwen</span>
           </button>
           <input ref={fileRef} aria-label="sponsors-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={onFileChange} />
-          <button aria-label="upload-sponsors" onClick={onPickFile} className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
-            {uploading ? 'Uploaden…' : 'Upload sponsors'}
+          <button aria-label="upload-sponsors" onClick={onPickFile} className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center" title="Upload sponsors">
+            {/* icon-only; state handled by aria-label */}
+            <MdUploadFile className="w-5 h-5" />
+            <span className="sr-only">Upload sponsors</span>
           </button>
         </div>
       </div>

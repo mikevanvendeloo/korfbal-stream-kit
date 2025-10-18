@@ -15,13 +15,13 @@ enum SponsorType {
 }
 
 model Sponsor {
-  id          Int          @id @default(autoincrement())
-  name        String
-  type        SponsorType
-  logoUrl     String
-  websiteUrl  String
-  categories  String?
-  createdAt   DateTime     @default(now())
+  id         Int         @id @default(autoincrement())
+  name       String
+  type       SponsorType
+  logoUrl    String
+  websiteUrl String
+  categories String?
+  createdAt  DateTime    @default(now())
 }
 
 model MatchSchedule {
@@ -45,5 +45,81 @@ model MatchSchedule {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
+  // Relations
+  roleAssignments MatchRoleAssignment[]
+  Production      Production?
+
   @@index([date])
+}
+
+enum Gender {
+  male
+  female
+}
+
+/// Catalog of capabilities (roles) with code and gendered display names
+model Capability {
+  id           Int      @id @default(autoincrement())
+  code         String   @unique // UPPERCASE short code
+  functionName String
+  nameMale     String
+  nameFemale   String
+  vMixTitle    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  // Relations
+  capabilities PersonCapability[]
+  assignments  MatchRoleAssignment[]
+}
+
+/// People who can be assigned roles in livestream productions
+model Person {
+  id        Int      @id @default(autoincrement())
+  name      String
+  gender    Gender
+  createdAt DateTime @default(now())
+
+  // Relations
+  capabilities PersonCapability[]
+  assignments  MatchRoleAssignment[]
+}
+
+/// Link table: which capabilities a person is capable of fulfilling
+model PersonCapability {
+  personId     Int
+  capabilityId Int
+  createdAt    DateTime @default(now())
+
+  person     Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  capability Capability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+
+  @@id([personId, capabilityId])
+}
+
+/// Assignment of a person to a role for a specific match
+model MatchRoleAssignment {
+  id              Int      @id @default(autoincrement())
+  matchScheduleId Int
+  personId        Int
+  capabilityId    Int
+  createdAt       DateTime @default(now())
+
+  matchSchedule MatchSchedule @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
+  person        Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+  capability    Capability    @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+
+  // Prevent exact duplicate assignment of same person to same role in same match
+  @@unique([matchScheduleId, capabilityId, personId])
+  @@index([matchScheduleId])
+  @@index([personId])
+  @@index([capabilityId])
+}
+
+/// A production instance for a given match
+model Production {
+  id              Int      @id @default(autoincrement())
+  matchScheduleId Int      @unique
+  createdAt       DateTime @default(now())
+
+  matchSchedule MatchSchedule @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
 }

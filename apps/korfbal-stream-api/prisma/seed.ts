@@ -59,6 +59,89 @@ async function main() {
       console.log(`Created sponsor: ${data.name}`);
     }
   }
+
+  // Seed Capabilities catalog and migrate from ProductionFunction if present
+  type Gender = 'male' | 'female';
+
+  const desiredCapabilities: Array<{ code: string; functionName: string; nameMale: string; nameFemale: string }> = [
+    { code: 'REGISSEUR', functionName: 'Regie', nameMale: 'Regisseur', nameFemale: 'Regisseuse' },
+    { code: 'COMMENTATOR', functionName: 'Commentaar', nameMale: 'Commentator', nameFemale: 'Commentatrice' },
+    { code: 'PRESENTATOR', functionName: 'Presentatie', nameMale: 'Presentator', nameFemale: 'Presentatrice' },
+    { code: 'ANALIST', functionName: 'Analist', nameMale: 'Analist', nameFemale: 'Analist' },
+    { code: 'SPELER', functionName: 'Speler', nameMale: 'Speler', nameFemale: 'Speelster' },
+    { code: 'COACH', functionName: 'Coach', nameMale: 'Coach', nameFemale: 'Coach' },
+  ];
+
+  console.log('Seeding capabilities catalog...');
+  for (const c of desiredCapabilities) {
+    await prisma.capability.upsert({
+      where: { code: c.code },
+      update: { functionName: c.functionName, nameMale: c.nameMale, nameFemale: c.nameFemale, vMixTitle: false },
+      create: { code: c.code, functionName: c.functionName, nameMale: c.nameMale, nameFemale: c.nameFemale, vMixTitle: false },
+    });
+    console.log(`Ensured capability: ${c.code}`);
+  }
+
+  // Attempt migration/backfill from ProductionFunction -> Capability
+  // Map base names to capability codes
+  const nameToCode: Record<string, string> = {
+    Regisseur: 'REGISSEUR',
+    Regiseuze: 'REGISSEUR',
+    Regisseuse: 'REGISSEUR',
+    Commentator: 'COMMENTATOR',
+    Commentatrice: 'COMMENTATOR',
+    Presentator: 'PRESENTATOR',
+    Presentatrice: 'PRESENTATOR',
+    Analist: 'ANALIST',
+    Speler: 'SPELER',
+    Speelster: 'SPELER',
+    Coach: 'COACH',
+  };
+
+  // If ProductionFunction table exists in the DB (older schema), migrate its data
+  try {
+    // Find any production functions
+    const pfs = await (prisma as any).productionFunction?.findMany?.();
+    if (pfs && Array.isArray(pfs) && pfs.length > 0) {
+      console.log(`Migrating ${pfs.length} ProductionFunction rows to Capability relations...`);
+
+      // Build code -> capabilityId map
+      const caps = await prisma.capability.findMany();
+      const codeToId = Object.fromEntries(caps.map((x) => [x.code, x.id] as const));
+
+      // For each person capability, map to capability by PF name -> code
+      const personCaps = await prisma.personCapability.findMany();
+      for (const pc of personCaps) {
+        const pf = pfs.find((x: any) => x.id === (pc as any).productionFunctionId);
+        if (!pf) continue;
+        const code = nameToCode[pf.name];
+        const capabilityId = code ? codeToId[code] : undefined;
+        if (!capabilityId) continue;
+        // Upsert new relation and delete old row
+        try {
+          await prisma.personCapability.create({ data: { personId: (pc as any).personId, capabilityId } as any });
+        } catch {}
+        await prisma.personCapability.delete({ where: { personId_capabilityId: { personId: (pc as any).personId, capabilityId } } }).catch(() => {});
+      }
+
+      // For each match role assignment, map function -> capability
+      const mras = await prisma.matchRoleAssignment.findMany();
+      for (const mr of mras) {
+        const pf = pfs.find((x: any) => x.id === (mr as any).productionFunctionId);
+        if (!pf) continue;
+        const code = nameToCode[pf.name];
+        const capabilityId = code ? codeToId[code] : undefined;
+        if (!capabilityId) continue;
+        try {
+          await prisma.matchRoleAssignment.update({ where: { id: mr.id }, data: { capabilityId } as any });
+        } catch {}
+      }
+      console.log('Migration from ProductionFunction completed (best-effort).');
+    }
+  } catch {
+    // ignore if PF does not exist in current client
+  }
+
   console.log('Seeding completed.');
 }
 

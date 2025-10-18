@@ -2,6 +2,10 @@ import { Route, Routes, Link } from 'react-router-dom';
 import SponsorsPage from '../pages/SponsorsPage';
 import ScoreboardPage from '../pages/ScoreboardPage';
 import MatchSchedulePage from '../pages/MatchSchedulePage';
+import PersonsAdminPage from '../pages/PersonsAdminPage';
+import CapabilitiesAdminPage from '../pages/CapabilitiesAdminPage';
+import QRAdminPage from '../pages/QRAdminPage';
+import ProductionsAdminPage from '../pages/ProductionsAdminPage';
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider';
 
 function Nav() {
@@ -14,6 +18,10 @@ function Nav() {
           <Link to="/sponsors" className="text-gray-700 dark:text-gray-300 hover:underline">Sponsors</Link>
           <Link to="/scoreboard" className="text-gray-700 dark:text-gray-300 hover:underline">Scoreboard</Link>
           <Link to="/matches/schedule" className="text-gray-700 dark:text-gray-300 hover:underline">Match schedule</Link>
+          <Link to="/admin/persons" className="text-gray-700 dark:text-gray-300 hover:underline">Persons</Link>
+          <Link to="/admin/capabilities" className="text-gray-700 dark:text-gray-300 hover:underline">Capabilities</Link>
+          <Link to="/admin/qr" className="text-gray-700 dark:text-gray-300 hover:underline">QR Generator</Link>
+          <Link to="/admin/productions" className="text-gray-700 dark:text-gray-300 hover:underline">Productions</Link>
         </nav>
         <button onClick={toggle} className="text-sm px-3 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
           {theme === 'dark' ? 'Light' : 'Dark'} mode
@@ -34,6 +42,10 @@ export function App() {
             <Route path="/sponsors" element={<SponsorsPage />} />
             <Route path="/scoreboard" element={<ScoreboardPage />} />
             <Route path="/matches/schedule" element={<MatchSchedulePage />} />
+            <Route path="/admin/persons" element={<PersonsAdminPage />} />
+            <Route path="/admin/capabilities" element={<CapabilitiesAdminPage />} />
+            <Route path="/admin/qr" element={<QRAdminPage />} />
+            <Route path="/admin/productions" element={<ProductionsAdminPage />} />
           </Routes>
         </main>
       </div>

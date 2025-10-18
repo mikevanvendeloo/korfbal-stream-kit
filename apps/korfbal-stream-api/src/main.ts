@@ -8,6 +8,9 @@ import {sponsorsRouter} from './routes/sponsors';
 import {matchRouter} from './routes/match';
 import {scoreboardRouter} from './routes/scoreboard';
 import {vmixRouter} from './routes/vmix';
+import {personsRouter} from './routes/persons';
+import {capabilitiesRouter} from './routes/capabilities';
+import {productionRouter} from './routes/production';
 import {prisma} from './services/prisma';
 import {config, logConfig, requireConfig} from './services/config';
 import {errorHandler} from './middleware/error';
@@ -86,6 +89,15 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
 // Sponsors endpoints
 app.use('/api/sponsors', sponsorsRouter);
+
+// Persons endpoints
+app.use('/api/persons', personsRouter);
+
+// Capabilities endpoints (legacy path for backward-compat)
+app.use('/api/capabilities', capabilitiesRouter);
+
+// Production namespace (new structured URLs)
+app.use('/api/production', productionRouter);
 
 // Match endpoints
 app.use('/api/match', matchRouter);
