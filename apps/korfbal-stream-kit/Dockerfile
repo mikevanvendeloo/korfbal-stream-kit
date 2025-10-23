@@ -7,7 +7,7 @@ WORKDIR /app
 RUN npm i -g pnpm
 
 # Kopieer de pnpm-specifieke bestanden
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY nx.json ./
 # pnpm heeft de .npmrc nodig voor workspace settings
 #COPY .npmrc .npmrc
@@ -16,7 +16,7 @@ COPY nx.json ./
 RUN pnpm install
 
 COPY . .
-RUN npx nx build korfbal-stream-kit --prod
+RUN pnpm nx build korfbal-stream-kit --prod
 # ----------------------------------------------------------------
 
 # STAGE 2: De Productie-Image
@@ -32,7 +32,7 @@ COPY --from=builder /app/dist/apps/korfbal-stream-kit /usr/share/nginx/html
 # LET OP: Als je React Router gebruikt, moet je een nginx.conf
 # bestand kopiëren om 404-fouten op subpagina's te voorkomen.
 # Haal de commentaar-regels hieronder weg als dat zo is.
-# COPY apps/korfbal-stream-kit/nginx.conf /etc/nginx/conf.d/default.conf
+COPY apps/korfbal-stream-kit/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
