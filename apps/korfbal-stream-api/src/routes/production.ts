@@ -1,7 +1,7 @@
-import { Router } from 'express';
-import { capabilitiesRouter } from './capabilities';
-import { personsRouter } from './persons';
-import { prisma } from '../services/prisma';
+import {Router} from 'express';
+import {capabilitiesRouter} from './capabilities';
+import {personsRouter} from './persons';
+import {prisma} from '../services/prisma';
 
 // Easily expandable default team filters
 const DEFAULT_TEAM_FILTERS = [
@@ -10,7 +10,7 @@ const DEFAULT_TEAM_FILTERS = [
   'Fortuna/Ruitenheer U19-1',
 ];
 
-export const productionRouter = Router();
+export const productionRouter: Router = Router();
 
 // Nest existing routers under production namespace
 productionRouter.use('/capabilities', capabilitiesRouter);

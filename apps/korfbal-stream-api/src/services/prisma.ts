@@ -1,9 +1,9 @@
-import { PrismaClient } from '@prisma/client';
-import { logger } from '../utils/logger';
+import {PrismaClient} from '@prisma/client';
+import {logger} from '../utils/logger';
 
 // Service wrapper around PrismaClient to centralize configuration & logging
 class PrismaService {
-  private prisma: PrismaClient;
+  private readonly prisma: PrismaClient;
 
   constructor() {
     this.prisma = new PrismaClient({

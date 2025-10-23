@@ -1,9 +1,9 @@
-import { Router } from 'express';
+import {Router} from 'express';
 import axios from 'axios';
-import { config } from '../services/config';
-import { logger } from '../utils/logger';
+import {config} from '../services/config';
+import {logger} from '../utils/logger';
 
-export const scoreboardRouter = Router();
+export const scoreboardRouter: Router = Router();
 
 // GET /api/scoreboard
 scoreboardRouter.get('/', async (_req, res) => {

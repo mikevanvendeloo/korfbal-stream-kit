@@ -28,18 +28,26 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-  api:
+  korfbal-stream-kit:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
-    environment:
-      NODE_ENV: production
-      HOST: 0.0.0.0
-      PORT: 3000
+      dockerfile: apps/korfbal-stream-kit/Dockerfile
     ports:
-      - "3000:3000"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - "8080:80" # Host poort 8080 -> Container poort 80 (Nginx default)
+    depends_on:
+      - korfbal-stream-api # Wacht tot de API (waarmee het praat) online is
+#  api:
+#    build:
+#      context: .
+#      dockerfile: apps/api/Dockerfile
+#    environment:
+#      NODE_ENV: production
+#      HOST: 0.0.0.0
+#      PORT: 3000
+#    ports:
+#      - "3000:3000"
+#    healthcheck:
+#      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5

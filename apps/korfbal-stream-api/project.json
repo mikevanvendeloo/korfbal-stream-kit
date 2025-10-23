@@ -28,7 +28,7 @@
             "output": "."
           }
         ],
-        "generatePackageJson": true,
+        "generatePackageJson": false,
         "esbuildOptions": {
           "sourcemap": true,
           "outExtension": {

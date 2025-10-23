@@ -1,7 +1,11 @@
 {
   "jsc": {
-    "parser": { "syntax": "typescript", "tsx": false, "decorators": false },
-    "target": "es2020",
+    "parser": { "syntax": "typescript", "tsx": false, "decorators": true, "dynamicImport": true },
+    "transform": {
+          "legacyDecorator": true,
+          "decoratorMetadata": true
+        },
+    "target": "es2021",
     "externalHelpers": true,
     "loose": false
   },

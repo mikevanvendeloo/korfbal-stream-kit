@@ -1,4 +1,4 @@
-import express from 'express';
+import express, {Express} from 'express';
 import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -15,7 +15,7 @@ import {prisma} from './services/prisma';
 import {config, logConfig, requireConfig} from './services/config';
 import {errorHandler} from './middleware/error';
 
-const app = express();
+const app: Express = express();
 
 // Middlewares
 app.use(express.json());

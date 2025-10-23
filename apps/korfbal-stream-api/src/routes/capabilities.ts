@@ -1,9 +1,9 @@
-import { Router } from 'express';
-import { prisma } from '../services/prisma';
-import { logger } from '../utils/logger';
-import { CapabilityInputSchema, CapabilityQuerySchema, CapabilityUpdateSchema } from '../schemas/capability';
+import {Router} from 'express';
+import {prisma} from '../services/prisma';
+import {logger} from '../utils/logger';
+import {CapabilityInputSchema, CapabilityQuerySchema, CapabilityUpdateSchema} from '../schemas/capability';
 
-export const capabilitiesRouter = Router();
+export const capabilitiesRouter: Router = Router();
 
 // List capabilities with optional search + pagination
 capabilitiesRouter.get('/', async (req, res, next) => {

@@ -1,6 +1,6 @@
-import { Router } from 'express';
-import { prisma } from '../services/prisma';
-import { logger } from '../utils/logger';
+import {Router} from 'express';
+import {prisma} from '../services/prisma';
+import {logger} from '../utils/logger';
 import {
   AssignmentCreateSchema,
   AssignmentUpdateSchema,
@@ -10,7 +10,7 @@ import {
   PersonUpdateSchema,
 } from '../schemas/person';
 
-export const personsRouter = Router();
+export const personsRouter: Router = Router();
 
 // Deprecated endpoint: proxy to new capabilities list for backward compatibility
 personsRouter.get('/functions', async (_req, res, next) => {

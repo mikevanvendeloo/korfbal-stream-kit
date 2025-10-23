@@ -4,7 +4,7 @@ import {config} from '../services/config';
 import {logger} from '../utils/logger';
 import {prisma} from '../services/prisma';
 
-export const matchRouter = Router();
+export const matchRouter: Router = Router();
 
 type Privacy = 'FULL_NAME' | 'FIRST_NAME' | 'LAST_NAME' | 'HIDDEN';
 
@@ -231,6 +231,7 @@ matchRouter.get('/matches/schedule', async (req, res) => {
     else if (location === 'AWAY') where.isHomeMatch = false;
 
     const matches = await prisma.matchSchedule.findMany({ where, orderBy: { date: 'asc' } });
+    logger.info('Program list', { date: dateStr, location, count: matches.length } as any);
     return res.json({ items: matches, count: matches.length, date: dateStr });
   } catch (err: any) {
     logger.error('Program list failed', { error: err?.message });

@@ -7,7 +7,7 @@ import {prisma} from '../services/prisma';
 import {logger} from '../utils/logger';
 import {makeLogoUrl, SponsorInputSchema, SponsorQuerySchema, SponsorUpdateSchema} from '../schemas/sponsor';
 
-export const sponsorsRouter = Router();
+export const sponsorsRouter: Router = Router();
 
 // Multer memory storage for Excel upload
 const uploadMem = multer({ storage: multer.memoryStorage() });
