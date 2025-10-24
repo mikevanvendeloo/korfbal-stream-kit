@@ -1,4 +1,4 @@
-name: CI
+name: CI & Publish
 
 on:
   push:
@@ -7,31 +7,169 @@ on:
     branches: [ main, master ]
 
 jobs:
-  affected:
+  ci-checks:
+    name: Lint, Test & Typecheck
     runs-on: ubuntu-latest
+    # Define an output for this job
+    outputs:
+      affected_apps_json: ${{ steps.find-affected.outputs.affected_apps_json }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # Fetch all history and tags for Nx affected
           fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
+
+      - name: Determine Nx SHAs
+        # This action is vital. It sets $NX_BASE and $NX_HEAD env vars
+        uses: nrwl/nx-set-shas@v4
+
+      - name: Generate Prisma Client
+        run: pnpm prisma:generate # Use pnpm to run scripts
+
+      - name: Run CI checks for affected projects
+        run: npx nx affected -t lint,typecheck,test --parallel=3 --base=$NX_BASE --head=$NX_HEAD
+
+      # This step now sets an output variable for the job
+      - name: Find affected apps for publishing
+        id: find-affected # <-- Give the step an ID
+        run: |
+          # 1. Get affected apps (raw list)
+          # 2. Pipe to jq to format as a compact JSON array
+          # 3. Store in GITHUB_OUTPUT
+          AFFECTED_JSON=$(npx nx print-affected --type=app --select=projects --base=$NX_BASE --head=$NX_HEAD | jq -c .)
+          echo "Affected apps JSON: $AFFECTED_JSON"
+          echo "affected_apps_json=$AFFECTED_JSON" >> "$GITHUB_OUTPUT"
+
+  calculate-version:
+    name: Calculate Next Version
+    runs-on: ubuntu-latest
+    # This job only runs on push events to main/master, not on PRs
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    outputs:
+      new_tag: ${{ steps.versioner.outputs.new_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required to fetch all tags
+
+      - name: Calculate new version tag
+        id: versioner
+        run: |
+          # 1. Set the year.month prefix (e.g., 2025.10)
+          YEAR_MONTH=$(date +'%Y.%m')
+          echo "Current month prefix: $YEAR_MONTH"
+
+          # 2. Fetch all tags from the remote
+          git fetch --tags
+
+          # 3. Find the latest tag for this month (e.g., 2025.10.3)
+          # We use 'sort -V' to sort version numbers correctly (e.g., 10 > 2)
+          LATEST_TAG=$(git tag -l "$YEAR_MONTH.*" | sort -V | tail -n 1)
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No tags found for $YEAR_MONTH. Starting at increment .1"
+            VERSION_INC=1
+          else
+            echo "Found latest tag: $LATEST_TAG"
+            # 4. Get the last part of the tag (the '3' in 2025.10.3)
+            LATEST_INC=$(echo "$LATEST_TAG" | cut -d'.' -f3)
+            VERSION_INC=$((LATEST_INC + 1))
+            echo "Incrementing to .${VERSION_INC}"
+          fi
+
+          # 5. Set the new tag
+          NEW_TAG="${YEAR_MONTH}.${VERSION_INC}"
+          echo "New tag: $NEW_TAG"
+
+          # 6. Set the output for other jobs
+          echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+
+  build-and-publish:
+    name: Build & Publish Docker Images
+    runs-on: ubuntu-latest
+    # This job only runs if checks pass AND it's a push to main/master
+    needs: [ci-checks, calculate-version]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
+    # This matrix will run a separate job for each affected app
+    strategy:
+      fail-fast: false # Don't cancel other jobs if one app fails
+      matrix:
+        # Read the JSON array output from the ci-checks job
+        app: ${{ fromJson(needs.ci-checks.outputs.affected_apps_json || '[]') }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed for Nx
+
+      # The steps for downloading/setting matrix are no longer needed
+      # ...
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Determine Nx SHAs
         uses: nrwl/nx-set-shas@v4
 
       - name: Generate Prisma Client
-        run: npm run prisma:generate
+        run: pnpm prisma:generate
 
-      - name: Print affected (debug)
-        run: npx nx print-affected --base=$NX_BASE --head=$NX_HEAD --select=projects
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-      - name: Lint, Typecheck, Test and Build affected projects
-        run: npx nx affected -t lint,typecheck,test,build --parallel=3 --base=$NX_BASE --head=$NX_HEAD
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          # We assume the Dockerfile is at 'apps/<app-name>/Dockerfile'
+          # !! VERANDER DIT ALS JE STRUCTUUR ANDERS IS !!
+          file: ./apps/${{ matrix.app }}/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app }}:${{ needs.calculate-version.outputs.new_tag }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app }}:latest
+          # Build args to pass the Nx build output to Dockerfile
+          build-args: |
+            APP_NAME=${{ matrix.app }}
+          # Caching to speed up future builds
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app }}:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app }}:buildcache,mode=max
+

@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import * as React from 'react';
+import {useMemo} from 'react';
 import {
   ColumnDef,
   flexRender,
@@ -7,7 +8,7 @@ import {
   SortingState,
   useReactTable,
 } from '@tanstack/react-table';
-import { Sponsor } from '../lib/api';
+import {Sponsor} from '../lib/api';
 
 export function SponsorsTable({ data }: { data: Sponsor[] }) {
   const columns = useMemo<ColumnDef<Sponsor>[]>(
@@ -36,7 +37,7 @@ export function SponsorsTable({ data }: { data: Sponsor[] }) {
         header: () => 'Logo',
         cell: (info) => (
           <div className="flex items-center gap-2">
-            <img src={`/uploads/${info.getValue()}`} alt={String(info.row.original.name)} className="h-8 w-8 object-contain" onError={(e) => ((e.currentTarget.style.visibility = 'hidden'))} />
+            <img src={`/uploads/sponsors/${info.getValue()}`} alt={String(info.row.original.name)} className="h-8 w-8 object-contain" onError={(e) => ((e.currentTarget.style.visibility = 'hidden'))} />
             <span className="text-xs text-gray-500 dark:text-gray-400">{String(info.getValue())}</span>
           </div>
         ),
@@ -111,4 +112,3 @@ export function SponsorsTable({ data }: { data: Sponsor[] }) {
   );
 }
 
-import * as React from 'react';
