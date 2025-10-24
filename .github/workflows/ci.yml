@@ -44,6 +44,12 @@ jobs:
       - name: Run CI checks for affected projects
         run: npx nx affected -t test --parallel=3 --base=$NX_BASE --head=$NX_HEAD #  ADD later lint,typecheck,
 
+      # Install jq using the apt-get package manager
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
       # This step now sets an output variable for the job
       - name: Find affected apps for publishing
         id: find-affected # <-- Give the step an ID
@@ -51,7 +57,10 @@ jobs:
           # 1. Get affected apps (raw list)
           # 2. Pipe to jq to format as a compact JSON array
           # 3. Store in GITHUB_OUTPUT
-          AFFECTED_JSON=$(npx nx print-affected --type=app --select=projects --base=$NX_BASE --head=$NX_HEAD | jq -c .)
+          AFFECTED_OUTPUT=$(npx nx show projects --affected --type=app --base=$NX_BASE --head=$NX_HEAD --json)
+          # The output from --json is an array of project names.
+          # We use jq to convert it to a compact JSON string for GITHUB_OUTPUT.
+          AFFECTED_JSON=$(echo "$AFFECTED_OUTPUT" | jq -c .)
           echo "Affected apps JSON: $AFFECTED_JSON"
           echo "affected_apps_json=$AFFECTED_JSON" >> "$GITHUB_OUTPUT"
 
