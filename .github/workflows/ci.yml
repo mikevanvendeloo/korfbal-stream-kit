@@ -63,7 +63,26 @@ jobs:
           AFFECTED_JSON=$(echo "$AFFECTED_OUTPUT" | jq -c .)
           echo "Affected apps JSON: $AFFECTED_JSON"
           echo "affected_apps_json=$AFFECTED_JSON" >> "$GITHUB_OUTPUT"
+      - name: Get Affected Projects & Format for Docker
+        id: get_affected
+        run: |
+          # 1. Use the modern Nx command to get affected 'app' project names as a JSON array.
+          AFFECTED_OUTPUT=$(npx nx show projects --affected --type=app --base=$NX_BASE --head=$NX_HEAD --json)
 
+          # 2. Use 'jq' to map the original name to a sanitized version.
+          # The output will be an array of objects like:
+          # [{"original": "@scope/app-a", "sanitized": "scope-app-a"}, ...]
+          SANITIZED_APPS_JSON=$(echo "$AFFECTED_OUTPUT" | jq -c '
+            map({
+              original: .,
+              sanitized: . | sub("@"; "") | sub("/"; "-")
+            })
+          ')
+
+          echo "Sanitized Affected Apps JSON: $SANITIZED_APPS_JSON"
+
+          # 3. Set the new, object-based JSON list as a job output
+          echo "affected_apps_json=$SANITIZED_APPS_JSON" >> "$GITHUB_OUTPUT"
   calculate-version:
     name: Calculate Next Version
     runs-on: ubuntu-latest
@@ -169,16 +188,20 @@ jobs:
         with:
           context: .
           # We assume the Dockerfile is at 'apps/<app-name>/Dockerfile'
-          # !! VERANDER DIT ALS JE STRUCTUUR ANDERS IS !!
-          file: ./apps/${{ matrix.app }}/Dockerfile
+          # Use the 'original' name for the file path
+          file: ./apps/${{ matrix.app.original }}/Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app }}:${{ needs.calculate-version.outputs.new_tag }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app }}:latest
-          # Build args to pass the Nx build output to Dockerfile
+            # Use the 'sanitized' name for the Docker tag
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:${{ needs.calculate-version.outputs.new_tag }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:latest
+
+          # FIX 2: Use the 'original' name for the build-arg (if Dockerfile needs it)
           build-args: |
-            APP_NAME=${{ matrix.app }}
-          # Caching to speed up future builds
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app }}:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app }}:buildcache,mode=max
+            APP_NAME=${{ matrix.app.original }}
+
+          # Caching also uses the 'sanitized' name in the image reference
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:buildcache,mode=max
+
 
