@@ -1,7 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
-import { fetchScoreboard, fetchShotclock, fetchMatchClock, ScoreboardItem, ShotclockItem, MatchClockItem } from '../lib/api';
+import {useEffect, useRef, useState} from 'react';
+import {
+  fetchMatchClock,
+  fetchScoreboard,
+  fetchShotclock,
+  MatchClockItem,
+  ScoreboardItem,
+  ShotclockItem
+} from '../lib/api';
 
-export function useScoreboard(pollMs: number = 1000) {
+export function useScoreboard(pollMs = 1000) {
   const [data, setData] = useState<ScoreboardItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -30,7 +37,7 @@ export function useScoreboard(pollMs: number = 1000) {
   return { data, isLoading, isError: !!error, error, refetch: load };
 }
 
-export function useShotclock(pollMs: number = 500) {
+export function useShotclock(pollMs = 500) {
   const [data, setData] = useState<ShotclockItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -60,7 +67,7 @@ export function useShotclock(pollMs: number = 500) {
 }
 
 
-export function useMatchClock(pollMs: number = 1000) {
+export function useMatchClock(pollMs = 1000) {
   const [data, setData] = useState<MatchClockItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);

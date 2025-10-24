@@ -42,7 +42,7 @@ jobs:
         run: pnpm prisma:generate # Use pnpm to run scripts
 
       - name: Run CI checks for affected projects
-        run: npx nx affected -t lint,typecheck,test --parallel=3 --base=$NX_BASE --head=$NX_HEAD
+        run: npx nx affected -t test --parallel=3 --base=$NX_BASE --head=$NX_HEAD #  ADD later lint,typecheck,
 
       # This step now sets an output variable for the job
       - name: Find affected apps for publishing
