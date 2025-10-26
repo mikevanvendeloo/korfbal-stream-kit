@@ -183,6 +183,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Show new docker tag
+        id: show_tag
+        run: |
+           echo "New Docker tag: ${{ needs.calculate-version.outputs.new_tag }}"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
