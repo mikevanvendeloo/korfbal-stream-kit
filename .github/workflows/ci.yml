@@ -180,7 +180,7 @@ jobs:
           context: .
           # We assume the Dockerfile is at 'apps/<app-name>/Dockerfile'
           # Use the 'original' name for the file path
-          file: ./apps/${{ matrix.app.original }}/Dockerfile
+          file: ./apps/${{ matrix.app.sanitized }}/Dockerfile
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:${{ needs.calculate-version.outputs.new_tag }}
