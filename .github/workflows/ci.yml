@@ -186,7 +186,7 @@ jobs:
       - name: Show new docker tag
         id: show_tag
         run: |
-           echo "New Docker tag: ${{ needs.calculate-version.outputs.new_tag }}"
+           echo "New Docker tag: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:${{ needs.calculate-version.outputs.new_tag }}"
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
