@@ -56,21 +56,18 @@ jobs:
         run: |
           # 1. Use the modern Nx command to get affected 'app' project names as a JSON array.
           AFFECTED_OUTPUT=$(npx nx show projects --affected --type=app --base=$NX_BASE --head=$NX_HEAD --json)
-
           # 2. Use 'jq' to map the original name to a sanitized version.
-          # The output will be an array of objects like:
-          # [{"original": "@scope/app-a", "sanitized": "scope-app-a"}, ...]
           SANITIZED_APPS_JSON=$(echo "$AFFECTED_OUTPUT" | jq -c '
             map({
               original: .,
-              | sub("^@[^/]+/|@"; "") 
-              | sub("/"; "-")
+              sanitized: . 
+                # **ALGEMEEN GEMAAKT:** Verwijdert elke @scope-naam/ prefix aan het begin van de string.
+                | sub("^@[^/]+/|@"; "") 
+                | sub("/"; "-")
             })
           ')
-
           echo "Sanitized Affected Apps JSON: $SANITIZED_APPS_JSON"
-
-          # 3. Set the new, object-based JSON list as a job output
+          # 3. Set the new, object-based JSON list as a step output
           echo "affected_apps_json=$SANITIZED_APPS_JSON" >> "$GITHUB_OUTPUT"
   calculate-version:
     name: Calculate Next Version
