@@ -197,7 +197,6 @@ jobs:
           file: ./apps/${{ matrix.app.original }}/Dockerfile
           push: true
           tags: |
-            # Use the 'sanitized' name for the Docker tag
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:${{ needs.calculate-version.outputs.new_tag }}
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:latest
 
