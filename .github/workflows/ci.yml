@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     # Define an output for this job
     outputs:
-      affected_apps_json: ${{ steps.find-affected.outputs.affected_apps_json }}
+      affected_apps_json: ${{ steps.get_affected.outputs.affected_apps_json }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,18 +51,6 @@ jobs:
           sudo apt-get install -y jq
 
       # This step now sets an output variable for the job
-      - name: Find affected apps for publishing
-        id: find-affected # <-- Give the step an ID
-        run: |
-          # 1. Get affected apps (raw list)
-          # 2. Pipe to jq to format as a compact JSON array
-          # 3. Store in GITHUB_OUTPUT
-          AFFECTED_OUTPUT=$(npx nx show projects --affected --type=app --base=$NX_BASE --head=$NX_HEAD --json)
-          # The output from --json is an array of project names.
-          # We use jq to convert it to a compact JSON string for GITHUB_OUTPUT.
-          AFFECTED_JSON=$(echo "$AFFECTED_OUTPUT" | jq -c .)
-          echo "Affected apps JSON: $AFFECTED_JSON"
-          echo "affected_apps_json=$AFFECTED_JSON" >> "$GITHUB_OUTPUT"
       - name: Get Affected Projects & Format for Docker
         id: get_affected
         run: |
