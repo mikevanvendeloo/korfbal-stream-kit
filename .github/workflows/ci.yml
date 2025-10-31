@@ -63,7 +63,8 @@ jobs:
           SANITIZED_APPS_JSON=$(echo "$AFFECTED_OUTPUT" | jq -c '
             map({
               original: .,
-              sanitized: . | sub("@"; "") | sub("/"; "-")
+              | sub("^@[^/]+/|@"; "") 
+              | sub("/"; "-")
             })
           ')
 
