@@ -29,7 +29,8 @@ describe('vMix API - sponsor names ticker', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/application\/json/);
-    expect(res.body['sponsor-names']).toBe('Alpha BV   |   Beta Co   |   Gamma N.V.   |   ');
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body[0]['sponsor-names']).toBe('Alpha BV   |   Beta Co   |   Gamma N.V.   |   ');
     expect(prisma.sponsor.findMany).toHaveBeenCalledTimes(1);
   });
 
@@ -39,6 +40,7 @@ describe('vMix API - sponsor names ticker', () => {
     const res = await request(app).get('/api/vmix/sponsor-names');
 
     expect(res.status).toBe(200);
-    expect(res.body['sponsor-names']).toBe('');
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body[0]['sponsor-names']).toBe('');
   });
 });

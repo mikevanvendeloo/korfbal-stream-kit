@@ -8,6 +8,19 @@ export type Sponsor = {
   createdAt: string;
 };
 
+export type PlayerImage = { id: number; subject: string; filename: string; createdAt: string };
+
+export type SponsorRow = { subject: string; image1: string; image2: string; image3: string };
+
+export type SponsorInput = {
+  name: string;
+  type: Sponsor['type'];
+  websiteUrl: string;
+  logoUrl?: string;
+};
+
+export type SponsorUpdate = Partial<SponsorInput> & { id: number };
+
 export type Paginated<T> = {
   items: T[];
   page: number;
@@ -55,6 +68,34 @@ export async function fetchSponsors(params: { type?: Sponsor['type']; page?: num
     throw new Error(`Failed to load sponsors: ${res.status}`);
   }
   return res.json();
+}
+
+export async function createSponsor(input: SponsorInput): Promise<Sponsor> {
+  const url = new URL('/api/sponsors', API_BASE || window.location.origin);
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(`Failed to create sponsor: ${res.status}`);
+  return res.json();
+}
+
+export async function updateSponsor(id: number, input: Partial<SponsorInput>): Promise<Sponsor> {
+  const url = new URL(`/api/sponsors/${id}`, API_BASE || window.location.origin);
+  const res = await fetch(url.toString(), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(`Failed to update sponsor: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteSponsor(id: number): Promise<void> {
+  const url = new URL(`/api/sponsors/${id}`, API_BASE || window.location.origin);
+  const res = await fetch(url.toString(), { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Failed to delete sponsor: ${res.status}`);
 }
 
 export async function uploadSponsorsExcel(file: File): Promise<any> {
@@ -122,5 +163,40 @@ export async function importMatchSchedule(params?: { date?: string; location?: '
   if (!res.ok) {
     throw new Error(`Failed to import match schedule: ${res.status}`);
   }
+  return res.json();
+}
+
+
+export async function listPlayerImages(): Promise<{ items: PlayerImage[] }> {
+  const url = new URL('/api/players/images', API_BASE || window.location.origin);
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`Failed to load player images: ${res.status}`);
+  return res.json();
+}
+
+export async function uploadPlayerImage(subject: string | undefined, file: File): Promise<PlayerImage> {
+  const url = new URL('/api/players/images', API_BASE || window.location.origin);
+  const form = new FormData();
+  if (subject && subject.trim() !== '') form.append('subject', subject);
+  form.append('file', file, file.name);
+  const res = await fetch(url.toString(), { method: 'POST', body: form as any });
+  if (!res.ok) throw new Error(`Failed to upload player image: ${res.status}`);
+  return res.json();
+}
+
+export async function deletePlayerImage(id: number): Promise<void> {
+  const url = new URL(`/api/players/images/${id}`, API_BASE || window.location.origin);
+  const res = await fetch(url.toString(), { method: 'DELETE' });
+  if (!res.ok) throw new Error(`Failed to delete player image: ${res.status}`);
+}
+
+export async function generateSponsorRowsApi(sponsorIds?: number[]): Promise<SponsorRow[]> {
+  const url = new URL('/api/vmix/sponsor-rows', API_BASE || window.location.origin);
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sponsorIds }),
+  });
+  if (!res.ok) throw new Error(`Failed to generate sponsor rows: ${res.status}`);
   return res.json();
 }

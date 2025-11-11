@@ -9,8 +9,16 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import {Sponsor} from '../lib/api';
+import IconButton from './IconButton';
+import { MdDelete, MdEdit } from 'react-icons/md';
 
-export function SponsorsTable({ data }: { data: Sponsor[] }) {
+export type SponsorsTableProps = {
+  data: Sponsor[];
+  onEdit?: (s: Sponsor) => void;
+  onDelete?: (s: Sponsor) => void;
+};
+
+export function SponsorsTable({ data, onEdit, onDelete }: SponsorsTableProps) {
   const columns = useMemo<ColumnDef<Sponsor>[]>(
     () => [
       {
@@ -42,8 +50,26 @@ export function SponsorsTable({ data }: { data: Sponsor[] }) {
           </div>
         ),
       },
+      {
+        header: () => 'Acties',
+        id: 'actions',
+        cell: (info) => (
+          <div className="flex gap-2">
+            {onEdit && (
+              <IconButton ariaLabel="Edit sponsor" title="Wijzig" onClick={() => onEdit(info.row.original)}>
+                <MdEdit className="w-5 h-5" />
+              </IconButton>
+            )}
+            {onDelete && (
+              <IconButton ariaLabel="Delete sponsor" title="Verwijder" onClick={() => onDelete(info.row.original)}>
+                <MdDelete className="w-5 h-5 text-red-600" />
+              </IconButton>
+            )}
+          </div>
+        ),
+      },
     ],
-    []
+    [onEdit, onDelete]
   );
 
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'name', desc: false }]);
@@ -64,10 +90,22 @@ export function SponsorsTable({ data }: { data: Sponsor[] }) {
         {table.getRowModel().rows.map((row) => (
           <div key={row.id} className="card">
             <div className="flex items-center gap-3">
-              <img src={`/uploads/${row.original.logoUrl}`} alt={row.original.name} className="h-10 w-10 object-contain" onError={(e) => ((e.currentTarget.style.visibility = 'hidden'))} />
-              <div>
+              <img src={`/uploads/sponsors/${row.original.logoUrl}`} alt={row.original.name} className="h-10 w-10 object-contain" onError={(e) => ((e.currentTarget.style.visibility = 'hidden'))} />
+              <div className="flex-1">
                 <div className="font-semibold">{row.original.name}</div>
                 <div className="text-sm text-gray-500 dark:text-gray-400">{row.original.type}</div>
+              </div>
+              <div className="flex gap-2">
+                {onEdit && (
+                  <IconButton ariaLabel="Edit sponsor" title="Wijzig" onClick={() => onEdit(row.original)}>
+                    <MdEdit className="w-5 h-5" />
+                  </IconButton>
+                )}
+                {onDelete && (
+                  <IconButton ariaLabel="Delete sponsor" title="Verwijder" onClick={() => onDelete(row.original)}>
+                    <MdDelete className="w-5 h-5 text-red-600" />
+                  </IconButton>
+                )}
               </div>
             </div>
             <div className="mt-2">

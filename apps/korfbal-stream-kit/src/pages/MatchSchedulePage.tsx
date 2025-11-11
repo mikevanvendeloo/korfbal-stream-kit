@@ -21,8 +21,8 @@ import {
 
 function timeStr(iso: string) {
   const d = new Date(iso);
-  const h = d.getUTCHours().toString().padStart(2, '0');
-  const m = d.getUTCMinutes().toString().padStart(2, '0');
+  const h = d.getHours().toString().padStart(2, '0');
+  const m = d.getMinutes().toString().padStart(2, '0');
   return `${h}:${m}`;
 }
 
@@ -111,8 +111,13 @@ export default function MatchSchedulePage() {
   const { data, isLoading, isError, error, refetch } = useMatchSchedule(date, location);
 
   const title = useMemo(() => {
-    const d = new Date(date + 'T00:00:00Z');
-    return d.toUTCString().slice(0, 16);
+    // Render the selected date in the browser's local timezone
+    const d = new Date(date + 'T00:00:00'); // interpret as local midnight
+    try {
+      return new Intl.DateTimeFormat(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }).format(d);
+    } catch {
+      return d.toLocaleDateString();
+    }
   }, [date]);
 
   const columns = useMemo<ColumnDef<MatchSchedule>[]>(

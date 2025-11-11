@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import {z} from 'zod';
 
 export const SponsorTypeEnum = z.enum(['premium', 'goud', 'zilver', 'brons']);
 
@@ -25,7 +25,31 @@ export type SponsorInput = z.infer<typeof SponsorInputSchema>;
 export type SponsorUpdate = z.infer<typeof SponsorUpdateSchema>;
 export type SponsorQuery = z.infer<typeof SponsorQuerySchema>;
 
+function slugifyBase(input: string, lowerCase = true): string {
+  let s = String(input || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, ''); // strip diacritics
+  if (lowerCase) s = s.toLowerCase();
+  // Replace ampersand with Dutch 'en'
+  s = s.replace(/&/g, '-en-');
+  // Remove slashes
+  s = s.replace(/[\\/]+/g, '');
+  // Replace any run of non-alphanumeric with a single dash
+  s = s.replace(/[^a-zA-Z0-9]+/g, '-');
+  // Collapse multiple dashes and trim
+  s = s.replace(/-+/g, '-').replace(/^-|-$/g, '');
+  return s;
+}
+
+export function normalizeLogoFilename(input: string): string {
+  // Strip known extensions first
+  const noExt = String(input || '').replace(/\.(png|jpg|jpeg|webp|svg)$/i, '');
+  const base = slugifyBase(noExt, true);
+  return `${base}.png`;
+}
+
 export function makeLogoUrl(name: string): string {
-  const slug = name.trim().replace(/\s+/g, '-');
-  return `${slug}.png`;
+  // For derived filenames from Name, preserve casing as in tests (e.g., ACME-BV.png)
+  const base = slugifyBase(name, false);
+  return `${base}.png`;
 }

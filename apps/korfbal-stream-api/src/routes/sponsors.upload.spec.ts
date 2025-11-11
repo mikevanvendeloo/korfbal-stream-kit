@@ -36,6 +36,7 @@ describe('Sponsors Excel upload API', () => {
       }),
       findMany: vi.fn(async () => store),
       count: vi.fn(async () => store.length),
+      deleteMany: vi.fn(async () => { store.length = 0; return { count: 0 }; }),
     };
   });
 
@@ -103,4 +104,56 @@ describe('Sponsors Excel upload API', () => {
     expect(delta.categories).toBe('Hoofdsponsor; Premium');
     expect(typeof epsilon.categories === 'string' || epsilon.categories === null).toBe(true);
   });
+
+  it('normalizes logo filenames during Excel import (ampersand, slashes, diacritics)', async () => {
+    const buf = makeWorkbookBuffer([
+      { Name: 'A and B', Labels: 'Brons', Website: 'https://ab.example', Logo: 'A&B.png' },
+      { Name: 'Weird', Labels: 'Brons', Website: 'https://weird.example', Logo: 'weird/\\name.jpeg' },
+      { Name: 'Cafe', Labels: 'Brons', Website: 'https://cafe.example', Logo: 'Café.svg' },
+    ]);
+
+    const res = await request(app)
+      .post('/api/sponsors/upload-excel')
+      .attach('file', buf, { filename: 'sponsors.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.created).toBe(3);
+
+    const list = await request(app).get('/api/sponsors?limit=100');
+    expect(list.status).toBe(200);
+
+    const aAndB = list.body.items.find((s: any) => s.name === 'A and B');
+    const weird = list.body.items.find((s: any) => s.name === 'Weird');
+    const cafe = list.body.items.find((s: any) => s.name === 'Cafe');
+
+    expect(aAndB.logoUrl).toBe('a-en-b.png');
+    expect(weird.logoUrl).toBe('weirdname.png');
+    expect(cafe.logoUrl).toBe('cafe.png');
+  });
+});
+
+
+it('overwrites logo when only case changes on re-import (derive lower-case from name)', async () => {
+  // First create via API with mixed-case derived logo (preserves casing)
+  const createRes = await request(app).post('/api/sponsors').send({ name: 'ACME BV', type: 'premium', websiteUrl: 'https://acme.example' });
+  expect(createRes.status).toBe(201);
+  expect(createRes.body.logoUrl).toBe('ACME-BV.png');
+
+  // Now upload Excel without Logo column; import should derive lowercased filename and update existing row
+  const buf = makeWorkbookBuffer([
+    { Name: 'ACME BV', Labels: 'Premium', Website: 'https://acme.example' },
+  ]);
+
+  const res = await request(app)
+    .post('/api/sponsors/upload-excel')
+    .attach('file', buf, { filename: 'sponsors.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+  expect(res.status).toBe(200);
+  expect(res.body.updated).toBe(1);
+
+  const list = await request(app).get('/api/sponsors?limit=100');
+  expect(list.status).toBe(200);
+  const acme = list.body.items.find((s: any) => s.name === 'ACME BV');
+  expect(acme.logoUrl).toBe('acme-bv.png');
 });

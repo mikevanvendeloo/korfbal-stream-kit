@@ -68,8 +68,18 @@ model Capability {
   createdAt    DateTime @default(now())
 
   // Relations
-  capabilities PersonCapability[]
-  assignments  MatchRoleAssignment[]
+  capabilities       PersonCapability[]
+  assignments        MatchRoleAssignment[]
+}
+
+/// Catalog of production positions (distinct from capabilities)
+model Position {
+  id           Int      @id @default(autoincrement())
+  name         String   @unique
+  createdAt    DateTime @default(now())
+
+  // Relations
+  segmentAssignments SegmentRoleAssignment[]
 }
 
 /// People who can be assigned roles in livestream productions
@@ -80,8 +90,9 @@ model Person {
   createdAt DateTime @default(now())
 
   // Relations
-  capabilities PersonCapability[]
-  assignments  MatchRoleAssignment[]
+  capabilities       PersonCapability[]
+  assignments        MatchRoleAssignment[]
+  segmentAssignments SegmentRoleAssignment[]
 }
 
 /// Link table: which capabilities a person is capable of fulfilling
@@ -119,7 +130,87 @@ model MatchRoleAssignment {
 model Production {
   id              Int      @id @default(autoincrement())
   matchScheduleId Int      @unique
+  isActive        Boolean  @default(false)
   createdAt       DateTime @default(now())
 
-  matchSchedule MatchSchedule @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
+  matchSchedule MatchSchedule   @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
+  segments      ProductionSegment[]
+}
+
+/// Segments within a production (oplopen, wedstrijd, rust, etc.)
+model ProductionSegment {
+  id             Int        @id @default(autoincrement())
+  productionId   Int
+  production     Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+
+  naam           String
+  volgorde       Int
+
+  // timing
+  duurInMinuten  Int
+  isTimeAnchor   Boolean    @default(false)
+
+  // Bezetting (assignments) for this segment
+  bezetting      SegmentRoleAssignment[]
+
+  @@index([productionId])
+  @@unique([productionId, volgorde])
+}
+
+/// Assignment of a person to a position for a specific production segment
+model SegmentRoleAssignment {
+  id                  Int               @id @default(autoincrement())
+  productionSegmentId Int
+  personId            Int
+  positionId          Int
+  createdAt           DateTime          @default(now())
+
+  productionSegment   ProductionSegment @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
+  person              Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+  position            Position          @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@unique([productionSegmentId, positionId, personId])
+  @@index([productionSegmentId])
+  @@index([personId])
+  @@index([positionId])
+}
+
+/// Clubs participating whose players can be interviewed
+model Club {
+  id         Int      @id @default(autoincrement())
+  name       String
+  shortName  String
+  slug       String   @unique
+  logoUrl    String?
+  createdAt  DateTime @default(now())
+
+  players    Player[]
+}
+
+/// Players belonging to a club (team roster)
+model Player {
+  id        Int      @id @default(autoincrement())
+  clubId    Int
+  name      String
+  shirtNo   Int?
+  gender    Gender?
+  photoUrl  String?
+  externalId String?  @unique
+  createdAt DateTime @default(now())
+
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@index([clubId])
+  @@index([name])
+}
+
+
+/// Player images to be used in vMix sponsor rows
+model PlayerImage {
+  id        Int      @id @default(autoincrement())
+  subject   String   // e.g., Jumbo-099 or beer-geluk
+  filename  String   // stored file name under uploads/players
+  createdAt DateTime @default(now())
+
+  @@index([subject])
 }

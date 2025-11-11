@@ -17,7 +17,7 @@ async function extractError(res: Response): Promise<string> {
   return `Request failed (${res.status})`;
 }
 
-export type Production = { id: number; matchScheduleId: number; createdAt: string; matchSchedule?: any };
+export type Production = { id: number; matchScheduleId: number; createdAt: string; isActive?: boolean; matchSchedule?: any };
 export type MatchCandidate = { id: number; date: string; homeTeamName: string; awayTeamName: string };
 
 export function useProductionMatches() {
@@ -36,6 +36,18 @@ export function useProductions() {
     queryKey: ['productions'],
     queryFn: async (): Promise<{ items: Production[]; total: number }> => {
       const res = await fetch(url('/api/production'));
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+  });
+}
+
+export function useProduction(id: number) {
+  return useQuery({
+    queryKey: ['production', id],
+    enabled: !!id,
+    queryFn: async (): Promise<Production> => {
+      const res = await fetch(url(`/api/production/${id}`));
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -74,6 +86,158 @@ export function useDeleteProduction() {
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['productions'] }),
+  });
+}
+
+export function useActivateProduction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(url(`/api/production/${id}/activate`), { method: 'POST' });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['productions'] }),
+  });
+}
+
+export type ProductionSegment = { id: number; productionId: number; naam: string; volgorde: number; duurInMinuten: number; isTimeAnchor: boolean };
+
+export function useProductionSegments(productionId: number) {
+  return useQuery({
+    queryKey: ['production', productionId, 'segments'],
+    enabled: !!productionId,
+    queryFn: async (): Promise<ProductionSegment[]> => {
+      const res = await fetch(url(`/api/production/${productionId}/segments`));
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+  });
+}
+
+export function useCreateSegment(productionId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { naam: string; duurInMinuten: number; volgorde?: number; isTimeAnchor?: boolean }): Promise<ProductionSegment> => {
+      const res = await fetch(url(`/api/production/${productionId}/segments`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['production', productionId, 'segments'] }),
+  });
+}
+
+export function useUpdateSegment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: number; naam?: string; duurInMinuten?: number; volgorde?: number; isTimeAnchor?: boolean }): Promise<ProductionSegment> => {
+      const res = await fetch(url(`/api/production/segments/${input.id}`), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      // Invalidate both list for its production and the single segment if any
+      // We don't have productionId here; refresh all segment queries
+      qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey.includes('segments') });
+    },
+  });
+}
+
+export function useDeleteSegment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (segmentId: number) => {
+      const res = await fetch(url(`/api/production/segments/${segmentId}`), { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey.includes('segments') });
+    },
+  });
+}
+
+export function useProductionTiming(productionId: number) {
+  return useQuery({
+    queryKey: ['production', productionId, 'timing'],
+    enabled: !!productionId,
+    queryFn: async (): Promise<Array<ProductionSegment & { start: string; end: string }>> => {
+      const res = await fetch(url(`/api/production/${productionId}/timing`));
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+  });
+}
+
+export type SegmentAssignment = { id: number; personId: number; positionId: number; person: { id: number; name: string; gender: 'male' | 'female' }; position: { id: number; name: string } };
+
+export function useSegmentAssignments(segmentId: number) {
+  return useQuery({
+    queryKey: ['segment', segmentId, 'assignments'],
+    enabled: !!segmentId,
+    queryFn: async (): Promise<SegmentAssignment[]> => {
+      const res = await fetch(url(`/api/production/segments/${segmentId}/assignments`));
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+  });
+}
+
+export function useAddSegmentAssignment(segmentId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { personId: number; positionId: number }): Promise<SegmentAssignment> => {
+      const res = await fetch(url(`/api/production/segments/${segmentId}/assignments`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['segment', segmentId, 'assignments'] }),
+  });
+}
+
+export function useDeleteSegmentAssignment(segmentId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (assignmentId: number) => {
+      const res = await fetch(url(`/api/production/segments/${segmentId}/assignments/${assignmentId}`), { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['segment', segmentId, 'assignments'] }),
+  });
+}
+
+export function useCopySegmentAssignments(segmentId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { targetSegmentIds: number[]; mode?: 'merge' | 'overwrite' }): Promise<{ ok: boolean }> => {
+      const res = await fetch(url(`/api/production/segments/${segmentId}/assignments/copy`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      // Invalidate the assignment lists for all target segments and the source
+      qc.invalidateQueries({ queryKey: ['segment', segmentId, 'assignments'] });
+      for (const tid of variables.targetSegmentIds) {
+        qc.invalidateQueries({ queryKey: ['segment', tid, 'assignments'] });
+      }
+    },
+  });
+}
+
+// Crew persons linked to the production of a given segment
+export type CrewPerson = { id: number; name: string; gender: 'male' | 'female' };
+export function useCrewPersonsForSegment(segmentId: number) {
+  return useQuery({
+    queryKey: ['segment', segmentId, 'crew-persons'],
+    enabled: !!segmentId,
+    queryFn: async (): Promise<CrewPerson[]> => {
+      const res = await fetch(url(`/api/production/segments/${segmentId}/persons`));
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
   });
 }
 

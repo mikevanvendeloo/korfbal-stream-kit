@@ -142,6 +142,32 @@ async function main() {
     // ignore if PF does not exist in current client
   }
 
+  // Seed Positions catalog
+  const positions = [
+    'overzicht camera',
+    'camera links',
+    'camera rechts',
+    'regie',
+    'ledscherm regie',
+    'muziek',
+    'volgspot oplopen',
+    'spelers halen',
+    'studio camera',
+    'herhalingen',
+    'show caller',
+    'presentatie',
+    'commentaar',
+    'analist',
+  ];
+  console.log('Seeding positions catalog...');
+  for (const name of positions) {
+    await prisma.position.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+  }
+
   console.log('Seeding completed.');
 }
 

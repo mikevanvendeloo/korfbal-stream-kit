@@ -4,6 +4,86 @@ import {logger} from '../utils/logger';
 
 export const vmixRouter: Router = Router();
 
+// POST /api/vmix/sponsor-rows
+// Body: { sponsorIds?: number[] }
+// Response: Array<{ subject: string; image1: string; image2: string; image3: string }>
+vmixRouter.post('/sponsor-rows', async (req, res, next) => {
+  try {
+    const sponsorIds = Array.isArray((req.body?.sponsorIds as any)) ? (req.body.sponsorIds as any).map((n: any) => Number(n)).filter((n: any) => Number.isFinite(n)) : undefined;
+
+    // Load sponsors to use
+    const sponsors = await prisma.sponsor.findMany({
+      where: sponsorIds && sponsorIds.length > 0 ? { id: { in: sponsorIds } } : {
+        type: { in: ['premium', 'goud', 'zilver'] as any },
+      },
+      orderBy: { id: 'asc' },
+    });
+
+    const sponsorLogos = sponsors.map((s) => (s.logoUrl || '').trim()).filter(Boolean);
+    if (sponsorLogos.length < 3) {
+      return res.status(400).json({ error: 'Need at least 3 sponsors' });
+    }
+
+    // Load player images (subjects)
+    const players = await (prisma as any).playerImage.findMany({ orderBy: { id: 'asc' } });
+    if (!players || players.length === 0) {
+      return res.status(400).json({ error: 'No player images found. Upload player images first.' });
+    }
+
+    // Partition sponsors into three disjoint cycles
+    const sponsorsTop: string[] = [];
+    const sponsorsMid: string[] = [];
+    const sponsorsBot: string[] = [];
+    for (let i = 0; i < sponsorLogos.length; i++) {
+      const s = sponsorLogos[i].replace(/\.(png|jpg|jpeg|webp|svg)$/i, '');
+      if (i % 3 === 0) sponsorsTop.push(s);
+      else if (i % 3 === 1) sponsorsMid.push(s);
+      else sponsorsBot.push(s);
+    }
+    // ensure non-empty partitions
+    const partitions = [sponsorsTop, sponsorsMid, sponsorsBot];
+    if (partitions.some((p) => p.length === 0)) {
+      const arr = sponsorLogos.map((x) => x.replace(/\.(png|jpg|jpeg|webp|svg)$/i, ''));
+      while (sponsorsTop.length === 0 && arr.length) sponsorsTop.push(arr.shift()!);
+      while (sponsorsMid.length === 0 && arr.length) sponsorsMid.push(arr.shift()!);
+      while (sponsorsBot.length === 0 && arr.length) sponsorsBot.push(arr.shift()!);
+      let idx = 0;
+      for (const s of arr) {
+        if (idx % 3 === 0) sponsorsTop.push(s);
+        else if (idx % 3 === 1) sponsorsMid.push(s);
+        else sponsorsBot.push(s);
+        idx++;
+      }
+    }
+
+    function assignRow(i: number) {
+      const image1 = sponsorsTop[i % sponsorsTop.length];
+      const image2 = sponsorsMid[i % sponsorsMid.length];
+      const image3 = sponsorsBot[i % sponsorsBot.length];
+      if (new Set([image1, image2, image3]).size !== 3) {
+        const alt2 = sponsorsMid[(i + 1) % sponsorsMid.length];
+        return { image1, image2: alt2, image3 };
+      }
+      return { image1, image2, image3 };
+    }
+
+    const rows = players.map((p: any, i: number) => {
+      const { image1, image2, image3 } = assignRow(i);
+      return {
+        subject: String(p.subject),
+        image1,
+        image2,
+        image3,
+      };
+    });
+
+    return res.json(rows);
+  } catch (err) {
+    logger.error('POST /vmix/sponsor-rows failed', err as any);
+    return next(err);
+  }
+});
+
 // GET /api/vmix/sponsor-names
 // Returns a JSON object with the concatenated sponsor names string under the
 // property "sponsor-names". The value uses three spaces, a vertical bar, and
@@ -25,7 +105,7 @@ vmixRouter.get('/sponsor-names', async (_req, res, next) => {
     const names = sponsors.map((s) => (s.name || '').trim()).filter(Boolean);
     const sep = '   |   ';
     const ticker = names.length > 0 ? names.join(sep) + sep : '';
-    return res.status(200).json({'sponsor-names': ticker});
+    return res.status(200).json([{ 'sponsor-names': ticker }]);
   } catch (err) {
     logger.error('GET /vmix/sponsor-names failed', err as any);
     return next(err);

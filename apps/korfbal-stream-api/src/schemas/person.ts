@@ -14,7 +14,7 @@ export const PersonUpdateSchema = z.object({
 
 export const PaginationQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(50),
+  limit: z.coerce.number().int().positive().max(200).default(50),
   gender: GenderEnum.optional(),
   q: z.string().optional(),
 });

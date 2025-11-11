@@ -1,0 +1,15 @@
+POST https://api-saas-site-prod-236.dotlab.net/general/api/get-template-data
+Content-Type: application/x-www-form-urlencoded
+
+data_key = sportsuite_get_person_cards &
+context = {"preferred-group":null,"tenant":"league","pool_ids":["95865"],"team_id":"5","language":"nl","banner-size":"fullwidth","_person_position_id":"1","limit":"5"},"enable_cache":true,"is_user_specific":false}
+
+###
+### GET request to example server
+POST https://api-saas-site-prod-236.dotlab.net/general/api/get-template-data
+Content-Type: application/json
+
+{"data_key":"sportsuite_get_person_cards","context":{"preferred-group":null,"tenant":"league","pool_ids":["95865"],"team_id":"5","language":"nl","banner-size":"fullwidth","_person_position_id":"1","limit":"5"},"enable_cache":true,"is_user_specific":false}
+###
+
+GET https://api-saas-site-prod-236.dotlab.net/general/api/stream/team?context=%7B%22preferred-group%22%3Anull%2C%22tenant%22%3A%22league%22%2C%22pool_ids%22%3A%5B%2295865%22%5D%2C%22team_id%22%3A%225%22%2C%22language%22%3A%22nl%22%2C%22data_channel%22%3A%22team%22%2C%22data_sse%22%3Atrue%2C%22data_namespace%22%3A%22public%22%2C%22data_entity_id%22%3A%225%22%7D

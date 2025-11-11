@@ -11,6 +11,8 @@ import {vmixRouter} from './routes/vmix';
 import {personsRouter} from './routes/persons';
 import {capabilitiesRouter} from './routes/capabilities';
 import {productionRouter} from './routes/production';
+import {clubsRouter} from './routes/clubs';
+import {playersRouter} from './routes/players';
 import {prisma} from './services/prisma';
 import {config, logConfig, requireConfig} from './services/config';
 import {errorHandler} from './middleware/error';
@@ -80,6 +82,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// Serve uploads statically so frontend can reference /uploads/{...}
+app.use('/uploads', express.static(uploadDir));
+
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
@@ -90,6 +95,9 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 // Sponsors endpoints
 app.use('/api/sponsors', sponsorsRouter);
 
+// Clubs endpoints
+app.use('/api/clubs', clubsRouter);
+
 // Persons endpoints
 app.use('/api/persons', personsRouter);
 
@@ -98,6 +106,9 @@ app.use('/api/capabilities', capabilitiesRouter);
 
 // Production namespace (new structured URLs)
 app.use('/api/production', productionRouter);
+
+// Players (images) endpoints
+app.use('/api/players', playersRouter);
 
 // Match endpoints
 app.use('/api/match', matchRouter);

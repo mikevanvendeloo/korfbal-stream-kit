@@ -1,17 +1,19 @@
 import React from 'react';
+// import { Link, useNavigate } from 'react-router-dom';
 import {
   useProductionMatches,
   useProductions,
   useCreateProduction,
   useUpdateProduction,
   useDeleteProduction,
+  useActivateProduction,
   useProductionAssignments,
   useAddProductionAssignment,
   useDeleteProductionAssignment,
 } from '../hooks/useProductions';
 import { usePersons, useCapabilitiesCatalog } from '../hooks/usePersons';
 import IconButton from '../components/IconButton';
-import { MdAdd, MdDelete, MdEdit } from 'react-icons/md';
+import { MdAdd, MdDelete, MdEdit, MdPlayCircle, MdGroups, MdInfo } from 'react-icons/md';
 
 export default function ProductionsAdminPage() {
   const { data: prods, isLoading, error } = useProductions();
@@ -19,6 +21,7 @@ export default function ProductionsAdminPage() {
   const create = useCreateProduction();
   const update = useUpdateProduction();
   const del = useDeleteProduction();
+  const activate = useActivateProduction();
 
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<{ id?: number; matchScheduleId: number } | null>(null);
@@ -95,7 +98,14 @@ export default function ProductionsAdminPage() {
                 <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-900">
                   <td className="p-2 border-b border-gray-200 dark:border-gray-800">{p.id}</td>
                   <td className="p-2 border-b border-gray-200 dark:border-gray-800">
-                    {p.matchSchedule?.homeTeamName || ''} vs {p.matchSchedule?.awayTeamName || ''}
+                    <div className="flex items-center gap-2">
+                      {p.isActive ? (
+                        <span aria-label="active-badge" className="inline-flex items-center text-xs px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Active</span>
+                      ) : null}
+                      <a href={`/admin/productions/${p.id}`} className="underline">
+                        {p.matchSchedule?.homeTeamName || ''} vs {p.matchSchedule?.awayTeamName || ''}
+                      </a>
+                    </div>
                   </td>
                   <td className="p-2 border-b border-gray-200 dark:border-gray-800">
                     <div className="flex items-center gap-2">
@@ -105,9 +115,37 @@ export default function ProductionsAdminPage() {
                       <IconButton ariaLabel="Delete production" title="Verwijder" onClick={async () => { setErrorMsg(null); try { await del.mutateAsync(p.id); if (selectedProdId === p.id) setSelectedProdId(null); } catch (e: any) { setErrorMsg(e?.message || 'Verwijderen mislukt'); } }}>
                         <MdDelete className="w-5 h-5 text-red-600" />
                       </IconButton>
-                      <button className={`px-2 py-1 border rounded ${selectedProdId === p.id ? 'bg-blue-600 text-white' : ''}`} onClick={() => setSelectedProdId(p.id)}>
-                        Crew
-                      </button>
+                      <IconButton
+                        ariaLabel={p.isActive ? 'Production is active' : 'Activeer production'}
+                        title={p.isActive ? 'Actief' : 'Activeren'}
+                        disabled={!!p.isActive}
+                        onClick={async () => {
+                          setErrorMsg(null);
+                          try {
+                            await activate.mutateAsync(p.id);
+                          } catch (e: any) {
+                            setErrorMsg(e?.message || 'Activeren mislukt');
+                          }
+                        }}
+                      >
+                        <MdPlayCircle className="w-6 h-6" />
+                      </IconButton>
+                      <IconButton
+                        ariaLabel="Toon details"
+                        title="Details"
+                        onClick={() => navigate(`/admin/productions/${p.id}`)}
+                      >
+                        <MdInfo className="w-5 h-5" />
+                      </IconButton>
+                      <IconButton
+                        ariaLabel="Selecteer crew-paneel"
+                        title="Crew"
+                        className={selectedProdId === p.id ? 'bg-blue-600 text-white' : ''}
+                        onClick={() => setSelectedProdId(p.id)}
+                      >
+                        <MdGroups className="w-5 h-5" />
+                        <span className="sr-only">Crew</span>
+                      </IconButton>
                     </div>
                   </td>
                 </tr>

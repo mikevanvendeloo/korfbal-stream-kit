@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import * as XLSX from 'xlsx';
 import {prisma} from '../services/prisma';
 import {logger} from '../utils/logger';
-import {makeLogoUrl, SponsorInputSchema, SponsorQuerySchema, SponsorUpdateSchema} from '../schemas/sponsor';
+import {makeLogoUrl, SponsorInputSchema, SponsorQuerySchema, SponsorUpdateSchema, normalizeLogoFilename} from '../schemas/sponsor';
 
 export const sponsorsRouter: Router = Router();
 
@@ -56,7 +56,7 @@ sponsorsRouter.post('/', async (req, res, next) => {
         name,
         type,
         websiteUrl,
-        logoUrl: logoUrl || makeLogoUrl(name),
+        logoUrl: logoUrl ? normalizeLogoFilename(logoUrl) : makeLogoUrl(name),
       },
     });
     return res.status(201).json(created);
@@ -76,7 +76,7 @@ sponsorsRouter.put('/:id', async (req, res, next) => {
     if (!existing) return res.status(404).json({ error: 'Niet gevonden' });
 
     const nextName = input.name ?? (existing as any).name;
-    const nextLogo = input.logoUrl ?? (input.name ? makeLogoUrl(input.name) : existing.logoUrl);
+    const nextLogo = input.logoUrl ? normalizeLogoFilename(input.logoUrl) : (input.name ? makeLogoUrl(input.name) : existing.logoUrl);
 
     const updated = await prisma.sponsor.update({
       where: { id },
@@ -165,7 +165,7 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
       for (const key of Object.keys(r)) {
         obj[normalizeHeaderKey(key)] = r[key];
       }
-      const name = String(obj['name'] || obj['naam'] || '').trim();
+      const name = String(obj['name'] || obj['naam'] || '').trim().replace(" B.V.","") || undefined;
       // In the provided Excel, the "Labels" column actually represents the sponsor type
       // Prioritize labels; fall back to Type/Pakket/Sponsor package
       const typeRaw = String(obj['labels'] || obj['type'] || obj['pakket'] || obj['sponsorpackage'] || '').trim().toLowerCase();
@@ -197,7 +197,8 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
         name,
         type,
         websiteUrl: website,
-        logoUrl: logo || makeLogoUrl(name),
+        // On Excel import, always normalize to lowercase-safe filename; if no logo provided, derive from name in lowercase
+        logoUrl: logo ? normalizeLogoFilename(logo) : normalizeLogoFilename(name),
         categories: categories || undefined,
         // labels are not stored currently; kept for potential future use
       };

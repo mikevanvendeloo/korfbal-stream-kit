@@ -2,10 +2,13 @@ import { Route, Routes, Link } from 'react-router-dom';
 import SponsorsPage from '../pages/SponsorsPage';
 import ScoreboardPage from '../pages/ScoreboardPage';
 import MatchSchedulePage from '../pages/MatchSchedulePage';
+import SponsorRowsPage from '../pages/SponsorRowsPage';
 import PersonsAdminPage from '../pages/PersonsAdminPage';
 import CapabilitiesAdminPage from '../pages/CapabilitiesAdminPage';
 import QRAdminPage from '../pages/QRAdminPage';
 import ProductionsAdminPage from '../pages/ProductionsAdminPage';
+import ProductionDetailPage from '../pages/ProductionDetailPage';
+import ClubsPage from '../pages/ClubsPage';
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider';
 
 function Nav() {
@@ -20,6 +23,7 @@ function Nav() {
           <Link to="/matches/schedule" className="text-gray-700 dark:text-gray-300 hover:underline">Match schedule</Link>
           <Link to="/admin/persons" className="text-gray-700 dark:text-gray-300 hover:underline">Persons</Link>
           <Link to="/admin/capabilities" className="text-gray-700 dark:text-gray-300 hover:underline">Capabilities</Link>
+          <Link to="/admin/clubs" className="text-gray-700 dark:text-gray-300 hover:underline">Clubs</Link>
           <Link to="/admin/qr" className="text-gray-700 dark:text-gray-300 hover:underline">QR Generator</Link>
           <Link to="/admin/productions" className="text-gray-700 dark:text-gray-300 hover:underline">Productions</Link>
         </nav>
@@ -44,8 +48,11 @@ export function App() {
             <Route path="/matches/schedule" element={<MatchSchedulePage />} />
             <Route path="/admin/persons" element={<PersonsAdminPage />} />
             <Route path="/admin/capabilities" element={<CapabilitiesAdminPage />} />
+            <Route path="/admin/clubs" element={<ClubsPage />} />
             <Route path="/admin/qr" element={<QRAdminPage />} />
             <Route path="/admin/productions" element={<ProductionsAdminPage />} />
+            <Route path="/admin/productions/:id" element={<ProductionDetailPage />} />
+            <Route path="/vmix/sponsor-rows" element={<SponsorRowsPage />} />
           </Routes>
         </main>
       </div>
