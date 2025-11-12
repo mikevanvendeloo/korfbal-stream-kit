@@ -1,12 +1,48 @@
 import React from 'react';
-import { useClubs, useClubPlayers, useImportClubs, useImportLeagueTeams } from '../hooks/useClubs';
+import {useClubPlayers, useClubs, useDeleteClub, useImportClubs, useImportLeagueTeams} from '../hooks/useClubs';
 
+const API_BASE: string = import.meta.env.VITE_API_URL || 'http://localhost:3333';
 function Img({ src, alt, className }: { src?: string | null; alt: string; className?: string }) {
   if (!src) return <div className={`w-10 h-10 bg-gray-200 dark:bg-gray-800 rounded ${className || ''}`} aria-hidden />;
   // If file is a local upload (e.g., saved path or bare filename), try to resolve from /uploads. Otherwise use as-is.
   const isAbsolute = /^https?:\/\//i.test(src);
   const resolved = isAbsolute ? src : `/uploads/${src}`;
   return <img src={resolved} alt={alt} className={`w-10 h-10 object-cover rounded ${className || ''}`} />;
+}
+
+function DeleteClubButton({ slug, clubs, onDeleted }: { slug: string; clubs: Array<{ slug: string }> ; onDeleted: (nextSlug: string | '') => void }) {
+  const del = useDeleteClub();
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <button
+      aria-label="Verwijder club"
+      title="Verwijder club"
+      className="px-3 py-1 border rounded bg-red-600 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+      onClick={async () => {
+        if (!slug) return;
+        const ok = window.confirm('Weet je zeker dat je deze club wilt verwijderen? Dit verwijdert ook alle spelers van deze club.');
+        if (!ok) return;
+        setBusy(true);
+        try {
+          await del.mutateAsync(slug);
+          // pick next slug
+          const idx = clubs.findIndex((c) => c.slug === slug);
+          const next = clubs.filter((c) => c.slug !== slug);
+          const nextSlug = next.length > 0 ? (next[idx] || next[next.length - 1]).slug : '';
+          onDeleted(nextSlug);
+        } catch (e) {
+          // eslint-disable-next-line no-alert
+          alert((e as any)?.message || 'Verwijderen mislukt');
+        } finally {
+          setBusy(false);
+        }
+      }}
+      disabled={busy || del.isPending}
+      aria-busy={busy || del.isPending}
+    >
+      {busy || del.isPending ? 'Verwijderen…' : 'Verwijder club'}
+    </button>
+  );
 }
 
 export default function ClubsPage() {
@@ -72,6 +108,21 @@ export default function ClubsPage() {
           {error && <div className="text-red-600">Fout bij laden clubs</div>}
 
           <div className="overflow-auto">
+            {(() => {
+              const club = (clubs || []).find((c) => c.slug === slug);
+              if (!club) return null;
+              const title = club.shortName || club.name;
+              return (
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <Img src={`${API_BASE}/uploads/${club.logoUrl}`} alt={`${title} logo`} className="w-12 h-12 rounded" />
+                    <div className="text-lg font-medium">{title}</div>
+                  </div>
+                  <DeleteClubButton slug={club.slug} onDeleted={(nextSlug) => setSlug(nextSlug)} clubs={clubs || []} />
+                </div>
+              );
+            })()}
+
             <table className="min-w-full border border-gray-200 dark:border-gray-800 text-sm">
               <thead className="bg-gray-50 dark:bg-gray-900">
                 <tr>
@@ -85,7 +136,10 @@ export default function ClubsPage() {
                   <tr key={p.id}>
                     <td className="p-2 border-b border-gray-200 dark:border-gray-800 w-16">{p.shirtNo ?? ''}</td>
                     <td className="p-2 border-b border-gray-200 dark:border-gray-800 w-16">
-                      <Img src={p.photoUrl || undefined} alt={p.name} />
+                      <img src={`${API_BASE}/uploads/${p.photoUrl}`} className="h-24 w-24 object-cover rounded" alt={p.name}
+                           onError={(e) => {
+                             (e.currentTarget as any).style.visibility = 'hidden';
+                           }}/>
                     </td>
                     <td className="p-2 border-b border-gray-200 dark:border-gray-800">{p.name}</td>
                   </tr>

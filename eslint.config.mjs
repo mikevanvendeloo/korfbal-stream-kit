@@ -1,4 +1,5 @@
 import nx from '@nx/eslint-plugin';
+import globals from 'globals';
 
 export default [
   ...nx.configs['flat/base'],
@@ -7,6 +8,8 @@ export default [
   {
     ignores: [
       '**/dist',
+      '**/uploads',
+      '**/tmp',
       '**/vite.config.*.timestamp*',
       '**/vitest.config.*.timestamp*',
       '**/test-output',
@@ -14,6 +17,12 @@ export default [
   },
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
     rules: {
       '@nx/enforce-module-boundaries': [
         'error',
@@ -28,6 +37,19 @@ export default [
           ],
         },
       ],
+    },
+  },
+  {
+    files: [
+      '**/*.spec.ts',
+      '**/*.spec.tsx',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+    ],
+    languageOptions: {
+      globals: {
+        ...globals.vitest,
+      },
     },
   },
   {

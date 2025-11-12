@@ -47,7 +47,7 @@ function extractIdsFromTeamPage(html: string): { teamId?: string; poolId?: strin
         const ctx = JSON.parse(raw);
         const teamId = ctx?.team_id || ctx?.data_entity_id;
         const poolId = Array.isArray(ctx?.pool_ids) && ctx.pool_ids[0] ? String(ctx.pool_ids[0]) : undefined;
-        if (teamId && poolId) return { teamId: String(teamId), poolId };
+        if (teamId && poolId) return {teamId: String(teamId), poolId};
       } catch {
         // fallthrough
       }
@@ -65,7 +65,7 @@ function extractIdsFromTeamPage(html: string): { teamId?: string; poolId?: strin
       const ctx = JSON.parse(ctxJson);
       const teamId = ctx?.team_id || ctx?.data_entity_id;
       const poolId = Array.isArray(ctx?.pool_ids) && ctx.pool_ids[0] ? String(ctx.pool_ids[0]) : undefined;
-      return { teamId: teamId ? String(teamId) : undefined, poolId };
+      return {teamId: teamId ? String(teamId) : undefined, poolId};
     } catch {
       // continue
     }
@@ -79,7 +79,7 @@ function extractIdsFromTeamPage(html: string): { teamId?: string; poolId?: strin
           const maybe = JSON.parse(blob);
           const teamId = maybe?.team_id || maybe?.data_entity_id;
           const poolId = Array.isArray(maybe?.pool_ids) && maybe.pool_ids[0] ? String(maybe.pool_ids[0]) : undefined;
-          if (teamId && poolId) return { teamId: String(teamId), poolId };
+          if (teamId && poolId) return {teamId: String(teamId), poolId};
         } catch {
           // ignore parse error and continue
         }
@@ -111,10 +111,20 @@ async function ensureUniqueSlug(base: string): Promise<string> {
   let i = 1;
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const existing = await prisma.club.findUnique({ where: { slug } }).catch(() => null);
+    const existing = await prisma.club.findUnique({where: {slug}}).catch(() => null);
     if (!existing) return slug;
     slug = `${base}-${i++}`;
   }
+}
+
+async function writeFile(subfolder: string, filename: string, data: Buffer | string): Promise<void> {
+  if (!filename) throw new Error('Filename cannot be empty');
+  if (!data) throw new Error('Data cannot be empty');
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  const dir = path.join(uploadsDir, subfolder);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, {recursive: true});
+  const fullFilePath = path.join(dir, filename);
+  await fs.promises.writeFile(fullFilePath, data);
 }
 
 async function downloadFile(url: string, subfolder: 'clubs' | 'players', desiredName?: string): Promise<string | undefined> {
@@ -124,7 +134,7 @@ async function downloadFile(url: string, subfolder: 'clubs' | 'players', desired
     const buf = Buffer.from(await res.arrayBuffer());
     const uploadsDir = path.join(process.cwd(), 'uploads');
     const dir = path.join(uploadsDir, subfolder);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, {recursive: true});
     const ext = (() => {
       const ct = res.headers.get('content-type') || '';
       if (ct.includes('png')) return '.png';
@@ -158,9 +168,17 @@ function buildKorfbalApiUrl(teamId: string | number, poolId: string | number): s
   return `https://api-saas-site-prod-236.dotlab.net/general/api/stream/team?context=${ctx}`;
 }
 
+const toNumberOrUndefined = (val: any): number | undefined => {
+  const num = Number(val);
+  return Number.isFinite(num) ? num : undefined;
+};
 // Prefer the template endpoint sportsuite_get_person_cards to get team roster
-async function fetchTeamPersonCards(teamId: string | number, poolId: string | number): Promise<{ baseName?: string; shortName?: string; logoUrl?: string; players: Array<any> } | null> {
-  logger.info(`Fetching team person cards for team_id=${teamId} pool_id=${poolId}`);
+async function fetchTeamPersonCards(teamId: string | number, poolId: string | number): Promise<{
+  baseName?: string;
+  shortName?: string;
+  logoUrl?: string;
+  players: Array<any>
+} | null> {
   try {
     const body: any = {
       data_key: 'sportsuite_get_person_cards',
@@ -169,7 +187,6 @@ async function fetchTeamPersonCards(teamId: string | number, poolId: string | nu
         tenant: 'league',
         pool_ids: [String(poolId)],
         team_id: String(teamId),
-        data_entity_id: String(teamId),
         language: 'nl',
         'banner-size': 'fullwidth',
         _person_position_id: '1',
@@ -180,37 +197,58 @@ async function fetchTeamPersonCards(teamId: string | number, poolId: string | nu
     };
     const resp = await fetch(KORFBAL_TEMPLATE_URL, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {'content-type': 'application/json'},
       body: JSON.stringify(body),
     });
+
     if (!resp.ok) {
       // Log as error as requested
       logger.error(`Template cards fetch failed: ${resp.status} for team_id=${teamId} pool_id=${poolId}`);
       return null;
     }
-    const json: any = await resp.json().catch(() => null);
-    if (!json) return null;
+    const json: any = await resp.json().catch((e: any) => {
+      logger.error(`Failed to parse JSON from template response: ${e?.message || e}`);
+      return null;
+    });
+    if (!json) {
+      logger.warn(`Empty/invalid JSON from template response for team_id=${teamId} pool_id=${poolId}`);
+      return null;
+    }
+    await writeFile("team-responses", `team-${teamId}-${poolId}.json`, JSON.stringify(json, null, 2))
+    // Log concise summary after parsing once (avoid consuming the body twice)
+    try {
+      const result = (json as any).data || json;
+      const cards = result?.cards;
+      const len = Array.isArray(cards) ? cards.length : Array.isArray(result?.players) ? result.players.length : 0;
+      const team = result?.team || {};
+      logger.info(`Template parsed: team_name=${team?.team_name || team?.name || 'n/a'} team_short=${team?.team_name_short || team?.short_name || 'n/a'} cards=${len}`);
+    } catch (e: any) {
+      logger.error(`Failed to extract team_name/short from template response: ${e?.message || e}`);
+    }
 
-    logger.debug(json);
     // Heuristic extraction: support a few possible shapes
-    const result = json.result || json;
-    const team = result.team || result?.data?.team || {};
-    const baseName = team.team_name || team.name || result.team_name || undefined;
-    const shortName = team.team_name_short || team.short_name || result.team_name_short || undefined;
-    const logoUrl = team.team_image?.url || team.logo_url || result.team_image?.url || undefined;
+    const result = (json as any).result || (json as any).data || json;
+    const team = (result?.team) || (Array.isArray(result?.cards) && result.cards[0]?.team) || {};
+    const baseName = team.team_name || team.name || team.club_name || undefined;
+    const shortName = team.team_name_short || team.short_name || undefined;
+    const logoUrl = team.team_image?.url || team.logo?.url || team.logo_url || result.team_image?.url || undefined;
 
     // Players: cards array or players array
     let players: any[] = [];
-    const cards = result.cards || result.players || team.players || [];
+    const cards = result?.cards || result?.players || [];
     if (Array.isArray(cards)) {
       players = cards.map((c: any) => {
-        const p = c.person || c;
-        const id = p.id ?? c.id;
-        const fullname = p.fullname || p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
-        const back_number = p.back_number ?? p.shirt_number ?? p.shirtNo ?? undefined;
-        const gender = p.gender || c.gender;
-        const imageUrl = p.image?.url || p.photo_url || c.image?.url || undefined;
-        return { id, fullname, back_number, gender, image: { url: imageUrl } };
+        const p = c?.person || c;
+        const id = p.id ?? p.ref_id ?? p.external_id;
+        const fullname = (p.fullname || p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ')).trim();
+        const shirt_number: number | undefined =
+          toNumberOrUndefined(p.back_number) ??
+          toNumberOrUndefined(p.shirt_number) ??
+          toNumberOrUndefined(p.shirtNo) ??
+          undefined;
+        const gender = p.gender;
+        const imageUrl = p.image?.url || p.photo?.url || p.photo_url || undefined;
+        return { id, fullname, shirt_number, gender, image: { url: imageUrl } };
       });
     }
 
@@ -230,14 +268,18 @@ function extractIdsFromApiUrl(apiUrl: string): { teamId?: string; poolId?: strin
     const ctx = JSON.parse(decodeURIComponent(ctxParam));
     const pool = Array.isArray(ctx?.pool_ids) && ctx.pool_ids.length > 0 ? String(ctx.pool_ids[0]) : undefined;
     const team = ctx?.team_id || ctx?.data_entity_id ? String(ctx.team_id || ctx.data_entity_id) : undefined;
-    return { poolId: pool, teamId: team };
+    return {poolId: pool, teamId: team};
   } catch {
     return {};
   }
 }
 
 // Fetch extra person details (first/last name and gender m/f) from template endpoint
-async function fetchPersonTemplate(personId: string | number, poolId: string | number): Promise<{ firstName?: string; lastName?: string; gender?: 'm' | 'f' } | null> {
+async function fetchPersonTemplate(personId: string | number, poolId: string | number): Promise<{
+  firstName?: string;
+  lastName?: string;
+  gender?: 'm' | 'f'
+} | null> {
   try {
     const body = {
       data_key: 'sportsuite_get_person_config',
@@ -253,7 +295,7 @@ async function fetchPersonTemplate(personId: string | number, poolId: string | n
     } as any;
     const resp = await fetch(KORFBAL_TEMPLATE_URL, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {'content-type': 'application/json'},
       body: JSON.stringify(body),
     });
     if (!resp.ok) return null;
@@ -264,14 +306,28 @@ async function fetchPersonTemplate(personId: string | number, poolId: string | n
     const last = json?.result?.person?.last_name || json?.last_name || json?.person?.last_name || undefined;
     const graw = (json?.result?.person?.gender || json?.person?.gender || json?.gender || '').toString().toLowerCase();
     const g: 'm' | 'f' | undefined = graw === 'm' ? 'm' : graw === 'f' ? 'f' : undefined;
-    return { firstName: first, lastName: last, gender: g };
+    return {firstName: first, lastName: last, gender: g};
   } catch {
     return null;
   }
 }
 
 // Internal: process a list of sources using the existing logic
-async function processImportSources(sources: Array<{ teamId: string | number; poolId: string | number } | { apiUrl: string } | { name: string; shortName?: string; logoUrl?: string; slug?: string; players?: Array<{ name: string; shirtNo?: number; gender?: 'male' | 'female'; photoUrl?: string; externalId?: string }> }>) {
+async function processImportSources(sources: Array<{ teamId: string | number; poolId: string | number } | {
+  apiUrl: string
+} | {
+  name: string;
+  shortName?: string;
+  logoUrl?: string;
+  slug?: string;
+  players?: Array<{
+    name: string;
+    shirtNo?: number;
+    gender?: 'male' | 'female';
+    photoUrl?: string;
+    externalId?: string
+  }>
+}>) {
   const problems: string[] = [];
   let clubsCreated = 0;
   let clubsUpdated = 0;
@@ -279,7 +335,6 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
   let playersUpdated = 0;
 
   for (const src of sources) {
-    let payload: any | null = null;
     let baseName = '';
     let shortName = '';
     let logoUrlRemote: string | undefined;
@@ -306,11 +361,9 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
         poolId = String((src as any).poolId);
       }
 
-      logger.info(`Import source: ${JSON.stringify(src)}`, { teamId, poolId });
       let usedCards = false;
       if (teamId && poolId) {
         const cards = await fetchTeamPersonCards(teamId, poolId).catch(() => null);
-        logger.info(`Fetched team person cards for team_id=${teamId} pool_id=${poolId}: ${JSON.stringify(cards)}`);
         if (cards && (Array.isArray(cards.players) && cards.players.length > 0)) {
           usedCards = true;
           baseName = cards.baseName || '';
@@ -319,54 +372,59 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
           players = cards.players;
           currentPoolId = poolId;
         }
-      }
+      } else { logger.warn(`Invalid teamId/poolId for source: ${JSON.stringify(src)}`);}
 
-      if (!usedCards) {
-        const apiUrl = 'apiUrl' in src && src.apiUrl ? src.apiUrl : buildKorfbalApiUrl(teamId || (src as any).teamId, poolId || (src as any).poolId);
-        const resp = await fetch(apiUrl);
-        logger.info(`Fetched team API for team_id=${teamId} pool_id=${poolId}: ${apiUrl}`);
-        if (!resp.ok) {
-          problems.push(`Fetch failed for ${'apiUrl' in src ? src.apiUrl : JSON.stringify(src)}: ${resp.status}`);
-          continue;
-        }
-        payload = await resp.json().catch(() => null);
-        if (!payload) {
-          problems.push(`Invalid JSON for source ${'apiUrl' in src ? src.apiUrl : JSON.stringify(src)}`);
-          continue;
-        }
-
-        if (!payload.result) {
-          problems.push(`Invalid result for source ${'apiUrl' in src ? src.apiUrl : JSON.stringify(src)}`);
-          continue;
-        }
-        // Heuristic mapping based on observed structure
-        logger.info(payload?.result?.team)
-        baseName = payload?.result?.team?.team_name || payload?.team_name || payload?.team?.name || 'Onbekende club';
-        shortName = payload?.result?.team?.team_name_short || payload?.team_name_short || payload?.team?.short_name || baseName;
-        logoUrlRemote = payload?.result?.team?.team_image?.url || payload?.team_image?.url || payload?.team?.logo_url;
-        const list = payload?.result?.team?.players || payload?.players || [];
-        players = Array.isArray(list) ? list : [];
-        // derive poolId for later person enrichment
-        if ('apiUrl' in src && src.apiUrl) {
-          currentPoolId = extractIdsFromApiUrl(src.apiUrl).poolId;
-        } else {
-          currentPoolId = String((src as any).poolId || '');
-          if (currentPoolId === '') currentPoolId = undefined;
-        }
-      }
+      // if (!usedCards) {
+      //   const apiUrl = 'apiUrl' in src && src.apiUrl ? src.apiUrl : buildKorfbalApiUrl(teamId || (src as any).teamId, poolId || (src as any).poolId);
+      //   logger.info(`HTTP GET ${apiUrl} — legacy team API`);
+      //   const resp = await fetch(apiUrl);
+      //   logger.info(`HTTP ${resp.status} GET ${apiUrl} — legacy team API`);
+      //   if (!resp.ok) {
+      //     problems.push(`Fetch failed for ${'apiUrl' in src ? src.apiUrl : JSON.stringify(src)}: ${resp.status}`);
+      //     continue;
+      //   }
+      //   payload = await resp.json().catch(() => null);
+      //   if (!payload) {
+      //     problems.push(`Invalid JSON for source ${'apiUrl' in src ? src.apiUrl : JSON.stringify(src)}`);
+      //     continue;
+      //   }
+      //
+      //   if (!payload.result) {
+      //     problems.push(`Invalid result for source ${'apiUrl' in src ? src.apiUrl : JSON.stringify(src)}`);
+      //     continue;
+      //   }
+      //   // Heuristic mapping based on observed structure
+      //   logger.info(payload?.result?.team)
+      //   baseName = payload?.result?.team?.team_name || payload?.team_name || payload?.team?.name || 'Onbekende club';
+      //   shortName = payload?.result?.team?.team_name_short || payload?.team_name_short || payload?.team?.short_name || baseName;
+      //   logoUrlRemote = payload?.result?.team?.team_image?.url || payload?.team_image?.url || payload?.team?.logo_url;
+      //   const list = payload?.result?.team?.players || payload?.players || [];
+      //   players = Array.isArray(list) ? list : [];
+      //   // derive poolId for later person enrichment
+      //   if ('apiUrl' in src && src.apiUrl) {
+      //     currentPoolId = extractIdsFromApiUrl(src.apiUrl).poolId;
+      //   } else {
+      //     currentPoolId = String((src as any).poolId || '');
+      //     if (currentPoolId === '') currentPoolId = undefined;
+      //   }
+      // }
 
       // Log how many players are present for this team payload
       try {
         const teamIdLog = teamId ?? (src as any).teamId ?? undefined;
         const poolIdLog = currentPoolId ?? poolId ?? (src as any).poolId ?? undefined;
-        logger.info(`Import team payload: ${shortName || baseName} — players=${players.length}`, { teamId: teamIdLog, poolId: poolIdLog });
-      } catch {}
+        logger.info(`Import team payload: ${shortName || baseName} — players=${players.length}`, {
+          teamId: teamIdLog,
+          poolId: poolIdLog
+        });
+      } catch(e: any) { logger.error(`Failed to log team payload: ${e?.message || e}`);
+      }
     }
 
     // Prepare club upsert
     const baseSlug = slugify(shortName || baseName);
     let slug = baseSlug;
-    const existingBySlug = await prisma.club.findUnique({ where: { slug } }).catch(() => null);
+    const existingBySlug = await prisma.club.findUnique({where: {slug}}).catch(() => null);
     if (existingBySlug) {
       // Keep slug; will update club
     } else {
@@ -386,65 +444,80 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
       logoUrl: logoLocal || logoUrlRemote || null,
     } as any;
 
-    let club = await prisma.club.findUnique({ where: { slug } }).catch(() => null);
+    let club = await prisma.club.findUnique({where: {slug}}).catch(() => null);
     if (club) {
-      club = await prisma.club.update({ where: { id: club.id }, data: clubData });
+      club = await prisma.club.update({where: {id: club.id}, data: clubData});
       clubsUpdated++;
     } else {
-      club = await prisma.club.create({ data: clubData });
+      club = await prisma.club.create({data: clubData});
       clubsCreated++;
     }
 
+    logger.info(`Club ${slug} (${clubData})`);
+    logger.info(`Players: ${players.length}`);
     // Upsert players
     for (const p of players) {
       const rawFullName = (p.fullname || p.full_name || p.name || `${p.first_name || ''} ${p.last_name || ''}` || '').trim();
       if (!rawFullName) continue;
       const shirtNo: number | undefined = p.back_number ?? p.shirtNo ?? p.shirt_number ?? undefined;
-      let gender: 'male' | 'female' | undefined = p.gender === 'F' || p.gender === 'female' ? 'female' : p.gender === 'M' || p.gender === 'male' ? 'male' : undefined;
+      const gender: 'male' | 'female' | undefined = p.gender === 'F' || p.gender === 'female' ? 'female' : p.gender === 'M' || p.gender === 'male' ? 'male' : undefined;
       const extId: string | undefined = String(p.id ?? p.external_id ?? '').trim() || undefined;
       const photoRemote: string | undefined = p.image?.url || p.photo_url || undefined;
 
-      // Optional enrichment via person template when we have both extId (person_id) and poolId
-      let fullName = rawFullName;
-      if (currentPoolId && extId) {
-        const tpl = await fetchPersonTemplate(extId, currentPoolId).catch(() => null);
-        if (tpl) {
-          const tplName = `${(tpl.firstName || '').trim()} ${(tpl.lastName || '').trim()}`.trim();
-          if (tplName) fullName = tplName;
-          if (tpl.gender === 'f') gender = 'female';
-          if (tpl.gender === 'm') gender = 'male';
-        }
-      }
+      // // Optional enrichment via person template when we have both extId (person_id) and poolId
+      // let fullName = rawFullName;
+      // if (currentPoolId && extId) {
+      //   const tpl = await fetchPersonTemplate(extId, currentPoolId).catch(() => null);
+      //   if (tpl) {
+      //     const tplName = `${(tpl.firstName || '').trim()} ${(tpl.lastName || '').trim()}`.trim();
+      //     if (tplName) fullName = tplName;
+      //     if (tpl.gender === 'f') gender = 'female';
+      //     if (tpl.gender === 'm') gender = 'male';
+      //   }
+      // }
 
       // Determine unique where: prefer externalId, else (clubId, name, shirtNo)
       let existingPlayer: any = null;
       if (extId) {
-        existingPlayer = await prisma.player.findUnique({ where: { externalId: extId } }).catch(() => null);
+        existingPlayer = await prisma.player.findUnique({where: {externalId: extId}}).catch(() => null);
       }
       if (!existingPlayer) {
-        existingPlayer = await prisma.player.findFirst({ where: { clubId: club.id, name: fullName, shirtNo: shirtNo ?? null } }).catch(() => null);
+        existingPlayer = await prisma.player.findFirst({
+          where: {
+            clubId: club.id,
+            name: rawFullName,
+            shirtNo: shirtNo ?? null
+          }
+        }).catch(() => null);
       }
 
       let photoLocal: string | undefined;
       if (photoRemote) {
-        const desired = slugify(fullName);
+        const desired = slugify(rawFullName);
         photoLocal = await downloadFile(photoRemote, 'players', `${slug}-${desired}`);
       }
 
-      const playerData: any = { clubId: club.id, name: fullName, shirtNo: shirtNo ?? null, gender: gender ?? null, photoUrl: photoLocal || photoRemote || null };
+      const playerData: any = {
+        clubId: club.id,
+        name: rawFullName,
+        shirtNo: shirtNo ?? null,
+        gender: gender ?? null,
+        photoUrl: photoLocal || photoRemote || null
+      };
+      logger.info(`Player ${rawFullName} (${playerData})`);
       if (extId) playerData.externalId = extId;
 
       if (existingPlayer) {
-        await prisma.player.update({ where: { id: existingPlayer.id }, data: playerData });
+        await prisma.player.update({where: {id: existingPlayer.id}, data: playerData});
         playersUpdated++;
       } else {
-        await prisma.player.create({ data: playerData });
+        await prisma.player.create({data: playerData});
         playersCreated++;
       }
     }
   }
 
-  return { ok: true, clubsCreated, clubsUpdated, playersCreated, playersUpdated, problems };
+  return {ok: true, clubsCreated, clubsUpdated, playersCreated, playersUpdated, problems};
 }
 
 // Types for import request
@@ -456,8 +529,10 @@ clubsRouter.post('/import/league-teams', async (req, res, next) => {
   try {
     const limit = Number(req.body?.limit) > 0 ? Number(req.body.limit) : undefined;
     const indexUrl = 'https://league.korfbal.nl/teams/';
+    logger.info(`HTTP GET ${indexUrl} — fetching teams index`);
     const idxResp = await fetch(indexUrl);
-    if (!idxResp.ok) return res.status(502).json({ error: `Failed to fetch teams index (${idxResp.status})` });
+    logger.info(`HTTP ${idxResp.status} GET ${indexUrl} — teams index`);
+    if (!idxResp.ok) return res.status(502).json({error: `Failed to fetch teams index (${idxResp.status})`});
     const html = await idxResp.text();
     const links = extractTeamLinksFromIndex(html, indexUrl);
     logger.info(`Extracted ${links.length} links from league teams index`);
@@ -469,7 +544,9 @@ clubsRouter.post('/import/league-teams', async (req, res, next) => {
 
     for (const url of picked) {
       try {
+        logger.info(`HTTP GET ${url} — fetching team page`);
         const resp = await fetch(url);
+        logger.info(`HTTP ${resp.status} GET ${url} — team page`);
         if (!resp.ok) {
           problems.push(`Team page fetch failed (${resp.status}): ${url}`);
           continue;
@@ -479,7 +556,7 @@ clubsRouter.post('/import/league-teams', async (req, res, next) => {
         const ids = extractIdsFromTeamPage(page);
         logger.info(`Extracted ids from team page ${url}: ${JSON.stringify(ids)}`);
         if (ids.teamId && ids.poolId) {
-          sources.push({ teamId: ids.teamId, poolId: ids.poolId });
+          sources.push({teamId: ids.teamId, poolId: ids.poolId});
         } else {
           problems.push(`Could not extract teamId/poolId: ${url}`);
         }
@@ -489,7 +566,7 @@ clubsRouter.post('/import/league-teams', async (req, res, next) => {
     }
 
     if (sources.length === 0) {
-      return res.status(400).json({ error: 'No team pages with extractable ids found', problems });
+      return res.status(400).json({error: 'No team pages with extractable ids found', problems});
     }
 
     const result = await processImportSources(sources);
@@ -504,14 +581,26 @@ clubsRouter.post('/import/league-teams', async (req, res, next) => {
 clubsRouter.post('/import', async (req, res, next) => {
   try {
     const body = req.body || {};
-    const sources: Array<{ teamId: string | number; poolId: string | number } | { apiUrl: string } | { name: string; shortName?: string; logoUrl?: string; slug?: string; players?: Array<{ name: string; shirtNo?: number; gender?: 'male' | 'female'; photoUrl?: string; externalId?: string }> }> = Array.isArray(body.sources)
+    const sources: Array<{ teamId: string | number; poolId: string | number } | { apiUrl: string } | {
+      name: string;
+      shortName?: string;
+      logoUrl?: string;
+      slug?: string;
+      players?: Array<{
+        name: string;
+        shirtNo?: number;
+        gender?: 'male' | 'female';
+        photoUrl?: string;
+        externalId?: string
+      }>
+    }> = Array.isArray(body.sources)
       ? body.sources
       : (body.teamId && body.poolId) || body.apiUrl || body.name
         ? [body]
         : [];
 
     if (sources.length === 0) {
-      return res.status(400).json({ error: 'Provide sources array or an object with teamId+poolId or apiUrl or name' });
+      return res.status(400).json({error: 'Provide sources array or an object with teamId+poolId or apiUrl or name'});
     }
 
     const result = await processImportSources(sources);
@@ -524,8 +613,27 @@ clubsRouter.post('/import', async (req, res, next) => {
 // List clubs
 clubsRouter.get('/', async (_req, res, next) => {
   try {
-    const items = await prisma.club.findMany({ orderBy: { name: 'asc' } });
+    const items = await prisma.club.findMany({orderBy: {name: 'asc'}});
     return res.json(items);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Delete club by slug (also removes its players)
+clubsRouter.delete('/:slug', async (req, res, next) => {
+  try {
+    const slug = String(req.params.slug);
+    const club = await prisma.club.findUnique({ where: { slug } });
+    if (!club) return res.status(404).json({ error: 'Club not found' });
+    // Remove players first to satisfy FK constraints (if cascade not configured)
+    try {
+      await prisma.player.deleteMany({ where: { clubId: club.id } });
+    } catch (e) {
+      // ignore; continue to delete club
+    }
+    await prisma.club.delete({ where: { id: club.id } });
+    return res.status(204).send();
   } catch (err) {
     return next(err);
   }
@@ -535,9 +643,12 @@ clubsRouter.get('/', async (_req, res, next) => {
 clubsRouter.get('/:slug/players', async (req, res, next) => {
   try {
     const slug = String(req.params.slug);
-    const club = await prisma.club.findUnique({ where: { slug } });
-    if (!club) return res.status(404).json({ error: 'Club not found' });
-    const items = await prisma.player.findMany({ where: { clubId: club.id }, orderBy: [{ shirtNo: 'asc' as const }, { name: 'asc' as const }] });
+    const club = await prisma.club.findUnique({where: {slug}});
+    if (!club) return res.status(404).json({error: 'Club not found'});
+    const items = await prisma.player.findMany({
+      where: {clubId: club.id},
+      orderBy: [{shirtNo: 'asc' as const}, {name: 'asc' as const}]
+    });
     return res.json(items);
   } catch (err) {
     return next(err);

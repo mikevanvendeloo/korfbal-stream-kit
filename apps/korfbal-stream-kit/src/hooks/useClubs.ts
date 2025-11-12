@@ -64,6 +64,21 @@ export function useImportClubs() {
   });
 }
 
+export function useDeleteClub() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (slug: string) => {
+      const res = await fetch(url(`/api/clubs/${slug}`), { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
+      return { ok: true } as const;
+    },
+    onSuccess: async (_data, slug) => {
+      await qc.invalidateQueries({ queryKey: ['clubs'] });
+      await qc.invalidateQueries({ queryKey: ['club', slug, 'players'] });
+    },
+  });
+}
+
 export function useImportLeagueTeams() {
   const qc = useQueryClient();
   return useMutation({
