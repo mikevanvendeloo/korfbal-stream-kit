@@ -31,7 +31,7 @@ function DeleteClubButton({ slug, clubs, onDeleted }: { slug: string; clubs: Arr
           const nextSlug = next.length > 0 ? (next[idx] || next[next.length - 1]).slug : '';
           onDeleted(nextSlug);
         } catch (e) {
-          // eslint-disable-next-line no-alert
+           
           alert((e as any)?.message || 'Verwijderen mislukt');
         } finally {
           setBusy(false);

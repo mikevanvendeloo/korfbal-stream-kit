@@ -100,9 +100,9 @@ for (let i = 0; i < sponsorsAll.length; i++) {
 if (sponsorsTop.length === 0 || sponsorsMid.length === 0 || sponsorsBot.length === 0) {
   // Simple rotate-and-distribute to ensure non-empty partitions
   const arr = [...sponsorsAll];
-  while (sponsorsTop.length === 0) sponsorsTop.push(arr.shift()!);
-  while (sponsorsMid.length === 0) sponsorsMid.push(arr.shift()!);
-  while (sponsorsBot.length === 0) sponsorsBot.push(arr.shift()!);
+  while (sponsorsTop.length === 0) sponsorsTop.push(arr.shift());
+  while (sponsorsMid.length === 0) sponsorsMid.push(arr.shift());
+  while (sponsorsBot.length === 0) sponsorsBot.push(arr.shift());
   // Put remaining back round-robin
   let idx = 0;
   for (const s of arr) {

@@ -1,10 +1,10 @@
-import { useSponsors, useCreateSponsor, useUpdateSponsor, useDeleteSponsor } from '../hooks/useSponsors';
-import { SponsorsTable } from '../components/SponsorsTable';
-import { useRef, useState } from 'react';
+import {useCreateSponsor, useDeleteSponsor, useSponsors, useUpdateSponsor} from '../hooks/useSponsors';
+import {SponsorsTable} from '../components/SponsorsTable';
+import {useRef, useState} from 'react';
 // Using a plain anchor to avoid Router context requirement in tests
 // import { Link } from 'react-router-dom';
-import { uploadSponsorsExcel } from '../lib/api';
-import { MdAdd, MdRefresh, MdUploadFile } from 'react-icons/md';
+import {uploadSponsorsExcel} from '../lib/api';
+import {MdAdd, MdRefresh, MdUploadFile} from 'react-icons/md';
 import SponsorFormModal from '../components/SponsorFormModal';
 
 export default function SponsorsPage() {

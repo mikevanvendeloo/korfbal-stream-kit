@@ -109,7 +109,7 @@ function slugify(input: string): string {
 async function ensureUniqueSlug(base: string): Promise<string> {
   let slug = base;
   let i = 1;
-  // eslint-disable-next-line no-constant-condition
+   
   while (true) {
     const existing = await prisma.club.findUnique({where: {slug}}).catch(() => null);
     if (!existing) return slug;
