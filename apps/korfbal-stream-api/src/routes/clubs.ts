@@ -109,7 +109,7 @@ function slugify(input: string): string {
 async function ensureUniqueSlug(base: string): Promise<string> {
   let slug = base;
   let i = 1;
-   
+
   while (true) {
     const existing = await prisma.club.findUnique({where: {slug}}).catch(() => null);
     if (!existing) return slug;
@@ -248,7 +248,25 @@ async function fetchTeamPersonCards(teamId: string | number, poolId: string | nu
           undefined;
         const gender = p.gender;
         const imageUrl = p.image?.url || p.photo?.url || p.photo_url || undefined;
-        return { id, fullname, shirt_number, gender, image: { url: imageUrl } };
+
+        // Try to infer person type and function/role text from various fields
+        const rawRole = (c?.role || c?.position || p?.role || p?.position || {}) as any;
+        const roleName: string | undefined = typeof rawRole === 'string'
+          ? rawRole
+          : (rawRole?.name || rawRole?.title || rawRole?.type || undefined);
+        const extraFn: string | undefined =
+          p?.function || p?.functie || c?.function || c?.functie || roleName || undefined;
+        const isCoach = (extraFn || '').toLowerCase().includes('coach');
+        const personType = isCoach ? 'coach' : 'player';
+        let funcText: string | undefined = extraFn;
+        if (!funcText) {
+          if (personType === 'player') {
+            const g = (gender || '').toString().toLowerCase();
+            funcText = g === 'female' || g === 'f' ? 'Speelster' : 'Speler';
+          }
+        }
+
+        return { id, fullname, shirt_number, gender, image: { url: imageUrl }, personType, function: funcText };
       });
     }
 
@@ -325,7 +343,9 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
     shirtNo?: number;
     gender?: 'male' | 'female';
     photoUrl?: string;
-    externalId?: string
+    externalId?: string;
+    personType?: string;
+    function?: string;
   }>
 }>) {
   const problems: string[] = [];
@@ -373,41 +393,6 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
           currentPoolId = poolId;
         }
       } else { logger.warn(`Invalid teamId/poolId for source: ${JSON.stringify(src)}`);}
-
-      // if (!usedCards) {
-      //   const apiUrl = 'apiUrl' in src && src.apiUrl ? src.apiUrl : buildKorfbalApiUrl(teamId || (src as any).teamId, poolId || (src as any).poolId);
-      //   logger.info(`HTTP GET ${apiUrl} — legacy team API`);
-      //   const resp = await fetch(apiUrl);
-      //   logger.info(`HTTP ${resp.status} GET ${apiUrl} — legacy team API`);
-      //   if (!resp.ok) {
-      //     problems.push(`Fetch failed for ${'apiUrl' in src ? src.apiUrl : JSON.stringify(src)}: ${resp.status}`);
-      //     continue;
-      //   }
-      //   payload = await resp.json().catch(() => null);
-      //   if (!payload) {
-      //     problems.push(`Invalid JSON for source ${'apiUrl' in src ? src.apiUrl : JSON.stringify(src)}`);
-      //     continue;
-      //   }
-      //
-      //   if (!payload.result) {
-      //     problems.push(`Invalid result for source ${'apiUrl' in src ? src.apiUrl : JSON.stringify(src)}`);
-      //     continue;
-      //   }
-      //   // Heuristic mapping based on observed structure
-      //   logger.info(payload?.result?.team)
-      //   baseName = payload?.result?.team?.team_name || payload?.team_name || payload?.team?.name || 'Onbekende club';
-      //   shortName = payload?.result?.team?.team_name_short || payload?.team_name_short || payload?.team?.short_name || baseName;
-      //   logoUrlRemote = payload?.result?.team?.team_image?.url || payload?.team_image?.url || payload?.team?.logo_url;
-      //   const list = payload?.result?.team?.players || payload?.players || [];
-      //   players = Array.isArray(list) ? list : [];
-      //   // derive poolId for later person enrichment
-      //   if ('apiUrl' in src && src.apiUrl) {
-      //     currentPoolId = extractIdsFromApiUrl(src.apiUrl).poolId;
-      //   } else {
-      //     currentPoolId = String((src as any).poolId || '');
-      //     if (currentPoolId === '') currentPoolId = undefined;
-      //   }
-      // }
 
       // Log how many players are present for this team payload
       try {
@@ -463,6 +448,22 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
       const gender: 'male' | 'female' | undefined = p.gender === 'F' || p.gender === 'female' ? 'female' : p.gender === 'M' || p.gender === 'male' ? 'male' : undefined;
       const extId: string | undefined = String(p.id ?? p.external_id ?? '').trim() || undefined;
       const photoRemote: string | undefined = p.image?.url || p.photo_url || undefined;
+      // Person type and function
+      const personType: string | undefined = (p.personType || '').toString() || undefined;
+      let personFunction: string | undefined = (p.function || '').toString() || undefined;
+      if (!personType || !personFunction) {
+        // Try to infer from source
+        const srcRole = (p.role || p.position || {}) as any;
+        const roleName: string | undefined = typeof srcRole === 'string' ? srcRole : (srcRole?.name || srcRole?.title || undefined);
+        const maybeCoach = (roleName || '').toLowerCase().includes('coach');
+        const inferredType = personType || (maybeCoach ? 'coach' : 'player');
+        let inferredFn = personFunction || roleName;
+        if (!inferredFn && inferredType === 'player') {
+          inferredFn = gender === 'female' ? 'Speelster' : 'Speler';
+        }
+        if (!personFunction && inferredFn) personFunction = inferredFn;
+        if (!personType && inferredType) (p as any).personType = inferredType;
+      }
 
       // // Optional enrichment via person template when we have both extId (person_id) and poolId
       // let fullName = rawFullName;
@@ -485,8 +486,7 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
         existingPlayer = await prisma.player.findFirst({
           where: {
             clubId: club.id,
-            name: rawFullName,
-            shirtNo: shirtNo ?? null
+            name: rawFullName
           }
         }).catch(() => null);
       }
@@ -498,20 +498,34 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
       }
 
       const playerData: any = {
-        clubId: club.id,
         name: rawFullName,
         shirtNo: shirtNo ?? null,
         gender: gender ?? null,
-        photoUrl: photoLocal || photoRemote || null
+        photoUrl: photoLocal || photoRemote || null,
+        personType: (p.personType || (personType ?? null)) ?? null,
+        function: (personFunction ?? null)
       };
-      logger.info(`Player ${rawFullName} (${playerData})`);
+      logger.info(`Player ${rawFullName} (${JSON.stringify(playerData)})`);
       if (extId) playerData.externalId = extId;
 
       if (existingPlayer) {
-        await prisma.player.update({where: {id: existingPlayer.id}, data: playerData});
+        await prisma.player.update({
+          where: { id: existingPlayer.id },
+          data: {
+            ...playerData,
+            // Ensure correct club relation via nested connect (clubId not writable directly)
+            club: { connect: { id: club.id } },
+          },
+        });
         playersUpdated++;
       } else {
-        await prisma.player.create({data: playerData});
+        await prisma.player.create({
+          data: {
+            ...playerData,
+            // Set relation using nested connect
+            club: { connect: { id: club.id } },
+          },
+        });
         playersCreated++;
       }
     }

@@ -79,7 +79,8 @@ model Position {
   createdAt    DateTime @default(now())
 
   // Relations
-  segmentAssignments SegmentRoleAssignment[]
+  segmentAssignments      SegmentRoleAssignment[]
+  callSheetItemPositions  CallSheetItemPosition[]
 }
 
 /// People who can be assigned roles in livestream productions
@@ -135,6 +136,7 @@ model Production {
 
   matchSchedule MatchSchedule   @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
   segments      ProductionSegment[]
+  callSheets    CallSheet[]
 }
 
 /// Segments within a production (oplopen, wedstrijd, rust, etc.)
@@ -152,6 +154,9 @@ model ProductionSegment {
 
   // Bezetting (assignments) for this segment
   bezetting      SegmentRoleAssignment[]
+
+  // Callsheet items associated with this segment
+  callSheetItems CallSheetItem[]
 
   @@index([productionId])
   @@unique([productionId, volgorde])
@@ -196,6 +201,10 @@ model Player {
   gender    Gender?
   photoUrl  String?
   externalId String?  @unique
+  /// Type van persoon binnen teamcontext, zoals 'player' of 'coach'
+  personType String?
+  /// Functie-omschrijving (bij spelers op basis van gender: Speler/Speelster; bij coaches vanuit API: bijv. Hoofd coach)
+  function   String?
   createdAt DateTime @default(now())
 
   club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
@@ -213,4 +222,57 @@ model PlayerImage {
   createdAt DateTime @default(now())
 
   @@index([subject])
+}
+
+/// Call sheet for a production
+model CallSheet {
+  id           Int       @id @default(autoincrement())
+  productionId Int
+  name         String
+  color        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  production   Production   @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  items        CallSheetItem[]
+
+  @@index([productionId])
+  @@unique([productionId, name])
+}
+
+/// Items within a call sheet, linked to a production segment and zero or more positions
+model CallSheetItem {
+  id                   String   @id // external short id like 0ba22378
+  callSheetId          Int
+  productionSegmentId  Int
+  cue                  String
+  title                String
+  note                 String?
+  color                String?
+  timeStart            DateTime?
+  timeEnd              DateTime?
+  durationSec          Int
+  orderIndex           Int       @default(0)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  callSheet            CallSheet         @relation(fields: [callSheetId], references: [id], onDelete: Cascade)
+  productionSegment    ProductionSegment @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
+  positions            CallSheetItemPosition[]
+
+  @@index([callSheetId])
+  @@index([productionSegmentId])
+}
+
+/// Join table assigning positions to a call sheet item
+model CallSheetItemPosition {
+  callSheetItemId String
+  positionId      Int
+  createdAt       DateTime @default(now())
+
+  item     CallSheetItem @relation(fields: [callSheetItemId], references: [id], onDelete: Cascade)
+  position Position      @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@id([callSheetItemId, positionId])
+  @@index([positionId])
 }

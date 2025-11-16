@@ -18,7 +18,7 @@ async function extractError(res: Response): Promise<string> {
 }
 
 export type Club = { id: number; name: string; shortName: string; slug: string; logoUrl?: string | null };
-export type Player = { id: number; clubId: number; name: string; shirtNo?: number | null; gender?: 'male' | 'female' | null; photoUrl?: string | null };
+export type Player = { id: number; clubId: number; name: string; shirtNo?: number | null; gender?: 'male' | 'female' | null; photoUrl?: string | null; personType?: string | null; function?: string | null };
 
 export function useClubs() {
   return useQuery({

@@ -9,9 +9,9 @@ context = {"preferred-group":null,"tenant":"league","pool_ids":["95865"],"team_i
 POST https://api-saas-site-prod-236.dotlab.net/general/api/get-template-data
 Content-Type: application/json
 
-{"data_key":"sportsuite_get_person_cards","context":{"preferred-group":null,"tenant":"league","pool_ids":["95865"],"team_id":"7","language":"nl","banner-size":"fullwidth","_person_position_id":"1","limit":"25"},"enable_cache":true,"is_user_specific":false}
+{"data_key":"sportsuite_get_person_cards","context":{"preferred-group":null,"tenant":"league","pool_ids":["95865"],"team_id":"5","language":"nl","banner-size":"fullwidth","_person_position_id":"1","limit":"25"},"enable_cache":true,"is_user_specific":false}
 
-### {"data_key":"sportsuite_get_person_cards","context":{"preferred-group":null,"tenant":"league","pool_ids":["95865"],"team_id":"10","language":"nl","banner-size":"fullwidth","_person_position_id":"1","limit":"25"},"enable_cache":true,"is_user_specific":false}
+### {"data_key":"sportsuite_get_person_cards","context":{"preferred-group":null,"tenant":"league","pool_ids":["95865"],"team_id":"5","language":"nl","banner-size":"fullwidth","_person_position_id":"1","limit":"25"},"enable_cache":true,"is_user_specific":false}
 
 ### {"data_key":"sportsuite_get_person_cards","context":{"preferred-group":null,"tenant":"league","pool_ids":["95865"],"team_id":"10","language":"nl","banner-size":"fullwidth","_person_position_id":"1","limit":"25"},"enable_cache":true,"is_user_specific":false}
 

@@ -125,7 +125,11 @@ export default function ProductionDetailPage() {
     <div className="container py-6 text-gray-800 dark:text-gray-100">
       <div className="flex items-center justify-between mb-3">
         <h1 className="text-xl font-semibold">Production #{id}</h1>
-        <Link to="/admin/productions" className="px-3 py-1 border rounded">Terug naar overzicht</Link>
+        <div className="flex items-center gap-2">
+          <Link to={`/admin/productions/${id}/crew-report`} className="px-3 py-1 border rounded">Crew report</Link>
+          <Link to={`/admin/productions/${id}/callsheets`} className="px-3 py-1 border rounded">Callsheets</Link>
+          <Link to="/admin/productions" className="px-3 py-1 border rounded">Terug naar overzicht</Link>
+        </div>
       </div>
 
       {isError && <div role="alert" className="text-red-600">Fout: {(error as any)?.message}</div>}

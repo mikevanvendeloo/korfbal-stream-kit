@@ -9,6 +9,10 @@ import QRAdminPage from '../pages/QRAdminPage';
 import ProductionsAdminPage from '../pages/ProductionsAdminPage';
 import ProductionDetailPage from '../pages/ProductionDetailPage';
 import ClubsPage from '../pages/ClubsPage';
+import CrewReportPage from '../pages/CrewReportPage';
+import CallSheetsPage from '../pages/CallSheetsPage';
+import CallSheetEditPage from '../pages/CallSheetEditPage';
+import ActiveProductionPage from '../pages/ActiveProductionPage';
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider';
 
 function Nav() {
@@ -26,6 +30,7 @@ function Nav() {
           <Link to="/admin/clubs" className="text-gray-700 dark:text-gray-300 hover:underline">Clubs</Link>
           <Link to="/admin/qr" className="text-gray-700 dark:text-gray-300 hover:underline">QR Generator</Link>
           <Link to="/admin/productions" className="text-gray-700 dark:text-gray-300 hover:underline">Productions</Link>
+          <Link to="/active" className="text-gray-700 dark:text-gray-300 hover:underline">Active</Link>
         </nav>
         <button onClick={toggle} className="text-sm px-3 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
           {theme === 'dark' ? 'Light' : 'Dark'} mode
@@ -52,6 +57,10 @@ export function App() {
             <Route path="/admin/qr" element={<QRAdminPage />} />
             <Route path="/admin/productions" element={<ProductionsAdminPage />} />
             <Route path="/admin/productions/:id" element={<ProductionDetailPage />} />
+            <Route path="/admin/productions/:id/crew-report" element={<CrewReportPage />} />
+            <Route path="/admin/productions/:id/callsheets" element={<CallSheetsPage />} />
+            <Route path="/admin/productions/:id/callsheets/:callSheetId" element={<CallSheetEditPage />} />
+            <Route path="/active" element={<ActiveProductionPage />} />
             <Route path="/vmix/sponsor-rows" element={<SponsorRowsPage />} />
           </Routes>
         </main>

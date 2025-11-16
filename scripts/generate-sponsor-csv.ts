@@ -10,10 +10,65 @@ Generates a CSV with columns:
 All values are filenames without the .png extension. The three sponsors in a row are distinct,
 and there is no overlap with the three sponsors in the row above or below by partitioning the
 sponsor list into three disjoint cycles.
+
+More randomness:
+- Players and sponsor logo lists are shuffled before pairing.
+- Each sponsor partition (boven/midden/onder) is also rotated by a random offset.
+
+Reproducibility:
+- You can pass a seed via CLI: --seed=12345 (any string/number). When omitted, a time-based seed is used.
 */
 
 import fs from 'node:fs';
 import path from 'node:path';
+
+// ---- CLI args & RNG utilities ----
+function parseArgs(argv: string[]) {
+  const args: Record<string, string | boolean> = {};
+  for (const a of argv.slice(2)) {
+    if (a.startsWith('--')) {
+      const [k, v] = a.replace(/^--/, '').split('=');
+      args[k] = v === undefined ? true : v;
+    }
+  }
+  return args;
+}
+
+// Simple mulberry32 PRNG based on a seed hash
+function hashSeed(input: string): number {
+  let h = 1779033703 ^ input.length;
+  for (let i = 0; i < input.length; i++) {
+    h = Math.imul(h ^ input.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return (h >>> 0) || 0x9e3779b9; // ensure non-zero
+}
+function mulberry32(seed: number) {
+  let t = seed >>> 0;
+  return function () {
+    t += 0x6d2b79f5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function shuffle<T>(arr: T[], rnd: () => number) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function rotate<T>(arr: T[], offset: number) {
+  if (arr.length === 0) return arr;
+  const n = ((offset % arr.length) + arr.length) % arr.length;
+  if (n === 0) return arr;
+  return arr.slice(n).concat(arr.slice(0, n));
+}
+
+const args = parseArgs(process.argv);
+const seedInput = String(args.seed ?? process.env.SEED ?? Date.now());
+const rnd = mulberry32(hashSeed(seedInput));
 
 // Input list from the issue
 const files = [
@@ -60,7 +115,6 @@ const files = [
   'Jumbo-336.png',
   'Jumbo-343.png',
   'Jumbo-357.png',
-  'Jumbo-368.png',
   'Jumbo-395.png',
   'Jumbo-417.png',
   'Jumbo-423.png',
@@ -73,8 +127,9 @@ function stripExt(name: string) {
 
 const isPlayer = (n: string) => /^Jumbo-\d+\.png$/i.test(n) || /^beer-geluk\.png$/i.test(n);
 
-const players = files.filter(isPlayer).map(stripExt);
-const sponsorsAll = files.filter((n) => !isPlayer(n)).map(stripExt);
+// Create independent copies for shuffling
+const players = shuffle(files.filter(isPlayer), rnd).map(stripExt);
+const sponsorsAll = shuffle(files.filter((n) => !isPlayer(n)), rnd).map(stripExt);
 
 if (players.length === 0) {
   console.error('No player images found.');
@@ -113,14 +168,22 @@ if (sponsorsTop.length === 0 || sponsorsMid.length === 0 || sponsorsBot.length =
   }
 }
 
+// Randomly rotate each partition for extra variation
+const topRot = Math.floor(rnd() * (sponsorsTop.length || 1));
+const midRot = Math.floor(rnd() * (sponsorsMid.length || 1));
+const botRot = Math.floor(rnd() * (sponsorsBot.length || 1));
+const partTop = rotate(sponsorsTop, topRot);
+const partMid = rotate(sponsorsMid, midRot);
+const partBot = rotate(sponsorsBot, botRot);
+
 function assignRow(i: number) {
-  const boven = sponsorsTop[i % sponsorsTop.length];
-  const midden = sponsorsMid[i % sponsorsMid.length];
-  const onder = sponsorsBot[i % sponsorsBot.length];
+  const boven = partTop[i % partTop.length];
+  const midden = partMid[i % partMid.length];
+  const onder = partBot[i % partBot.length];
   // Safety checks to ensure uniqueness within row
   if (new Set([boven, midden, onder]).size !== 3) {
     // Extremely unlikely with disjoint partitions; if it happens, shift one step.
-    const midden2 = sponsorsMid[(i + 1) % sponsorsMid.length];
+    const midden2 = partMid[(i + 1) % partMid.length];
     return { boven, midden: midden2, onder };
   }
   return { boven, midden, onder };

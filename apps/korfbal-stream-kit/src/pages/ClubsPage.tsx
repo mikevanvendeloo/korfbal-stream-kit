@@ -31,7 +31,7 @@ function DeleteClubButton({ slug, clubs, onDeleted }: { slug: string; clubs: Arr
           const nextSlug = next.length > 0 ? (next[idx] || next[next.length - 1]).slug : '';
           onDeleted(nextSlug);
         } catch (e) {
-           
+
           alert((e as any)?.message || 'Verwijderen mislukt');
         } finally {
           setBusy(false);
@@ -126,7 +126,7 @@ export default function ClubsPage() {
             <table className="min-w-full border border-gray-200 dark:border-gray-800 text-sm">
               <thead className="bg-gray-50 dark:bg-gray-900">
                 <tr>
-                  <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">#</th>
+                  <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800"># / Functie</th>
                   <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Foto</th>
                   <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Naam</th>
                 </tr>
@@ -134,7 +134,9 @@ export default function ClubsPage() {
               <tbody>
                 {(players.data || []).map((p) => (
                   <tr key={p.id}>
-                    <td className="p-2 border-b border-gray-200 dark:border-gray-800 w-16">{p.shirtNo ?? ''}</td>
+                    <td className="p-2 border-b border-gray-200 dark:border-gray-800 w-40">
+                      {p.personType === 'coach' ? (p.function || '') : (p.shirtNo ?? '')}
+                    </td>
                     <td className="p-2 border-b border-gray-200 dark:border-gray-800 w-16">
                       <img src={`${API_BASE}/uploads/${p.photoUrl}`} className="h-24 w-24 object-cover rounded" alt={p.name}
                            onError={(e) => {

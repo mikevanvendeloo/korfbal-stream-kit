@@ -95,6 +95,14 @@ productionRouter.post('/', async (req, res, next) => {
           skipDuplicates: true,
         });
       }
+
+      // Ensure there is always at least one callsheet for a production
+      await tx.callSheet.upsert({
+        where: { productionId_name: { productionId: p.id, name: 'Callsheet' } },
+        update: {},
+        create: { productionId: p.id, name: 'Callsheet' },
+      });
+
       return p;
     });
     return res.status(201).json(created);
@@ -487,6 +495,256 @@ productionRouter.get('/:id/timing', async (req, res, next) => {
 });
 
 
+
+// -------- Crew report --------
+productionRouter.get('/:id/crew-report', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+
+    const prod = await prisma.production.findUnique({ where: { id } });
+    if (!prod) return res.status(404).json({ error: 'Not found' });
+
+    const [segments, positions, assignments] = await Promise.all([
+      prisma.productionSegment.findMany({ where: { productionId: id }, orderBy: { volgorde: 'asc' } }),
+      prisma.position.findMany({ orderBy: { name: 'asc' } }),
+      prisma.segmentRoleAssignment.findMany({
+        where: { productionSegment: { productionId: id } },
+        include: { person: true, position: true },
+      }),
+    ]);
+
+    const cells = assignments.map((a) => ({
+      segmentId: a.productionSegmentId,
+      positionId: a.positionId,
+      personName: a.person.name,
+    }));
+
+    return res.json({ segments, positions, cells });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// -------- Callsheets --------
+// List callsheets for a production
+productionRouter.get('/:id/callsheets', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+    const prod = await prisma.production.findUnique({ where: { id } });
+    if (!prod) return res.status(404).json({ error: 'Not found' });
+
+    const items = await prisma.callSheet.findMany({ where: { productionId: id }, orderBy: { id: 'asc' } });
+    return res.json(items);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Create a callsheet for a production
+productionRouter.post('/:id/callsheets', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+
+    const name = String(req.body?.name || '').trim();
+    const color = req.body?.color != null ? String(req.body.color) : null;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+
+    const created = await prisma.callSheet.create({ data: { productionId: id, name, color: color || undefined } });
+    return res.status(201).json(created);
+  } catch (err: any) {
+    if (err?.code === 'P2003') return res.status(404).json({ error: 'Production not found' });
+    if (err?.code === 'P2002') return res.status(409).json({ error: 'Callsheet name must be unique within production' });
+    return next(err);
+  }
+});
+
+// Get a callsheet by id
+productionRouter.get('/callsheets/:callSheetId', async (req, res, next) => {
+  try {
+    const callSheetId = Number(req.params.callSheetId);
+    if (!Number.isInteger(callSheetId) || callSheetId <= 0) return res.status(400).json({ error: 'Invalid callsheet id' });
+
+    const cs = await prisma.callSheet.findUnique({
+      where: { id: callSheetId },
+      include: {
+        items: {
+          include: {
+            productionSegment: true,
+            positions: { include: { position: true } },
+          },
+          orderBy: [{ productionSegmentId: 'asc' }, { orderIndex: 'asc' }],
+        },
+      },
+    });
+    if (!cs) return res.status(404).json({ error: 'Not found' });
+
+    // Normalize positions to array of position ids
+    const norm = {
+      ...cs,
+      items: cs.items.map((it) => ({
+        ...it,
+        positionIds: it.positions.map((p) => p.positionId),
+      })),
+    } as any;
+
+    return res.json(norm);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Update a callsheet (name/color)
+productionRouter.put('/callsheets/:callSheetId', async (req, res, next) => {
+  try {
+    const callSheetId = Number(req.params.callSheetId);
+    if (!Number.isInteger(callSheetId) || callSheetId <= 0) return res.status(400).json({ error: 'Invalid callsheet id' });
+    const name = req.body?.name != null ? String(req.body.name).trim() : undefined;
+    const color = req.body?.color != null ? String(req.body.color) : undefined;
+
+    const updated = await prisma.callSheet.update({ where: { id: callSheetId }, data: { name, color } });
+    return res.json(updated);
+  } catch (err: any) {
+    if (err?.code === 'P2025') return res.status(404).json({ error: 'Not found' });
+    if (err?.code === 'P2002') return res.status(409).json({ error: 'Callsheet name must be unique within production' });
+    return next(err);
+  }
+});
+
+// Delete a callsheet
+productionRouter.delete('/callsheets/:callSheetId', async (req, res, next) => {
+  try {
+    const callSheetId = Number(req.params.callSheetId);
+    if (!Number.isInteger(callSheetId) || callSheetId <= 0) return res.status(400).json({ error: 'Invalid callsheet id' });
+    await prisma.$transaction(async (tx) => {
+      await tx.callSheetItemPosition.deleteMany({ where: { item: { callSheetId } } });
+      await tx.callSheetItem.deleteMany({ where: { callSheetId } });
+      await tx.callSheet.delete({ where: { id: callSheetId } });
+    });
+    return res.status(204).send();
+  } catch (err: any) {
+    if (err?.code === 'P2025') return res.status(404).json({ error: 'Not found' });
+    return next(err);
+  }
+});
+
+// Create an item within a callsheet
+productionRouter.post('/callsheets/:callSheetId/items', async (req, res, next) => {
+  try {
+    const callSheetId = Number(req.params.callSheetId);
+    if (!Number.isInteger(callSheetId) || callSheetId <= 0) return res.status(400).json({ error: 'Invalid callsheet id' });
+
+    const id = String(req.body?.id || '').trim();
+    const productionSegmentId = Number(req.body?.productionSegmentId);
+    const cue = String(req.body?.cue || '').trim();
+    const title = String(req.body?.title || '').trim();
+    const note = req.body?.note != null ? String(req.body.note) : null;
+    const color = req.body?.color != null ? String(req.body.color) : null;
+    const durationSec = Number(req.body?.durationSec);
+    const timeStart = req.body?.timeStart ? new Date(req.body.timeStart) : null;
+    const timeEnd = req.body?.timeEnd ? new Date(req.body.timeEnd) : null;
+    const orderIndex = req.body?.orderIndex != null ? Number(req.body.orderIndex) : 0;
+    const positionIds: number[] = Array.isArray(req.body?.positionIds) ? req.body.positionIds.map((x: any) => Number(x)).filter((x: number) => Number.isInteger(x) && x > 0) : [];
+
+    if (!id || !productionSegmentId || !cue || !title || !Number.isInteger(durationSec) || durationSec < 0) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Basic validation of segment and positions
+    const seg = await prisma.productionSegment.findUnique({ where: { id: productionSegmentId } });
+    if (!seg) return res.status(404).json({ error: 'Segment not found' });
+
+    const created = await prisma.$transaction(async (tx) => {
+      const it = await tx.callSheetItem.create({
+        data: {
+          id,
+          callSheetId,
+          productionSegmentId,
+          cue,
+          title,
+          note: note || undefined,
+          color: color || undefined,
+          timeStart: timeStart || undefined,
+          timeEnd: timeEnd || undefined,
+          durationSec,
+          orderIndex,
+        },
+      });
+
+      if (positionIds.length > 0) {
+        await tx.callSheetItemPosition.createMany({
+          data: positionIds.map((pid) => ({ callSheetItemId: it.id, positionId: pid })),
+          skipDuplicates: true,
+        });
+      }
+
+      return it;
+    });
+
+    return res.status(201).json(created);
+  } catch (err: any) {
+    if (err?.code === 'P2002') return res.status(409).json({ error: 'Item id already exists' });
+    if (err?.code === 'P2003') return res.status(404).json({ error: 'Callsheet not found' });
+    return next(err);
+  }
+});
+
+// Update an item
+productionRouter.put('/callsheet-items/:itemId', async (req, res, next) => {
+  try {
+    const itemId = String(req.params.itemId);
+    if (!itemId) return res.status(400).json({ error: 'Invalid item id' });
+
+    const data: any = {};
+    if (req.body?.productionSegmentId != null) data.productionSegmentId = Number(req.body.productionSegmentId);
+    if (req.body?.cue != null) data.cue = String(req.body.cue).trim();
+    if (req.body?.title != null) data.title = String(req.body.title).trim();
+    if (req.body?.note != null) data.note = String(req.body.note);
+    if (req.body?.color != null) data.color = String(req.body.color);
+    if (req.body?.timeStart != null) data.timeStart = req.body.timeStart ? new Date(req.body.timeStart) : null;
+    if (req.body?.timeEnd != null) data.timeEnd = req.body.timeEnd ? new Date(req.body.timeEnd) : null;
+    if (req.body?.durationSec != null) data.durationSec = Number(req.body.durationSec);
+    if (req.body?.orderIndex != null) data.orderIndex = Number(req.body.orderIndex);
+
+    const positionIds: number[] | undefined = Array.isArray(req.body?.positionIds)
+      ? req.body.positionIds.map((x: any) => Number(x)).filter((x: number) => Number.isInteger(x) && x > 0)
+      : undefined;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const it = await tx.callSheetItem.update({ where: { id: itemId }, data });
+      if (positionIds) {
+        await tx.callSheetItemPosition.deleteMany({ where: { callSheetItemId: itemId } });
+        if (positionIds.length > 0) {
+          await tx.callSheetItemPosition.createMany({ data: positionIds.map((pid) => ({ callSheetItemId: itemId, positionId: pid })) });
+        }
+      }
+      return it;
+    });
+
+    return res.json(updated);
+  } catch (err: any) {
+    if (err?.code === 'P2025') return res.status(404).json({ error: 'Not found' });
+    return next(err);
+  }
+});
+
+// Delete an item
+productionRouter.delete('/callsheet-items/:itemId', async (req, res, next) => {
+  try {
+    const itemId = String(req.params.itemId);
+    if (!itemId) return res.status(400).json({ error: 'Invalid item id' });
+    await prisma.$transaction(async (tx) => {
+      await tx.callSheetItemPosition.deleteMany({ where: { callSheetItemId: itemId } });
+      await tx.callSheetItem.delete({ where: { id: itemId } });
+    });
+    return res.status(204).send();
+  } catch (err: any) {
+    if (err?.code === 'P2025') return res.status(404).json({ error: 'Not found' });
+    return next(err);
+  }
+});
 
 // -------- Segment-level assignments --------
 // Crew persons for a segment's production (persons assigned at production level)
