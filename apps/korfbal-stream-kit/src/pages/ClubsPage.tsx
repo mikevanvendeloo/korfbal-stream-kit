@@ -115,7 +115,7 @@ export default function ClubsPage() {
               return (
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <Img src={`${API_BASE}/uploads/${club.logoUrl}`} alt={`${title} logo`} className="w-12 h-12 rounded" />
+                    <Img src={`${API_BASE}/assets/${club.logoUrl}`} alt={`${title} logo`} className="w-12 h-12 rounded" />
                     <div className="text-lg font-medium">{title}</div>
                   </div>
                   <DeleteClubButton slug={club.slug} onDeleted={(nextSlug) => setSlug(nextSlug)} clubs={clubs || []} />
@@ -138,7 +138,7 @@ export default function ClubsPage() {
                       {p.personType === 'coach' ? (p.function || '') : (p.shirtNo ?? '')}
                     </td>
                     <td className="p-2 border-b border-gray-200 dark:border-gray-800 w-16">
-                      <img src={`${API_BASE}/uploads/${p.photoUrl}`} className="h-24 w-24 object-cover rounded" alt={p.name}
+                      <img src={`${API_BASE}/assets/${p.photoUrl}`} className="h-24 w-24 object-cover rounded" alt={p.name}
                            onError={(e) => {
                              (e.currentTarget as any).style.visibility = 'hidden';
                            }}/>

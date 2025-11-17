@@ -20,6 +20,9 @@ const EnvSchema = z.object({
   SHOTCLOCK_BASE_URL: z.string().url().default('http://10.12.0.61/shotclock'),
   MATCH_SCHEDULE_BASE_URL: z.string().url().default('https://api.sportclubvrijwilligersmanagement.nl/v1'),
   MATCH_SCHEDULE_API_TOKEN: z.string().optional().or(z.literal('')).default(''),
+  // Root directory where binary assets (logos, player photos, uploads) are stored within the container/app.
+  // Default: "assets". In tests, if not set, falls back to tmp/test-assets under cwd to avoid polluting real data.
+  ASSETS_DIR: z.string().optional().default(''),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
@@ -47,6 +50,7 @@ const env = parsed.success
     SHOTCLOCK_BASE_URL: process.env.SHOTCLOCK_BASE_URL || 'http://10.12.0.61/shotclock',
     MATCH_SCHEDULE_BASE_URL: process.env.MATCH_SCHEDULE_BASE_URL || 'https://api.sportclubvrijwilligersmanagement.nl/v1',
     MATCH_SCHEDULE_API_TOKEN: process.env.MATCH_SCHEDULE_API_TOKEN || '',
+    ASSETS_DIR: process.env.ASSETS_DIR || '',
   } as any);
 
 export const config = {
@@ -58,6 +62,7 @@ export const config = {
   shotClockBaseUrl: env.SHOTCLOCK_BASE_URL as string,
   matchScheduleBaseUrl: env.MATCH_SCHEDULE_BASE_URL as string,
   matchScheduleApiToken: ((env.MATCH_SCHEDULE_API_TOKEN || '') as string),
+  assetsDir: (env.ASSETS_DIR || '') as string,
 };
 
 export function requireConfig() {
@@ -74,6 +79,25 @@ export function logConfig() {
   logger.info('Config:', {
     ...config,
     databaseUrl: config.databaseUrl ? config.databaseUrl.replace(/\/.*@/g, '***:***@') : 'not set',
-    matchScheduleApiToken: config.matchScheduleApiToken ? '***' : 'not set'
+    matchScheduleApiToken: config.matchScheduleApiToken ? '***' : 'not set',
+    assetsDir: getAssetsRoot(),
   })
+}
+
+// Returns absolute path to the assets root directory, ensuring a sensible default in tests.
+export function getAssetsRoot(): string {
+  const pathModule = require('node:path') as typeof import('node:path');
+  const fs = require('node:fs') as typeof import('node:fs');
+  // If explicitly configured, use as is (absolute or relative to cwd)
+  let dir = (config.assetsDir || '').trim();
+  if (!dir) {
+    if (config.nodeEnv === 'test') {
+      dir = pathModule.join(process.cwd(), 'tmp', 'test-assets');
+    } else {
+      dir = 'assets';
+    }
+  }
+  const abs = pathModule.isAbsolute(dir) ? dir : pathModule.join(process.cwd(), dir);
+  if (!fs.existsSync(abs)) fs.mkdirSync(abs, { recursive: true });
+  return abs;
 }

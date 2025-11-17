@@ -4,11 +4,12 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { prisma } from '../services/prisma';
 import { logger } from '../utils/logger';
+import { getAssetsRoot } from '../services/config';
 
 export const playersRouter: Router = Router();
 
-// Ensure uploads/players exists
-const uploadsRoot = path.join(process.cwd(), 'uploads');
+// Ensure assets/players exists
+const uploadsRoot = getAssetsRoot();
 const playersDir = path.join(uploadsRoot, 'players');
 if (!fs.existsSync(playersDir)) fs.mkdirSync(playersDir, { recursive: true });
 

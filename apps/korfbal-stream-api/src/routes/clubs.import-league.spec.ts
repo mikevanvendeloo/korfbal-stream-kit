@@ -1,9 +1,10 @@
 import request from 'supertest';
 import app from '../main';
-import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 // Mock prisma client methods used by the routes
 import * as prismaSvc from '../services/prisma';
+
 const prisma = (prismaSvc as any).prisma as any;
 
 // Provide a controllable global fetch
@@ -130,7 +131,7 @@ describe('Clubs import from league teams index', () => {
         let teamId = '9';
         try { const ctx = JSON.parse(decodeURIComponent(ctxParam)); teamId = String(ctx.team_id || ctx.data_entity_id || '9'); } catch {}
         const isLdodk = teamId === '9';
-        const teamName = isLdodk ? 'LDODK/Rinsma Modeplein 1' : 'Fortuna/Delta Logistiek 1';
+        const teamName = isLdodk ? 'LDODK/Rinsma Modeplein 1' : 'Fortuna/Ruitenheer 1';
         const teamShort = isLdodk ? 'LDODK' : 'Fortuna';
         const playersPayload = isLdodk
           ? [ { id: 1, fullname: 'Jan Jansen', back_number: 7, gender: 'M', image: { url: 'https://example.com/p1.jpg' } } ]

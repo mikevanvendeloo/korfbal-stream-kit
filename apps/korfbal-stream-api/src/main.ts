@@ -14,7 +14,7 @@ import {productionRouter} from './routes/production';
 import {clubsRouter} from './routes/clubs';
 import {playersRouter} from './routes/players';
 import {prisma} from './services/prisma';
-import {config, logConfig, requireConfig} from './services/config';
+import {config, logConfig, requireConfig, getAssetsRoot} from './services/config';
 import {errorHandler} from './middleware/error';
 
 const app: Express = express();
@@ -70,11 +70,11 @@ app.use((req, res, next) => {
 // Health check (also used by Docker healthcheck)
 app.get('/api/health', (_req, res) => res.status(200).send('OK'));
 
-// File uploads (store under uploads/)
-const uploadDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+// File uploads (store under assets/)
+const assetsRoot = getAssetsRoot();
+if (!fs.existsSync(assetsRoot)) fs.mkdirSync(assetsRoot, { recursive: true });
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
+  destination: (_req, _file, cb) => cb(null, assetsRoot),
   filename: (_req, file, cb) => {
     const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
     cb(null, unique + path.extname(file.originalname || '.bin'));
@@ -82,8 +82,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Serve uploads statically so frontend can reference /uploads/{...}
-app.use('/uploads', express.static(uploadDir));
+// Serve assets statically. Keep backward-compatible /uploads route.
+app.use('/assets', express.static(assetsRoot));
+app.use('/uploads', express.static(assetsRoot));
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
