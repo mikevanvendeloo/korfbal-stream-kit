@@ -87,4 +87,15 @@ describe('ProductionDetailPage segment move buttons', () => {
     expect(mutateAsync).toHaveBeenCalledTimes(1);
     expect(mutateAsync).toHaveBeenCalledWith({ id: 22, volgorde: 1 });
   });
+
+  it('does nothing when clicking move down on the last segment (no update call)', async () => {
+    renderWithRoute();
+
+    const downButtons = screen.getAllByTitle('Omlaag');
+    // Last segment's down button is the last in the list
+    const lastDown = downButtons[downButtons.length - 1];
+    fireEvent.click(lastDown);
+
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
 });

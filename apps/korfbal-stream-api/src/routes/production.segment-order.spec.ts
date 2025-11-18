@@ -141,6 +141,31 @@ describe('Production segments order (create/put shifting)', () => {
     expect(pairs).toContain('S4:5');
   });
 
+  it('inserting at position 2 when 5 segments exist shifts [2..5] to [3..6] and new is #2', async () => {
+    // Ensure we start from a clean 4, then add a 5th
+    const prismaAny = (prisma as any);
+    await prismaAny.productionSegment.create({
+      data: { id: 5, productionId: 10, naam: 'S5', volgorde: 5, duurInMinuten: 10, isTimeAnchor: false },
+    });
+
+    // Now insert new segment at volgorde 2
+    const res = await request(app)
+      .post('/api/production/10/segments')
+      .send({ naam: 'Nieuw', duurInMinuten: 3, volgorde: 2 });
+    expect(res.status).toBe(201);
+
+    const list = await request(app).get('/api/production/10/segments');
+    expect(list.status).toBe(200);
+    // Expect orders: 1:1, Nieuw:2, 2:3, 3:4, 4:5, 5:6
+    const byNameOrder = Object.fromEntries(list.body.map((s: any) => [s.naam, s.volgorde]));
+    expect(byNameOrder['S1']).toBe(1);
+    expect(byNameOrder['Nieuw']).toBe(2);
+    expect(byNameOrder['S2']).toBe(3);
+    expect(byNameOrder['S3']).toBe(4);
+    expect(byNameOrder['S4']).toBe(5);
+    expect(byNameOrder['S5']).toBe(6);
+  });
+
   it('appends a segment when no volgorde provided', async () => {
     const res = await request(app)
       .post('/api/production/10/segments')
@@ -173,5 +198,27 @@ describe('Production segments order (create/put shifting)', () => {
     expect(list2.status).toBe(200);
     const orders = list2.body.map((s: any) => `${s.id}:${s.volgorde}`).join(',');
     expect(orders).toBe('1:1,2:2,3:3,5:4,4:5');
+  });
+
+  it('clamps overly large target volgorde and still updates fields', async () => {
+    // Change S1 name and duration while requesting an out-of-range position
+    const res = await request(app)
+      .put('/api/production/segments/1')
+      .send({ naam: 'S1 changed', duurInMinuten: 15, volgorde: 999 });
+    expect(res.status).toBe(200);
+
+    // Order should be unchanged except potential move to end if target > max; since we clamp to max (=4),
+    // moving from 1 -> 4 should shift others up.
+    const list = await request(app).get('/api/production/10/segments');
+    expect(list.status).toBe(200);
+    const byId: Record<number, any> = Object.fromEntries(list.body.map((s: any) => [s.id, s]));
+
+    // Validate new order and updated fields
+    // From initial [1,2,3,4] move id=1 to end results in [2,3,4,1]
+    const orders = list.body.map((s: any) => s.id).join(',');
+    expect(orders).toBe('2,3,4,1');
+    expect(byId[1].volgorde).toBe(4);
+    expect(byId[1].naam).toBe('S1 changed');
+    expect(byId[1].duurInMinuten).toBe(15);
   });
 });
