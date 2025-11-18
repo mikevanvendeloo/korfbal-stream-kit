@@ -81,35 +81,6 @@ function pickRefereeName(item: any): string | null {
   return null;
 }
 
-/**
- * Filtert een namenlijst door alle namen en functies te verwijderen
- * vanaf de eerste persoon die een expliciete 'Functie' (met hoofdletter)
- * tussen haakjes heeft, na de achternaam.
- * * @param fullString De volledige string met namen en functies.
- * @returns De verkorte string met alleen de gewenste namen.
- */
-function filterRefereesOnly(referees: string | null): string {
-  if (!referees) return '';
-  // Regex zoekt:
-  // 1.  & (Scheidingsteken)
-  // 2.  [A-Z].*? (Initiaal en Naam, zo min mogelijk matchend)
-  // 3.  \s\([A-Z].*?\) (De cruciale functiedefinitie: spatie + '(' + Hoofdletter + ')' )
-  // 4.  .*$ (De rest van de string tot het einde)
-
-  // Voorbeeld: ' & R.M.C. (Rosemarie) Wielinga - de Winter (Juryvoorzitter)'
-  // De regex matcht vanaf de '&' bij de Juryvoorzitter.
-
-  const regex = / & [A-Z].*?\s\([^)]*?[A-Z][^)]*?\).*$/;
-
-  // Test:
-  // Onze testdata: D. (Dave) van der Meulen & A. (Albert) Klingenberg & R.M.C. (Rosemarie) Wielinga - de Winter (Juryvoorzitter) & J. (Joris) Bruyns (Schotklokbediener)
-  // De eerste persoon met de functie is R.M.C.
-  // Dit pakt: " & R.M.C. (Rosemarie) Wielinga - de Winter (Juryvoorzitter) & J. (Joris) Bruyns (Schotklokbediener)"
-
-  const cleanedString = referees.replace(regex, '');
-
-  return cleanedString;
-}
 // Normalize field display: remove everything up to and including the first '-' and trim
 function cleanField(name?: string | null): string | undefined {
   if (!name) return undefined;

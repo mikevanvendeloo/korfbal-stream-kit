@@ -20,7 +20,7 @@ function absoluteUrl(base: string, href: string): string {
 function extractTeamLinksFromIndex(html: string, baseUrl: string): string[] {
   const links = new Set<string>();
   // Find hrefs that contain "/team/" and are likely team detail pages
-  const re = /href\s*=\s*\"([^\"]*\/team\/[^\"#?]+)\"/gi;
+  const re = /href\s*=\s*"([^"]*\/team\/[^"#?]+)"/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html))) {
     const href = m[1];
@@ -290,44 +290,6 @@ function extractIdsFromApiUrl(apiUrl: string): { teamId?: string; poolId?: strin
     return {poolId: pool, teamId: team};
   } catch {
     return {};
-  }
-}
-
-// Fetch extra person details (first/last name and gender m/f) from template endpoint
-async function fetchPersonTemplate(personId: string | number, poolId: string | number): Promise<{
-  firstName?: string;
-  lastName?: string;
-  gender?: 'm' | 'f'
-} | null> {
-  try {
-    const body = {
-      data_key: 'sportsuite_get_person_config',
-      context: {
-        'preferred-group': null,
-        tenant: 'league',
-        pool_ids: [String(poolId)],
-        person_id: String(personId),
-        language: 'nl',
-      },
-      enable_cache: true,
-      is_user_specific: false,
-    } as any;
-    const resp = await fetch(KORFBAL_TEMPLATE_URL, {
-      method: 'POST',
-      headers: {'content-type': 'application/json'},
-      body: JSON.stringify(body),
-    });
-    if (!resp.ok) return null;
-    const json: any = await resp.json().catch(() => null);
-    if (!json) return null;
-    // Best-effort extraction; structure may vary
-    const first = json?.result?.person?.first_name || json?.first_name || json?.person?.first_name || undefined;
-    const last = json?.result?.person?.last_name || json?.last_name || json?.person?.last_name || undefined;
-    const graw = (json?.result?.person?.gender || json?.person?.gender || json?.gender || '').toString().toLowerCase();
-    const g: 'm' | 'f' | undefined = graw === 'm' ? 'm' : graw === 'f' ? 'f' : undefined;
-    return {firstName: first, lastName: last, gender: g};
-  } catch {
-    return null;
   }
 }
 
