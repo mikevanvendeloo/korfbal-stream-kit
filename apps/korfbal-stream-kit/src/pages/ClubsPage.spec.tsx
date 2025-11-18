@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '../theme/ThemeProvider';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {ThemeProvider} from '../theme/ThemeProvider';
 import ClubsPage from './ClubsPage';
 
 function renderWithProviders(ui: React.ReactNode) {
@@ -49,7 +49,7 @@ describe('ClubsPage', () => {
     expect(await screen.findByText('LDODK')).toBeInTheDocument();
     // Logo image should be present with alt
     const img = await screen.findByAltText('LDODK logo');
-    expect((img as HTMLImageElement).getAttribute('src') || '').toContain('/uploads/clubs/ldodk.png');
+    expect((img as HTMLImageElement).getAttribute('src') || '').toContain('/assets/clubs/ldodk.png');
   });
 
   it('can delete a club and switch selection to next', async () => {
