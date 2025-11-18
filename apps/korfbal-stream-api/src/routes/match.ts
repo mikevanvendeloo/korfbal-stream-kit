@@ -12,14 +12,14 @@ const teamColors: Record<string, string> = {
   J1: 'red',
   J2: 'red',
   J3: 'red',
-  J4: 'yellow',
+  J4: 'orange',
   J5: 'red',
   J6: 'yellow',
   J7: 'yellow',
   J8: 'yellow',
   J9: 'yellow',
   J10: 'green',
-  J11: 'yellow',
+  J11: 'green',
   J12: 'green',
   J13: 'green',
   J14: 'green',
@@ -76,9 +76,45 @@ function pickRefereeName(item: any): string | null {
   const fromAssignment: string | undefined = user?.fullName;
   if (fromAssignment && fromAssignment.trim()) return fromAssignment.trim();
   // Fallback to provider name if available and not already masked
-  const provider: string | undefined = item?.refereeProviderName;
+  const provider: string | undefined = filterOfficials(item?.refereeProviderName);
   if (provider && provider.trim() && provider !== 'Afgeschermd') return provider.trim();
+
   return null;
+}
+
+/**
+ * Filtert niet-scheidsrechter officials (zoals Juryvoorzitter, Schotklokbediener, Tijdwaarnemer)
+ * uit een string met officials, en behoudt alleen de scheidsrechters.
+ * @param officialsString De invoerstring met alle officials.
+ * @returns De string die alleen de scheidsrechters bevat.
+ */
+export function filterOfficials(officialsString?: string): string | null {
+  if (!officialsString) return null;
+  logger.info("Filtering officials from string: " + officialsString);
+  // Reguliere expressie om de rollen te matchen die je wilt verwijderen.
+  // De pattern zoekt naar:
+  // 1. Een ampersand (&) met spaties ervoor/erna (scheiding tussen officials)
+  // 2. Gevolgd door een naamstructuur (initialen/voornaam tussen haakjes)
+  // 3. En dan een van de te filteren rollen tussen haakjes.
+  // Dit patroon is ontworpen om de EERSTE match van een niet-scheidsrechter official
+  // en ALLES wat daarna komt te vangen.
+
+  // De rollen die je wilt verwijderen:
+  const rolesToFilter = [
+    'Juryvoorzitter',
+    'Schotklokbediener',
+    'Tijdwaarnemer'
+  ].join('|'); // maakt 'Juryvoorzitter|Schotklokbediener|Tijdwaarnemer'
+
+  // De regex zoekt naar de separator '&' + spaties, gevolgd door een naam en dan de rol tussen haakjes,
+  // en matched vervolgens alles wat daarna komt ($). De 's' flag zorgt ervoor dat '.' ook nieuwe regels matcht.
+  const regex = new RegExp(`\\s*&\\s*[^&]*\\((${rolesToFilter})\\).*$`, 's');
+
+  // Vervangt het gevonden deel (de eerste niet-scheidsrechter official en alles erna) door een lege string.
+  const filteredString = officialsString.replace(regex, '');
+  logger.info("Filtered officials string: " + filteredString);
+  // Extra schoonmaak: trimt eventuele overgebleven spaties of ampersands aan het einde (wat niet zou moeten gebeuren met de huidige regex, maar voor de zekerheid).
+  return filteredString.trim().replace(/[\s&]*$/, '');
 }
 
 // Normalize field display: remove everything up to and including the first '-' and trim
