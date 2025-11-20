@@ -14,6 +14,7 @@ import IconButton from '../components/IconButton';
 import {MdAdd, MdAnchor, MdArrowDownward, MdArrowUpward, MdDelete, MdEdit} from 'react-icons/md';
 import SegmentAssignmentsCard from '../components/SegmentAssignmentsCard';
 import {usePersons} from '../hooks/usePersons';
+import ProductionHeader from '../components/ProductionHeader';
 
 function timeLocal(iso: string) {
   const d = new Date(iso);
@@ -123,6 +124,13 @@ export default function ProductionDetailPage() {
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
+      <ProductionHeader productionId={id} />
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-lg font-semibold">Productiedetails</h1>
+        <div className="flex items-center gap-2">
+          <Link to={`/admin/productions/${id}/titles`} className="px-3 py-1 border rounded" aria-label="vmix-titles-link">vMix titels</Link>
+        </div>
+      </div>
       <div className="flex items-center justify-between mb-3">
         <h1 className="text-xl font-semibold">Production #{id}</h1>
         <div className="flex items-center gap-2">

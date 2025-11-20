@@ -76,8 +76,8 @@ function pickRefereeName(item: any): string | null {
   const fromAssignment: string | undefined = user?.fullName;
   if (fromAssignment && fromAssignment.trim()) return fromAssignment.trim();
   // Fallback to provider name if available and not already masked
-  const provider: string | undefined = filterOfficials(item?.refereeProviderName);
-  if (provider && provider.trim() && provider !== 'Afgeschermd') return provider.trim();
+  const provider: string | undefined | null = filterOfficials(item?.refereeProviderName);
+  if (provider?.trim() && provider !== 'Afgeschermd') return provider.trim();
 
   return null;
 }

@@ -7,7 +7,7 @@ import {logger} from './utils/logger';
 import {sponsorsRouter} from './routes/sponsors';
 import {matchRouter} from './routes/match';
 import {scoreboardRouter} from './routes/scoreboard';
-import {vmixRouter} from './routes/vmix';
+import {vmixRouter, adminVmixRouter} from './routes/vmix';
 import {personsRouter} from './routes/persons';
 import {capabilitiesRouter} from './routes/capabilities';
 import {productionRouter} from './routes/production';
@@ -119,6 +119,8 @@ app.use('/api/scoreboard', scoreboardRouter);
 
 // vMix endpoints
 app.use('/api/vmix', vmixRouter);
+// vMix admin (templates) endpoints
+app.use('/api/admin/vmix', adminVmixRouter);
 
 // OpenAPI JSON
 const openapi = {

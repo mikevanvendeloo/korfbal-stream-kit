@@ -221,8 +221,8 @@ async function fetchTeamPersonCards(teamId: string | number, poolId: string | nu
       const result = (json as any).data || json;
       const cards = result?.cards;
       const len = Array.isArray(cards) ? cards.length : Array.isArray(result?.players) ? result.players.length : 0;
-      const team = result?.team || {};
-      logger.info(`Template parsed: team_name=${team?.team_name || team?.name || 'n/a'} team_short=${team?.team_name_short || team?.short_name || 'n/a'} cards=${len}`);
+      const team = result?.cards[0].team || {};
+      logger.info(`Template parsed: team_name=${team?.club_name || team?.name || 'n/a'} team_short=${team?.team_name_short || team?.short_name || 'n/a'} cards=${len}`);
     } catch (e: any) {
       logger.error(`Failed to extract team_name/short from template response: ${e?.message || e}`);
     }
@@ -230,7 +230,7 @@ async function fetchTeamPersonCards(teamId: string | number, poolId: string | nu
     // Heuristic extraction: support a few possible shapes
     const result = (json as any).result || (json as any).data || json;
     const team = (result?.team) || (Array.isArray(result?.cards) && result.cards[0]?.team) || {};
-    const baseName = team.team_name || team.name || team.club_name || undefined;
+    const baseName = team.club_name || team.team_name || undefined;
     const shortName = team.team_name_short || team.short_name || undefined;
     const logoUrl = team.team_image?.url || team.logo?.url || team.logo_url || result.team_image?.url || undefined;
 
@@ -367,7 +367,7 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
             const team = json?.result?.team || {};
             const playersPayload = Array.isArray(team?.players) ? team.players : [];
             if (playersPayload.length > 0) {
-              baseName = team.team_name || baseName || '';
+              baseName = team.club_name || baseName || '';
               shortName = team.team_name_short || shortName || baseName || '';
               logoUrlRemote = team.team_image?.url || logoUrlRemote;
               players = playersPayload;

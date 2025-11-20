@@ -1,5 +1,4 @@
- 
-import { PrismaClient } from '@prisma/client';
+import {PrismaClient} from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -65,11 +64,18 @@ async function main() {
 
   const desiredCapabilities: Array<{ code: string; functionName: string; nameMale: string; nameFemale: string }> = [
     { code: 'REGISSEUR', functionName: 'Regie', nameMale: 'Regisseur', nameFemale: 'Regisseuse' },
-    { code: 'COMMENTATOR', functionName: 'Commentaar', nameMale: 'Commentator', nameFemale: 'Commentatrice' },
-    { code: 'PRESENTATOR', functionName: 'Presentatie', nameMale: 'Presentator', nameFemale: 'Presentatrice' },
+    { code: 'SCHERM_REGISSEUR', functionName: 'Scherm regie', nameMale: 'Regisseur', nameFemale: 'Regisseuse' },
+    { code: 'COMMENTAAR', functionName: 'Commentaar', nameMale: 'Commentator', nameFemale: 'Commentatrice' },
+    { code: 'PRESENTATIE', functionName: 'Presentatie', nameMale: 'Presentator', nameFemale: 'Presentatrice' },
     { code: 'ANALIST', functionName: 'Analist', nameMale: 'Analist', nameFemale: 'Analist' },
-    { code: 'SPELER', functionName: 'Speler', nameMale: 'Speler', nameFemale: 'Speelster' },
-    { code: 'COACH', functionName: 'Coach', nameMale: 'Coach', nameFemale: 'Coach' },
+    { code: 'GELUID', functionName: 'Geluid', nameMale: 'Geluidsman', nameFemale: 'Geluidsvrouw' },
+    { code: 'SPOTLIGHT', functionName: 'Volgspot oplopen', nameMale: 'Lichtman', nameFemale: 'Lichtvrouw' },
+    { code: 'CAMERA_OVERVIEW', functionName: 'Camera overzicht', nameMale: 'Cameraman', nameFemale: 'Cameravrouw' },
+    { code: 'CAMERA_ZOOM', functionName: 'Camera zoom', nameMale: 'Cameraman', nameFemale: 'Cameravrouw' },
+    { code: 'INTERVIEW_COORDINATOR', functionName: 'Interview coordinator', nameMale: 'Interview coordinator', nameFemale: 'Interview coordinator' },
+    { code: 'SHOW_CALLER', functionName: 'Show caller', nameMale: 'Show caller', nameFemale: 'Show caller' },
+    { code: 'HERHALINGEN', functionName: 'Herhalingen operator', nameMale: 'Herhalingen operator', nameFemale: 'Herhalingen operator' },
+
   ];
 
   console.log('Seeding capabilities catalog...');
@@ -88,14 +94,11 @@ async function main() {
     Regisseur: 'REGISSEUR',
     Regiseuze: 'REGISSEUR',
     Regisseuse: 'REGISSEUR',
-    Commentator: 'COMMENTATOR',
-    Commentatrice: 'COMMENTATOR',
-    Presentator: 'PRESENTATOR',
-    Presentatrice: 'PRESENTATOR',
+    Commentator: 'COMMENTAAR',
+    Commentatrice: 'COMMENTAAR',
+    Presentator: 'PRESENTATIE',
+    Presentatrice: 'PRESENTATIE',
     Analist: 'ANALIST',
-    Speler: 'SPELER',
-    Speelster: 'SPELER',
-    Coach: 'COACH',
   };
 
   // If ProductionFunction table exists in the DB (older schema), migrate its data
@@ -158,6 +161,7 @@ async function main() {
     'presentatie',
     'commentaar',
     'analist',
+    'interview coordinator',
   ];
   console.log('Seeding positions catalog...');
   for (const name of positions) {
@@ -166,6 +170,55 @@ async function main() {
       update: {},
       create: { name },
     });
+  }
+
+  // Seed default vMix Title Templates (global templates: productionId = null)
+  // Only create when none exist yet to avoid overwriting admin-configured templates.
+  const existingTemplateCount = await (prisma as any).titleDefinition.count({ where: { productionId: null } }).catch(() => 0);
+  if (existingTemplateCount === 0) {
+    console.log('Seeding default vMix title templates...');
+    // Helper to create a template with parts
+    let order = 1;
+    async function createTemplate(name: string, parts: Array<{ sourceType: 'COMMENTARY' | 'PRESENTATION' | 'PRESENTATION_AND_ANALIST' | 'TEAM_PLAYER' | 'TEAM_COACH'; teamSide?: 'HOME' | 'AWAY' | 'NONE'; limit?: number | null }>) {
+      const def = await (prisma as any).titleDefinition.create({
+        data: { productionId: null, name, order: order++, enabled: true },
+      });
+      for (const p of parts) {
+        await (prisma as any).titlePart.create({
+          data: {
+            titleDefinitionId: def.id,
+            sourceType: p.sourceType,
+            teamSide: (p.teamSide || 'NONE'),
+            limit: p.limit ?? null,
+            filters: null,
+          },
+        });
+      }
+    }
+
+    await createTemplate('Presentatie & analist', [
+      { sourceType: 'PRESENTATION_AND_ANALIST', teamSide: 'NONE' },
+    ]);
+    await createTemplate('Presentatie', [
+      { sourceType: 'PRESENTATION', teamSide: 'NONE' },
+    ]);
+    await createTemplate('Commentaar (allen)', [
+      { sourceType: 'COMMENTARY', teamSide: 'NONE' },
+    ]);
+    await createTemplate('Thuis speler', [
+      { sourceType: 'TEAM_PLAYER', teamSide: 'HOME' },
+    ]);
+    await createTemplate('Uit speler', [
+      { sourceType: 'TEAM_PLAYER', teamSide: 'AWAY' },
+    ]);
+    await createTemplate('Thuis coach', [
+      { sourceType: 'TEAM_COACH', teamSide: 'HOME' },
+    ]);
+    await createTemplate('Uit coach', [
+      { sourceType: 'TEAM_COACH', teamSide: 'AWAY' },
+    ]);
+  } else {
+    console.log('Skipping vMix title templates seeding: templates already exist');
   }
 
   console.log('Seeding completed.');

@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import SponsorsPage from './SponsorsPage';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '../theme/ThemeProvider';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {ThemeProvider} from '../theme/ThemeProvider';
 
 function renderWithProviders(ui: React.ReactNode) {
   const qc = new QueryClient();
@@ -89,7 +89,7 @@ it('has an Upload sponsors button that posts the Excel and refetches', async () 
     }
     return { ok: false, status: 404 } as any;
   }) as any;
-  // @ts-ignore
+  // @ts-expect-error
   global.fetch = mock;
 
   render(

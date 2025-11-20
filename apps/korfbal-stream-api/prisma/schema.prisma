@@ -68,19 +68,19 @@ model Capability {
   createdAt    DateTime @default(now())
 
   // Relations
-  capabilities       PersonCapability[]
-  assignments        MatchRoleAssignment[]
+  capabilities PersonCapability[]
+  assignments  MatchRoleAssignment[]
 }
 
 /// Catalog of production positions (distinct from capabilities)
 model Position {
-  id           Int      @id @default(autoincrement())
-  name         String   @unique
-  createdAt    DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
 
   // Relations
-  segmentAssignments      SegmentRoleAssignment[]
-  callSheetItemPositions  CallSheetItemPosition[]
+  segmentAssignments     SegmentRoleAssignment[]
+  callSheetItemPositions CallSheetItemPosition[]
 }
 
 /// People who can be assigned roles in livestream productions
@@ -134,45 +134,47 @@ model Production {
   isActive        Boolean  @default(false)
   createdAt       DateTime @default(now())
 
-  matchSchedule MatchSchedule   @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
-  segments      ProductionSegment[]
-  callSheets    CallSheet[]
+  matchSchedule     MatchSchedule       @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
+  segments          ProductionSegment[]
+  callSheets        CallSheet[]
+  TitleDefinition   TitleDefinition[]
+  interviewSubjects InterviewSubject[]
 }
 
 /// Segments within a production (oplopen, wedstrijd, rust, etc.)
 model ProductionSegment {
-  id             Int        @id @default(autoincrement())
-  productionId   Int
-  production     Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  id           Int        @id @default(autoincrement())
+  productionId Int
+  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
 
-  naam           String
-  volgorde       Int
+  naam     String
+  volgorde Int
 
   // timing
-  duurInMinuten  Int
-  isTimeAnchor   Boolean    @default(false)
+  duurInMinuten Int
+  isTimeAnchor  Boolean @default(false)
 
   // Bezetting (assignments) for this segment
-  bezetting      SegmentRoleAssignment[]
+  bezetting SegmentRoleAssignment[]
 
   // Callsheet items associated with this segment
   callSheetItems CallSheetItem[]
 
-  @@index([productionId])
   @@unique([productionId, volgorde])
+  @@index([productionId])
 }
 
 /// Assignment of a person to a position for a specific production segment
 model SegmentRoleAssignment {
-  id                  Int               @id @default(autoincrement())
+  id                  Int      @id @default(autoincrement())
   productionSegmentId Int
   personId            Int
   positionId          Int
-  createdAt           DateTime          @default(now())
+  createdAt           DateTime @default(now())
 
-  productionSegment   ProductionSegment @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
-  person              Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
-  position            Position          @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  productionSegment ProductionSegment @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
+  person            Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+  position          Position          @relation(fields: [positionId], references: [id], onDelete: Cascade)
 
   @@unique([productionSegmentId, positionId, personId])
   @@index([productionSegmentId])
@@ -182,43 +184,128 @@ model SegmentRoleAssignment {
 
 /// Clubs participating whose players can be interviewed
 model Club {
-  id         Int      @id @default(autoincrement())
-  name       String
-  shortName  String
-  slug       String   @unique
-  logoUrl    String?
-  createdAt  DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  name      String
+  shortName String
+  slug      String   @unique
+  logoUrl   String?
+  createdAt DateTime @default(now())
 
-  players    Player[]
+  players Player[]
 }
 
 /// Players belonging to a club (team roster)
 model Player {
-  id        Int      @id @default(autoincrement())
-  clubId    Int
-  name      String
-  shirtNo   Int?
-  gender    Gender?
-  photoUrl  String?
+  id         Int      @id @default(autoincrement())
+  clubId     Int
+  name       String
+  shirtNo    Int?
+  gender     Gender?
+  photoUrl   String?
   externalId String?  @unique
   /// Type van persoon binnen teamcontext, zoals 'player' of 'coach'
   personType String?
   /// Functie-omschrijving (bij spelers op basis van gender: Speler/Speelster; bij coaches vanuit API: bijv. Hoofd coach)
   function   String?
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
-  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  club              Club               @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  interviewSubjects InterviewSubject[]
 
   @@index([clubId])
   @@index([name])
 }
 
+/// ================= vMix Title Configuration =================
+
+/// Source of data for a title definition
+enum TitleSourceType {
+  COMMENTARY
+  PRESENTATION
+  PRESENTATION_AND_ANALIST
+  TEAM_PLAYER
+  TEAM_COACH
+  FREE_TEXT
+}
+
+/// Team side selector for parts that need a club context
+enum TeamSide {
+  HOME
+  AWAY
+  NONE
+}
+
+/// Interview role for explicit selection per team
+enum InterviewRole {
+  PLAYER
+  COACH
+}
+
+/// A configurable title definition for a production (or a reusable template when productionId is null)
+model TitleDefinition {
+  id           Int      @id @default(autoincrement())
+  productionId Int?
+  name         String
+  order        Int      @default(1)
+  enabled      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  production        Production?        @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  parts             TitlePart[]
+  interviewSubjects InterviewSubject[]
+
+  @@index([productionId, order])
+}
+
+/// A part describes how to assemble a definition from various sources
+model TitlePart {
+  id                Int             @id @default(autoincrement())
+  titleDefinitionId Int
+  sourceType        TitleSourceType
+  teamSide          TeamSide        @default(NONE)
+  limit             Int?
+  filters           Json?
+  /// For FREE_TEXT parts only
+  customFunction    String?
+  customName        String?
+
+  // Relations
+  definition TitleDefinition @relation(fields: [titleDefinitionId], references: [id], onDelete: Cascade)
+
+  @@index([titleDefinitionId])
+}
+
+/// Explicit interview subject selection per production & team side (optionally per title)
+model InterviewSubject {
+  id                Int           @id @default(autoincrement())
+  productionId      Int
+  side              TeamSide
+  role              InterviewRole
+  playerId          Int
+  titleDefinitionId Int?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  production      Production       @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  player          Player           @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  titleDefinition TitleDefinition? @relation(fields: [titleDefinitionId], references: [id])
+
+  // Allow only one selection per production/side/role per specific title. Generic (null titleDefinitionId)
+  // duplicates are prevented at API level (partial unique is not supported in Prisma).
+  @@unique([productionId, side, role, titleDefinitionId])
+  @@index([productionId])
+  @@index([playerId])
+  @@index([titleDefinitionId])
+}
 
 /// Player images to be used in vMix sponsor rows
 model PlayerImage {
   id        Int      @id @default(autoincrement())
-  subject   String   // e.g., Jumbo-099 or beer-geluk
-  filename  String   // stored file name under uploads/players
+  subject   String // e.g., Jumbo-099 or beer-geluk
+  filename  String // stored file name under uploads/players
   createdAt DateTime @default(now())
 
   @@index([subject])
@@ -226,39 +313,39 @@ model PlayerImage {
 
 /// Call sheet for a production
 model CallSheet {
-  id           Int       @id @default(autoincrement())
+  id           Int      @id @default(autoincrement())
   productionId Int
   name         String
   color        String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  production   Production   @relation(fields: [productionId], references: [id], onDelete: Cascade)
-  items        CallSheetItem[]
+  production Production      @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  items      CallSheetItem[]
 
-  @@index([productionId])
   @@unique([productionId, name])
+  @@index([productionId])
 }
 
 /// Items within a call sheet, linked to a production segment and zero or more positions
 model CallSheetItem {
-  id                   String   @id // external short id like 0ba22378
-  callSheetId          Int
-  productionSegmentId  Int
-  cue                  String
-  title                String
-  note                 String?
-  color                String?
-  timeStart            DateTime?
-  timeEnd              DateTime?
-  durationSec          Int
-  orderIndex           Int       @default(0)
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  id                  String    @id // external short id like 0ba22378
+  callSheetId         Int
+  productionSegmentId Int
+  cue                 String
+  title               String
+  note                String?
+  color               String?
+  timeStart           DateTime?
+  timeEnd             DateTime?
+  durationSec         Int
+  orderIndex          Int       @default(0)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  callSheet            CallSheet         @relation(fields: [callSheetId], references: [id], onDelete: Cascade)
-  productionSegment    ProductionSegment @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
-  positions            CallSheetItemPosition[]
+  callSheet         CallSheet               @relation(fields: [callSheetId], references: [id], onDelete: Cascade)
+  productionSegment ProductionSegment       @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
+  positions         CallSheetItemPosition[]
 
   @@index([callSheetId])
   @@index([productionSegmentId])
