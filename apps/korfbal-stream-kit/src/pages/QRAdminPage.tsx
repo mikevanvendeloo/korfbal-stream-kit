@@ -142,7 +142,7 @@ export default function QRAdminPage() {
           <div className="text-sm text-gray-500 mb-2">Voorbeeld</div>
           <div className="bg-white p-2 inline-block">
             {valid ? (
-              <QRCode ref={svgRef as any} value={qrValue} size={size} fgColor="#000000" bgColor="#ffffff" />
+              <QRCode ref={svgRef as any} value={qrValue} size={size} fgColor="#000000" bgColor="#ffffff" className={'qr-code'}/>
             ) : (
               <div className="w-[256px] h-[256px] flex items-center justify-center text-gray-400">Geen geldige invoer</div>
             )}

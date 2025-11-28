@@ -3,7 +3,7 @@ import {fireEvent, render, screen} from '@testing-library/react';
 import QRAdminPage from './QRAdminPage';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {ThemeProvider} from '../theme/ThemeProvider';
-import {document} from "postcss";
+
 
 function renderWithProviders(ui: React.ReactNode) {
   const qc = new QueryClient();
@@ -39,7 +39,10 @@ describe('QRAdminPage', () => {
     // An SVG should be present when valid
     const svgEl = await screen.findByRole('img', { hidden: true }).catch(() => null);
     // react-qr-code does not set role, fallback to querying svg element
-    const svg = document.querySelector('svg');
+    const svg = window.document.querySelector('svg');
+
+      expect(svg).toBeInTheDocument();
+
     expect(svg).toBeTruthy();
 
     // Mock anchor click
@@ -59,7 +62,7 @@ describe('QRAdminPage', () => {
     fireEvent.change(emailInput, { target: { value: 'user@example.com' } });
 
     // SVG should appear for valid email (mailto:)
-    const svg = document.querySelector('svg');
+    const svg = window.document.querySelector('svg');
     expect(svg).toBeTruthy();
   });
 });
