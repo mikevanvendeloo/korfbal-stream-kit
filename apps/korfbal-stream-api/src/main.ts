@@ -8,6 +8,7 @@ import {sponsorsRouter} from './routes/sponsors';
 import {matchRouter} from './routes/match';
 import {scoreboardRouter} from './routes/scoreboard';
 import {vmixRouter, adminVmixRouter} from './routes/vmix';
+import {settingsRouter} from './routes/settings';
 import {personsRouter} from './routes/persons';
 import {capabilitiesRouter} from './routes/capabilities';
 import {productionRouter} from './routes/production';
@@ -110,6 +111,9 @@ app.use('/api/production', productionRouter);
 
 // Players (images) endpoints
 app.use('/api/players', playersRouter);
+
+// Settings endpoints
+app.use('/api/settings', settingsRouter);
 
 // Match endpoints
 app.use('/api/match', matchRouter);

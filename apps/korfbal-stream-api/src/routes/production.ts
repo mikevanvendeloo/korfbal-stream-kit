@@ -1,4 +1,8 @@
 import {Router} from 'express';
+import multer from 'multer';
+import path from 'node:path';
+import fs from 'node:fs';
+import * as XLSX from 'xlsx';
 import {capabilitiesRouter} from './capabilities';
 import {personsRouter} from './persons';
 import {prisma} from '../services/prisma';
@@ -19,6 +23,9 @@ const DEFAULT_TEAM_FILTERS = [
 ];
 
 export const productionRouter: Router = Router();
+
+// Multer memory storage for Excel upload (used by callsheet import)
+const uploadMem = multer({ storage: multer.memoryStorage() });
 
 // Nest existing routers under production namespace
 productionRouter.use('/capabilities', capabilitiesRouter);
@@ -1165,6 +1172,202 @@ productionRouter.delete('/callsheet-items/:itemId', async (req, res, next) => {
     return res.status(204).send();
   } catch (err: any) {
     if (err?.code === 'P2025') return res.status(404).json({ error: 'Not found' });
+    return next(err);
+  }
+});
+
+// Import a callsheet from an Excel template
+// POST /api/production/:id/callsheets/import-excel
+// Accepts multipart/form-data with field name "file" containing an .xlsx file.
+// If no file uploaded, attempts to read a default template.xlsx from the API app root.
+productionRouter.post('/:id/callsheets/import-excel', uploadMem.single('file'), async (req, res, next) => {
+  try {
+    const productionId = Number(req.params.id);
+    if (!Number.isInteger(productionId) || productionId <= 0) return res.status(400).json({ error: 'Invalid id' });
+
+    const prod = await prisma.production.findUnique({ where: { id: productionId } });
+    if (!prod) return res.status(404).json({ error: 'Production not found' });
+
+    let buffer: Buffer | null = null;
+    if (req.file?.buffer) {
+      buffer = req.file.buffer;
+    } else {
+      const fallbackPath = path.join(process.cwd(), 'apps', 'korfbal-stream-api', 'template.xlsx');
+      if (fs.existsSync(fallbackPath)) buffer = fs.readFileSync(fallbackPath);
+    }
+    if (!buffer) return res.status(400).json({ error: 'No file provided and default template.xlsx not found' });
+
+    const wb = XLSX.read(buffer, { type: 'buffer' });
+    const sheetName = wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    if (!ws) return res.status(400).json({ error: 'Workbook has no sheets' });
+
+    const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ error: 'No data rows found in sheet' });
+    }
+
+    // Fetch segments and positions upfront for fast lookup
+    const [segments, allPositions] = await Promise.all([
+      prisma.productionSegment.findMany({ where: { productionId }, orderBy: { volgorde: 'asc' } }),
+      prisma.position.findMany({}),
+    ]);
+    const segByName = new Map<string, { id: number; naam: string; volgorde: number }>();
+    for (const s of segments as any[]) segByName.set((s.naam || '').toString().trim().toLowerCase(), s);
+    const posByName = new Map<string, { id: number; name: string }>();
+    for (const p of allPositions as any[]) posByName.set((p.name || '').toString().trim().toLowerCase(), p);
+
+    const normKey = (k: string) => k.toString().trim().toLowerCase().replace(/\s+|[_-]+/g, '');
+
+    type Parsed = {
+      productionSegmentId: number;
+      id: string;
+      cue: string;
+      title: string;
+      note?: string | null;
+      color?: string | null;
+      timeStart?: Date | null;
+      timeEnd?: Date | null;
+      durationSec: number;
+      orderIndex: number;
+      positionNames: string[];
+    };
+
+    const problems: string[] = [];
+    const parsed: Parsed[] = [];
+
+    const parseDuration = (v: any): number | null => {
+      if (v == null) return null;
+      if (typeof v === 'number' && Number.isFinite(v)) return Math.round(v);
+      const s = String(v).trim();
+      if (!s) return null;
+      // Allow mm:ss
+      const m = s.match(/^(\d+):(\d{1,2})$/);
+      if (m) return parseInt(m[1]) * 60 + parseInt(m[2]);
+      const n = Number(s.replace(/[,]/g, '.'));
+      if (Number.isFinite(n)) return Math.round(n);
+      return null;
+    };
+
+    const toDateMaybe = (v: any): Date | null => {
+      if (v == null || v === '') return null;
+      if (v instanceof Date) return v;
+      // XLSX may provide Excel date numbers
+      if (typeof v === 'number') {
+        const d = XLSX.SSF ? XLSX.SSF.parse_date_code?.(v as any) : null;
+        if (d && typeof d === 'object' && 'y' in d) {
+          const dd = new Date(Date.UTC((d as any).y, (d as any).m - 1, (d as any).d, (d as any).H || 0, (d as any).M || 0, (d as any).S || 0));
+          return dd;
+        }
+      }
+      const s = String(v);
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    const genId = () => Math.random().toString(16).slice(2, 10);
+
+    rows.forEach((row, idx) => {
+      const headers = Object.keys(row);
+      const map: Record<string, any> = {};
+      for (const hk of headers) map[normKey(hk)] = row[hk];
+
+      const segName = (map[normKey('segment')] ?? map[normKey('segmentnaam')] ?? map[normKey('segmentname')] ?? '').toString().trim();
+      const cue = (map[normKey('cue')] ?? '').toString().trim();
+      const title = (map[normKey('title')] ?? map[normKey('titel')] ?? '').toString().trim();
+      const note = map[normKey('note')] ?? map[normKey('opmerking')] ?? '';
+      const color = map[normKey('color')] ?? map[normKey('kleur')] ?? '';
+      const timeStart = toDateMaybe(map[normKey('timestart')] ?? map[normKey('start')] ?? map[normKey('starttijd')]);
+      const timeEnd = toDateMaybe(map[normKey('timeend')] ?? map[normKey('end')] ?? map[normKey('eindtijd')]);
+      const durationSec = parseDuration(map[normKey('duration')] ?? map[normKey('duur')] ?? map[normKey('durationsec')] ?? map[normKey('duursec')]);
+      const orderIndex = Number(map[normKey('order')] ?? map[normKey('volgorde')] ?? map[normKey('index')] ?? 0) || 0;
+      const idCell = (map[normKey('id')] ?? '').toString().trim();
+      const positionsRaw = (map[normKey('positions')] ?? map[normKey('posities')] ?? map[normKey('position')] ?? map[normKey('positie')] ?? '').toString();
+      const positionNames = positionsRaw
+        .split(/[,;]+/)
+        .map((s: string) => s.trim())
+        .filter((s: string) => !!s);
+
+      const rowNo = idx + 2; // +2 for header baseline in Excel
+      if (!segName || !cue || !title || durationSec == null) {
+        problems.push(`Row ${rowNo}: missing required fields (segment/cue/title/duration)`);
+        return;
+      }
+
+      const seg = segByName.get(segName.toLowerCase());
+      if (!seg) {
+        problems.push(`Row ${rowNo}: unknown segment '${segName}'`);
+        return;
+      }
+
+      parsed.push({
+        productionSegmentId: (seg as any).id,
+        id: idCell || genId(),
+        cue,
+        title,
+        note: note ? String(note) : null,
+        color: color ? String(color) : null,
+        timeStart,
+        timeEnd,
+        durationSec: durationSec!,
+        orderIndex,
+        positionNames,
+      });
+    });
+
+    if (parsed.length === 0) {
+      return res.status(400).json({ error: 'No valid rows to import', problems });
+    }
+
+    const callSheetName = (req.body?.name ? String(req.body.name) : 'Callsheet import').trim() || 'Callsheet import';
+    const callSheetColor = req.body?.color != null ? String(req.body.color) : undefined;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const cs = await tx.callSheet.create({ data: { productionId, name: callSheetName, color: callSheetColor } });
+
+      for (const it of parsed) {
+        const created = await tx.callSheetItem.create({
+          data: {
+            id: it.id,
+            callSheetId: cs.id,
+            productionSegmentId: it.productionSegmentId,
+            cue: it.cue,
+            title: it.title,
+            note: it.note || undefined,
+            color: it.color || undefined,
+            timeStart: it.timeStart || undefined,
+            timeEnd: it.timeEnd || undefined,
+            durationSec: it.durationSec,
+            orderIndex: it.orderIndex,
+          },
+        });
+
+        if (it.positionNames.length > 0) {
+          // Ensure positions exist
+          const ids: number[] = [];
+          for (const name of it.positionNames) {
+            const key = name.trim().toLowerCase();
+            let p = posByName.get(key);
+            if (!p) {
+              p = await tx.position.create({ data: { name } });
+              posByName.set(key, p as any);
+            }
+            ids.push((p as any).id);
+          }
+          if (ids.length > 0) {
+            await tx.callSheetItemPosition.createMany({
+              data: ids.map((pid) => ({ callSheetItemId: created.id, positionId: pid })),
+              skipDuplicates: true,
+            });
+          }
+        }
+      }
+
+      return cs;
+    });
+
+    return res.status(201).json({ ok: true, callSheet: result, items: parsed.length, problems });
+  } catch (err) {
     return next(err);
   }
 });

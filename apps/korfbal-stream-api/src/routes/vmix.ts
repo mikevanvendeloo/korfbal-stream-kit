@@ -1,4 +1,5 @@
 import {Router} from 'express';
+import axios from 'axios';
 import {prisma} from '../services/prisma';
 import {findClubByTeamName} from '../utils/clubs';
 import {logger} from '../utils/logger';
@@ -9,9 +10,38 @@ import {
   ReorderTitleDefinitionsSchema,
   UpdateTitleDefinitionSchema
 } from '../schemas/title';
+import {buildVmixApiUrl, getVmixUrl} from '../services/appSettings';
 
 export const vmixRouter: Router = Router();
 export const adminVmixRouter: Router = Router();
+
+// ---------------- vMix control endpoints ----------------
+// POST /api/vmix/set-timer  { seconds: number }
+vmixRouter.post('/set-timer', async (req, res, next) => {
+  try {
+    const secondsRaw = Number(req.body?.seconds);
+    if (!Number.isFinite(secondsRaw) || secondsRaw <= 0) {
+      return res.status(400).json({ error: 'seconds must be a positive number' });
+    }
+    const secs = Math.round(secondsRaw);
+    const mm = String(Math.floor(secs / 60)).padStart(2, '0');
+    const ss = String(secs % 60).padStart(2, '0');
+    const value = `${mm}:${ss}`;
+
+    const base = await getVmixUrl();
+    if (!base) {
+      return res.status(400).json({ error: 'vMix Web URL is not configured' });
+    }
+    // vMix Web Controller API: SetCountdown expects Value=mm:ss
+    const url = buildVmixApiUrl(base, `Function=SetCountdown&Value=${encodeURIComponent(value)}`);
+    const response = await axios.get(url, { timeout: 2000 });
+
+    return res.json({ ok: true, seconds: secs, vmixResponse: typeof response.data === 'string' ? response.data : undefined });
+  } catch (err) {
+    if (axios.isAxiosError(err)) { return res.status(err.response?.status ?? 500).json({ message: err.message, url: err.config?.url});}
+    return next(err);
+  }
+});
 
 // POST /api/vmix/sponsor-rows
 // Body: { sponsorIds?: number[]; seed?: string | number }
@@ -119,7 +149,7 @@ vmixRouter.post('/sponsor-rows', async (req, res, next) => {
       const partBot = rotate(sponsorsBot, botRot);
 
       return function assignRowPartitioned(i: number, prevSet?: Set<string>) {
-        let image1 = partTop[i % partTop.length];
+        const image1 = partTop[i % partTop.length];
         let image2 = partMid[i % partMid.length];
         let image3 = partBot[i % partBot.length];
         // Ensure uniqueness within row

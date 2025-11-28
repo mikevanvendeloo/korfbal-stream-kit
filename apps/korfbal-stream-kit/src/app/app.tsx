@@ -16,6 +16,7 @@ import CallSheetEditPage from '../pages/CallSheetEditPage';
 import ActiveProductionPage from '../pages/ActiveProductionPage';
 import { ThemeProvider, useTheme } from '../theme/ThemeProvider';
 import VmixTemplatesPage from '../pages/VmixTemplatesPage';
+import VmixControlPage from '../pages/VmixControlPage';
 
 function Nav() {
   const { theme, toggle } = useTheme();
@@ -33,6 +34,7 @@ function Nav() {
           <Link to="/admin/qr" className="text-gray-700 dark:text-gray-300 hover:underline">QR Generator</Link>
           <Link to="/admin/productions" className="text-gray-700 dark:text-gray-300 hover:underline">Productions</Link>
           <Link to="/admin/vmix/title-templates" className="text-gray-700 dark:text-gray-300 hover:underline">vMix titles</Link>
+          <Link to="/admin/vmix/control" className="text-gray-700 dark:text-gray-300 hover:underline">vMix control</Link>
           <Link to="/active" className="text-gray-700 dark:text-gray-300 hover:underline">Active</Link>
         </nav>
         <button onClick={toggle} className="text-sm px-3 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -67,6 +69,7 @@ export function App() {
             <Route path="/active" element={<ActiveProductionPage />} />
             <Route path="/vmix/sponsor-rows" element={<SponsorRowsPage />} />
             <Route path="/admin/vmix/title-templates" element={<VmixTemplatesPage />} />
+            <Route path="/admin/vmix/control" element={<VmixControlPage />} />
           </Routes>
         </main>
       </div>

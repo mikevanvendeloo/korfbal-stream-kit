@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import {render, screen, waitFor} from '@testing-library/react';
+import {BrowserRouter} from 'react-router-dom';
 import ScoreboardPage from './ScoreboardPage';
 
 // Helper to mock fetch responses by URL
@@ -28,7 +28,7 @@ function setupFetchMock() {
     }
     return { ok: false, status: 404 } as any;
   });
-  // @ts-ignore
+  // @ts-expect-error
   global.fetch = mock;
   return { restore: () => (global.fetch = original), mock };
 }

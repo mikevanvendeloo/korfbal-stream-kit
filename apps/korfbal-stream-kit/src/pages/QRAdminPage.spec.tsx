@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {fireEvent, render, screen} from '@testing-library/react';
 import QRAdminPage from './QRAdminPage';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '../theme/ThemeProvider';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {ThemeProvider} from '../theme/ThemeProvider';
+import {document} from "postcss";
 
 function renderWithProviders(ui: React.ReactNode) {
   const qc = new QueryClient();
@@ -20,15 +21,15 @@ describe('QRAdminPage', () => {
 
   it('renders QR for a valid URL and allows SVG download', async () => {
     // JSDOM lacks URL.createObjectURL; stub it for the download flow
-    // @ts-ignore
+    // @ts-expect-error
     if (!global.URL.createObjectURL) {
-      // @ts-ignore
+      // @ts-expect-error
       global.URL.createObjectURL = vi.fn(() => 'blob:mock');
     }
-    // @ts-ignore
+    // @ts-expect-error
     if (!global.URL.revokeObjectURL) {
-      // @ts-ignore
-      global.URL.revokeObjectURL = vi.fn(() => {});
+      // @ts-expect-error
+      global.URL.revokeObjectURL = vi.fn(() => { /* empty */ });
     }
     renderWithProviders(<QRAdminPage />);
 

@@ -23,7 +23,9 @@ describe('Production interviews API', () => {
     // Clubs
     prisma.club = {
       findFirst: vi.fn(async ({ where }: any) => {
-        const name = (where?.OR?.[0]?.shortName?.equals || where?.OR?.[1]?.name?.equals || '').toLowerCase();
+        const shortNameClause = where?.OR?.[0]?.shortName;
+        const nameClause = where?.OR?.[1]?.name;
+        const name = (shortNameClause?.equals || shortNameClause?.startsWith || nameClause?.equals || nameClause?.startsWith || '').toLowerCase();
         if (name.includes('fortuna')) return { id: 1, name: 'Fortuna/Ruitenheer', shortName: 'Fortuna' };
         if (name.includes('dalto')) return { id: 2, name: 'Dalto/Klaverblad Verzekeringen', shortName: 'Dalto' };
         return null;

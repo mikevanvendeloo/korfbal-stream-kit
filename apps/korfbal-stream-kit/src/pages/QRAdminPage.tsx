@@ -1,7 +1,7 @@
 import React from 'react';
 import QRCode from 'react-qr-code';
 import IconButton from '../components/IconButton';
-import { MdDownload, MdContentCopy } from 'react-icons/md';
+import {MdContentCopy, MdDownload} from 'react-icons/md';
 
 function isValidUrl(s: string): boolean {
   try {
@@ -94,7 +94,7 @@ export default function QRAdminPage() {
 
   function copyValue() {
     if (!qrValue) return;
-    navigator.clipboard?.writeText(qrValue).catch(() => {});
+    navigator.clipboard?.writeText(qrValue).catch(() => { /* empty */ });
   }
 
   return (

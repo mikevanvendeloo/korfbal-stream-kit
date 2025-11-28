@@ -363,3 +363,11 @@ model CallSheetItemPosition {
   @@id([callSheetItemId, positionId])
   @@index([positionId])
 }
+
+/// Application-level settings (simple key/value store)
+model AppSetting {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

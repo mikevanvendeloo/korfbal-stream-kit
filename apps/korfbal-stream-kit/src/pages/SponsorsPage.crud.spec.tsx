@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '../theme/ThemeProvider';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {ThemeProvider} from '../theme/ThemeProvider';
 import SponsorsPage from './SponsorsPage';
 
 function renderWithProviders(ui: React.ReactNode) {
@@ -71,8 +71,8 @@ describe('SponsorsPage CRUD', () => {
     });
 
     // Verify that BV was stripped in the payload
-    const post = calls.find((c) => c.method === 'POST' && c.url.includes('/api/sponsors'))!;
-    expect(JSON.parse(post.body!).name).toBe('ACME');
+    const post = calls.find((c) => c.method === 'POST' && c.url.includes('/api/sponsors'));
+    expect(JSON.parse(post.body).name).toBe('ACME');
   });
 
   it('can edit and delete a sponsor', async () => {

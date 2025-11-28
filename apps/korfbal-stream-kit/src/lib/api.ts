@@ -1,3 +1,5 @@
+import {logger} from "nx/src/utils/logger";
+
 export type Sponsor = {
   id: number;
   name: string;
@@ -57,6 +59,45 @@ export type ProgramMatch = {
 export type MatchSchedule = ProgramMatch;
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3333';
+
+// -------- Settings: vMix Web URL --------
+export type VmixSettings = { vmixWebUrl: string | null };
+
+export async function getVmixSettings(): Promise<VmixSettings> {
+  const url = new URL('/api/settings/vmix-url', API_BASE || window.location.origin);
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`Failed to load vMix settings: ${res.status}`);
+  return res.json();
+}
+
+export async function setVmixSettings(vmixWebUrl: string): Promise<VmixSettings> {
+  const url = new URL('/api/settings/vmix-url', API_BASE || window.location.origin);
+  const res = await fetch(url.toString(), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ vmixWebUrl }),
+  });
+  if (!res.ok) throw new Error(`Failed to save vMix settings: ${res.status}`);
+  return res.json();
+}
+
+export async function vmixSetTimer(seconds: number): Promise<{ ok: boolean; seconds: number }>
+{
+
+  const url = new URL('/api/vmix/set-timer', API_BASE || window.location.origin);
+  logger.info(`Setting vMix timer to ${JSON.stringify({ seconds: seconds })} seconds`);
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ seconds: seconds }),
+  });
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(`Failed to set timer: ${res.status} ${msg}`);
+  }
+  logger.info(res.statusText);
+  return res.json();
+}
 
 export async function fetchSponsors(params: { type?: Sponsor['type']; page?: number; limit?: number } = {}): Promise<Paginated<Sponsor>> {
   const url = new URL('/api/sponsors', API_BASE || window.location.origin);

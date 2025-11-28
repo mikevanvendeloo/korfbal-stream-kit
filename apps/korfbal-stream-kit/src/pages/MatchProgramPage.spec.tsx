@@ -1,5 +1,5 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {BrowserRouter} from 'react-router-dom';
 import MatchSchedulePage from './MatchSchedulePage';
 
 function setupFetchMock() {
@@ -154,7 +154,7 @@ it('triggers import with default params and refreshes the list', async () => {
     }
     return { ok: false, status: 404 } as any;
   }) as any;
-  // @ts-ignore
+  // @ts-expect-error
   global.fetch = fetchMock;
 
   render(
