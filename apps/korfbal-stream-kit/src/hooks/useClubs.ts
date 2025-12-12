@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiUrl as url } from '../config/env';
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import {apiUrl as url} from '../config/env';
 
 async function extractError(res: Response): Promise<string> {
   try {
@@ -11,7 +11,7 @@ async function extractError(res: Response): Promise<string> {
       const text = await res.text();
       if (text) return text;
     }
-  } catch {}
+  } catch { /* empty */ }
   return `Request failed (${res.status})`;
 }
 

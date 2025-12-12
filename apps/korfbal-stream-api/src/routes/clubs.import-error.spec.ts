@@ -1,12 +1,12 @@
 import request from 'supertest';
 import app from '../main';
-import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 // Mock prisma client methods used by the routes
 import * as prismaSvc from '../services/prisma';
-const prisma = (prismaSvc as any).prisma as any;
-
 import * as loggerMod from '../utils/logger';
+
+const prisma = (prismaSvc as any).prisma as any;
 
 // Provide a controllable global fetch
 const g: any = globalThis as any;
@@ -43,7 +43,7 @@ describe('Clubs import logs error on template HTTP error', () => {
       if (url.includes('/team/ldodk-1/')) {
         // Provide data-layout_context so ids can be extracted
         const ctx = { tenant: 'league', pool_ids: ['95865'], team_id: '9', language: 'nl' };
-        const dataAttr = JSON.stringify(ctx).replace(/\"/g, '&quot;').replace(/"/g, '&quot;');
+        const dataAttr = JSON.stringify(ctx).replace(/"/g, '&quot;').replace(/"/g, '&quot;');
         const html = `<div class="page-wrapper" data-layout_context="${dataAttr}">Team</div>`;
         return new Response(html, { status: 200, headers: { 'content-type': 'text/html' } }) as any;
       }
@@ -59,7 +59,7 @@ describe('Clubs import logs error on template HTTP error', () => {
       return new Response(new Uint8Array([137,80,78,71]), { status: 200, headers: { 'content-type': 'image/png' } }) as any;
     });
 
-    vi.spyOn(logger, 'error').mockImplementation(() => {});
+    vi.spyOn(logger, 'error').mockImplementation(() => { /* empty */ });
   });
 
   afterEach(() => {

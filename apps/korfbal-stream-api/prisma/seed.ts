@@ -125,7 +125,7 @@ async function main() {
         // Upsert new relation and delete old row
         try {
           await prisma.personCapability.create({ data: { personId: (pc as any).personId, capabilityId } as any });
-        } catch {}
+        } catch { /* empty */ }
         await prisma.personCapability.delete({ where: { personId_capabilityId: { personId: (pc as any).personId, capabilityId } } }).catch(() => {});
       }
 
@@ -139,7 +139,7 @@ async function main() {
         if (!capabilityId) continue;
         try {
           await prisma.matchRoleAssignment.update({ where: { id: mr.id }, data: { capabilityId } as any });
-        } catch {}
+        } catch { /* empty */ }
       }
       console.log('Migration from ProductionFunction completed (best-effort).');
     }
@@ -197,7 +197,7 @@ async function main() {
     if (!capId) continue;
     try {
       await prisma.position.update({ where: { name }, data: { capabilityId: capId } });
-    } catch {}
+    } catch { /* empty */ }
   }
 
   // Seed a default template for Voorbeschouwing if not configured
