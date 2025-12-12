@@ -1,5 +1,5 @@
 import React from 'react';
-import {usePersons} from '../hooks/usePersons';
+import {useCapabilitiesCatalog} from '../hooks/usePersons';
 import {usePositionsCatalog} from '../hooks/usePositions';
 import {
   ProductionSegment,
@@ -8,6 +8,7 @@ import {
   useCrewPersonsForSegment,
   useDeleteSegmentAssignment,
   useSegmentAssignments,
+  useSegmentDefaultPositions,
 } from '../hooks/useProductions';
 import IconButton from './IconButton';
 import {MdContentCopy, MdDelete} from 'react-icons/md';
@@ -26,9 +27,10 @@ export default function SegmentAssignmentsCard({
   const add = useAddSegmentAssignment(segment.id);
   const del = useDeleteSegmentAssignment(segment.id);
   const copyMut = useCopySegmentAssignments(segment.id);
-  const persons = usePersons({ page: 1, limit: 200 });
   const crew = useCrewPersonsForSegment(segment.id);
   const positions = usePositionsCatalog();
+  const defs = useSegmentDefaultPositions(segment.id);
+  const caps = useCapabilitiesCatalog();
 
   const [personId, setPersonId] = React.useState<number | ''>('');
   const [positionId, setPositionId] = React.useState<number | ''>('');
@@ -36,6 +38,20 @@ export default function SegmentAssignmentsCard({
   const [showCopy, setShowCopy] = React.useState(false);
 
   const positionsList = positions.data || [];
+
+  // Determine required capability for the currently selected position via default positions template
+  const requiredCapabilityCode = React.useMemo(() => {
+    if (!positionId) return null;
+    const posId = Number(positionId);
+    const found = defs.data?.find((p) => p.id === posId);
+    return found?.requiredCapabilityCode || null;
+  }, [positionId, defs.data]);
+
+  const requiredCapabilityId = React.useMemo(() => {
+    if (!requiredCapabilityCode) return null;
+    const c = (caps.data || []).find((x) => x.code === requiredCapabilityCode);
+    return c?.id ?? null;
+  }, [requiredCapabilityCode, caps.data]);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -80,14 +96,22 @@ export default function SegmentAssignmentsCard({
             onChange={(e) => setPersonId(e.target.value ? Number(e.target.value) : '')}
           >
             <option value="">— kies —</option>
-            {/* Prefer crew for this production if available; otherwise fall back to all persons */}
-            {((crew.data && crew.data.length > 0) ? crew.data : (persons.data?.items || [])).map((p: any) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
+            {(crew.data || []).
+              filter((p: any) => {
+                if (!requiredCapabilityId) return true; // no specific capability required → allow all crew
+                const ids: number[] | undefined = p.capabilityIds;
+                return Array.isArray(ids) ? ids.includes(requiredCapabilityId) : false;
+              }).
+              map((p: any) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
           </select>
           {/* Helpful hint when there are no crew persons */}
           {crew.data && crew.data.length === 0 && (
-            <div className="text-xs text-gray-500 mt-1">Geen gekoppelde personen aan deze productie. Gebruik de productie crew/rollen om personen te koppelen, of kies uit alle personen.</div>
+            <div className="text-xs text-gray-500 mt-1">Geen gekoppelde personen aan deze productie. Voeg eerst crew toe bij de productie (Crew & Rollen).</div>
+          )}
+          {requiredCapabilityCode && (
+            <div className="text-xs text-gray-500 mt-1">Filter: vereist capability {requiredCapabilityCode}</div>
           )}
         </label>
         <label className="text-sm">
@@ -104,8 +128,31 @@ export default function SegmentAssignmentsCard({
             ))}
           </select>
         </label>
-        <button type="submit" className="px-3 py-1 border rounded bg-green-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" disabled={!personId || !positionId || add.isPending}>Toevoegen</button>
+        <button type="submit" className="px-3 py-1 border rounded bg-green-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" disabled={!personId || !positionId || add.isPending || (crew.data?.length ?? 0) === 0}>Toevoegen</button>
       </form>
+
+      {/* Default positions overview */}
+      <div className="mb-2">
+        <div className="text-xs text-gray-500 mb-1">Standaard posities voor dit segment</div>
+        <ul className="flex flex-wrap gap-2">
+          {(defs.data || []).sort((a, b) => a.order - b.order).map((p) => {
+            const has = (assignments.data || []).some((a) => a.position.id === p.id);
+            return (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  className={`px-2 py-0.5 rounded border text-xs ${has ? 'bg-green-50 border-green-300 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300' : 'bg-gray-50 border-gray-300 text-gray-700 dark:bg-gray-900/30 dark:border-gray-700 dark:text-gray-200'}`}
+                  title={has ? 'Reeds toegewezen' : 'Selecteer om toe te wijzen'}
+                  onClick={() => setPositionId(p.id)}
+                  disabled={has}
+                >
+                  {p.name}{has ? ' ✓' : ''}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
 
       <ul className="divide-y divide-gray-200 dark:divide-gray-800">
         {assignments.isLoading && <li className="py-2 text-sm text-gray-500">Laden…</li>}

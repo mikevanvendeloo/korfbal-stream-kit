@@ -1,7 +1,6 @@
 import React from 'react';
 import {useClubPlayers, useClubs, useDeleteClub, useImportClubs, useImportLeagueTeams} from '../hooks/useClubs';
-
-const API_BASE: string = import.meta.env.VITE_API_URL || 'http://localhost:3333';
+import { assetUrl } from '../config/env';
 function Img({ src, alt, className }: { src?: string | null; alt: string; className?: string }) {
   if (!src) return <div className={`w-10 h-10 bg-gray-200 dark:bg-gray-800 rounded ${className || ''}`} aria-hidden />;
   // If file is a local upload (e.g., saved path or bare filename), try to resolve from /uploads. Otherwise use as-is.
@@ -115,7 +114,7 @@ export default function ClubsPage() {
               return (
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <Img src={`${API_BASE}/assets/${club.logoUrl}`} alt={`${title} logo`} className="w-12 h-12 rounded" />
+                    <Img src={assetUrl(club.logoUrl || '')} alt={`${title} logo`} className="w-12 h-12 rounded" />
                     <div className="text-lg font-medium">{title}</div>
                   </div>
                   <DeleteClubButton slug={club.slug} onDeleted={(nextSlug) => setSlug(nextSlug)} clubs={clubs || []} />
@@ -138,7 +137,7 @@ export default function ClubsPage() {
                       {p.personType === 'coach' ? (p.function || '') : (p.shirtNo ?? '')}
                     </td>
                     <td className="p-2 border-b border-gray-200 dark:border-gray-800 w-16">
-                      <img src={`${API_BASE}/assets/${p.photoUrl}`} className="h-24 w-24 object-cover rounded" alt={p.name}
+                      <img src={assetUrl(p.photoUrl || '')} className="h-24 w-24 object-cover rounded" alt={p.name}
                            onError={(e) => {
                              (e.currentTarget as any).style.visibility = 'hidden';
                            }}/>

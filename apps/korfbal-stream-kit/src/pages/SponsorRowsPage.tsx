@@ -10,8 +10,7 @@ import {
   uploadPlayerImage
 } from '../lib/api';
 import {MdDelete, MdFileDownload, MdRefresh, MdUploadFile} from 'react-icons/md';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3333';
+import { uploadUrl } from '../config/env';
 
 export default function SponsorRowsPage() {
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
@@ -297,7 +296,7 @@ export default function SponsorRowsPage() {
               className="mt-2 max-h-96 overflow-auto border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-100 dark:divide-gray-800">
               {players.map((p) => (
                 <li key={p.id} className="flex items-center gap-3 px-3 py-2">
-                  <img alt="" src={`${API_BASE}/uploads/${p.filename}`} className="h-24 w-24 object-cover rounded"
+                  <img alt="" src={uploadUrl(p.filename)} className="h-24 w-24 object-cover rounded"
                        onError={(e) => {
                          (e.currentTarget as any).style.visibility = 'hidden';
                        }}/>

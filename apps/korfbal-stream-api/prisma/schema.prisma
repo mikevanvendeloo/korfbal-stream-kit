@@ -70,17 +70,22 @@ model Capability {
   // Relations
   capabilities PersonCapability[]
   assignments  MatchRoleAssignment[]
+  Position     Position[]
 }
 
 /// Catalog of production positions (distinct from capabilities)
 model Position {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  createdAt DateTime @default(now())
+  id           Int         @id @default(autoincrement())
+  name         String      @unique
+  /// Optional link to a capability that is required for this position
+  capabilityId Int?
+  capability   Capability? @relation(fields: [capabilityId], references: [id])
+  createdAt    DateTime    @default(now())
 
   // Relations
   segmentAssignments     SegmentRoleAssignment[]
   callSheetItemPositions CallSheetItemPosition[]
+  SegmentDefaultPosition SegmentDefaultPosition[]
 }
 
 /// People who can be assigned roles in livestream productions
@@ -162,6 +167,20 @@ model ProductionSegment {
 
   @@unique([productionId, volgorde])
   @@index([productionId])
+}
+
+/// Configured default positions for a logical segment name (template)
+model SegmentDefaultPosition {
+  id          Int    @id @default(autoincrement())
+  segmentName String
+  positionId  Int
+  order       Int
+
+  position Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@unique([segmentName, order])
+  @@index([segmentName])
+  @@index([positionId])
 }
 
 /// Assignment of a person to a position for a specific production segment

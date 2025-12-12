@@ -124,7 +124,7 @@ export default function ProductionDetailPage() {
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
-      <ProductionHeader productionId={id} />
+      <ProductionHeader productionId={id} showLogos={false} />
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-lg font-semibold">Productiedetails</h1>
         <div className="flex items-center gap-2">

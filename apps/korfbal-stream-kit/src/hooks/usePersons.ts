@@ -1,14 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiUrl as url } from '../config/env';
 
 export type Gender = 'male' | 'female';
 export type Person = { id: number; name: string; gender: Gender; createdAt: string };
 export type Paginated<T> = { items: T[]; page: number; limit: number; total: number; pages: number };
 
-const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3333';
-
-function url(path: string) {
-  return new URL(path, API_BASE || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3333')).toString();
-}
+// centralized url helper is imported
 
 async function extractError(res: Response): Promise<string> {
   try {
@@ -29,7 +26,7 @@ export function usePersons(params: { q?: string; gender?: Gender; page?: number;
   return useQuery({
     queryKey: qk,
     queryFn: async (): Promise<Paginated<Person>> => {
-      const u = new URL('/api/production/persons', API_BASE || window.location.origin);
+      const u = new URL(url('/api/production/persons'));
       if (params.q) u.searchParams.set('q', params.q);
       if (params.gender) u.searchParams.set('gender', params.gender);
       if (params.page) u.searchParams.set('page', String(params.page));

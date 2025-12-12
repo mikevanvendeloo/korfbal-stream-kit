@@ -284,7 +284,7 @@ vmixRouter.get('/active-production/staff', async (req, res, next) => {
       where: {
         matchSchedule: {
           date: {
-            lt: new Date() // 'gt' = greater than (groter dan nu)
+            gt: new Date() // 'gt' = greater than (groter dan nu)
           }
         }
       },
@@ -391,12 +391,25 @@ export default vmixRouter;
 
 // ---------------- vMix configurable titles ----------------
 
-type VmixTitleItem = { functionName: string; name: string };
+type VmixTitleItem = { functionName: string; name: string | null };
 
 /**
  * Resolve vMix titles for a production according to TitleDefinitions, or a default layout when none exist.
  * Friendly names are used (e.g., "Presentatie & analist", "Commentaar").
  */
+// IMPORTANT: Define the specific "active" route BEFORE the dynamic :id route to avoid
+// Express treating "active" as an :id parameter.
+vmixRouter.get('/production/active/titles', async (_req, res, next) => {
+  try {
+    const active = await prisma.production.findFirst({ where: { isActive: true }, orderBy: { createdAt: 'desc' } });
+    if (!active) return res.status(404).json({ error: 'No active production' });
+    // Redirect to the concrete id-based endpoint to reuse the same resolver
+    return res.redirect(307, `/api/vmix/production/${active.id}/titles`);
+  } catch (err) {
+    return next(err);
+  }
+});
+
 vmixRouter.get('/production/:id/titles', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
@@ -587,6 +600,17 @@ vmixRouter.get('/production/:id/titles', async (req, res, next) => {
               await emitSelectedPlayer(sel.playerId, type === 'TEAM_PLAYER', side);
               continue; // override: do not fall back to list/limit
             }
+            // Geen selectie ingesteld: NIET automatisch de eerste(n) kiezen.
+            // In plaats daarvan een placeholder tonen om duidelijk te maken dat er geen keuze is gemaakt.
+            const isPlayers = type === 'TEAM_PLAYER';
+            const clubName = side === 'HOME'
+              ? ((homeClub?.shortName || homeClub?.name) ?? '')
+              : side === 'AWAY'
+              ? ((awayClub?.shortName || awayClub?.name) ?? '')
+              : '';
+            const fn = isPlayers ? `Speler${clubName ? ` ${clubName}` : ''}` : `Coach${clubName ? ` ${clubName}` : ''}`;
+            result.push({ functionName: fn, name: null });
+            continue;
           }
           await emitFromPart({ type: type, side: side, limit: part.limit ?? null, customFunction: (part as any).customFunction, customName: (part as any).customName });
         }

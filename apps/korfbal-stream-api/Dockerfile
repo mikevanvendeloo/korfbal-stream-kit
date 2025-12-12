@@ -27,6 +27,15 @@ COPY . .
 RUN npx prisma generate
 RUN npx nx build korfbal-stream-api --prod --verbose
 
+# Transpile Prisma seed (TypeScript) naar JavaScript zodat de runtime-image
+# zonder ts-node/tsx kan seeden.
+# We compileren enkel het seed-script naar CJS output.
+RUN npx tsc apps/korfbal-stream-api/prisma/seed.ts \
+    --outDir /app/dist-seed \
+    --module commonjs \
+    --target ES2020 \
+    --esModuleInterop
+
 # ----------------------------------------------------------------
 
 # STAGE 2: De Productie-Image
@@ -45,6 +54,14 @@ RUN pnpm install --prod
 
 # Kopieer de gebouwde JS-code en het prisma-schema
 COPY --from=builder /app/dist/apps/korfbal-stream-api .
+
+# Kopieer prisma folder (schema + migrations) zodat prisma migrate/cli in de
+# container kan draaien zonder de volledige source checkout.
+COPY --from=builder /app/apps/korfbal-stream-api/prisma /app/apps/korfbal-stream-api/prisma
+
+# Kopieer de getranspilede seed naar een vaste locatie in de image
+RUN mkdir -p /app/seed
+COPY --from=builder /app/dist-seed/seed.js /app/seed/seed.cjs
 
 # --- DE PRISMA FIX ---
 # Genereer de Prisma Client *binnen* de definitieve container

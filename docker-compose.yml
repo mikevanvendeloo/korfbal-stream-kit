@@ -8,7 +8,31 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U korfbal -d korfbal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Eénmalige migratie/seed job. Draait bij 'up' en stopt na succes.
+  migrate:
+    # Gebruik dezelfde image als de API. In CI/CD vervang door jouw registry:tag
+    build:
+      context: .
+      dockerfile: apps/korfbal-stream-api/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://korfbal:korfbal@db:5432/korfbal?schema=public
+    entrypoint: ["sh", "-lc"]
+    command: >-
+      npx prisma migrate deploy --schema=/app/apps/korfbal-stream-api/prisma/schema.prisma &&
+      node /app/seed/seed.cjs
+    restart: "no"
+
   korfbal-stream-api:
     build:
       context: .
@@ -18,12 +42,17 @@ services:
       DATABASE_URL: postgresql://korfbal:korfbal@db:5432/korfbal?schema=public
       PORT: 3333
       ASSETS_DIR: /app/assets
+      UPLOADS_DIR: /app/uploads
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "3333:3333"
     volumes:
       - ./assets:/app/assets
+      - ./uploads:/app/uploads
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3333/api/health"]
       interval: 10s
@@ -37,6 +66,9 @@ services:
       - "8080:80" # Host poort 8080 -> Container poort 80 (Nginx default)
     depends_on:
       - korfbal-stream-api # Wacht tot de API (waarmee het praat) online is
+
+volumes:
+  pgdata:
 #  api:
 #    build:
 #      context: .

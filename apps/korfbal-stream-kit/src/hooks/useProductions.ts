@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-
-const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3333';
-const url = (p: string) => new URL(p, API_BASE || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3333')).toString();
+import { apiUrl as url } from '../config/env';
 
 async function extractError(res: Response): Promise<string> {
   try {
@@ -123,7 +121,11 @@ export function useCreateSegment(productionId: number) {
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['production', productionId, 'segments'] }),
+    onSuccess: () => {
+      // Segments changed => refresh segments list and timing for this production
+      qc.invalidateQueries({ queryKey: ['production', productionId, 'segments'] });
+      qc.invalidateQueries({ queryKey: ['production', productionId, 'timing'] });
+    },
   });
 }
 
@@ -135,10 +137,16 @@ export function useUpdateSegment() {
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
-    onSuccess: (_data, variables) => {
-      // Invalidate both list for its production and the single segment if any
-      // We don't have productionId here; refresh all segment queries
-      qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey.includes('segments') });
+    onSuccess: (data) => {
+      // Prefer targeted invalidation when productionId is known
+      if (data && typeof data.productionId === 'number') {
+        qc.invalidateQueries({ queryKey: ['production', data.productionId, 'segments'] });
+        qc.invalidateQueries({ queryKey: ['production', data.productionId, 'timing'] });
+      } else {
+        // Fallback: invalidate all segments and timing queries
+        qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey.includes('segments') });
+        qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey.includes('timing') });
+      }
     },
   });
 }
@@ -151,7 +159,9 @@ export function useDeleteSegment() {
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => {
+      // Segment list and timing may change after delete
       qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey.includes('segments') });
+      qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey.includes('timing') });
     },
   });
 }
@@ -228,13 +238,26 @@ export function useCopySegmentAssignments(segmentId: number) {
 }
 
 // Crew persons linked to the production of a given segment
-export type CrewPerson = { id: number; name: string; gender: 'male' | 'female' };
+export type CrewPerson = { id: number; name: string; gender: 'male' | 'female'; capabilityIds?: number[] };
 export function useCrewPersonsForSegment(segmentId: number) {
   return useQuery({
     queryKey: ['segment', segmentId, 'crew-persons'],
     enabled: !!segmentId,
     queryFn: async (): Promise<CrewPerson[]> => {
       const res = await fetch(url(`/api/production/segments/${segmentId}/persons`));
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+  });
+}
+
+export type SegmentDefaultPosition = { id: number; name: string; order: number; requiredCapabilityCode: string | null };
+export function useSegmentDefaultPositions(segmentId: number) {
+  return useQuery({
+    queryKey: ['segment', segmentId, 'default-positions'],
+    enabled: !!segmentId,
+    queryFn: async (): Promise<SegmentDefaultPosition[]> => {
+      const res = await fetch(url(`/api/production/segments/${segmentId}/positions`));
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },

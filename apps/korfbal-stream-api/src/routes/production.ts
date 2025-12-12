@@ -9,6 +9,7 @@ import {prisma} from '../services/prisma';
 import {findClubByTeamName} from '../utils/clubs';
 import {logger} from '../utils/logger';
 import {z} from 'zod';
+import { DEFAULT_SEGMENT_POSITIONS, getRequiredCapabilityCodeForPosition } from '../domain/positionCapability';
 import {
   CreateTitleDefinitionSchema,
   ReorderTitleDefinitionsSchema,
@@ -32,11 +33,152 @@ productionRouter.use('/capabilities', capabilitiesRouter);
 productionRouter.use('/persons', personsRouter);
 
 // -------- Positions catalog (place before dynamic \/:id routes to avoid conflicts) --------
+const PositionSchema = z.object({
+  name: z.string().min(2).max(100),
+  capabilityId: z.number().int().positive().nullable().optional(),
+});
+
 productionRouter.get('/positions', async (_req, res, next) => {
   try {
-    const items = await prisma.position.findMany({ orderBy: { name: 'asc' } });
+    const items = await prisma.position.findMany({ orderBy: { name: 'asc' }, include: { capability: true } });
     return res.json(items);
   } catch (err) {
+    return next(err);
+  }
+});
+
+productionRouter.post('/positions', async (req, res, next) => {
+  try {
+    const parsed = PositionSchema.parse(req.body || {});
+    // Validate capabilityId if provided
+    let capabilityId: number | null = parsed.capabilityId == null ? null : Number(parsed.capabilityId);
+    if (capabilityId != null) {
+      const cap = await prisma.capability.findUnique({ where: { id: capabilityId } });
+      if (!cap) return res.status(422).json({ error: 'Capability not found' });
+    }
+    const created = await prisma.position.create({
+      data: { name: parsed.name, capabilityId: capabilityId ?? undefined },
+      include: { capability: true },
+    });
+    return res.status(201).json(created);
+  } catch (err: any) {
+    if (err?.code === 'P2002') return res.status(409).json({ error: 'Position name already exists' });
+    if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors?.[0]?.message || 'Invalid input' });
+    return next(err);
+  }
+});
+
+productionRouter.put('/positions/:id', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+    const existing = await prisma.position.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    const parsed = PositionSchema.partial().required({}).parse(req.body || {});
+    // capabilityId may be null (to unset)
+    let capabilityId: number | null | undefined = parsed.capabilityId as any;
+    if (capabilityId !== undefined && capabilityId !== null) {
+      const cap = await prisma.capability.findUnique({ where: { id: Number(capabilityId) } });
+      if (!cap) return res.status(422).json({ error: 'Capability not found' });
+    }
+    const updated = await prisma.position.update({
+      where: { id },
+      data: {
+        name: parsed.name ?? undefined,
+        capabilityId: capabilityId === undefined ? undefined : capabilityId,
+      },
+      include: { capability: true },
+    });
+    return res.json(updated);
+  } catch (err: any) {
+    if (err?.code === 'P2002') return res.status(409).json({ error: 'Position name already exists' });
+    if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors?.[0]?.message || 'Invalid input' });
+    return next(err);
+  }
+});
+
+productionRouter.delete('/positions/:id', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+    const existing = await prisma.position.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    await prisma.position.delete({ where: { id } });
+    return res.status(204).send();
+  } catch (err: any) {
+    if (err?.code === 'P2003') return res.status(409).json({ error: 'Position is in use' });
+    return next(err);
+  }
+});
+
+// -------- Segment default positions configuration --------
+// Reserved internal name for the global default set. UI will display this as "Algemeen".
+const GLOBAL_SEGMENT_NAME = '__GLOBAL__';
+const SegmentDefaultsSchema = z.object({
+  segmentName: z.string().min(2).max(100),
+  positions: z.array(z.object({ positionId: z.number().int().positive(), order: z.number().int().nonnegative() })),
+});
+
+// List defaults for a segment name
+productionRouter.get('/segment-default-positions', async (req, res, next) => {
+  try {
+    const name = String(req.query.segmentName || '').trim();
+    if (!name) return res.status(400).json({ error: 'segmentName is required' });
+    const items = await prisma.segmentDefaultPosition.findMany({
+      where: { segmentName: name },
+      orderBy: { order: 'asc' },
+      include: { position: { include: { capability: true } } },
+    });
+    return res.json(items);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// List configured segment default names (distinct). Includes global when present.
+productionRouter.get('/segment-default-positions/names', async (_req, res, next) => {
+  try {
+    const rows = await prisma.segmentDefaultPosition.findMany({
+      select: { segmentName: true },
+      distinct: ['segmentName'],
+      orderBy: { segmentName: 'asc' },
+    });
+    const names = Array.from(new Set(rows.map((r) => r.segmentName)));
+    return res.json({ items: names, hasGlobal: names.includes(GLOBAL_SEGMENT_NAME) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Upsert defaults for a segment name (replace all with provided list)
+productionRouter.put('/segment-default-positions', async (req, res, next) => {
+  try {
+    const parsed = SegmentDefaultsSchema.parse(req.body || {});
+    // Allow the special global name
+    const segmentName = parsed.segmentName === 'Algemeen' ? GLOBAL_SEGMENT_NAME : parsed.segmentName;
+    // Validate positions exist
+    const posIds = parsed.positions.map((p) => p.positionId);
+    const uniquePosIds = Array.from(new Set(posIds));
+    const positions = await prisma.position.findMany({ where: { id: { in: uniquePosIds } } });
+    if (positions.length !== uniquePosIds.length) return res.status(422).json({ error: 'One or more positions not found' });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.segmentDefaultPosition.deleteMany({ where: { segmentName } });
+      if (parsed.positions.length > 0) {
+        await tx.segmentDefaultPosition.createMany({
+          data: parsed.positions.map((p) => ({ segmentName, positionId: p.positionId, order: p.order })),
+          skipDuplicates: true,
+        });
+      }
+    });
+    const refreshed = await prisma.segmentDefaultPosition.findMany({
+      where: { segmentName },
+      orderBy: { order: 'asc' },
+      include: { position: { include: { capability: true } } },
+    });
+    return res.json(refreshed);
+  } catch (err: any) {
+    if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors?.[0]?.message || 'Invalid input' });
     return next(err);
   }
 });
@@ -1388,12 +1530,25 @@ productionRouter.get('/segments/:segmentId/persons', async (req, res, next) => {
     // Persons assigned at the production level (match-level assignments)
     const mras = await prisma.matchRoleAssignment.findMany({
       where: { matchScheduleId: prod.matchScheduleId },
-      include: { person: true },
+      include: {
+        person: {
+          include: {
+            capabilities: true,
+          },
+        },
+      },
     });
 
     const uniqueMap = new Map<number, any>();
     for (const a of mras) {
-      uniqueMap.set(a.person.id, a.person);
+      // Flatten to expose capabilityIds for client-side filtering
+      const capIds = (a.person as any).capabilities?.map((c: any) => c.capabilityId) || [];
+      uniqueMap.set(a.person.id, {
+        id: a.person.id,
+        name: a.person.name,
+        gender: a.person.gender,
+        capabilityIds: capIds,
+      });
     }
 
     const items = Array.from(uniqueMap.values()).sort((a, b) => a.id - b.id);
@@ -1423,6 +1578,8 @@ productionRouter.post('/segments/:segmentId/assignments', async (req, res, next)
     if (!Number.isInteger(segmentId) || segmentId <= 0) return res.status(400).json({ error: 'Invalid segment id' });
     const seg = await prisma.productionSegment.findUnique({ where: { id: segmentId } });
     if (!seg) return res.status(404).json({ error: 'Not found' });
+    const prod = await prisma.production.findUnique({ where: { id: seg.productionId } });
+    if (!prod) return res.status(404).json({ error: 'Production not found' });
 
     const personId = Number(req.body?.personId);
     const positionId = Number(req.body?.positionId);
@@ -1437,6 +1594,30 @@ productionRouter.post('/segments/:segmentId/assignments', async (req, res, next)
     if (!person) return res.status(404).json({ error: 'Person not found' });
     if (!pos) return res.status(404).json({ error: 'Position not found' });
 
+    // Validate that person is in production crew (any match role assignment for this production)
+    const crewAssignment = await prisma.matchRoleAssignment.findFirst({
+      where: { matchScheduleId: prod.matchScheduleId, personId },
+      select: { id: true },
+    });
+    if (!crewAssignment) {
+      return res.status(422).json({ error: 'Persoon is niet gekoppeld als crew van deze productie' });
+    }
+
+    // Capability requirement per position: prefer configured capability on the position; fallback to centralized mapping
+    let requiredCode: string | null = null;
+    const posWithCap = await prisma.position.findUnique({ where: { id: pos.id }, include: { capability: true } });
+    if (posWithCap?.capability) requiredCode = posWithCap.capability.code;
+    else requiredCode = getRequiredCapabilityCodeForPosition(pos.name);
+    if (requiredCode) {
+      // Resolve capabilityId by code
+      const cap = await prisma.capability.findUnique({ where: { code: requiredCode } });
+      if (!cap) return res.status(422).json({ error: `Vereiste capability ${requiredCode} bestaat niet` });
+      const hasCap = await prisma.personCapability.findUnique({ where: { personId_capabilityId: { personId, capabilityId: cap.id } } });
+      if (!hasCap) {
+        return res.status(422).json({ error: 'Persoon mist de vereiste capability voor deze positie' });
+      }
+    }
+
     const created = await prisma.segmentRoleAssignment.create({
       data: { productionSegmentId: segmentId, personId, positionId },
       include: { person: true, position: true },
@@ -1444,6 +1625,65 @@ productionRouter.post('/segments/:segmentId/assignments', async (req, res, next)
     return res.status(201).json(created);
   } catch (err: any) {
     if (err?.code === 'P2002') return res.status(409).json({ error: 'Duplicate assignment for this segment' });
+    return next(err);
+  }
+});
+
+// Default positions for a segment (computed template)
+productionRouter.get('/segments/:segmentId/positions', async (req, res, next) => {
+  try {
+    const segmentId = Number(req.params.segmentId);
+    if (!Number.isInteger(segmentId) || segmentId <= 0) return res.status(400).json({ error: 'Invalid segment id' });
+    const seg = await prisma.productionSegment.findUnique({ where: { id: segmentId } });
+    if (!seg) return res.status(404).json({ error: 'Not found' });
+
+    // Try configured defaults for this segment name; fall back to hardcoded list
+    const configured = await prisma.segmentDefaultPosition.findMany({
+      where: { segmentName: seg.naam },
+      orderBy: { order: 'asc' },
+      include: { position: { include: { capability: true } } },
+    });
+
+    if (configured.length > 0) {
+      const mapped = configured.map((it, idx) => ({
+        id: it.position.id,
+        name: it.position.name,
+        order: it.order ?? idx,
+        requiredCapabilityCode: it.position.capability ? it.position.capability.code : null,
+      }));
+      return res.json(mapped);
+    }
+
+    // Fallback to global defaults if present
+    const global = await prisma.segmentDefaultPosition.findMany({
+      where: { segmentName: GLOBAL_SEGMENT_NAME },
+      orderBy: { order: 'asc' },
+      include: { position: { include: { capability: true } } },
+    });
+    if (global.length > 0) {
+      const mapped = global.map((it, idx) => ({
+        id: it.position.id,
+        name: it.position.name,
+        order: it.order ?? idx,
+        requiredCapabilityCode: it.position.capability ? it.position.capability.code : null,
+      }));
+      return res.json(mapped);
+    }
+
+    // Fallback to creating defaults from constant list (compatible with previous behavior)
+    const positions = await Promise.all(
+      DEFAULT_SEGMENT_POSITIONS.map(async (name, order) => {
+        let p = await prisma.position.findUnique({ where: { name } });
+        if (!p) p = await prisma.position.create({ data: { name, capabilityId: null } });
+        const requiredCapabilityCode = p.capabilityId
+          ? (await prisma.capability.findUnique({ where: { id: p.capabilityId } }))?.code || null
+          : getRequiredCapabilityCodeForPosition(name);
+        return { id: p.id, name: p.name, order, requiredCapabilityCode };
+      })
+    );
+
+    return res.json(positions);
+  } catch (err) {
     return next(err);
   }
 });

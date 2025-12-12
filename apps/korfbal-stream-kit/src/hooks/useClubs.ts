@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-
-const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3333';
-const url = (p: string) => new URL(p, API_BASE || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3333')).toString();
+import { apiUrl as url } from '../config/env';
 
 async function extractError(res: Response): Promise<string> {
   try {

@@ -2,6 +2,14 @@ import {render, screen, waitFor} from '@testing-library/react';
 import {BrowserRouter} from 'react-router-dom';
 import ScoreboardPage from './ScoreboardPage';
 
+// Mock react-query powered hooks used by ScoreboardPage to avoid needing a QueryClientProvider
+vi.mock('../hooks/useProductions', () => ({
+  useProductions: () => ({ data: { items: [] } }),
+}));
+vi.mock('../hooks/useClubs', () => ({
+  useClubs: () => ({ data: [] }),
+}));
+
 // Helper to mock fetch responses by URL
 function setupFetchMock() {
   const original = global.fetch as any;

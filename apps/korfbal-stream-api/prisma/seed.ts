@@ -75,6 +75,8 @@ async function main() {
     { code: 'INTERVIEW_COORDINATOR', functionName: 'Interview coordinator', nameMale: 'Interview coordinator', nameFemale: 'Interview coordinator' },
     { code: 'SHOW_CALLER', functionName: 'Show caller', nameMale: 'Show caller', nameFemale: 'Show caller' },
     { code: 'HERHALINGEN', functionName: 'Herhalingen operator', nameMale: 'Herhalingen operator', nameFemale: 'Herhalingen operator' },
+    // Team manager / runner role used in default mapping
+    { code: 'TEAM_MANAGER', functionName: 'Teammanager', nameMale: 'Teammanager', nameFemale: 'Teammanager' },
 
   ];
 
@@ -147,21 +149,20 @@ async function main() {
 
   // Seed Positions catalog
   const positions = [
-    'overzicht camera',
+    'camera overzicht',
     'camera links',
     'camera rechts',
     'regie',
-    'ledscherm regie',
+    'scherm regie',
     'muziek',
     'volgspot oplopen',
-    'spelers halen',
-    'studio camera',
+    'interview coordinator',
+    'camera studio',
     'herhalingen',
     'show caller',
     'presentatie',
     'commentaar',
-    'analist',
-    'interview coordinator',
+    'analist'
   ];
   console.log('Seeding positions catalog...');
   for (const name of positions) {
@@ -170,6 +171,47 @@ async function main() {
       update: {},
       create: { name },
     });
+  }
+
+  // Link common positions to capabilities by convention
+  const caps = await prisma.capability.findMany();
+  const codeBy = Object.fromEntries(caps.map((c) => [c.code, c.id] as const));
+  const mapNameToCode: Record<string, string> = {
+    'camera rechts': 'CAMERA_ZOOM',
+    'camera links': 'CAMERA_ZOOM',
+    'camera studio': 'CAMERA_ZOOM',
+    'camera overzicht': 'CAMERA_OVERVIEW',
+    'regie': 'REGISSEUR',
+    'show caller': 'SHOW_CALLER',
+    'herhalingen': 'HERHALINGEN',
+    'scherm regie': 'SCHERM_REGISSEUR',
+    'muziek': 'GELUID',
+    'commentaar': 'COMMENTAAR',
+    'presentatie': 'PRESENTATIE',
+    'analist': 'ANALIST',
+    'volgspot oplopen': 'SPOTLIGHT',
+    'interview coordinator': 'INTERVIEW_COORDINATOR',
+  };
+  for (const [name, code] of Object.entries(mapNameToCode)) {
+    const capId = codeBy[code];
+    if (!capId) continue;
+    try {
+      await prisma.position.update({ where: { name }, data: { capabilityId: capId } });
+    } catch {}
+  }
+
+  // Seed a default template for Voorbeschouwing if not configured
+  const existingDefaults = await prisma.segmentDefaultPosition.findMany({ where: { segmentName: 'Voorbeschouwing' } });
+  if (existingDefaults.length === 0) {
+    const defaultNames = ['camera overzicht', 'camera links', 'camera rechts', 'regie', 'scherm regie', 'commentaar', 'analist', 'presentatie'];
+    const allPos = await prisma.position.findMany({ where: { name: { in: defaultNames } } });
+    const byName = new Map(allPos.map((p) => [p.name, p] as const));
+    let order = 0;
+    for (const nm of defaultNames) {
+      const p = byName.get(nm);
+      if (!p) continue;
+      await prisma.segmentDefaultPosition.create({ data: { segmentName: 'Voorbeschouwing', positionId: p.id, order: order++ } });
+    }
   }
 
   // Seed default vMix Title Templates (global templates: productionId = null)

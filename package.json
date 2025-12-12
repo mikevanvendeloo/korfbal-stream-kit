@@ -21,6 +21,7 @@
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",
     "prisma:generate": "dotenv -e apps/korfbal-stream-api/.env -- prisma generate --schema=apps/korfbal-stream-api/prisma/schema.prisma",
+    "prisma:format": "dotenv -e apps/korfbal-stream-api/.env -- prisma format --schema=apps/korfbal-stream-api/prisma/schema.prisma",
     "prisma:migrate": "dotenv -e apps/korfbal-stream-api/.env -- prisma migrate dev --schema=apps/korfbal-stream-api/prisma/schema.prisma",
     "prisma:deploy": "dotenv -e apps/korfbal-stream-api/.env -- prisma migrate deploy --schema=apps/korfbal-stream-api/prisma/schema.prisma",
     "prisma:seed": "dotenv -e apps/korfbal-stream-api/.env -- tsx apps/korfbal-stream-api/prisma/seed.ts",

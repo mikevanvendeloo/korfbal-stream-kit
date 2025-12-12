@@ -1,13 +1,12 @@
 import React from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import {ColumnDef, flexRender, getCoreRowModel, useReactTable} from '@tanstack/react-table';
 import IconButton from '../components/IconButton';
-import { MdDelete, MdEdit, MdAdd } from 'react-icons/md';
+import {MdAdd, MdDelete, MdEdit} from 'react-icons/md';
+import {apiUrl as url} from '../config/env';
 
 export type Capability = { id: number; code: string; functionName: string; nameMale: string; nameFemale: string; vMixTitle?: boolean; createdAt?: string };
 
-const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3333';
-const url = (p: string) => new URL(p, API_BASE || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3333')).toString();
 
 async function extractError(res: Response): Promise<string> {
   try {
@@ -30,7 +29,9 @@ function useCapabilities(q?: string) {
   return useQuery({
     queryKey: qk,
     queryFn: async (): Promise<{ items: Capability[]; total: number }> => {
-      const res = await fetch(url(`/api/capabilities?${params.toString()}`));
+      const capabilitiesUrl = url(`/api/capabilities?${params.toString()}`)
+      console.log(capabilitiesUrl);
+      const res = await fetch(capabilitiesUrl);
       if (!res.ok) throw new Error(await extractError(res));
       const data = await res.json();
       return Array.isArray(data) ? { items: data, total: data.length } : data;

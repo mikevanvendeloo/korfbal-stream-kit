@@ -221,6 +221,9 @@ export default function TitlesManager({ productionId }: TitlesManagerProps) {
     setLocalSel(map);
   }, [interviews.data]);
 
+  // Auto-select behavior:
+  // - Zowel coaches als spelers: geen automatische voorselectie. Alles blijft leeg totdat de gebruiker kiest.
+
   function OptionSelect({ k, label, options, side, role, loading }: { k: SelKey; label: string; options: Array<{ id: number; name: string; function?: string | null }>; side: InterviewSide; role: InterviewRole; loading?: boolean }) {
     const value = localSel[k]?.playerId ?? '';
     return (
@@ -358,27 +361,37 @@ export default function TitlesManager({ productionId }: TitlesManagerProps) {
           <div className="text-xs text-gray-500 mt-2">Kies per team een speler/speelster en coach. De selectie geldt automatisch voor alle relevante titels.</div>
         </div>
         <h3 className="font-semibold mb-2">Live preview</h3>
-        {preview.isError && <div role="alert" className="mb-2 text-sm text-red-600">{(preview.error as any)?.message || 'Preview ophalen mislukt'}</div>}
-        {preview.isLoading && <div className="text-sm text-gray-500">Laden…</div>}
-        {preview.data?.length === 0 && <div className="text-sm text-gray-500">Geen output</div>}
-        {preview.data && preview.data.length > 0 && (
-          <table className="min-w-full border border-gray-200 dark:border-gray-800 text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-900">
-              <tr>
-                <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Functie</th>
-                <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Naam</th>
-              </tr>
-            </thead>
-            <tbody>
-              {preview.data.map((t, i) => (
-                <tr key={i}>
-                  <td className="p-2 border-b border-gray-200 dark:border-gray-800">{t.functionName}</td>
-                  <td className="p-2 border-b border-gray-200 dark:border-gray-800">{t.name}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        {(() => {
+          const hasAnySelection = Object.values(localSel).some((v) => !!v?.playerId);
+          if (!hasAnySelection) {
+            return <div className="text-sm text-gray-500">Geen output</div>;
+          }
+          return (
+            <>
+              {preview.isError && <div role="alert" className="mb-2 text-sm text-red-600">{(preview.error as any)?.message || 'Preview ophalen mislukt'}</div>}
+              {preview.isLoading && <div className="text-sm text-gray-500">Laden…</div>}
+              {preview.data?.length === 0 && <div className="text-sm text-gray-500">Geen output</div>}
+              {preview.data && preview.data.length > 0 && (
+                <table className="min-w-full border border-gray-200 dark:border-gray-800 text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-900">
+                    <tr>
+                      <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Functie</th>
+                      <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Naam</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.data.map((t, i) => (
+                      <tr key={i}>
+                        <td className="p-2 border-b border-gray-200 dark:border-gray-800">{t.functionName}</td>
+                        <td className="p-2 border-b border-gray-200 dark:border-gray-800">{t.name ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
+          );
+        })()}
 
       </div>
       {modal && (

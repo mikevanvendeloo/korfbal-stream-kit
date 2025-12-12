@@ -41,7 +41,7 @@ describe('QRAdminPage', () => {
     // react-qr-code does not set role, fallback to querying svg element
     const svg = window.document.querySelector('svg');
 
-      expect(svg).toBeInTheDocument();
+    expect(svg).toBeInTheDocument();
 
     expect(svg).toBeTruthy();
 

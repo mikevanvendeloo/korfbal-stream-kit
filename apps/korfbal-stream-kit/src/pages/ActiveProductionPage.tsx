@@ -1,6 +1,7 @@
 import React from 'react';
 import {Link, useNavigate} from 'react-router-dom';
 import {useProductions, useProductionSegments} from '../hooks/useProductions';
+import ProductionHeader from '../components/ProductionHeader';
 
 export default function ActiveProductionPage() {
   const { data, isLoading, error } = useProductions();
@@ -23,6 +24,9 @@ export default function ActiveProductionPage() {
           <Link className="underline" to={`/admin/productions/${active.id}/callsheets`}>Callsheet</Link>
         </div>
       </div>
+
+      {/* Match header with logos and start time (reused component) */}
+      <ProductionHeader productionId={active.id} />
 
       <div className="border rounded-md divide-y divide-gray-200 dark:divide-gray-800">
         {segs.data?.map((s) => (
