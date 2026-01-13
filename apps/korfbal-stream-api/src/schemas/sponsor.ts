@@ -45,11 +45,11 @@ export function normalizeLogoFilename(input: string): string {
   // Strip known extensions first
   const noExt = String(input || '').replace(/\.(png|jpg|jpeg|webp|svg)$/i, '');
   const base = slugifyBase(noExt, true);
-  return `${base}.png`;
+  return `${base.toLowerCase()}.png`;
 }
 
 export function makeLogoUrl(name: string): string {
   // For derived filenames from Name, preserve casing as in tests (e.g., ACME-BV.png)
   const base = slugifyBase(name, false);
-  return `${base}.png`;
+  return `${base.toLowerCase()}.png`;
 }

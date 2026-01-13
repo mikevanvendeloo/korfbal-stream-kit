@@ -5,7 +5,7 @@ import {apiUrl as url} from '../config/env';
 import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdEdit} from 'react-icons/md';
 
-type Capability = { id: number; code: string; functionName: string };
+type Skill = { id: number; code: string; name: string };
 
 async function extractError(res: Response): Promise<string> {
   try {
@@ -21,12 +21,12 @@ async function extractError(res: Response): Promise<string> {
   return `Request failed (${res.status})`;
 }
 
-function useAllCapabilities() {
+function useAllSkills() {
   return useQuery({
-    queryKey: ['capabilities', 'all'],
-    queryFn: async (): Promise<Capability[]> => {
-      // Backend caps endpoint limits page size to 200 via schema; request max allowed
-      const res = await fetch(url('/api/capabilities?limit=200&page=1'));
+    queryKey: ['skills', 'all'],
+    queryFn: async (): Promise<Skill[]> => {
+      // Backend skills endpoint limits page size to 200 via schema; request max allowed
+      const res = await fetch(url('/api/skills?limit=200&page=1'));
       if (!res.ok) throw new Error(await extractError(res));
       const data = await res.json();
       return Array.isArray(data) ? data : data.items;
@@ -36,22 +36,22 @@ function useAllCapabilities() {
 
 export default function PositionsAdminPage() {
   const { data: positions, isLoading, error } = usePositionsCatalog();
-  const { data: capabilities } = useAllCapabilities();
+  const { data: skills } = useAllSkills();
   const create = useCreatePosition();
   const update = useUpdatePosition();
   const del = useDeletePosition();
 
   const [err, setErr] = React.useState<string | null>(null);
-  const [editing, setEditing] = React.useState<null | { id?: number; name: string; capabilityId: number | null }>(null);
+  const [editing, setEditing] = React.useState<null | { id?: number; name: string; skillId: number | null }>(null);
 
   async function handleSave() {
     if (!editing) return;
     setErr(null);
     try {
       if (editing.id) {
-        await update.mutateAsync({ id: editing.id, name: editing.name, capabilityId: editing.capabilityId });
+        await update.mutateAsync({ id: editing.id, name: editing.name, skillId: editing.skillId });
       } else {
-        await create.mutateAsync({ name: editing.name, capabilityId: editing.capabilityId });
+        await create.mutateAsync({ name: editing.name, skillId: editing.skillId });
       }
       setEditing(null);
     } catch (e: any) {
@@ -63,7 +63,7 @@ export default function PositionsAdminPage() {
     <div className="container py-6 text-gray-800 dark:text-gray-100">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-lg font-semibold">Posities & taken</h1>
-        <button className="px-3 py-1 border rounded inline-flex items-center gap-1" onClick={() => setEditing({ name: '', capabilityId: null })}>
+        <button className="px-3 py-1 border rounded inline-flex items-center gap-1" onClick={() => setEditing({ name: '', skillId: null })}>
           <MdAdd /> Nieuwe positie
         </button>
       </div>
@@ -75,7 +75,7 @@ export default function PositionsAdminPage() {
         <thead>
           <tr className="text-left border-b border-gray-200 dark:border-gray-800">
             <th className="py-2 pr-3">Naam</th>
-            <th className="py-2 pr-3">Capability</th>
+            <th className="py-2 pr-3">Skill</th>
             <th className="py-2">Acties</th>
           </tr>
         </thead>
@@ -83,10 +83,10 @@ export default function PositionsAdminPage() {
           {(positions || []).map((p) => (
             <tr key={p.id} className="border-b border-gray-100 dark:border-gray-800">
               <td className="py-2 pr-3">{p.name}</td>
-              <td className="py-2 pr-3">{p.capability ? `${p.capability.code} — ${p.capability.functionName}` : <span className="text-gray-400">—</span>}</td>
+              <td className="py-2 pr-3">{p.skill ? `${p.skill.code} — ${p.skill.name}` : <span className="text-gray-400">—</span>}</td>
               <td className="py-2">
                 <div className="flex gap-2">
-                  <IconButton ariaLabel="Wijzig" title="Wijzig" onClick={() => setEditing({ id: p.id, name: p.name, capabilityId: p.capability?.id ?? null })}>
+                  <IconButton ariaLabel="Wijzig" title="Wijzig" onClick={() => setEditing({ id: p.id, name: p.name, skillId: p.skill?.id ?? null })}>
                     <MdEdit className="w-5 h-5" />
                   </IconButton>
                   <IconButton ariaLabel="Verwijder" title="Verwijder" onClick={async () => {
@@ -121,11 +121,11 @@ export default function PositionsAdminPage() {
                 <input className="w-full border rounded px-2 py-1" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
               </label>
               <label className="block text-sm">
-                <div className="mb-1">Capability</div>
-                <select className="w-full border rounded px-2 py-1" value={editing.capabilityId ?? ''} onChange={(e) => setEditing({ ...editing, capabilityId: e.target.value ? Number(e.target.value) : null })}>
+                <div className="mb-1">Skill</div>
+                <select className="w-full border rounded px-2 py-1" value={editing.skillId ?? ''} onChange={(e) => setEditing({ ...editing, skillId: e.target.value ? Number(e.target.value) : null })}>
                   <option value="">— geen —</option>
-                  {(capabilities || []).map((c) => (
-                    <option key={c.id} value={c.id}>{c.code} — {c.functionName}</option>
+                  {(skills || []).map((c) => (
+                    <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
                   ))}
                 </select>
               </label>

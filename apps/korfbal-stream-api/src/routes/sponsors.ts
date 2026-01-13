@@ -5,7 +5,13 @@ import fs from 'node:fs';
 import * as XLSX from 'xlsx';
 import {prisma} from '../services/prisma';
 import {logger} from '../utils/logger';
-import {makeLogoUrl, SponsorInputSchema, SponsorQuerySchema, SponsorUpdateSchema, normalizeLogoFilename} from '../schemas/sponsor';
+import {
+  makeLogoUrl,
+  normalizeLogoFilename,
+  SponsorInputSchema,
+  SponsorQuerySchema,
+  SponsorUpdateSchema
+} from '../schemas/sponsor';
 
 export const sponsorsRouter: Router = Router();
 
@@ -195,19 +201,24 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
 
       const data: any = {
         name,
-        type,
+        type, // the label
         websiteUrl: website,
         // On Excel import, always normalize to lowercase-safe filename; if no logo provided, derive from name in lowercase
         logoUrl: logo ? normalizeLogoFilename(logo) : normalizeLogoFilename(name),
         categories: categories || undefined,
-        // labels are not stored currently; kept for potential future use
       };
 
       const existing = await prisma.sponsor.findFirst({ where: { name } });
       const performUpdate = async () => {
         try {
           if (existing) {
-            await prisma.sponsor.update({ where: { id: existing.id }, data });
+            if (!existing.name) existing.name = data.name;
+            if (!existing.logoUrl) existing.logoUrl = data.logoUrl;
+            existing.type = data.type;
+            existing.websiteUrl = data.websiteUrl;
+            existing.categories = data.categories;
+
+            await prisma.sponsor.update({ where: { id: existing.id }, data: existing });
             updated++;
             logger.info('Updated sponsor from Excel', { name } as any);
           } else {

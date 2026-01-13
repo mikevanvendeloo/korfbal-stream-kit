@@ -81,14 +81,14 @@ export function useDeletePerson() {
   });
 }
 
-export type CapabilityCatalog = { id: number; code: string; nameMale: string; nameFemale: string; vMixTitle?: boolean };
+export type SkillCatalog = { id: number; code: string; nameMale: string; nameFemale: string };
 
-export function useCapabilitiesCatalog() {
-  const qk = ['capabilities-catalog'] as const;
+export function useSkillsCatalog() {
+  const qk = ['skills-catalog'] as const;
   return useQuery({
     queryKey: qk,
-    queryFn: async (): Promise<CapabilityCatalog[]> => {
-      const res = await fetch(url('/api/production/capabilities'));
+    queryFn: async (): Promise<SkillCatalog[]> => {
+      const res = await fetch(url('/api/production/skills'));
       if (!res.ok) throw new Error(await extractError(res));
       const data = await res.json();
       // API returns paginated; support both paginated and array (if proxy used)
@@ -97,14 +97,14 @@ export function useCapabilitiesCatalog() {
   });
 }
 
-export type Capability = { personId: number; capabilityId: number; capability: CapabilityCatalog };
+export type Skill = { personId: number; skillId: number; skill: SkillCatalog };
 
-export function useCapabilities(personId: number) {
-  const qk = ['persons', personId, 'capabilities'] as const;
+export function useSkills(personId: number) {
+  const qk = ['persons', personId, 'skills'] as const;
   return useQuery({
     queryKey: qk,
-    queryFn: async (): Promise<Capability[]> => {
-      const res = await fetch(url(`/api/production/persons/${personId}/capabilities`));
+    queryFn: async (): Promise<Skill[]> => {
+      const res = await fetch(url(`/api/production/persons/${personId}/skills`));
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -112,55 +112,55 @@ export function useCapabilities(personId: number) {
   });
 }
 
-export function useAddCapability(personId: number) {
+export function useAddSkill(personId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (capabilityId: number) => {
-      const res = await fetch(url(`/api/production/persons/${personId}/capabilities`), {
+    mutationFn: async (skillId: number) => {
+      const res = await fetch(url(`/api/production/persons/${personId}/skills`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ capabilityId }),
+        body: JSON.stringify({ skillId }),
       });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['persons', personId, 'capabilities'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['persons', personId, 'skills'] }),
   });
 }
 
-export function useRemoveCapability(personId: number) {
+export function useRemoveSkill(personId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (capabilityId: number) => {
-      const res = await fetch(url(`/api/production/persons/${personId}/capabilities/${capabilityId}`), { method: 'DELETE' });
+    mutationFn: async (skillId: number) => {
+      const res = await fetch(url(`/api/production/persons/${personId}/skills/${skillId}`), { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['persons', personId, 'capabilities'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['persons', personId, 'skills'] }),
   });
 }
 
-// Bulk add multiple capabilities to a person in one call site for improved readability
-export function useAddCapabilitiesBulk() {
+// Bulk add multiple skills to a person in one call site for improved readability
+export function useAddSkillsBulk() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { personId: number; capabilityIds: number[] }) => {
-      const { personId, capabilityIds } = input;
+    mutationFn: async (input: { personId: number; skillIds: number[] }) => {
+      const { personId, skillIds } = input;
       const errors: string[] = [];
-      for (const capabilityId of capabilityIds) {
-        const res = await fetch(url(`/api/production/persons/${personId}/capabilities`), {
+      for (const skillId of skillIds) {
+        const res = await fetch(url(`/api/production/persons/${personId}/skills`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ capabilityId }),
+          body: JSON.stringify({ skillId }),
         });
         if (!res.ok) {
           errors.push(await extractError(res));
         }
       }
-      // Invalidate the person's capabilities afterwards
-      await qc.invalidateQueries({ queryKey: ['persons', input.personId, 'capabilities'] });
+      // Invalidate the person's skills afterwards
+      await qc.invalidateQueries({ queryKey: ['persons', input.personId, 'skills'] });
       if (errors.length > 0) {
         const msg = errors.join('; ');
-        throw new Error(msg || 'Failed to add one or more capabilities');
+        throw new Error(msg || 'Failed to add one or more skills');
       }
       return { ok: true };
     },

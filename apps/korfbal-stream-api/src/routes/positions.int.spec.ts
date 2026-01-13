@@ -31,16 +31,16 @@ async function resetDb() {
     await resetDb();
   });
 
-  it('creates, lists, updates and deletes a position with capability', async () => {
-    const cap = await prisma.capability.findFirst();
+  it('creates, lists, updates and deletes a position with skill', async () => {
+    const cap = await prisma.skill.findFirst();
     expect(cap).toBeTruthy();
 
     const create = await request(app)
       .post('/api/production/positions')
-      .send({ name: 'Interview coordinator', capabilityId: cap!.id });
+      .send({ name: 'Interview coordinator', skillId: cap!.id });
     expect(create.status).toBe(201);
     expect(create.body.name).toBe('Interview coordinator');
-    expect(create.body.capability?.id).toBe(cap!.id);
+    expect(create.body.skill?.id).toBe(cap!.id);
 
     const list = await request(app).get('/api/production/positions');
     expect(list.status).toBe(200);
@@ -49,10 +49,10 @@ async function resetDb() {
 
     const upd = await request(app)
       .put(`/api/production/positions/${create.body.id}`)
-      .send({ name: 'Interview coördinator', capabilityId: null });
+      .send({ name: 'Interview coördinator', skillId: null });
     expect(upd.status).toBe(200);
     expect(upd.body.name).toBe('Interview coördinator');
-    expect(upd.body.capability).toBeNull();
+    expect(upd.body.skill).toBeNull();
 
     const del = await request(app).delete(`/api/production/positions/${create.body.id}`);
     expect(del.status).toBe(204);

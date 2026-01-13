@@ -23,21 +23,21 @@ describe('PositionsAdminPage', () => {
       const u = new URL(url, 'http://localhost');
       // list positions
       if (u.pathname.endsWith('/api/production/positions') && method === 'GET') {
-        return { ok: true, json: async () => ([{ id: 1, name: 'Regie', capability: { id: 10, code: 'REGISSEUR', functionName: 'Regie' } }]) } as any;
+        return { ok: true, json: async () => ([{ id: 1, name: 'Regie', skill: { id: 10, code: 'REGISSEUR', name: 'Regie' } }]) } as any;
       }
-      // capabilities list
-      if (u.pathname.endsWith('/api/capabilities') && method === 'GET') {
-        return { ok: true, json: async () => ({ items: [ { id: 10, code: 'REGISSEUR', functionName: 'Regie' }, { id: 11, code: 'COMMENTAAR', functionName: 'Commentaar' } ], total: 2 }) } as any;
+      // skills list
+      if (u.pathname.endsWith('/api/skills') && method === 'GET') {
+        return { ok: true, json: async () => ({ items: [ { id: 10, code: 'REGISSEUR', name: 'Regie' }, { id: 11, code: 'COMMENTAAR', name: 'Commentaar' } ], total: 2 }) } as any;
       }
       // create
       if (u.pathname.endsWith('/api/production/positions') && method === 'POST') {
         const parsed = body ? JSON.parse(body) : {};
-        return { ok: true, json: async () => ({ id: 99, name: parsed.name, capability: parsed.capabilityId ? { id: parsed.capabilityId, code: 'DYN', functionName: 'Dyn' } : null }) } as any;
+        return { ok: true, json: async () => ({ id: 99, name: parsed.name, skill: parsed.skillId ? { id: parsed.skillId, code: 'DYN', name: 'Dyn' } : null }) } as any;
       }
       // update
       if (u.pathname.match(/\/api\/production\/positions\/\d+$/) && method === 'PUT') {
         const parsed = body ? JSON.parse(body) : {};
-        return { ok: true, json: async () => ({ id: 1, name: parsed.name || 'Updated', capability: null }) } as any;
+        return { ok: true, json: async () => ({ id: 1, name: parsed.name || 'Updated', skill: null }) } as any;
       }
       // delete
       if (u.pathname.match(/\/api\/production\/positions\/\d+$/) && method === 'DELETE') {
@@ -56,18 +56,18 @@ describe('PositionsAdminPage', () => {
       calls.push({ url, method, body });
       const u = new URL(url, 'http://localhost');
       if (u.pathname.endsWith('/api/production/positions') && method === 'GET') {
-        return { ok: true, json: async () => ([{ id: 1, name: 'Regie', capability: { id: 10, code: 'REGISSEUR', functionName: 'Regie' } }]) } as any;
+        return { ok: true, json: async () => ([{ id: 1, name: 'Regie', skill: { id: 10, code: 'REGISSEUR', name: 'Regie' } }]) } as any;
       }
-      if (u.pathname.endsWith('/api/capabilities') && method === 'GET') {
-        return { ok: true, json: async () => ({ items: [ { id: 10, code: 'REGISSEUR', functionName: 'Regie' }, { id: 11, code: 'COMMENTAAR', functionName: 'Commentaar' } ], total: 2 }) } as any;
+      if (u.pathname.endsWith('/api/skills') && method === 'GET') {
+        return { ok: true, json: async () => ({ items: [ { id: 10, code: 'REGISSEUR', name: 'Regie' }, { id: 11, code: 'COMMENTAAR', name: 'Commentaar' } ], total: 2 }) } as any;
       }
       if (u.pathname.endsWith('/api/production/positions') && method === 'POST') {
         const parsed = body ? JSON.parse(body) : {};
-        return { ok: true, json: async () => ({ id: 99, name: parsed.name, capability: parsed.capabilityId ? { id: parsed.capabilityId, code: 'DYN', functionName: 'Dyn' } : null }) } as any;
+        return { ok: true, json: async () => ({ id: 99, name: parsed.name, skill: parsed.skillId ? { id: parsed.skillId, code: 'DYN', name: 'Dyn' } : null }) } as any;
       }
       if (u.pathname.match(/\/api\/production\/positions\/\d+$/) && method === 'PUT') {
         const parsed = body ? JSON.parse(body) : {};
-        return { ok: true, json: async () => ({ id: 1, name: parsed.name || 'Updated', capability: null }) } as any;
+        return { ok: true, json: async () => ({ id: 1, name: parsed.name || 'Updated', skill: null }) } as any;
       }
       if (u.pathname.match(/\/api\/production\/positions\/\d+$/) && method === 'DELETE') {
         return { ok: true, status: 204, json: async () => ({ ok: true }) } as any;
@@ -83,7 +83,7 @@ describe('PositionsAdminPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Nieuwe positie' }));
     const nameInput = screen.getByLabelText('Naam', { selector: 'input' });
     fireEvent.change(nameInput, { target: { value: 'Interview coordinator' } });
-    const capSelect = screen.getByLabelText('Capability', { selector: 'select' });
+    const capSelect = screen.getByLabelText('Skill', { selector: 'select' });
     fireEvent.change(capSelect, { target: { value: '11' } });
     fireEvent.click(screen.getByRole('button', { name: 'Opslaan' }));
     await waitFor(() => {

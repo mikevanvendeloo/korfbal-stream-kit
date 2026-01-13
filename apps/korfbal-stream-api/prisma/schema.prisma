@@ -57,35 +57,40 @@ enum Gender {
   female
 }
 
-/// Catalog of capabilities (roles) with code and gendered display names
-model Capability {
-  id           Int      @id @default(autoincrement())
-  code         String   @unique // UPPERCASE short code
-  functionName String
-  nameMale     String
-  nameFemale   String
-  vMixTitle    Boolean  @default(false)
-  createdAt    DateTime @default(now())
+/// Catalog of skills (roles) with code and gendered display names
+model Skill {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique // UPPERCASE short code
+  name       String
+  nameMale   String
+  nameFemale String
+  createdAt  DateTime @default(now())
 
   // Relations
-  capabilities PersonCapability[]
-  assignments  MatchRoleAssignment[]
-  Position     Position[]
+  skills      PersonSkill[]
+  assignments MatchRoleAssignment[]
+  Position    Position[]
+
+  @@map("Capability")
 }
 
-/// Catalog of production positions (distinct from capabilities)
+/// Catalog of production positions (distinct from skills)
 model Position {
-  id           Int         @id @default(autoincrement())
-  name         String      @unique
-  /// Optional link to a capability that is required for this position
-  capabilityId Int?
-  capability   Capability? @relation(fields: [capabilityId], references: [id])
-  createdAt    DateTime    @default(now())
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  /// Optional link to a skill that is required for this position
+  skillId   Int?
+  skill     Skill?   @relation(fields: [skillId], references: [id])
+  /// Indicates if this is a studio position (true) or production position (false)
+  isStudio  Boolean  @default(false)
+  createdAt DateTime @default(now())
 
   // Relations
   segmentAssignments     SegmentRoleAssignment[]
   callSheetItemPositions CallSheetItemPosition[]
   SegmentDefaultPosition SegmentDefaultPosition[]
+
+  @@map("Position")
 }
 
 /// People who can be assigned roles in livestream productions
@@ -96,21 +101,22 @@ model Person {
   createdAt DateTime @default(now())
 
   // Relations
-  capabilities       PersonCapability[]
+  skills             PersonSkill[]
   assignments        MatchRoleAssignment[]
   segmentAssignments SegmentRoleAssignment[]
 }
 
-/// Link table: which capabilities a person is capable of fulfilling
-model PersonCapability {
-  personId     Int
-  capabilityId Int
-  createdAt    DateTime @default(now())
+/// Link table: which skills a person has
+model PersonSkill {
+  personId  Int
+  skillId   Int
+  createdAt DateTime @default(now())
 
-  person     Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
-  capability Capability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  skill  Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
-  @@id([personId, capabilityId])
+  @@id([personId, skillId])
+  @@map("PersonCapability")
 }
 
 /// Assignment of a person to a role for a specific match
@@ -118,18 +124,18 @@ model MatchRoleAssignment {
   id              Int      @id @default(autoincrement())
   matchScheduleId Int
   personId        Int
-  capabilityId    Int
+  skillId         Int
   createdAt       DateTime @default(now())
 
   matchSchedule MatchSchedule @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
   person        Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
-  capability    Capability    @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+  skill         Skill         @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
   // Prevent exact duplicate assignment of same person to same role in same match
-  @@unique([matchScheduleId, capabilityId, personId])
+  @@unique([matchScheduleId, skillId, personId])
   @@index([matchScheduleId])
   @@index([personId])
-  @@index([capabilityId])
+  @@index([skillId])
 }
 
 /// A production instance for a given match
@@ -144,6 +150,7 @@ model Production {
   callSheets        CallSheet[]
   TitleDefinition   TitleDefinition[]
   interviewSubjects InterviewSubject[]
+  productionReport  ProductionReport?
 }
 
 /// Segments within a production (oplopen, wedstrijd, rust, etc.)
@@ -389,4 +396,24 @@ model AppSetting {
   value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// ================= Production Report (Livestream Productie Rapport) =================
+
+/// Production report - alleen metadata die niet automatisch te herleiden is
+model ProductionReport {
+  id           Int        @id @default(autoincrement())
+  productionId Int        @unique
+  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+
+  /// Wedstrijdsponsor (vrij text of sponsor naam)
+  matchSponsor String?
+
+  /// Interview spelers argumentatie
+  interviewRationale String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productionId])
 }

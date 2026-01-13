@@ -14,7 +14,7 @@ const prisma = new PrismaClient();
 async function resetDb() {
   await prisma.$transaction([
     prisma.matchRoleAssignment.deleteMany({}),
-    prisma.personCapability.deleteMany({}),
+    prisma.personSkill.deleteMany({}),
     prisma.person.deleteMany({}),
     prisma.production.deleteMany({}),
     prisma.matchSchedule.deleteMany({}),
@@ -77,23 +77,23 @@ async function resetDb() {
 
     // Person + capabilities
     const person = await prisma.person.create({ data: { name: 'Alice', gender: 'female' } });
-    const role1 = await prisma.capability.findFirst({ where: { code: 'COACH' } });
-    const role2 = await prisma.capability.findFirst({ where: { code: 'COMMENTATOR' } });
+    const role1 = await prisma.skill.findFirst({ where: { code: 'COACH' } });
+    const role2 = await prisma.skill.findFirst({ where: { code: 'COMMENTATOR' } });
     expect(role1 && role2).toBeTruthy();
 
     // Add person capabilities
-    await prisma.personCapability.create({ data: { personId: person.id, capabilityId: role1!.id } });
-    await prisma.personCapability.create({ data: { personId: person.id, capabilityId: role2!.id } });
+    await prisma.personSkill.create({ data: { personId: person.id, skillId: role1!.id } });
+    await prisma.personSkill.create({ data: { personId: person.id, skillId: role2!.id } });
 
     // Create two assignments for same person with different roles
     const a1 = await request(app)
       .post(`/api/production/${prod.id}/assignments`)
-      .send({ personId: person.id, capabilityId: role1!.id });
+      .send({ personId: person.id, skillId: role1!.id });
     expect(a1.status).toBe(201);
 
     const a2 = await request(app)
       .post(`/api/production/${prod.id}/assignments`)
-      .send({ personId: person.id, capabilityId: role2!.id });
+      .send({ personId: person.id, skillId: role2!.id });
     expect(a2.status).toBe(201);
 
     // List should show 2
@@ -101,10 +101,10 @@ async function resetDb() {
     expect(list.status).toBe(200);
     expect(list.body.length).toBe(2);
 
-    // Update assignment 1 to role2 should conflict (unique per capability per match)
+    // Update assignment 1 to role2 should conflict (unique per skill per match)
     const patch = await request(app)
       .patch(`/api/production/${prod.id}/assignments/${a1.body.id}`)
-      .send({ capabilityId: role2!.id });
+      .send({ skillId: role2!.id });
     expect([409, 422]).toContain(patch.status);
 
     // Delete first assignment

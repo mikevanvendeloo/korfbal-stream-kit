@@ -1,5 +1,5 @@
 import React from 'react';
-import {useCapabilitiesCatalog} from '../hooks/usePersons';
+import {useSkillsCatalog} from '../hooks/usePersons';
 import {usePositionsCatalog} from '../hooks/usePositions';
 import {
   ProductionSegment,
@@ -30,7 +30,7 @@ export default function SegmentAssignmentsCard({
   const crew = useCrewPersonsForSegment(segment.id);
   const positions = usePositionsCatalog();
   const defs = useSegmentDefaultPositions(segment.id);
-  const caps = useCapabilitiesCatalog();
+  const skills = useSkillsCatalog();
 
   const [personId, setPersonId] = React.useState<number | ''>('');
   const [positionId, setPositionId] = React.useState<number | ''>('');
@@ -39,19 +39,19 @@ export default function SegmentAssignmentsCard({
 
   const positionsList = positions.data || [];
 
-  // Determine required capability for the currently selected position via default positions template
-  const requiredCapabilityCode = React.useMemo(() => {
+  // Determine required skill for the currently selected position via default positions template
+  const requiredSkillCode = React.useMemo(() => {
     if (!positionId) return null;
     const posId = Number(positionId);
     const found = defs.data?.find((p) => p.id === posId);
-    return found?.requiredCapabilityCode || null;
+    return found?.requiredSkillCode || null;
   }, [positionId, defs.data]);
 
-  const requiredCapabilityId = React.useMemo(() => {
-    if (!requiredCapabilityCode) return null;
-    const c = (caps.data || []).find((x) => x.code === requiredCapabilityCode);
+  const requiredSkillId = React.useMemo(() => {
+    if (!requiredSkillCode) return null;
+    const c = (skills.data || []).find((x) => x.code === requiredSkillCode);
     return c?.id ?? null;
-  }, [requiredCapabilityCode, caps.data]);
+  }, [requiredSkillCode, skills.data]);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -98,9 +98,9 @@ export default function SegmentAssignmentsCard({
             <option value="">— kies —</option>
             {(crew.data || []).
               filter((p: any) => {
-                if (!requiredCapabilityId) return true; // no specific capability required → allow all crew
-                const ids: number[] | undefined = p.capabilityIds;
-                return Array.isArray(ids) ? ids.includes(requiredCapabilityId) : false;
+                if (!requiredSkillId) return true; // no specific skill required → allow all crew
+                const ids: number[] | undefined = p.skillIds;
+                return Array.isArray(ids) ? ids.includes(requiredSkillId) : false;
               }).
               map((p: any) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -110,8 +110,8 @@ export default function SegmentAssignmentsCard({
           {crew.data && crew.data.length === 0 && (
             <div className="text-xs text-gray-500 mt-1">Geen gekoppelde personen aan deze productie. Voeg eerst crew toe bij de productie (Crew & Rollen).</div>
           )}
-          {requiredCapabilityCode && (
-            <div className="text-xs text-gray-500 mt-1">Filter: vereist capability {requiredCapabilityCode}</div>
+          {requiredSkillCode && (
+            <div className="text-xs text-gray-500 mt-1">Filter: vereist skill {requiredSkillCode}</div>
           )}
         </label>
         <label className="text-sm">

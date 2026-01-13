@@ -121,7 +121,7 @@ export default function SegmentDefaultsAdminPage() {
               <li key={p.id} className="py-2 flex items-center justify-between">
                 <div className="min-w-0">
                   <div className="font-medium truncate">{p.name}</div>
-                  <div className="text-xs text-gray-500">{p.capability ? `${p.capability.code} — ${p.capability.functionName}` : '—'}</div>
+                  <div className="text-xs text-gray-500">{p.skill ? `${p.skill.code} — ${p.skill.name}` : '—'}</div>
                 </div>
                 <button className="px-2 py-1 border rounded text-sm inline-flex items-center gap-1" onClick={() => addPosition(p.id)} aria-label={`add-${p.id}`}>
                   <MdAdd /> Voeg toe

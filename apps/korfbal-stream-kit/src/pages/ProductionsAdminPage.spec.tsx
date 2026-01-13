@@ -49,8 +49,8 @@ describe('ProductionsAdminPage', () => {
       if (u.pathname.endsWith('/api/production/persons') && (!init || init.method === 'GET')) {
         return { ok: true, json: async () => ({ items: [ { id: 1, name: 'Alice', gender: 'female', createdAt: new Date().toISOString() } ], page: 1, limit: 100, total: 1, pages: 1 }) } as any;
       }
-      if (u.pathname.endsWith('/api/production/capabilities') && (!init || init.method === 'GET')) {
-        return { ok: true, json: async () => ({ items: [ { id: 10, code: 'COACH', nameMale: 'Coach', nameFemale: 'Coach', vMixTitle: false }, { id: 11, code: 'COMMENTATOR', nameMale: 'Commentator', nameFemale: 'Commentatrice', vMixTitle: true } ], page: 1, limit: 100, total: 2, pages: 1 }) } as any;
+      if (u.pathname.endsWith('/api/production/skills') && (!init || init.method === 'GET')) {
+        return { ok: true, json: async () => ({ items: [ { id: 10, code: 'COACH', nameMale: 'Coach', nameFemale: 'Coach' }, { id: 11, code: 'COMMENTATOR', nameMale: 'Commentator', nameFemale: 'Commentatrice' } ], page: 1, limit: 100, total: 2, pages: 1 }) } as any;
       }
       // Assignments list
       if (u.pathname.match(/\/api\/production\/1\/assignments$/) && (!init || init.method === 'GET')) {
@@ -58,7 +58,7 @@ describe('ProductionsAdminPage', () => {
       }
       // Add assignment
       if (u.pathname.match(/\/api\/production\/1\/assignments$/) && init?.method === 'POST') {
-        return { ok: true, json: async () => ({ id: 200, personId: 1, capabilityId: 10, person: { id: 1, name: 'Alice', gender: 'female' }, capability: { id: 10, code: 'COACH', nameMale: 'Coach', nameFemale: 'Coach' } }) } as any;
+        return { ok: true, json: async () => ({ id: 200, personId: 1, skillId: 10, person: { id: 1, name: 'Alice', gender: 'female' }, skill: { id: 10, code: 'COACH', nameMale: 'Coach', nameFemale: 'Coach' } }) } as any;
       }
 
       return { ok: false, status: 404 } as any;
@@ -98,11 +98,11 @@ describe('ProductionsAdminPage', () => {
       const url = typeof input === 'string' ? input : input.toString();
       const u = new URL(url, 'http://localhost');
       if (u.pathname.match(/\/api\/production\/1\/assignments$/) && init?.method === 'POST') {
-        return { ok: true, json: async () => ({ id: 201, personId: 1, capabilityId: 11, person: { id: 1, name: 'Alice', gender: 'female' }, capability: { id: 11, code: 'COMMENTATOR', nameMale: 'Commentator', nameFemale: 'Commentatrice' } }) } as any;
+        return { ok: true, json: async () => ({ id: 201, personId: 1, skillId: 11, person: { id: 1, name: 'Alice', gender: 'female' }, skill: { id: 11, code: 'COMMENTATOR', nameMale: 'Commentator', nameFemale: 'Commentatrice' } }) } as any;
       }
       // For GET after invalidation, return the previously created assignment so the UI shows at least one
       if ((!init || init.method === 'GET') && u.pathname.match(/\/api\/production\/1\/assignments$/)) {
-        return { ok: true, json: async () => ([{ id: 200, personId: 1, capabilityId: 10, person: { id: 1, name: 'Alice', gender: 'female' }, capability: { id: 10, code: 'COACH', nameMale: 'Coach', nameFemale: 'Coach' } }]) } as any;
+        return { ok: true, json: async () => ([{ id: 200, personId: 1, skillId: 10, person: { id: 1, name: 'Alice', gender: 'female' }, skill: { id: 10, code: 'COACH', nameMale: 'Coach', nameFemale: 'Coach' } }]) } as any;
       }
       return { ok: true, json: async () => ([]) } as any;
     });

@@ -135,6 +135,7 @@ export default function ProductionDetailPage() {
         <h1 className="text-xl font-semibold">Production #{id}</h1>
         <div className="flex items-center gap-2">
           <Link to={`/admin/productions/${id}/crew-report`} className="px-3 py-1 border rounded">Crew report</Link>
+          <Link to={`/admin/productions/${id}/production-report`} className="px-3 py-1 border rounded">Productie rapport</Link>
           <Link to={`/admin/productions/${id}/callsheets`} className="px-3 py-1 border rounded">Callsheets</Link>
           <Link to="/admin/productions" className="px-3 py-1 border rounded">Terug naar overzicht</Link>
         </div>

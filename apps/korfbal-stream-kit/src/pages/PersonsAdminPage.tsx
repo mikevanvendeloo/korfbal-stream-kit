@@ -1,5 +1,5 @@
 import React from 'react';
-import { useCreatePerson, useDeletePerson, usePersons, useUpdatePerson, Gender, useCapabilities, useAddCapability, useRemoveCapability, useCapabilitiesCatalog, useAddCapabilitiesBulk } from '../hooks/usePersons';
+import { useCreatePerson, useDeletePerson, usePersons, useUpdatePerson, Gender, useSkills, useAddSkill, useRemoveSkill, useSkillsCatalog, useAddSkillsBulk } from '../hooks/usePersons';
 import PersonsTable from '../components/PersonsTable';
 import IconButton from '../components/IconButton';
 import { MdDelete, MdEdit, MdAdd } from 'react-icons/md';
@@ -14,28 +14,28 @@ export default function PersonsAdminPage() {
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
   const [editing, setEditing] = React.useState<{ id?: number; name: string; gender: Gender } | null>(null);
-  const [capsFor, setCapsFor] = React.useState<number | null>(null);
+  const [skillsFor, setSkillsFor] = React.useState<number | null>(null);
 
-  const { data: catalog } = useCapabilitiesCatalog();
-  // Capabilities modal (separate)
-  const { data: caps } = useCapabilities(capsFor || 0);
-  const addCap = useAddCapability(capsFor || 0);
-  const rmCap = useRemoveCapability(capsFor || 0);
-  const [editingCap, setEditingCap] = React.useState<number | null>(null);
-  const [selectedCapId, setSelectedCapId] = React.useState<number>(0);
+  const { data: catalog } = useSkillsCatalog();
+  // Skills modal (separate)
+  const { data: skills } = useSkills(skillsFor || 0);
+  const addSkill = useAddSkill(skillsFor || 0);
+  const rmSkill = useRemoveSkill(skillsFor || 0);
+  const [editingSkill, setEditingSkill] = React.useState<number | null>(null);
+  const [selectedSkillId, setSelectedSkillId] = React.useState<number>(0);
 
-  // Inline capabilities inside the edit/create modal
-  const { data: editCaps } = useCapabilities(editing?.id || 0);
-  const addCapEdit = useAddCapability(editing?.id || 0);
-  const rmCapEdit = useRemoveCapability(editing?.id || 0);
-  const bulkAddCaps = useAddCapabilitiesBulk();
-  const [newSelectedCapId, setNewSelectedCapId] = React.useState<number>(0);
-  const [newPendingCapIds, setNewPendingCapIds] = React.useState<number[]>([]);
+  // Inline skills inside the edit/create modal
+  const { data: editSkills } = useSkills(editing?.id || 0);
+  const addSkillEdit = useAddSkill(editing?.id || 0);
+  const rmSkillEdit = useRemoveSkill(editing?.id || 0);
+  const bulkAddSkills = useAddSkillsBulk();
+  const [newSelectedSkillId, setNewSelectedSkillId] = React.useState<number>(0);
+  const [newPendingSkillIds, setNewPendingSkillIds] = React.useState<number[]>([]);
 
-  const selectedPerson = React.useMemo(() => data?.items.find(p => p.id === capsFor) || null, [data, capsFor]);
-  const displayNameForCapability = React.useCallback((cap: { nameMale: string; nameFemale: string }) => {
-    if (!selectedPerson) return `${cap.nameMale} / ${cap.nameFemale}`;
-    return selectedPerson.gender === 'female' ? cap.nameFemale : cap.nameMale;
+  const selectedPerson = React.useMemo(() => data?.items.find(p => p.id === skillsFor) || null, [data, skillsFor]);
+  const displayNameForSkill = React.useCallback((skill: { nameMale: string; nameFemale: string }) => {
+    if (!selectedPerson) return `${skill.nameMale} / ${skill.nameFemale}`;
+    return selectedPerson.gender === 'female' ? skill.nameFemale : skill.nameMale;
   }, [selectedPerson]);
 
   async function onSave() {
@@ -46,16 +46,16 @@ export default function PersonsAdminPage() {
         // Update existing person basic fields
         await update.mutateAsync({ id: editing.id, name: editing.name, gender: editing.gender });
       } else {
-        // Create new person, then apply any staged capabilities via React Query hook
+        // Create new person, then apply any staged skills via React Query hook
         const created = await create.mutateAsync({ name: editing.name, gender: editing.gender });
-        if (newPendingCapIds.length > 0) {
+        if (newPendingSkillIds.length > 0) {
           try {
-            await bulkAddCaps.mutateAsync({ personId: created.id, capabilityIds: newPendingCapIds });
+            await bulkAddSkills.mutateAsync({ personId: created.id, skillIds: newPendingSkillIds });
           } catch (e: any) {
             // Surface error but do not block person creation
-            setErrorMsg(e?.message || 'Capability toevoegen mislukt');
+            setErrorMsg(e?.message || 'Skill toevoegen mislukt');
           } finally {
-            setNewPendingCapIds([]);
+            setNewPendingSkillIds([]);
           }
         }
       }
@@ -100,7 +100,7 @@ export default function PersonsAdminPage() {
             setErrorMsg(null);
             del.mutateAsync(p.id).catch((e: any) => setErrorMsg(e?.message || 'Verwijderen mislukt'));
           }}
-          onManageCapabilities={(p) => setCapsFor(p.id)}
+          onManageSkills={(p) => setSkillsFor(p.id)}
         />
       )}
 
@@ -121,33 +121,33 @@ export default function PersonsAdminPage() {
                 </select>
               </div>
 
-              {/* Capabilities inline area */}
+              {/* Skills inline area */}
               <div className="pt-2 border-t border-gray-200 dark:border-gray-800">
-                <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Capabilities (optioneel)</div>
+                <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">Skills (optioneel)</div>
                 {editing.id ? (
                   // Existing person: operate directly on API
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <select
-                        aria-label="Add capability inline"
+                        aria-label="Add skill inline"
                         className="px-2 py-1 border rounded bg-white dark:bg-gray-950"
-                        value={newSelectedCapId}
-                        onChange={(e) => setNewSelectedCapId(Number(e.target.value))}
+                        value={newSelectedSkillId}
+                        onChange={(e) => setNewSelectedSkillId(Number(e.target.value))}
                       >
                         <option value={0}>Kies rol...</option>
                         {catalog?.map((f) => (
-                          <option key={f.id} value={f.id}>{editing.gender === 'female' ? f.nameFemale : f.nameMale} [{f.code}]</option>
+                          <option key={f.id} value={f.id}>{editing.gender === 'female' ? f.nameFemale : f.nameMale}</option>
                         ))}
                       </select>
                       <IconButton
-                        ariaLabel="Add capability inline"
+                        ariaLabel="Add skill inline"
                         title="Toevoegen"
                         onClick={async () => {
-                          if (editing.id && newSelectedCapId > 0) {
+                          if (editing.id && newSelectedSkillId > 0) {
                             setErrorMsg(null);
                             try {
-                              await addCapEdit.mutateAsync(newSelectedCapId);
-                              setNewSelectedCapId(0);
+                              await addSkillEdit.mutateAsync(newSelectedSkillId);
+                              setNewSelectedSkillId(0);
                             } catch (e: any) {
                               setErrorMsg(e?.message || 'Toevoegen mislukt');
                             }
@@ -158,44 +158,44 @@ export default function PersonsAdminPage() {
                       </IconButton>
                     </div>
                     <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-                      {editCaps?.map((c) => (
-                        <li key={c.capabilityId} className="flex items-center justify-between py-1.5">
-                          <div>{editing.gender === 'female' ? c.capability.nameFemale : c.capability.nameMale} [{c.capability.code}]</div>
-                          <IconButton ariaLabel="Remove capability inline" title="Verwijder" onClick={async () => {
+                      {editSkills?.map((c) => (
+                        <li key={c.skillId} className="flex items-center justify-between py-1.5">
+                          <div>{editing.gender === 'female' ? c.skill.nameFemale : c.skill.nameMale}</div>
+                          <IconButton ariaLabel="Remove skill inline" title="Verwijder" onClick={async () => {
                             setErrorMsg(null);
-                            try { await rmCapEdit.mutateAsync(c.capabilityId); } catch (e: any) { setErrorMsg(e?.message || 'Verwijderen mislukt'); }
+                            try { await rmSkillEdit.mutateAsync(c.skillId); } catch (e: any) { setErrorMsg(e?.message || 'Verwijderen mislukt'); }
                           }}>
                             <MdDelete className="w-5 h-5 text-red-600" />
                           </IconButton>
                         </li>
                       ))}
-                      {!editCaps || editCaps.length === 0 ? (
-                        <li className="text-xs text-gray-500 py-1.5">Geen capabilities</li>
+                      {!editSkills || editSkills.length === 0 ? (
+                        <li className="text-xs text-gray-500 py-1.5">Geen skills</li>
                       ) : null}
                     </ul>
                   </div>
                 ) : (
-                  // New person: stage pending capabilities locally and apply after create
+                  // New person: stage pending skills locally and apply after create
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <select
-                        aria-label="Add capability inline"
+                        aria-label="Add skill inline"
                         className="px-2 py-1 border rounded bg-white dark:bg-gray-950"
-                        value={newSelectedCapId}
-                        onChange={(e) => setNewSelectedCapId(Number(e.target.value))}
+                        value={newSelectedSkillId}
+                        onChange={(e) => setNewSelectedSkillId(Number(e.target.value))}
                       >
                         <option value={0}>Kies rol...</option>
                         {catalog?.map((f) => (
-                          <option key={f.id} value={f.id}>{editing.gender === 'female' ? f.nameFemale : f.nameMale} [{f.code}]</option>
+                          <option key={f.id} value={f.id}>{editing.gender === 'female' ? f.nameFemale : f.nameMale}</option>
                         ))}
                       </select>
                       <IconButton
-                        ariaLabel="Add capability inline"
+                        ariaLabel="Add skill inline"
                         title="Toevoegen"
                         onClick={() => {
-                          if (newSelectedCapId > 0 && !newPendingCapIds.includes(newSelectedCapId)) {
-                            setNewPendingCapIds((prev) => [...prev, newSelectedCapId]);
-                            setNewSelectedCapId(0);
+                          if (newSelectedSkillId > 0 && !newPendingSkillIds.includes(newSelectedSkillId)) {
+                            setNewPendingSkillIds((prev) => [...prev, newSelectedSkillId]);
+                            setNewSelectedSkillId(0);
                           }
                         }}
                       >
@@ -203,21 +203,21 @@ export default function PersonsAdminPage() {
                       </IconButton>
                     </div>
                     <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-                      {newPendingCapIds.map((id) => {
-                        const cap = catalog?.find((c) => c.id === id);
-                        if (!cap) return null;
-                        const label = editing.gender === 'female' ? cap.nameFemale : cap.nameMale;
+                      {newPendingSkillIds.map((id) => {
+                        const skill = catalog?.find((c) => c.id === id);
+                        if (!skill) return null;
+                        const label = editing.gender === 'female' ? skill.nameFemale : skill.nameMale;
                         return (
                           <li key={id} className="flex items-center justify-between py-1.5">
-                            <div>{label} [{cap.code}]</div>
-                            <IconButton ariaLabel="Remove capability inline" title="Verwijder" onClick={() => setNewPendingCapIds((prev) => prev.filter((x) => x !== id))}>
+                            <div>{label}</div>
+                            <IconButton ariaLabel="Remove skill inline" title="Verwijder" onClick={() => setNewPendingSkillIds((prev) => prev.filter((x) => x !== id))}>
                               <MdDelete className="w-5 h-5 text-red-600" />
                             </IconButton>
                           </li>
                         );
                       })}
-                      {newPendingCapIds.length === 0 ? (
-                        <li className="text-xs text-gray-500 py-1.5">Nog geen capabilities geselecteerd</li>
+                      {newPendingSkillIds.length === 0 ? (
+                        <li className="text-xs text-gray-500 py-1.5">Nog geen skills geselecteerd</li>
                       ) : null}
                     </ul>
                   </div>
@@ -232,31 +232,31 @@ export default function PersonsAdminPage() {
         </div>
       )}
 
-      {capsFor && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center" onClick={() => setCapsFor(null)}>
+      {skillsFor && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center" onClick={() => setSkillsFor(null)}>
           <div className="bg-white dark:bg-gray-900 p-4 rounded shadow w-[520px]" onClick={(e) => e.stopPropagation()}>
-            <h2 className="font-semibold mb-2">Capabilities</h2>
+            <h2 className="font-semibold mb-2">Skills</h2>
             <div className="flex items-center gap-2 mb-3">
               <select
-                aria-label="Add capability select"
+                aria-label="Add skill select"
                 autoFocus
                 className="px-2 py-1 border rounded bg-white dark:bg-gray-950"
-                value={selectedCapId}
-                onChange={(e) => setSelectedCapId(Number(e.target.value))}
+                value={selectedSkillId}
+                onChange={(e) => setSelectedSkillId(Number(e.target.value))}
               >
                 <option value={0}>Kies rol...</option>
                 {catalog?.map((f) => (
-                  <option key={f.id} value={f.id}>{displayNameForCapability(f)} [{f.code}]</option>
+                  <option key={f.id} value={f.id}>{displayNameForSkill(f)}</option>
                 ))}
               </select>
               <IconButton
-                ariaLabel="Add capability"
+                ariaLabel="Add skill"
                 title="Toevoegen"
                 onClick={async () => {
-                  if (selectedCapId > 0) {
+                  if (selectedSkillId > 0) {
                     try {
-                      await addCap.mutateAsync(selectedCapId);
-                      setSelectedCapId(0);
+                      await addSkill.mutateAsync(selectedSkillId);
+                      setSelectedSkillId(0);
                     } catch (e: any) {
                       setErrorMsg(e?.message || 'Toevoegen mislukt');
                     }
@@ -265,49 +265,49 @@ export default function PersonsAdminPage() {
               >
                 <MdAdd className="w-5 h-5 text-green-600" />
               </IconButton>
-              <button className="px-3 py-1 border rounded" onClick={() => setCapsFor(null)}>Sluiten</button>
+              <button className="px-3 py-1 border rounded" onClick={() => setSkillsFor(null)}>Sluiten</button>
             </div>
             <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-              {caps?.map((c) => (
-                <li key={c.capabilityId} className="flex items-center justify-between py-2 gap-2">
+              {skills?.map((c) => (
+                <li key={c.skillId} className="flex items-center justify-between py-2 gap-2">
                   <div className="flex items-center gap-2">
-                    {editingCap === c.capabilityId ? (
+                    {editingSkill === c.skillId ? (
                       <select
-                        aria-label="Edit capability select"
+                        aria-label="Edit skill select"
                         className="px-2 py-1 border rounded bg-white dark:bg-gray-950"
-                        defaultValue={c.capabilityId}
+                        defaultValue={c.skillId}
                         onChange={async (e) => {
                           const newId = Number(e.target.value);
-                          if (!newId || newId === c.capabilityId) { setEditingCap(null); return; }
+                          if (!newId || newId === c.skillId) { setEditingSkill(null); return; }
                           // Replace: add new then remove old
                           try {
-                            await addCap.mutateAsync(newId);
-                            await rmCap.mutateAsync(c.capabilityId);
+                            await addSkill.mutateAsync(newId);
+                            await rmSkill.mutateAsync(c.skillId);
                           } catch (e: any) {
                             setErrorMsg(e?.message || 'Wijzigen mislukt');
                           } finally {
-                            setEditingCap(null);
+                            setEditingSkill(null);
                           }
                         }}
                       >
                         {catalog?.map((f) => (
-                          <option key={f.id} value={f.id}>{displayNameForCapability(f)} [{f.code}]</option>
+                          <option key={f.id} value={f.id}>{displayNameForSkill(f)}</option>
                         ))}
                       </select>
                     ) : (
-                      <div>{displayNameForCapability(c.capability)} [{c.capability.code}]</div>
+                      <div>{displayNameForSkill(c.skill)}</div>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {editingCap !== c.capabilityId && (
-                      <IconButton ariaLabel="Edit capability" title="Wijzig" onClick={() => setEditingCap(c.capabilityId)}>
+                    {editingSkill !== c.skillId && (
+                      <IconButton ariaLabel="Edit skill" title="Wijzig" onClick={() => setEditingSkill(c.skillId)}>
                         <MdEdit className="w-5 h-5" />
                       </IconButton>
                     )}
-                    <IconButton ariaLabel="Remove capability" title="Verwijder" onClick={async () => {
+                    <IconButton ariaLabel="Remove skill" title="Verwijder" onClick={async () => {
                       setErrorMsg(null);
                       try {
-                        await rmCap.mutateAsync(c.capabilityId);
+                        await rmSkill.mutateAsync(c.skillId);
                       } catch (e: any) {
                         setErrorMsg(e?.message || 'Verwijderen mislukt');
                       }

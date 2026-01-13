@@ -10,7 +10,7 @@ import {scoreboardRouter} from './routes/scoreboard';
 import {vmixRouter, adminVmixRouter} from './routes/vmix';
 import {settingsRouter} from './routes/settings';
 import {personsRouter} from './routes/persons';
-import {capabilitiesRouter} from './routes/capabilities';
+import {skillsRouter} from './routes/skills';
 import {productionRouter} from './routes/production';
 import {clubsRouter} from './routes/clubs';
 import {playersRouter} from './routes/players';
@@ -104,7 +104,9 @@ app.use('/api/clubs', clubsRouter);
 app.use('/api/persons', personsRouter);
 
 // Capabilities endpoints (legacy path for backward-compat)
-app.use('/api/capabilities', capabilitiesRouter);
+app.use('/api/skills', skillsRouter);
+// Keep legacy capabilities endpoint for backward compatibility
+app.use('/api/capabilities', skillsRouter);
 
 // Production namespace (new structured URLs)
 app.use('/api/production', productionRouter);

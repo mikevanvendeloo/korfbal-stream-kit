@@ -12,14 +12,14 @@ vi.mock('../hooks/useProductions', () => {
     useCopySegmentAssignments: () => ({ mutateAsync: vi.fn().mockResolvedValue({ ok: true }) }),
     useCrewPersonsForSegment: () => ({
       data: [
-        { id: 1, name: 'Alice', gender: 'female', capabilityIds: [100] }, // COMMENTAAR
-        { id: 2, name: 'Bob', gender: 'male', capabilityIds: [200] }, // REGISSEUR
+        { id: 1, name: 'Alice', gender: 'female', skillIds: [100] }, // COMMENTAAR
+        { id: 2, name: 'Bob', gender: 'male', skillIds: [200] }, // REGISSEUR
       ],
     }),
     useSegmentDefaultPositions: () => ({
       data: [
-        { id: 10, name: 'commentaar', order: 1, requiredCapabilityCode: 'COMMENTAAR' },
-        { id: 11, name: 'regie', order: 2, requiredCapabilityCode: 'REGISSEUR' },
+        { id: 10, name: 'commentaar', order: 1, requiredSkillCode: 'COMMENTAAR' },
+        { id: 11, name: 'regie', order: 2, requiredSkillCode: 'REGISSEUR' },
       ],
     }),
   };
@@ -38,7 +38,7 @@ vi.mock('../hooks/usePositions', () => {
 
 vi.mock('../hooks/usePersons', () => {
   return {
-    useCapabilitiesCatalog: () => ({
+    useSkillsCatalog: () => ({
       data: [
         { id: 100, code: 'COMMENTAAR', nameMale: 'Commentator', nameFemale: 'Commentatrice' },
         { id: 200, code: 'REGISSEUR', nameMale: 'Regisseur', nameFemale: 'Regisseuse' },
@@ -63,7 +63,7 @@ describe('SegmentAssignmentsCard', () => {
     // Click default position to preselect
     fireEvent.click(btnCommentaar);
 
-    // Now person dropdown should include only Alice (has COMMENTAAR capability 100), not Bob
+    // Now person dropdown should include only Alice (has COMMENTAAR skill 100), not Bob
     const personSelect = screen.getByLabelText('Persoon') as HTMLSelectElement;
     // open/select programmatically
     fireEvent.change(personSelect, { target: { value: '1' } });

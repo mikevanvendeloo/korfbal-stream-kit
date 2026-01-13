@@ -4,7 +4,7 @@ import {logger} from '../utils/logger';
 import {
   AssignmentCreateSchema,
   AssignmentUpdateSchema,
-  CapabilityInputSchema,
+  SkillInputSchema,
   PaginationQuerySchema,
   PersonInputSchema,
   PersonUpdateSchema,
@@ -12,10 +12,10 @@ import {
 
 export const personsRouter: Router = Router();
 
-// Deprecated endpoint: proxy to new capabilities list for backward compatibility
+// Deprecated endpoint: proxy to new skills list for backward compatibility
 personsRouter.get('/functions', async (_req, res, next) => {
   try {
-    const items = await prisma.capability.findMany({ orderBy: [{ code: 'asc' }] });
+    const items = await prisma.skill.findMany({ orderBy: [{ code: 'asc' }] });
     // Shape similar to old response but with derived name+gender when needed
     return res.json(items);
   } catch (err) {
@@ -44,7 +44,7 @@ personsRouter.get('/', async (req, res, next) => {
   }
 });
 
-// Get person by id with capabilities
+// Get person by id with skills
 personsRouter.get('/:id', async (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'invalid id' });
@@ -52,7 +52,7 @@ personsRouter.get('/:id', async (req, res, next) => {
     const person = await prisma.person.findUnique({
       where: { id },
       include: {
-        capabilities: { include: { capability: true } },
+        skills: { include: { skill: true } },
       },
     });
     if (!person) return res.status(404).json({ error: 'Not found' });
@@ -91,7 +91,7 @@ personsRouter.put('/:id', async (req, res, next) => {
   }
 });
 
-// Delete person (cascade removes capabilities and assignments by FK)
+// Delete person (cascade removes skills and assignments by FK)
 personsRouter.delete('/:id', async (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'invalid id' });
@@ -106,66 +106,66 @@ personsRouter.delete('/:id', async (req, res, next) => {
   }
 });
 
-// List a person's capabilities
-personsRouter.get('/:id/capabilities', async (req, res, next) => {
+// List a person's skills
+personsRouter.get('/:id/skills', async (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'invalid id' });
   try {
     const person = await prisma.person.findUnique({
       where: { id },
-      include: { capabilities: { include: { capability: true } } },
+      include: { skills: { include: { skill: true } } },
     });
     if (!person) return res.status(404).json({ error: 'Not found' });
-    return res.json(person.capabilities);
+    return res.json(person.skills);
   } catch (err) {
-    logger.error('GET /persons/:id/capabilities failed', err as any);
+    logger.error('GET /persons/:id/skills failed', err as any);
     return next(err);
   }
 });
 
-// Add a capability to a person
-personsRouter.post('/:id/capabilities', async (req, res, next) => {
+// Add a skill to a person
+personsRouter.post('/:id/skills', async (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'invalid id' });
   try {
-    const { capabilityId } = CapabilityInputSchema.parse(req.body);
+    const { skillId } = SkillInputSchema.parse(req.body);
     // Ensure both entities exist
     const [person, capDef] = await Promise.all([
       prisma.person.findUnique({ where: { id } }),
-      prisma.capability.findUnique({ where: { id: capabilityId } }),
+      prisma.skill.findUnique({ where: { id: skillId } }),
     ]);
     if (!person) return res.status(404).json({ error: 'Person not found' });
-    if (!capDef) return res.status(404).json({ error: 'Capability not found' });
+    if (!capDef) return res.status(404).json({ error: 'Skill not found' });
 
-    const cap = await prisma.personCapability.upsert({
-      where: { personId_capabilityId: { personId: id, capabilityId } },
+    const cap = await prisma.personSkill.upsert({
+      where: { personId_skillId: { personId: id, skillId } },
       update: {},
-      create: { personId: id, capabilityId },
-      include: { capability: true },
+      create: { personId: id, skillId },
+      include: { skill: true },
     });
     return res.status(201).json(cap);
   } catch (err: any) {
-    if (err?.code === 'P2002') return res.status(409).json({ error: 'Capability already exists' });
-    logger.error('POST /persons/:id/capabilities failed', err);
+    if (err?.code === 'P2002') return res.status(409).json({ error: 'Skill already exists' });
+    logger.error('POST /persons/:id/skills failed', err);
     return next(err);
   }
 });
 
-// Remove a capability from a person
-personsRouter.delete('/:id/capabilities/:capabilityId', async (req, res, next) => {
+// Remove a skill from a person
+personsRouter.delete('/:id/skills/:skillId', async (req, res, next) => {
   const id = Number(req.params.id);
-  const capabilityId = Number(req.params.capabilityId);
-  if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(capabilityId) || capabilityId <= 0) {
+  const skillId = Number(req.params.skillId);
+  if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(skillId) || skillId <= 0) {
     return res.status(400).json({ error: 'invalid id' });
   }
   try {
-    await prisma.personCapability.delete({
-      where: { personId_capabilityId: { personId: id, capabilityId } },
+    await prisma.personSkill.delete({
+      where: { personId_skillId: { personId: id, skillId } },
     });
     return res.status(204).send();
   } catch (err: any) {
-    if (err?.code === 'P2025') return res.status(404).json({ error: 'Capability not found' });
-    logger.error('DELETE /persons/:id/capabilities/:capabilityId failed', err);
+    if (err?.code === 'P2025') return res.status(404).json({ error: 'Skill not found' });
+    logger.error('DELETE /persons/:id/skills/:skillId failed', err);
     return next(err);
   }
 });
@@ -177,7 +177,7 @@ personsRouter.get('/matches/:matchId/assignments', async (req, res, next) => {
   try {
     const items = await prisma.matchRoleAssignment.findMany({
       where: { matchScheduleId: matchId },
-      include: { person: true, capability: true },
+      include: { person: true, skill: true },
       orderBy: { id: 'asc' },
     });
     return res.json(items);
@@ -192,27 +192,27 @@ personsRouter.post('/matches/:matchId/assignments', async (req, res, next) => {
   const matchId = Number(req.params.matchId);
   if (!Number.isInteger(matchId) || matchId <= 0) return res.status(400).json({ error: 'invalid match id' });
   try {
-    const { capabilityId, personId } = AssignmentCreateSchema.parse(req.body);
+    const { skillId, personId } = AssignmentCreateSchema.parse(req.body);
 
     // Validate entities exist
     const [match, person, capDef] = await Promise.all([
       prisma.matchSchedule.findUnique({ where: { id: matchId } }),
       prisma.person.findUnique({ where: { id: personId } }),
-      prisma.capability.findUnique({ where: { id: capabilityId } }),
+      prisma.skill.findUnique({ where: { id: skillId } }),
     ]);
     if (!match) return res.status(404).json({ error: 'Match not found' });
     if (!person) return res.status(404).json({ error: 'Person not found' });
-    if (!capDef) return res.status(404).json({ error: 'Capability not found' });
+    if (!capDef) return res.status(404).json({ error: 'Skill not found' });
 
-    // Validate capability
-    const hasCapability = await prisma.personCapability.findUnique({
-      where: { personId_capabilityId: { personId, capabilityId } },
+    // Validate skill
+    const hasSkill = await prisma.personSkill.findUnique({
+      where: { personId_skillId: { personId, skillId } },
     });
-    if (!hasCapability) return res.status(422).json({ error: 'Person lacks required capability for this role' });
+    if (!hasSkill) return res.status(422).json({ error: 'Person lacks required skill for this role' });
 
     const created = await prisma.matchRoleAssignment.create({
-      data: { matchScheduleId: matchId, personId, capabilityId },
-      include: { person: true, capability: true },
+      data: { matchScheduleId: matchId, personId, skillId },
+      include: { person: true, skill: true },
     });
     return res.status(201).json(created);
   } catch (err: any) {
@@ -236,18 +236,18 @@ personsRouter.patch('/matches/:matchId/assignments/:assignmentId', async (req, r
     if (!existing || existing.matchScheduleId !== matchId) return res.status(404).json({ error: 'Not found' });
 
     const nextPersonId = input.personId ?? existing.personId;
-    const nextCapabilityId = input.capabilityId ?? existing.capabilityId;
+    const nextSkillId = input.skillId ?? existing.skillId;
 
-    // Validate capability
-    const hasCapability = await prisma.personCapability.findUnique({
-      where: { personId_capabilityId: { personId: nextPersonId, capabilityId: nextCapabilityId } },
+    // Validate skill
+    const hasSkill = await prisma.personSkill.findUnique({
+      where: { personId_skillId: { personId: nextPersonId, skillId: nextSkillId } },
     });
-    if (!hasCapability) return res.status(422).json({ error: 'Person lacks required capability for this role' });
+    if (!hasSkill) return res.status(422).json({ error: 'Person lacks required skill for this role' });
 
     const updated = await prisma.matchRoleAssignment.update({
       where: { id: assignmentId },
-      data: { personId: nextPersonId, capabilityId: nextCapabilityId },
-      include: { person: true, capability: true },
+      data: { personId: nextPersonId, skillId: nextSkillId },
+      include: { person: true, skill: true },
     });
     return res.json(updated);
   } catch (err: any) {

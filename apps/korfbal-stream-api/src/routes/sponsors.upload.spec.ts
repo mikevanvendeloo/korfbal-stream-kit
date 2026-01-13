@@ -1,6 +1,6 @@
 import request from 'supertest';
 import app from '../main';
-import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import * as XLSX from 'xlsx';
 
 // Mock prisma client methods used by the routes
@@ -138,7 +138,7 @@ it('overwrites logo when only case changes on re-import (derive lower-case from 
   // First create via API with mixed-case derived logo (preserves casing)
   const createRes = await request(app).post('/api/sponsors').send({ name: 'ACME BV', type: 'premium', websiteUrl: 'https://acme.example' });
   expect(createRes.status).toBe(201);
-  expect(createRes.body.logoUrl).toBe('ACME-BV.png');
+  expect(createRes.body.logoUrl).toBe('acme-bv.png');
 
   // Now upload Excel without Logo column; import should derive lowercased filename and update existing row
   const buf = makeWorkbookBuffer([

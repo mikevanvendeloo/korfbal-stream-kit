@@ -8,10 +8,10 @@ export type PersonsTableProps = {
   data: Person[];
   onEdit?: (p: Person) => void;
   onDelete?: (p: Person) => void;
-  onManageCapabilities?: (p: Person) => void;
+  onManageSkills?: (p: Person) => void;
 };
 
-export default function PersonsTable({ data, onEdit, onDelete, onManageCapabilities }: PersonsTableProps) {
+export default function PersonsTable({ data, onEdit, onDelete, onManageSkills }: PersonsTableProps) {
   const columns = React.useMemo<ColumnDef<Person>[]>(
     () => [
       { header: 'ID', accessorKey: 'id' },
@@ -26,8 +26,8 @@ export default function PersonsTable({ data, onEdit, onDelete, onManageCapabilit
         header: 'Acties',
         cell: ({ row }) => (
           <div className="flex gap-2">
-            {onManageCapabilities && (
-              <IconButton ariaLabel="Manage capabilities" title="Beheer capabilities" onClick={() => onManageCapabilities(row.original)}>
+            {onManageSkills && (
+              <IconButton ariaLabel="Manage skills" title="Beheer skills" onClick={() => onManageSkills(row.original)}>
                 <MdManageAccounts className="w-5 h-5" />
               </IconButton>
             )}
@@ -45,7 +45,7 @@ export default function PersonsTable({ data, onEdit, onDelete, onManageCapabilit
         ),
       },
     ],
-    [onEdit, onDelete, onManageCapabilities]
+    [onEdit, onDelete, onManageSkills]
   );
 
   const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() });

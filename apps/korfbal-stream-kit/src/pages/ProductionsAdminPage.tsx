@@ -11,7 +11,7 @@ import {
   useAddProductionAssignment,
   useDeleteProductionAssignment,
 } from '../hooks/useProductions';
-import { usePersons, useCapabilitiesCatalog } from '../hooks/usePersons';
+import { usePersons, useSkillsCatalog } from '../hooks/usePersons';
 import IconButton from '../components/IconButton';
 import { MdAdd, MdDelete, MdEdit, MdPlayCircle, MdGroups, MdInfo } from 'react-icons/md';
 
@@ -32,10 +32,10 @@ export default function ProductionsAdminPage() {
   const delAssign = useDeleteProductionAssignment(selectedProdId || 0);
 
   const persons = usePersons({ page: 1, limit: 100 });
-  const caps = useCapabilitiesCatalog();
+  const skills = useSkillsCatalog();
 
   const [newPersonId, setNewPersonId] = React.useState<number>(0);
-  const [newCapId, setNewCapId] = React.useState<number>(0);
+  const [newSkillId, setNewSkillId] = React.useState<number>(0);
 
   async function onSaveProduction() {
     if (!editing) return;
@@ -56,10 +56,10 @@ export default function ProductionsAdminPage() {
     if (!selectedProdId) return;
     setErrorMsg(null);
     try {
-      if (newPersonId > 0 && newCapId > 0) {
-        await addAssign.mutateAsync({ personId: newPersonId, capabilityId: newCapId });
+      if (newPersonId > 0 && newSkillId > 0) {
+        await addAssign.mutateAsync({ personId: newPersonId, skillId: newSkillId });
         setNewPersonId(0);
-        setNewCapId(0);
+        setNewSkillId(0);
       }
     } catch (e: any) {
       setErrorMsg(e?.message || 'Toevoegen mislukt');
@@ -169,9 +169,9 @@ export default function ProductionsAdminPage() {
                   ))}
                 </select>
                 <label className="text-xs text-gray-500">Rol</label>
-                <select aria-label="assignment-role" className="px-2 py-1 border rounded bg-white dark:bg-gray-950" value={newCapId} onChange={(e) => setNewCapId(Number(e.target.value))}>
+                <select aria-label="assignment-role" className="px-2 py-1 border rounded bg-white dark:bg-gray-950" value={newSkillId} onChange={(e) => setNewSkillId(Number(e.target.value))}>
                   <option value={0}>Kies rol…</option>
-                  {(caps.data || []).map((c) => (
+                  {(skills.data || []).map((c) => (
                     <option key={c.id} value={c.id}>{c.code}</option>
                   ))}
                 </select>
@@ -185,7 +185,7 @@ export default function ProductionsAdminPage() {
                   <li key={a.id} className="flex items-center justify-between py-1.5">
                     <div>
                       <span className="font-medium">{a.person.name}</span>
-                      <span className="text-gray-500 ml-2">[{a.capability.code}]</span>
+                      <span className="text-gray-500 ml-2">[{a.skill.code}]</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <IconButton ariaLabel="Delete assignment" title="Verwijder" onClick={async () => { setErrorMsg(null); try { await delAssign.mutateAsync(a.id); } catch (e: any) { setErrorMsg(e?.message || 'Verwijderen mislukt'); } }}>

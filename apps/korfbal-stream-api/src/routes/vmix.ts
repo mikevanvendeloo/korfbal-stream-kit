@@ -11,6 +11,7 @@ import {
   UpdateTitleDefinitionSchema
 } from '../schemas/title';
 import {buildVmixApiUrl, getVmixUrl} from '../services/appSettings';
+import {shuffle} from "../utils/array-utils";
 
 export const vmixRouter: Router = Router();
 export const adminVmixRouter: Router = Router();
@@ -235,7 +236,10 @@ vmixRouter.get('/sponsor-names', async (_req, res, next) => {
       ]
 
     });
-    const names = sponsors.map((s) => (s.name || '').trim()).filter(Boolean);
+    const premium = shuffle(sponsors.filter((s) => s.type === 'premium'));
+    const other =  shuffle(sponsors.filter((s) => s.type !== 'premium'));
+
+    const names = [...premium, ...other].map((s) => (s.name || '').trim()).filter(Boolean);
     const sep = '   |   ';
     const ticker = names.length > 0 ? names.join(sep) + sep : '';
     return res.status(200).json([{ 'sponsor-names': ticker }]);
@@ -263,7 +267,16 @@ vmixRouter.get('/sponsor-carousel', async (_req, res, next) => {
         {name: 'asc'}
       ]
     });
-    return res.status(200).json(sponsors.map((s) => ({
+    sponsors.push({
+      id: 9999,
+      name: 'Fortuna sponsor',
+      logoUrl: 'sponsoring.png',
+      type: 'premium',
+      websiteUrl: 'https://www.fortuna-korfbal.nl/sponsoring/businessclub/',
+      categories: null,
+      createdAt: new Date()
+    })
+    return res.status(200).json(shuffle(sponsors).map((s) => ({
       name: s.name,
       commercial: s.logoUrl.toLowerCase(),
       type: s.type,
@@ -316,15 +329,15 @@ vmixRouter.get('/active-production/staff', async (req, res, next) => {
             name: true
           }
         },
-        capability: {
+        skill: {
           select: {
-            functionName: true
+            name: true
           }
         }
       },
       orderBy: {
-        capability: {
-          functionName: 'asc' // Sorteer op functienaam (optioneel)
+        skill: {
+          name: 'asc' // Sorteer op functienaam (optioneel)
         }
       }
     });
@@ -339,7 +352,7 @@ vmixRouter.get('/active-production/staff', async (req, res, next) => {
 
     for (const assignment of staffAssignments) {
       const name = assignment.person.name;
-      const functionName = assignment.capability.functionName;
+      const functionName = assignment.skill.name;
 
       let groupKey;
       let finalFunctionName;
@@ -432,12 +445,12 @@ vmixRouter.get('/production/:id/titles', async (req, res, next) => {
     async function loadCrew() {
       const msId = production?.matchScheduleId;
       const rows = await prisma.matchRoleAssignment.findMany({
-        where: { matchScheduleId: msId, capability: { code: { in: ['COMMENTAAR', 'PRESENTATIE', 'ANALIST'] } as any } },
-        include: { person: true, capability: true },
+        where: { matchScheduleId: msId, skill: { code: { in: ['COMMENTAAR', 'PRESENTATIE', 'ANALIST'] } as any } },
+        include: { person: true, skill: true },
       });
-      const commentary = rows.filter((r) => r.capability.code === 'COMMENTAAR').map((r) => r.person.name);
-      const presenter = rows.filter((r) => r.capability.code === 'PRESENTATIE').map((r) => r.person.name);
-      const analyst = rows.filter((r) => r.capability.code === 'ANALIST').map((r) => r.person.name);
+      const commentary = rows.filter((r) => r.skill.code === 'COMMENTAAR').map((r) => r.person.name);
+      const presenter = rows.filter((r) => r.skill.code === 'PRESENTATIE').map((r) => r.person.name);
+      const analyst = rows.filter((r) => r.skill.code === 'ANALIST').map((r) => r.person.name);
       return { commentary, presenter, analyst };
     }
 

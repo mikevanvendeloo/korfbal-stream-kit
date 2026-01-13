@@ -1,6 +1,6 @@
 import request from 'supertest';
 import app from '../main';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 // Mock prisma client methods used by the route
 import * as prismaSvc from '../services/prisma';
@@ -30,7 +30,9 @@ describe('vMix API - sponsor names ticker', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/application\/json/);
     expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body[0]['sponsor-names']).toBe('Alpha BV   |   Beta Co   |   Gamma N.V.   |   ');
+    expect(res.body[0]['sponsor-names']).toContain('Alpha BV');
+    expect(res.body[0]['sponsor-names']).toContain('Beta Co');
+    expect(res.body[0]['sponsor-names']).toContain('Gamma N.V.');
     expect(prisma.sponsor.findMany).toHaveBeenCalledTimes(1);
   });
 

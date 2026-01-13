@@ -28,8 +28,8 @@ describe('SegmentDefaultsAdminPage', () => {
 
       if (u.pathname.endsWith('/api/production/positions') && method === 'GET') {
         return { ok: true, json: async () => ([
-          { id: 1, name: 'Camera links', capability: { id: 101, code: 'CAMERA_ZOOM', functionName: 'Camera zoom' } },
-          { id: 2, name: 'Regie', capability: { id: 102, code: 'REGISSEUR', functionName: 'Regie' } },
+          { id: 1, name: 'Camera links', skill: { id: 101, code: 'CAMERA_ZOOM', name: 'Camera zoom' } },
+          { id: 2, name: 'Regie', skill: { id: 102, code: 'REGISSEUR', name: 'Regie' } },
         ]) } as any;
       }
 
@@ -60,8 +60,8 @@ describe('SegmentDefaultsAdminPage', () => {
       }
       if (u.pathname.endsWith('/api/production/positions') && method === 'GET') {
         return { ok: true, json: async () => ([
-          { id: 1, name: 'Camera links', capability: { id: 101, code: 'CAMERA_ZOOM', functionName: 'Camera zoom' } },
-          { id: 2, name: 'Regie', capability: { id: 102, code: 'REGISSEUR', functionName: 'Regie' } },
+          { id: 1, name: 'Camera links', skill: { id: 101, code: 'CAMERA_ZOOM', name: 'Camera zoom' } },
+          { id: 2, name: 'Regie', skill: { id: 102, code: 'REGISSEUR', name: 'Regie' } },
         ]) } as any;
       }
       if (u.pathname.endsWith('/api/production/segment-default-positions') && method === 'GET') {

@@ -37,8 +37,8 @@ describe('vMix Titles - templates, copy-to-production and resolver', () => {
     // Match role assignments used by resolver for crew
     prisma.matchRoleAssignment = {
       findMany: vi.fn(async (_: any) => [
-        { id: 1, matchScheduleId: 777, person: { id: 1, name: 'Alice' }, capability: { id: 10, code: 'COMMENTAAR', functionName: 'Commentaar' } },
-        { id: 2, matchScheduleId: 777, person: { id: 2, name: 'Bob' }, capability: { id: 11, code: 'COMMENTAAR', functionName: 'Commentaar' } },
+        { id: 1, matchScheduleId: 777, person: { id: 1, name: 'Alice' }, skill: { id: 10, code: 'COMMENTAAR', name: 'Commentaar' } },
+        { id: 2, matchScheduleId: 777, person: { id: 2, name: 'Bob' }, skill: { id: 11, code: 'COMMENTAAR', name: 'Commentaar' } },
       ]),
     };
 

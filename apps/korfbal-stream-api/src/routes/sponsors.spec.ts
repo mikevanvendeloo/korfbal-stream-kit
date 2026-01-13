@@ -50,7 +50,7 @@ describe('Sponsors API', () => {
       name: 'ACME BV',
       type: 'premium',
       websiteUrl: 'https://acme.example',
-      logoUrl: 'ACME-BV.png',
+      logoUrl: 'acme-bv.png',
     });
   });
 
@@ -84,7 +84,7 @@ describe('Sponsors API', () => {
 
     const updateRes = await request(app).put('/api/sponsors/1').send({ name: 'ACME NL' });
     expect(updateRes.status).toBe(200);
-    expect(updateRes.body).toMatchObject({ name: 'ACME NL', logoUrl: 'ACME-NL.png' });
+    expect(updateRes.body).toMatchObject({ name: 'ACME NL', logoUrl: 'acme-nl.png' });
 
     const deleteRes = await request(app).delete('/api/sponsors/1');
     expect(deleteRes.status).toBe(204);

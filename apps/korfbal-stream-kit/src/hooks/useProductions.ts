@@ -238,7 +238,7 @@ export function useCopySegmentAssignments(segmentId: number) {
 }
 
 // Crew persons linked to the production of a given segment
-export type CrewPerson = { id: number; name: string; gender: 'male' | 'female'; capabilityIds?: number[] };
+export type CrewPerson = { id: number; name: string; gender: 'male' | 'female'; skillIds?: number[] };
 export function useCrewPersonsForSegment(segmentId: number) {
   return useQuery({
     queryKey: ['segment', segmentId, 'crew-persons'],
@@ -251,7 +251,7 @@ export function useCrewPersonsForSegment(segmentId: number) {
   });
 }
 
-export type SegmentDefaultPosition = { id: number; name: string; order: number; requiredCapabilityCode: string | null };
+export type SegmentDefaultPosition = { id: number; name: string; order: number; requiredSkillCode: string | null };
 export function useSegmentDefaultPositions(segmentId: number) {
   return useQuery({
     queryKey: ['segment', segmentId, 'default-positions'],
@@ -264,7 +264,7 @@ export function useSegmentDefaultPositions(segmentId: number) {
   });
 }
 
-export type Assignment = { id: number; personId: number; capabilityId: number; person: { id: number; name: string; gender: 'male' | 'female' }; capability: { id: number; code: string; nameMale: string; nameFemale: string } };
+export type Assignment = { id: number; personId: number; skillId: number; person: { id: number; name: string; gender: 'male' | 'female' }; skill: { id: number; code: string; nameMale: string; nameFemale: string } };
 
 export function useProductionAssignments(productionId: number) {
   return useQuery({
@@ -281,7 +281,7 @@ export function useProductionAssignments(productionId: number) {
 export function useAddProductionAssignment(productionId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { personId: number; capabilityId: number }): Promise<Assignment> => {
+    mutationFn: async (input: { personId: number; skillId: number }): Promise<Assignment> => {
       const res = await fetch(url(`/api/production/${productionId}/assignments`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
@@ -303,8 +303,8 @@ export function useAddProductionAssignment(productionId: number) {
 export function useUpdateProductionAssignment(productionId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: number; personId?: number; capabilityId?: number }): Promise<Assignment> => {
-      const res = await fetch(url(`/api/production/${productionId}/assignments/${input.id}`), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId: input.personId, capabilityId: input.capabilityId }) });
+    mutationFn: async (input: { id: number; personId?: number; skillId?: number }): Promise<Assignment> => {
+      const res = await fetch(url(`/api/production/${productionId}/assignments/${input.id}`), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId: input.personId, skillId: input.skillId }) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },

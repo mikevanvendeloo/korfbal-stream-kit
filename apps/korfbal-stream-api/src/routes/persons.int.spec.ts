@@ -16,7 +16,7 @@ async function resetDb() {
   // truncate key tables between tests
   await prisma.$transaction([
     prisma.matchRoleAssignment.deleteMany({}),
-    prisma.personCapability.deleteMany({}),
+    prisma.personSkill.deleteMany({}),
     prisma.person.deleteMany({}),
     prisma.matchSchedule.deleteMany({}),
   ]);
@@ -60,15 +60,15 @@ async function resetDb() {
   it('adds and removes capabilities, validates duplicates', async () => {
     // Create a person and use seeded production functions
     const p = await request(app).post('/api/persons').send({ name: 'Bob', gender: 'male' }).then(r => r.body);
-    const cap = await prisma.capability.findFirst({ where: { code: 'COACH' } });
+    const cap = await prisma.skill.findFirst({ where: { code: 'COACH' } });
     expect(cap).toBeTruthy();
 
-    // Add capability
-    const addRes = await request(app).post(`/api/persons/${p.id}/capabilities`).send({ capabilityId: cap!.id });
+    // Add skill
+    const addRes = await request(app).post(`/api/persons/${p.id}/capabilities`).send({ skillId: cap!.id });
     expect(addRes.status).toBe(201);
 
     // Idempotent upsert -> 201 first time, conflict on explicit unique
-    const again = await request(app).post(`/api/persons/${p.id}/capabilities`).send({ capabilityId: cap!.id });
+    const again = await request(app).post(`/api/persons/${p.id}/capabilities`).send({ skillId: cap!.id });
     expect([201, 409]).toContain(again.status);
 
     // List capabilities
@@ -77,7 +77,7 @@ async function resetDb() {
     expect(Array.isArray(listCaps.body)).toBe(true);
     expect(listCaps.body.length).toBe(1);
 
-    // Remove capability
+    // Remove skill
     const delCap = await request(app).delete(`/api/persons/${p.id}/capabilities/${cap!.id}`);
     expect(delCap.status).toBe(204);
 
@@ -86,10 +86,10 @@ async function resetDb() {
     expect(delCap404.status).toBe(404);
   });
 
-  it('creates, lists, updates and deletes match role assignments with capability enforcement', async () => {
+  it('creates, lists, updates and deletes match role assignments with skill enforcement', async () => {
     // Arrange data
     const person = await request(app).post('/api/persons').send({ name: 'Cara', gender: 'female' }).then(r => r.body);
-    const role = await prisma.capability.findFirst({ where: { code: 'COMMENTATOR' } });
+    const role = await prisma.skill.findFirst({ where: { code: 'COMMENTATOR' } });
     expect(role).toBeTruthy();
 
     const match = await prisma.matchSchedule.create({
@@ -101,33 +101,33 @@ async function resetDb() {
       },
     });
 
-    // Cannot assign without capability
+    // Cannot assign without skill
     const failAssign = await request(app)
       .post(`/api/persons/matches/${match.id}/assignments`)
-      .send({ personId: person.id, capabilityId: role!.id });
+      .send({ personId: person.id, skillId: role!.id });
     expect(failAssign.status).toBe(422);
 
-    // Add capability
-    await request(app).post(`/api/persons/${person.id}/capabilities`).send({ capabilityId: role!.id });
+    // Add skill
+    await request(app).post(`/api/persons/${person.id}/capabilities`).send({ skillId: role!.id });
 
     // Create assignment
     const create = await request(app)
       .post(`/api/persons/matches/${match.id}/assignments`)
-      .send({ personId: person.id, capabilityId: role!.id });
+      .send({ personId: person.id, skillId: role!.id });
     expect(create.status).toBe(201);
 
     // Allow multiple persons for the same role: add a second person with same role
     const otherPerson = await request(app).post('/api/persons').send({ name: 'Eve', gender: 'female' }).then(r => r.body);
-    await request(app).post(`/api/persons/${otherPerson.id}/capabilities`).send({ capabilityId: role!.id });
+    await request(app).post(`/api/persons/${otherPerson.id}/capabilities`).send({ skillId: role!.id });
     const secondAssign = await request(app)
       .post(`/api/persons/matches/${match.id}/assignments`)
-      .send({ personId: otherPerson.id, capabilityId: role!.id });
+      .send({ personId: otherPerson.id, skillId: role!.id });
     expect(secondAssign.status).toBe(201);
 
     // Prevent exact duplicate for same person+role
     const duplicateSamePerson = await request(app)
       .post(`/api/persons/matches/${match.id}/assignments`)
-      .send({ personId: person.id, capabilityId: role!.id });
+      .send({ personId: person.id, skillId: role!.id });
     expect([409]).toContain(duplicateSamePerson.status);
 
     // List should now have two assignments for the same role
@@ -135,16 +135,16 @@ async function resetDb() {
     expect(list.status).toBe(200);
     expect(list.body.length).toBe(2);
 
-    // Update: switch to another role after adding capability
-    const otherRole = await prisma.capability.findFirst({ where: { code: 'PRESENTATOR' } });
+    // Update: switch to another role after adding skill
+    const otherRole = await prisma.skill.findFirst({ where: { code: 'PRESENTATOR' } });
     expect(otherRole).toBeTruthy();
-    await request(app).post(`/api/persons/${person.id}/capabilities`).send({ capabilityId: otherRole!.id });
+    await request(app).post(`/api/persons/${person.id}/capabilities`).send({ skillId: otherRole!.id });
 
     const patch = await request(app)
       .patch(`/api/persons/matches/${match.id}/assignments/${create.body.id}`)
-      .send({ capabilityId: otherRole!.id });
+      .send({ skillId: otherRole!.id });
     expect(patch.status).toBe(200);
-    expect(patch.body.capabilityId).toBe(otherRole!.id);
+    expect(patch.body.skillId).toBe(otherRole!.id);
 
     // Delete
     const del = await request(app).delete(`/api/persons/matches/${match.id}/assignments/${create.body.id}`);
@@ -153,8 +153,8 @@ async function resetDb() {
 
   it('allows same person to have multiple roles in the same match', async () => {
     const person = await request(app).post('/api/persons').send({ name: 'Daan', gender: 'male' }).then(r => r.body);
-    const role1 = await prisma.capability.findFirst({ where: { code: 'COACH' } });
-    const role2 = await prisma.capability.findFirst({ where: { code: 'COMMENTATOR' } });
+    const role1 = await prisma.skill.findFirst({ where: { code: 'COACH' } });
+    const role2 = await prisma.skill.findFirst({ where: { code: 'COMMENTATOR' } });
     expect(role1 && role2).toBeTruthy();
 
     const match = await prisma.matchSchedule.create({
@@ -167,18 +167,18 @@ async function resetDb() {
     });
 
     // Person must have the capabilities first
-    await request(app).post(`/api/persons/${person.id}/capabilities`).send({ capabilityId: role1!.id });
-    await request(app).post(`/api/persons/${person.id}/capabilities`).send({ capabilityId: role2!.id });
+    await request(app).post(`/api/persons/${person.id}/capabilities`).send({ skillId: role1!.id });
+    await request(app).post(`/api/persons/${person.id}/capabilities`).send({ skillId: role2!.id });
 
     // Assign both roles to the same person for this match
     const a1 = await request(app)
       .post(`/api/persons/matches/${match.id}/assignments`)
-      .send({ personId: person.id, capabilityId: role1!.id });
+      .send({ personId: person.id, skillId: role1!.id });
     expect(a1.status).toBe(201);
 
     const a2 = await request(app)
       .post(`/api/persons/matches/${match.id}/assignments`)
-      .send({ personId: person.id, capabilityId: role2!.id });
+      .send({ personId: person.id, skillId: role2!.id });
     expect(a2.status).toBe(201);
 
     // List should contain two assignments

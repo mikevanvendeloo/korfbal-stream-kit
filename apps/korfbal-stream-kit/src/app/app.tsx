@@ -5,7 +5,7 @@ import ScoreboardPage from '../pages/ScoreboardPage';
 import MatchSchedulePage from '../pages/MatchSchedulePage';
 import SponsorRowsPage from '../pages/SponsorRowsPage';
 import PersonsAdminPage from '../pages/PersonsAdminPage';
-import CapabilitiesAdminPage from '../pages/CapabilitiesAdminPage';
+import SkillsAdminPage from '../pages/SkillsAdminPage';
 import PositionsAdminPage from '../pages/PositionsAdminPage';
 import SegmentDefaultsAdminPage from '../pages/SegmentDefaultsAdminPage';
 import QRAdminPage from '../pages/QRAdminPage';
@@ -14,6 +14,7 @@ import ProductionDetailPage from '../pages/ProductionDetailPage';
 import ProductionTitlesPage from '../pages/ProductionTitlesPage';
 import ClubsPage from '../pages/ClubsPage';
 import CrewReportPage from '../pages/CrewReportPage';
+import ProductionReportPage from '../pages/ProductionReportPage';
 import CallSheetsPage from '../pages/CallSheetsPage';
 import CallSheetEditPage from '../pages/CallSheetEditPage';
 import ActiveProductionPage from '../pages/ActiveProductionPage';
@@ -156,9 +157,9 @@ function Nav() {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/admin/capabilities" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                  <Link to="/admin/skills" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
                     <MdBuild />
-                    <span>Capabilities</span>
+                    <span>Skills</span>
                   </Link>
                 </li>
                 <li>
@@ -209,7 +210,7 @@ export function App() {
             <Route path="/scoreboard" element={<ScoreboardPage />} />
             <Route path="/matches/schedule" element={<MatchSchedulePage />} />
             <Route path="/admin/persons" element={<PersonsAdminPage />} />
-            <Route path="/admin/capabilities" element={<CapabilitiesAdminPage />} />
+            <Route path="/admin/skills" element={<SkillsAdminPage />} />
             <Route path="/admin/positions" element={<PositionsAdminPage />} />
             <Route path="/admin/segment-defaults" element={<SegmentDefaultsAdminPage />} />
             <Route path="/admin/clubs" element={<ClubsPage />} />
@@ -218,6 +219,7 @@ export function App() {
             <Route path="/admin/productions/:id" element={<ProductionDetailPage />} />
             <Route path="/admin/productions/:id/titles" element={<ProductionTitlesPage />} />
             <Route path="/admin/productions/:id/crew-report" element={<CrewReportPage />} />
+            <Route path="/admin/productions/:id/production-report" element={<ProductionReportPage />} />
             <Route path="/admin/productions/:id/callsheets" element={<CallSheetsPage />} />
             <Route path="/admin/productions/:id/callsheets/:callSheetId" element={<CallSheetEditPage />} />
             <Route path="/active" element={<ActiveProductionPage />} />

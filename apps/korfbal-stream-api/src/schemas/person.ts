@@ -19,16 +19,16 @@ export const PaginationQuerySchema = z.object({
   q: z.string().optional(),
 });
 
-export const CapabilityInputSchema = z.object({
-  capabilityId: z.coerce.number().int().positive(),
+export const SkillInputSchema = z.object({
+  skillId: z.coerce.number().int().positive(),
 });
 
 export const AssignmentCreateSchema = z.object({
-  capabilityId: z.coerce.number().int().positive(),
+  skillId: z.coerce.number().int().positive(),
   personId: z.coerce.number().int().positive(),
 });
 
 export const AssignmentUpdateSchema = z.object({
-  capabilityId: z.coerce.number().int().positive().optional(),
+  skillId: z.coerce.number().int().positive().optional(),
   personId: z.coerce.number().int().positive().optional(),
 });

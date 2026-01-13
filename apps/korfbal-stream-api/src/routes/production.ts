@@ -3,13 +3,14 @@ import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
 import * as XLSX from 'xlsx';
-import {capabilitiesRouter} from './capabilities';
+import PDFDocument from 'pdfkit';
+import {skillsRouter} from './skills';
 import {personsRouter} from './persons';
 import {prisma} from '../services/prisma';
 import {findClubByTeamName} from '../utils/clubs';
 import {logger} from '../utils/logger';
 import {z} from 'zod';
-import { DEFAULT_SEGMENT_POSITIONS, getRequiredCapabilityCodeForPosition } from '../domain/positionCapability';
+import {DEFAULT_SEGMENT_POSITIONS, getRequiredSkillCodeForPosition} from '../domain/positionSkill';
 import {
   CreateTitleDefinitionSchema,
   ReorderTitleDefinitionsSchema,
@@ -29,18 +30,18 @@ export const productionRouter: Router = Router();
 const uploadMem = multer({ storage: multer.memoryStorage() });
 
 // Nest existing routers under production namespace
-productionRouter.use('/capabilities', capabilitiesRouter);
+productionRouter.use('/skills', skillsRouter);
 productionRouter.use('/persons', personsRouter);
 
 // -------- Positions catalog (place before dynamic \/:id routes to avoid conflicts) --------
 const PositionSchema = z.object({
   name: z.string().min(2).max(100),
-  capabilityId: z.number().int().positive().nullable().optional(),
+  skillId: z.number().int().positive().nullable().optional(),
 });
 
 productionRouter.get('/positions', async (_req, res, next) => {
   try {
-    const items = await prisma.position.findMany({ orderBy: { name: 'asc' }, include: { capability: true } });
+    const items = await prisma.position.findMany({ orderBy: { name: 'asc' }, include: { skill: true } });
     return res.json(items);
   } catch (err) {
     return next(err);
@@ -50,15 +51,15 @@ productionRouter.get('/positions', async (_req, res, next) => {
 productionRouter.post('/positions', async (req, res, next) => {
   try {
     const parsed = PositionSchema.parse(req.body || {});
-    // Validate capabilityId if provided
-    let capabilityId: number | null = parsed.capabilityId == null ? null : Number(parsed.capabilityId);
-    if (capabilityId != null) {
-      const cap = await prisma.capability.findUnique({ where: { id: capabilityId } });
-      if (!cap) return res.status(422).json({ error: 'Capability not found' });
+    // Validate skillId if provided
+    const skillId: number | null = parsed.skillId == null ? null : Number(parsed.skillId);
+    if (skillId != null) {
+      const cap = await prisma.skill.findUnique({ where: { id: skillId } });
+      if (!cap) return res.status(422).json({ error: 'Skill not found' });
     }
     const created = await prisma.position.create({
-      data: { name: parsed.name, capabilityId: capabilityId ?? undefined },
-      include: { capability: true },
+      data: { name: parsed.name, skillId: skillId ?? undefined },
+      include: { skill: true },
     });
     return res.status(201).json(created);
   } catch (err: any) {
@@ -75,19 +76,19 @@ productionRouter.put('/positions/:id', async (req, res, next) => {
     const existing = await prisma.position.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: 'Not found' });
     const parsed = PositionSchema.partial().required({}).parse(req.body || {});
-    // capabilityId may be null (to unset)
-    let capabilityId: number | null | undefined = parsed.capabilityId as any;
-    if (capabilityId !== undefined && capabilityId !== null) {
-      const cap = await prisma.capability.findUnique({ where: { id: Number(capabilityId) } });
-      if (!cap) return res.status(422).json({ error: 'Capability not found' });
+    // skillId may be null (to unset)
+    const skillId: number | null | undefined = parsed.skillId as any;
+    if (skillId !== undefined && skillId !== null) {
+      const cap = await prisma.skill.findUnique({ where: { id: Number(skillId) } });
+      if (!cap) return res.status(422).json({ error: 'Skill not found' });
     }
     const updated = await prisma.position.update({
       where: { id },
       data: {
         name: parsed.name ?? undefined,
-        capabilityId: capabilityId === undefined ? undefined : capabilityId,
+        skillId: skillId === undefined ? undefined : skillId,
       },
-      include: { capability: true },
+      include: { skill: true },
     });
     return res.json(updated);
   } catch (err: any) {
@@ -127,7 +128,7 @@ productionRouter.get('/segment-default-positions', async (req, res, next) => {
     const items = await prisma.segmentDefaultPosition.findMany({
       where: { segmentName: name },
       orderBy: { order: 'asc' },
-      include: { position: { include: { capability: true } } },
+      include: { position: { include: { skill: true } } },
     });
     return res.json(items);
   } catch (err) {
@@ -174,7 +175,7 @@ productionRouter.put('/segment-default-positions', async (req, res, next) => {
     const refreshed = await prisma.segmentDefaultPosition.findMany({
       where: { segmentName },
       orderBy: { order: 'asc' },
-      include: { position: { include: { capability: true } } },
+      include: { position: { include: { skill: true } } },
     });
     return res.json(refreshed);
   } catch (err: any) {
@@ -355,7 +356,7 @@ productionRouter.get('/:id/assignments', async (req, res, next) => {
     if (!matchId) return;
     const items = await prisma.matchRoleAssignment.findMany({
       where: { matchScheduleId: matchId },
-      include: { person: true, capability: true },
+      include: { person: true, skill: true },
       orderBy: { id: 'asc' },
     });
     return res.json(items);
@@ -370,28 +371,28 @@ productionRouter.post('/:id/assignments', async (req, res, next) => {
     const matchId = await getMatchIdForProductionOr404(res, req.params.id);
     if (!matchId) return;
 
-    const capabilityId = Number(req.body?.capabilityId);
+    const skillId = Number(req.body?.skillId);
     const personId = Number(req.body?.personId);
-    if (!Number.isInteger(capabilityId) || capabilityId <= 0 || !Number.isInteger(personId) || personId <= 0) {
-      return res.status(400).json({ error: 'Invalid personId or capabilityId' });
+    if (!Number.isInteger(skillId) || skillId <= 0 || !Number.isInteger(personId) || personId <= 0) {
+      return res.status(400).json({ error: 'Invalid personId or skillId' });
     }
 
-    // Validate entities and capability ownership
+    // Validate entities and skill ownership
     const [person, capDef] = await Promise.all([
       prisma.person.findUnique({ where: { id: personId } }),
-      prisma.capability.findUnique({ where: { id: capabilityId } }),
+      prisma.skill.findUnique({ where: { id: skillId } }),
     ]);
     if (!person) return res.status(404).json({ error: 'Person not found' });
-    if (!capDef) return res.status(404).json({ error: 'Capability not found' });
+    if (!capDef) return res.status(404).json({ error: 'Skill not found' });
 
-    const hasCapability = await prisma.personCapability.findUnique({
-      where: { personId_capabilityId: { personId, capabilityId } },
+    const hasSkill = await prisma.personSkill.findUnique({
+      where: { personId_skillId: { personId, skillId } },
     });
-    if (!hasCapability) return res.status(422).json({ error: 'Person lacks required capability for this role' });
+    if (!hasSkill) return res.status(422).json({ error: 'Person lacks required skill for this role' });
 
     const created = await prisma.matchRoleAssignment.create({
-      data: { matchScheduleId: matchId, personId, capabilityId },
-      include: { person: true, capability: true },
+      data: { matchScheduleId: matchId, personId, skillId },
+      include: { person: true, skill: true },
     });
     return res.status(201).json(created);
   } catch (err: any) {
@@ -412,20 +413,20 @@ productionRouter.patch('/:id/assignments/:assignmentId', async (req, res, next) 
     if (!existing || existing.matchScheduleId !== matchId) return res.status(404).json({ error: 'Not found' });
 
     const nextPersonId = req.body?.personId != null ? Number(req.body.personId) : existing.personId;
-    const nextCapabilityId = req.body?.capabilityId != null ? Number(req.body.capabilityId) : existing.capabilityId;
-    if (!Number.isInteger(nextPersonId) || nextPersonId <= 0 || !Number.isInteger(nextCapabilityId) || nextCapabilityId <= 0) {
-      return res.status(400).json({ error: 'Invalid personId or capabilityId' });
+    const nextSkillId = req.body?.skillId != null ? Number(req.body.skillId) : existing.skillId;
+    if (!Number.isInteger(nextPersonId) || nextPersonId <= 0 || !Number.isInteger(nextSkillId) || nextSkillId <= 0) {
+      return res.status(400).json({ error: 'Invalid personId or skillId' });
     }
 
-    const hasCapability = await prisma.personCapability.findUnique({
-      where: { personId_capabilityId: { personId: nextPersonId, capabilityId: nextCapabilityId } },
+    const hasSkill = await prisma.personSkill.findUnique({
+      where: { personId_skillId: { personId: nextPersonId, skillId: nextSkillId } },
     });
-    if (!hasCapability) return res.status(422).json({ error: 'Person lacks required capability for this role' });
+    if (!hasSkill) return res.status(422).json({ error: 'Person lacks required skill for this role' });
 
     const updated = await prisma.matchRoleAssignment.update({
       where: { id: assignmentId },
-      data: { personId: nextPersonId, capabilityId: nextCapabilityId },
-      include: { person: true, capability: true },
+      data: { personId: nextPersonId, skillId: nextSkillId },
+      include: { person: true, skill: true },
     });
     return res.json(updated);
   } catch (err: any) {
@@ -1533,7 +1534,7 @@ productionRouter.get('/segments/:segmentId/persons', async (req, res, next) => {
       include: {
         person: {
           include: {
-            capabilities: true,
+            skills: true,
           },
         },
       },
@@ -1541,13 +1542,13 @@ productionRouter.get('/segments/:segmentId/persons', async (req, res, next) => {
 
     const uniqueMap = new Map<number, any>();
     for (const a of mras) {
-      // Flatten to expose capabilityIds for client-side filtering
-      const capIds = (a.person as any).capabilities?.map((c: any) => c.capabilityId) || [];
+      // Flatten to expose skillIds for client-side filtering
+      const capIds = (a.person as any).skills?.map((c: any) => c.skillId) || [];
       uniqueMap.set(a.person.id, {
         id: a.person.id,
         name: a.person.name,
         gender: a.person.gender,
-        capabilityIds: capIds,
+        skillIds: capIds,
       });
     }
 
@@ -1603,18 +1604,18 @@ productionRouter.post('/segments/:segmentId/assignments', async (req, res, next)
       return res.status(422).json({ error: 'Persoon is niet gekoppeld als crew van deze productie' });
     }
 
-    // Capability requirement per position: prefer configured capability on the position; fallback to centralized mapping
+    // Skill requirement per position: prefer configured skill on the position; fallback to centralized mapping
     let requiredCode: string | null = null;
-    const posWithCap = await prisma.position.findUnique({ where: { id: pos.id }, include: { capability: true } });
-    if (posWithCap?.capability) requiredCode = posWithCap.capability.code;
-    else requiredCode = getRequiredCapabilityCodeForPosition(pos.name);
+    const posWithCap = await prisma.position.findUnique({ where: { id: pos.id }, include: { skill: true } });
+    if (posWithCap?.skill) requiredCode = posWithCap.skill.code;
+    else requiredCode = getRequiredSkillCodeForPosition(pos.name);
     if (requiredCode) {
-      // Resolve capabilityId by code
-      const cap = await prisma.capability.findUnique({ where: { code: requiredCode } });
-      if (!cap) return res.status(422).json({ error: `Vereiste capability ${requiredCode} bestaat niet` });
-      const hasCap = await prisma.personCapability.findUnique({ where: { personId_capabilityId: { personId, capabilityId: cap.id } } });
+      // Resolve skillId by code
+      const cap = await prisma.skill.findUnique({ where: { code: requiredCode } });
+      if (!cap) return res.status(422).json({ error: `Vereiste skill ${requiredCode} bestaat niet` });
+      const hasCap = await prisma.personSkill.findUnique({ where: { personId_skillId: { personId, skillId: cap.id } } });
       if (!hasCap) {
-        return res.status(422).json({ error: 'Persoon mist de vereiste capability voor deze positie' });
+        return res.status(422).json({ error: 'Persoon mist de vereiste skill voor deze positie' });
       }
     }
 
@@ -1641,7 +1642,7 @@ productionRouter.get('/segments/:segmentId/positions', async (req, res, next) =>
     const configured = await prisma.segmentDefaultPosition.findMany({
       where: { segmentName: seg.naam },
       orderBy: { order: 'asc' },
-      include: { position: { include: { capability: true } } },
+      include: { position: { include: { skill: true } } },
     });
 
     if (configured.length > 0) {
@@ -1649,7 +1650,7 @@ productionRouter.get('/segments/:segmentId/positions', async (req, res, next) =>
         id: it.position.id,
         name: it.position.name,
         order: it.order ?? idx,
-        requiredCapabilityCode: it.position.capability ? it.position.capability.code : null,
+        requiredSkillCode: it.position.skill ? it.position.skill.code : null,
       }));
       return res.json(mapped);
     }
@@ -1658,14 +1659,14 @@ productionRouter.get('/segments/:segmentId/positions', async (req, res, next) =>
     const global = await prisma.segmentDefaultPosition.findMany({
       where: { segmentName: GLOBAL_SEGMENT_NAME },
       orderBy: { order: 'asc' },
-      include: { position: { include: { capability: true } } },
+      include: { position: { include: { skill: true } } },
     });
     if (global.length > 0) {
       const mapped = global.map((it, idx) => ({
         id: it.position.id,
         name: it.position.name,
         order: it.order ?? idx,
-        requiredCapabilityCode: it.position.capability ? it.position.capability.code : null,
+        requiredSkillCode: it.position.skill ? it.position.skill.code : null,
       }));
       return res.json(mapped);
     }
@@ -1674,11 +1675,11 @@ productionRouter.get('/segments/:segmentId/positions', async (req, res, next) =>
     const positions = await Promise.all(
       DEFAULT_SEGMENT_POSITIONS.map(async (name, order) => {
         let p = await prisma.position.findUnique({ where: { name } });
-        if (!p) p = await prisma.position.create({ data: { name, capabilityId: null } });
-        const requiredCapabilityCode = p.capabilityId
-          ? (await prisma.capability.findUnique({ where: { id: p.capabilityId } }))?.code || null
-          : getRequiredCapabilityCodeForPosition(name);
-        return { id: p.id, name: p.name, order, requiredCapabilityCode };
+        if (!p) p = await prisma.position.create({ data: { name, skillId: null } });
+        const requiredSkillCode = p.skillId
+          ? (await prisma.skill.findUnique({ where: { id: p.skillId } }))?.code || null
+          : getRequiredSkillCodeForPosition(name);
+        return { id: p.id, name: p.name, order, requiredSkillCode };
       })
     );
 
@@ -1745,6 +1746,1036 @@ productionRouter.post('/segments/:segmentId/assignments/copy', async (req, res, 
     });
 
     return res.json({ ok: true, ...copied, mode });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// -------- Production Report (Livestream Productie Rapport) --------
+
+// Schema's voor validatie
+const CreateUpdateProductionReportSchema = z.object({
+  matchSponsor: z.string().max(200).optional().nullable(),
+  interviewRationale: z.string().max(5000).optional().nullable(),
+});
+
+// Helper functie om segment naam te mappen naar rapport sectie
+function mapSegmentToSection(segmentName: string): string {
+  const lower = segmentName.toLowerCase();
+  if (lower.includes('oplopen') || lower.includes('oploop')) return 'OPLOPEN';
+  if (lower.includes('wedstrijd')) return 'WEDSTRIJD';
+  if (lower.includes('studio')) return 'STUDIO';
+  if (lower.includes('commentaar')) return 'COMMENTAAR';
+  if (lower.includes('speaker')) return 'SPEAKER';
+  return 'OVERIG';
+}
+
+// GET /api/production/:id/report - Haal het productie rapport op (enriched met productie data)
+productionRouter.get('/:id/report', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
+
+    const production = await prisma.production.findUnique({
+      where: { id },
+      include: {
+        matchSchedule: true,
+        productionReport: true,
+        segments: {
+          include: {
+            bezetting: {
+              include: {
+                person: true,
+                position: true,
+              },
+            },
+          },
+          orderBy: { volgorde: 'asc' },
+        },
+        interviewSubjects: {
+          include: {
+            player: {
+              include: {
+                club: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!production) return res.status(404).json({ error: 'Production not found' });
+
+    // Verzamel unieke personen (aanwezigen)
+    const uniquePeople = new Set<string>();
+    production.segments.forEach((seg) => {
+      seg.bezetting.forEach((b) => uniquePeople.add(b.person.name));
+    });
+    const attendees = Array.from(uniquePeople).sort();
+
+    // Groepeer rollen per sectie (met isStudio info)
+    const rolesBySection: Record<string, Array<{ positionName: string; personNames: string[]; isStudio: boolean }>> = {};
+
+    production.segments.forEach((segment) => {
+      const section = mapSegmentToSection(segment.naam);
+      if (!rolesBySection[section]) rolesBySection[section] = [];
+
+      const positionMap = new Map<string, { names: Set<string>; isStudio: boolean }>();
+      segment.bezetting.forEach((b) => {
+        if (!positionMap.has(b.position.name)) {
+          positionMap.set(b.position.name, { names: new Set(), isStudio: b.position.isStudio });
+        }
+        positionMap.get(b.position.name)!.names.add(b.person.name);
+      });
+
+      positionMap.forEach((data, posName) => {
+        const existing = rolesBySection[section].find((r) => r.positionName === posName);
+        if (existing) {
+          data.names.forEach((n) => {
+            if (!existing.personNames.includes(n)) existing.personNames.push(n);
+          });
+        } else {
+          rolesBySection[section].push({
+            positionName: posName,
+            personNames: Array.from(data.names),
+            isStudio: data.isStudio,
+          });
+        }
+      });
+    });
+
+    // Sorteer en maak leesbaar
+    Object.keys(rolesBySection).forEach((section) => {
+      rolesBySection[section].sort((a, b) => a.positionName.localeCompare(b.positionName));
+    });
+
+    // Interview subjects (met foto's en rugnummer)
+    const interviews = {
+      home: {
+        players: production.interviewSubjects
+          .filter((s) => s.side === 'HOME' && s.role === 'PLAYER')
+          .map((s) => ({
+            id: s.player.id,
+            name: s.player.name,
+            shirtNo: s.player.shirtNo,
+            function: s.player.function,
+            photoUrl: s.player.photoUrl,
+          })),
+        coaches: production.interviewSubjects
+          .filter((s) => s.side === 'HOME' && s.role === 'COACH')
+          .map((s) => ({
+            id: s.player.id,
+            name: s.player.name,
+            shirtNo: s.player.shirtNo,
+            function: s.player.function,
+            photoUrl: s.player.photoUrl,
+          })),
+      },
+      away: {
+        players: production.interviewSubjects
+          .filter((s) => s.side === 'AWAY' && s.role === 'PLAYER')
+          .map((s) => ({
+            id: s.player.id,
+            name: s.player.name,
+            shirtNo: s.player.shirtNo,
+            function: s.player.function,
+            photoUrl: s.player.photoUrl,
+          })),
+        coaches: production.interviewSubjects
+          .filter((s) => s.side === 'AWAY' && s.role === 'COACH')
+          .map((s) => ({
+            id: s.player.id,
+            name: s.player.name,
+            shirtNo: s.player.shirtNo,
+            function: s.player.function,
+            photoUrl: s.player.photoUrl,
+          })),
+      },
+    };
+
+    // Haal alle sponsors op voor de dropdown
+    const sponsors = await prisma.sponsor.findMany({ orderBy: { name: 'asc' } });
+
+    return res.json({
+      production: {
+        id: production.id,
+        matchScheduleId: production.matchScheduleId,
+        homeTeam: production.matchSchedule.homeTeamName,
+        awayTeam: production.matchSchedule.awayTeamName,
+        date: production.matchSchedule.date,
+      },
+      report: production.productionReport || null,
+      enriched: {
+        attendees,
+        rolesBySection,
+        interviews,
+      },
+      sponsors,
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// POST /api/production/:id/report - Maak of update het productie rapport
+productionRouter.post('/:id/report', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
+
+    const parsed = CreateUpdateProductionReportSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid payload' });
+    }
+
+    const { matchSponsor, interviewRationale } = parsed.data;
+
+    // Check if production exists
+    const production = await prisma.production.findUnique({ where: { id } });
+    if (!production) return res.status(404).json({ error: 'Production not found' });
+
+    // Upsert het rapport
+    const report = await prisma.productionReport.upsert({
+      where: { productionId: id },
+      create: {
+        productionId: id,
+        matchSponsor,
+        interviewRationale,
+      },
+      update: {
+        matchSponsor,
+        interviewRationale,
+      },
+    });
+
+    return res.json(report);
+  } catch (err: any) {
+    if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid payload' });
+    return next(err);
+  }
+});
+
+// DELETE /api/production/:id/report - Verwijder het productie rapport
+productionRouter.delete('/:id/report', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
+
+    const existing = await prisma.productionReport.findUnique({ where: { productionId: id } });
+    if (!existing) return res.status(404).json({ error: 'Report not found' });
+
+    await prisma.productionReport.delete({ where: { id: existing.id } });
+
+    return res.status(204).send();
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// GET /api/production/:id/report/pdf - Download het productie rapport als PDF
+productionRouter.get('/:id/report/pdf', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
+
+    const production = await prisma.production.findUnique({
+      where: { id },
+      include: {
+        matchSchedule: true,
+        productionReport: true,
+        segments: {
+          include: {
+            bezetting: {
+              include: {
+                person: true,
+                position: true,
+              },
+            },
+          },
+          orderBy: { volgorde: 'asc' },
+        },
+        interviewSubjects: {
+          include: {
+            player: {
+              include: {
+                club: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!production) return res.status(404).json({ error: 'Production not found' });
+
+    const report = production.productionReport;
+    const match = production.matchSchedule;
+
+    // Debug: log segment names
+    logger.info('Production segments:', production.segments.map(s => ({ name: s.naam, bezettingCount: s.bezetting.length })));
+
+    // Verzamel enriched data
+    const uniquePeople = new Set<string>();
+    production.segments.forEach((seg) => {
+      seg.bezetting.forEach((b) => uniquePeople.add(b.person.name));
+    });
+    const attendees = Array.from(uniquePeople).sort();
+
+    // Groepeer rollen per sectie (met isStudio info)
+    const rolesBySection: Record<string, Array<{ positionName: string; personNames: string[]; isStudio: boolean }>> = {};
+    production.segments.forEach((segment) => {
+      const section = mapSegmentToSection(segment.naam);
+      logger.info(`Mapping segment "${segment.naam}" to section "${section}"`);
+      if (!rolesBySection[section]) rolesBySection[section] = [];
+
+      const positionMap = new Map<string, { names: Set<string>; isStudio: boolean }>();
+      segment.bezetting.forEach((b) => {
+        if (!positionMap.has(b.position.name)) {
+          positionMap.set(b.position.name, { names: new Set(), isStudio: b.position.isStudio });
+        }
+        positionMap.get(b.position.name)!.names.add(b.person.name);
+      });
+
+      positionMap.forEach((data, posName) => {
+        const existing = rolesBySection[section].find((r) => r.positionName === posName);
+        if (existing) {
+          data.names.forEach((n) => {
+            if (!existing.personNames.includes(n)) existing.personNames.push(n);
+          });
+        } else {
+          rolesBySection[section].push({
+            positionName: posName,
+            personNames: Array.from(data.names),
+            isStudio: data.isStudio,
+          });
+        }
+      });
+    });
+
+    // Sorteer
+    Object.keys(rolesBySection).forEach((section) => {
+      rolesBySection[section].sort((a, b) => a.positionName.localeCompare(b.positionName));
+    });
+
+    // Debug: log final rolesBySection
+    logger.info('Final rolesBySection after processing:', JSON.stringify(rolesBySection, null, 2));
+
+    // Interview subjects
+    const interviews = {
+      home: {
+        players: production.interviewSubjects.filter((s) => s.side === 'HOME' && s.role === 'PLAYER').map((s) => s.player),
+        coaches: production.interviewSubjects.filter((s) => s.side === 'HOME' && s.role === 'COACH').map((s) => s.player),
+      },
+      away: {
+        players: production.interviewSubjects.filter((s) => s.side === 'AWAY' && s.role === 'PLAYER').map((s) => s.player),
+        coaches: production.interviewSubjects.filter((s) => s.side === 'AWAY' && s.role === 'COACH').map((s) => s.player),
+      },
+    };
+
+    // Format datum en tijd
+    const matchDate = new Date(match.date);
+    const timeStr = matchDate.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+    const matchTitle = `${match.homeTeamName} - ${match.awayTeamName}: ${timeStr} uur`;
+
+    // Maak PDF document
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+
+    // Set response headers
+    const filename = `Productie_Positie_Overzicht_${match.homeTeamName.replace(/[^a-z0-9]/gi, '_')}_${matchDate.toISOString().split('T')[0]}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    // Pipe PDF naar response
+    doc.pipe(res);
+
+    // Titel
+    doc.fontSize(18).font('Helvetica-Bold').text('Livestream bezetting', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(14).font('Helvetica').text(matchTitle, { align: 'center' });
+    doc.moveDown(1);
+
+    // Aanwezigen
+    doc.fontSize(12).font('Helvetica-Bold').text('Aanwezig:', { continued: false });
+    doc.font('Helvetica').text(attendees.join(', ') || 'Geen aanwezigen');
+    doc.moveDown(0.5);
+
+    // Wedstrijdsponsor
+    if (report?.matchSponsor) {
+      doc.fontSize(12).font('Helvetica-Bold').text('Wedstrijdsponsor:', { continued: false });
+      doc.font('Helvetica').text(report.matchSponsor);
+      doc.moveDown(1);
+    } else {
+      doc.moveDown(0.5);
+    }
+
+    // Positie bezetting header
+    doc.fontSize(14).font('Helvetica-Bold').text('Positie bezetting', { underline: true });
+    doc.moveDown(0.5);
+
+    // Debug: log rolesBySection
+    logger.info('rolesBySection keys:', Object.keys(rolesBySection));
+    Object.keys(rolesBySection).forEach(key => {
+      logger.info(`Section ${key}:`, rolesBySection[key]);
+    });
+
+    // Verzamel alle posities uit alle secties
+    const allRoles: Array<{ positionName: string; personNames: string[]; isStudio: boolean }> = [];
+    Object.values(rolesBySection).forEach((roles) => {
+      roles.forEach((role) => {
+        const existing = allRoles.find((r) => r.positionName === role.positionName);
+        if (existing) {
+          role.personNames.forEach((name) => {
+            if (!existing.personNames.includes(name)) {
+              existing.personNames.push(name);
+            }
+          });
+        } else {
+          allRoles.push({ positionName: role.positionName, personNames: [...role.personNames], isStudio: role.isStudio });
+        }
+      });
+    });
+
+    // Splits in Studio en Productie posities op basis van isStudio veld
+    const studioRoles = allRoles.filter((r) => r.isStudio);
+    const productieRoles = allRoles.filter((r) => !r.isStudio);
+
+    // Render twee kolommen met tabellen
+    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const columnWidth = pageWidth / 2 - 10;
+    const leftColumnX = doc.page.margins.left;
+    const rightColumnX = doc.page.margins.left + columnWidth + 20;
+    let currentY = doc.y;
+    const positionColumnY = doc.y;
+
+    // Linker kolom: Studio posities
+    doc.fontSize(12).font('Helvetica-Bold').text('Studio posities', leftColumnX, currentY);
+    currentY += 20;
+
+    // Tabel headers
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text('Positie', leftColumnX, currentY, { width: columnWidth * 0.4, continued: false });
+    doc.text('Naam', leftColumnX + columnWidth * 0.4, currentY, { width: columnWidth * 0.6, continued: false });
+    currentY += 15;
+
+    // Tabel rijen
+    doc.fontSize(9).font('Helvetica');
+    if (studioRoles.length === 0) {
+      doc.fillColor('gray').text('Geen posities toegewezen', leftColumnX, currentY, { width: columnWidth, continued: false });
+      doc.fillColor('black');
+      currentY += 12;
+    } else {
+      studioRoles.forEach((role) => {
+        const rowHeight = Math.max(12, Math.ceil(role.personNames.join(', ').length / 30) * 12);
+        doc.text(role.positionName, leftColumnX, currentY, { width: columnWidth * 0.4, continued: false });
+        doc.text(role.personNames.join(', '), leftColumnX + columnWidth * 0.4, currentY, { width: columnWidth * 0.6, continued: false });
+        currentY += rowHeight;
+      });
+    }
+
+    // Rechter kolom: Productie posities (start vanaf boven)
+    const startY = positionColumnY;
+
+    doc.fontSize(12).font('Helvetica-Bold').text('Productie posities', rightColumnX, startY);
+    let rightCurrentY = startY + 20;
+
+    // Tabel headers
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text('Positie', rightColumnX, rightCurrentY, { width: columnWidth * 0.4, continued: false });
+    doc.text('Naam', rightColumnX + columnWidth * 0.4, rightCurrentY, { width: columnWidth * 0.6, continued: false });
+    rightCurrentY += 15;
+
+    // Tabel rijen
+    doc.fontSize(9).font('Helvetica');
+    if (productieRoles.length === 0) {
+      doc.fillColor('gray').text('Geen posities toegewezen', rightColumnX, rightCurrentY, { width: columnWidth, continued: false });
+      doc.fillColor('black');
+      rightCurrentY += 12;
+    } else {
+      productieRoles.forEach((role) => {
+        const rowHeight = Math.max(12, Math.ceil(role.personNames.join(', ').length / 30) * 12);
+        doc.text(role.positionName, rightColumnX, rightCurrentY, { width: columnWidth * 0.4, continued: false });
+        doc.text(role.personNames.join(', '), rightColumnX + columnWidth * 0.4, rightCurrentY, { width: columnWidth * 0.6, continued: false });
+        rightCurrentY += rowHeight;
+      });
+    }
+
+    // Zet cursor naar de laagste punt van beide kolommen
+    doc.y = Math.max(currentY, rightCurrentY);
+    doc.moveDown(1);
+
+    // Interview sectie met foto's in 2 kolommen (coach links, speler rechts)
+    const allInterviewees = [...interviews.home.players, ...interviews.home.coaches, ...interviews.away.players, ...interviews.away.coaches];
+    if (allInterviewees.length > 0) {
+      const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+      const columnWidth = pageWidth / 2 - 10;
+      const leftColumnX = doc.page.margins.left;
+      const rightColumnX = doc.page.margins.left + columnWidth + 20;
+      doc.x = leftColumnX;
+      doc.fontSize(13).font('Helvetica-Bold').text('Spelers voor interviews:', { underline: true });
+      doc.moveDown(0.5);
+      // Helper functie om persoon te renderen
+      const renderPerson = (person: any, xPos: number, yPos: number) => {
+        const imageWidth = 120;
+        const imageHeight = 120;
+        let currentY = yPos;
+
+        // Naam en rugnummer eerst
+        const shirtNo = (person.shirtNo != null && person.shirtNo > 0) ? ` (#${person.shirtNo})` : '';
+        doc.fontSize(11).font('Helvetica-Bold').text(`${person.name}${shirtNo}`, xPos, currentY);
+        currentY = doc.y;
+        if (person.function) {
+          doc.fontSize(10).font('Helvetica').text(person.function, xPos, currentY);
+          currentY = doc.y;
+        }
+        currentY += 1;
+
+        // Foto eronder
+        if (person.photoUrl) {
+          const imagePath = path.join(process.cwd(), 'uploads', person.photoUrl);
+
+          if (fs.existsSync(imagePath)) {
+            try {
+              // 1. Sla de huidige staat van het document op
+              doc.save();
+
+              // 1. Teken het kader waar de foto in MOET komen
+              doc.rect(xPos, currentY, imageWidth, imageHeight).clip();
+
+              // 2. Plaats de afbeelding
+              // We gebruiken 'cover' met exact dezelfde dimensies als de clip-rect.
+              // 'valign: top' zorgt dat we het hoofd zien.
+              doc.image(imagePath, xPos, currentY, {
+                width: imageWidth
+              });
+
+              doc.restore(); // Herstel clip-staat zodat tekst weer zichtbaar is
+
+              // 3. Update currentY voor de rest van de content
+              // We voegen extra ruimte toe (bijv. 15px) na de afbeelding
+              currentY += imageHeight + 1;
+
+            } catch (e) {
+              logger.warn(`Could not add image for ${person.name}: ${e}`);
+            }
+          }
+        }
+
+        return currentY;
+      };
+
+      // Home team - 2 kolommen layout
+      if (interviews.home.players.length > 0 || interviews.home.coaches.length > 0) {
+        doc.fontSize(12).font('Helvetica-Bold').text(`${match.homeTeamName}:`);
+        doc.moveDown(0.3);
+
+        const rowStartY = doc.y;
+        let leftY = rowStartY;
+        let rightY = rowStartY;
+
+        // Coach links
+        if (interviews.home.coaches.length > 0) {
+          const coach = interviews.home.coaches[0];
+          leftY = renderPerson(coach, leftColumnX, leftY);
+        }
+
+        // Spelers rechts
+        if (interviews.home.players.length > 0) {
+          for (const player of interviews.home.players) {
+            rightY = renderPerson(player, rightColumnX, rightY);
+            rightY += 20; // Spacing tussen spelers
+          }
+        }
+
+        // Zet cursor onder de hoogste kolom
+        doc.y = Math.max(leftY, rightY) + 2;
+        doc.x = leftColumnX;
+      }
+
+      // Away team - 2 kolommen layout
+      if (interviews.away.players.length > 0 || interviews.away.coaches.length > 0) {
+        doc.fontSize(12).font('Helvetica-Bold').text(`${match.awayTeamName}:`);
+        doc.moveDown(0.3);
+
+        const rowStartY = doc.y;
+        let leftY = rowStartY;
+        let rightY = rowStartY;
+
+        // Coach links
+        if (interviews.away.coaches.length > 0) {
+          const coach = interviews.away.coaches[0];
+          leftY = renderPerson(coach, leftColumnX, leftY);
+        }
+
+        // Spelers rechts
+        if (interviews.away.players.length > 0) {
+          for (const player of interviews.away.players) {
+            rightY = renderPerson(player, rightColumnX, rightY);
+            rightY += 5; // Spacing tussen spelers
+          }
+        }
+
+        // Zet cursor onder de hoogste kolom
+        doc.y = Math.max(leftY, rightY) + 2;
+        doc.x = leftColumnX;
+      }
+
+      doc.moveDown(0.5);
+    }
+
+    // Interview rationale
+    if (report?.interviewRationale) {
+      doc.fontSize(13).font('Helvetica-Bold').text('Argumentatie voor spelerkeuze:', { underline: true });
+      doc.moveDown(0.3);
+      doc.fontSize(11).font('Helvetica').text(report.interviewRationale);
+      doc.moveDown(0.5);
+    }
+
+    // Finalize PDF
+    doc.end();
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// GET /api/production/:id/report/markdown - Download het productie rapport als Markdown
+productionRouter.get('/:id/report/markdown', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
+
+    const production = await prisma.production.findUnique({
+      where: { id },
+      include: {
+        matchSchedule: true,
+        productionReport: true,
+        segments: {
+          include: {
+            bezetting: {
+              include: {
+                person: true,
+                position: true,
+              },
+            },
+          },
+          orderBy: { volgorde: 'asc' },
+        },
+        interviewSubjects: {
+          include: {
+            player: {
+              include: {
+                club: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!production) return res.status(404).json({ error: 'Production not found' });
+
+    const report = production.productionReport;
+    const match = production.matchSchedule;
+
+    // Verzamel enriched data
+    const uniquePeople = new Set<string>();
+    production.segments.forEach((seg) => {
+      seg.bezetting.forEach((b) => uniquePeople.add(b.person.name));
+    });
+    const attendees = Array.from(uniquePeople).sort();
+
+    // Groepeer rollen per sectie (met isStudio info)
+    const rolesBySection: Record<string, Array<{ positionName: string; personNames: string[]; isStudio: boolean }>> = {};
+    production.segments.forEach((segment) => {
+      const section = mapSegmentToSection(segment.naam);
+      if (!rolesBySection[section]) rolesBySection[section] = [];
+
+      const positionMap = new Map<string, { names: Set<string>; isStudio: boolean }>();
+      segment.bezetting.forEach((b) => {
+        if (!positionMap.has(b.position.name)) {
+          positionMap.set(b.position.name, { names: new Set(), isStudio: b.position.isStudio });
+        }
+        positionMap.get(b.position.name)!.names.add(b.person.name);
+      });
+
+      positionMap.forEach((data, posName) => {
+        const existing = rolesBySection[section].find((r) => r.positionName === posName);
+        if (existing) {
+          data.names.forEach((n) => {
+            if (!existing.personNames.includes(n)) existing.personNames.push(n);
+          });
+        } else {
+          rolesBySection[section].push({
+            positionName: posName,
+            personNames: Array.from(data.names),
+            isStudio: data.isStudio,
+          });
+        }
+      });
+    });
+
+    // Sorteer
+    Object.keys(rolesBySection).forEach((section) => {
+      rolesBySection[section].sort((a, b) => a.positionName.localeCompare(b.positionName));
+    });
+
+    // Interview subjects
+    const interviews = {
+      home: {
+        players: production.interviewSubjects.filter((s) => s.side === 'HOME' && s.role === 'PLAYER').map((s) => s.player),
+        coaches: production.interviewSubjects.filter((s) => s.side === 'HOME' && s.role === 'COACH').map((s) => s.player),
+      },
+      away: {
+        players: production.interviewSubjects.filter((s) => s.side === 'AWAY' && s.role === 'PLAYER').map((s) => s.player),
+        coaches: production.interviewSubjects.filter((s) => s.side === 'AWAY' && s.role === 'COACH').map((s) => s.player),
+      },
+    };
+
+    // Format datum en tijd
+    const matchDate = new Date(match.date);
+    const timeStr = matchDate.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+    const matchTitle = `${match.homeTeamName} - ${match.awayTeamName}: ${timeStr} uur`;
+
+    // Bouw Markdown content
+    let markdown = `# Livestream bezetting\n\n`;
+    markdown += `${matchTitle}\n\n`;
+
+    // Aanwezigen
+    markdown += `## Aanwezig\n\n`;
+    markdown += `${attendees.join(', ') || 'Geen aanwezigen'}\n\n`;
+
+    // Wedstrijdsponsor
+    if (report?.matchSponsor) {
+      markdown += `## Wedstrijdsponsor\n\n`;
+      markdown += `${report.matchSponsor}\n\n`;
+    }
+
+    // Positie bezetting
+    markdown += `## Positie bezetting\n\n`;
+
+    // Verzamel alle posities uit alle secties
+    const allRoles: Array<{ positionName: string; personNames: string[]; isStudio: boolean }> = [];
+    Object.values(rolesBySection).forEach((roles) => {
+      roles.forEach((role) => {
+        const existing = allRoles.find((r) => r.positionName === role.positionName);
+        if (existing) {
+          role.personNames.forEach((name) => {
+            if (!existing.personNames.includes(name)) {
+              existing.personNames.push(name);
+            }
+          });
+        } else {
+          allRoles.push({ positionName: role.positionName, personNames: [...role.personNames], isStudio: role.isStudio });
+        }
+      });
+    });
+
+    // Splits in Studio en Productie posities op basis van isStudio veld
+    const studioRoles = allRoles.filter((r) => r.isStudio);
+    const productieRoles = allRoles.filter((r) => !r.isStudio);
+
+    // Studio posities
+    markdown += `### Studio posities\n\n`;
+    if (studioRoles.length === 0) {
+      markdown += `*Geen posities toegewezen*\n\n`;
+    } else {
+      markdown += `| Positie | Naam |\n`;
+      markdown += `|---------|------|\n`;
+      studioRoles.forEach((role) => {
+        markdown += `| ${role.positionName} | ${role.personNames.join(', ')} |\n`;
+      });
+      markdown += `\n`;
+    }
+
+    // Productie posities
+    markdown += `### Productie posities\n\n`;
+    if (productieRoles.length === 0) {
+      markdown += `*Geen posities toegewezen*\n\n`;
+    } else {
+      markdown += `| Positie | Naam |\n`;
+      markdown += `|---------|------|\n`;
+      productieRoles.forEach((role) => {
+        markdown += `| ${role.positionName} | ${role.personNames.join(', ')} |\n`;
+      });
+      markdown += `\n`;
+    }
+
+    // Interview sectie
+    const allInterviewees = [...interviews.home.players, ...interviews.home.coaches, ...interviews.away.players, ...interviews.away.coaches];
+    if (allInterviewees.length > 0) {
+      markdown += `## Spelers voor interviews\n\n`;
+
+      // Home team
+      if (interviews.home.players.length > 0 || interviews.home.coaches.length > 0) {
+        markdown += `### ${match.homeTeamName}\n\n`;
+
+        if (interviews.home.coaches.length > 0) {
+          const coach = interviews.home.coaches[0];
+          markdown += `**${coach.name}**`;
+          if (coach.function) markdown += ` - ${coach.function}`;
+          markdown += `\n\n`;
+        }
+
+        interviews.home.players.forEach((player) => {
+          markdown += `**${player.name}**`;
+          if (player.shirtNo != null && player.shirtNo > 0) markdown += ` (#${player.shirtNo})`;
+          if (player.function) markdown += ` - ${player.function}`;
+          markdown += `\n\n`;
+        });
+      }
+
+      // Away team
+      if (interviews.away.players.length > 0 || interviews.away.coaches.length > 0) {
+        markdown += `### ${match.awayTeamName}\n\n`;
+
+        if (interviews.away.coaches.length > 0) {
+          const coach = interviews.away.coaches[0];
+          markdown += `**${coach.name}**`;
+          if (coach.function) markdown += ` - ${coach.function}`;
+          markdown += `\n\n`;
+        }
+
+        interviews.away.players.forEach((player) => {
+          markdown += `**${player.name}**`;
+          if (player.shirtNo != null && player.shirtNo > 0) markdown += ` (#${player.shirtNo})`;
+          if (player.function) markdown += ` - ${player.function}`;
+          markdown += `\n\n`;
+        });
+      }
+    }
+
+    // Interview rationale
+    if (report?.interviewRationale) {
+      markdown += `## Argumentatie voor spelerkeuze\n\n`;
+      markdown += `${report.interviewRationale}\n\n`;
+    }
+
+    // Set response headers
+    const filename = `Productie_Positie_Overzicht_${match.homeTeamName.replace(/[^a-z0-9]/gi, '_')}_${matchDate.toISOString().split('T')[0]}.md`;
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    return res.send(markdown);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// GET /api/production/:id/report/whatsapp - Download het productie rapport als WhatsApp tekst
+productionRouter.get('/:id/report/whatsapp', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
+
+    const production = await prisma.production.findUnique({
+      where: { id },
+      include: {
+        matchSchedule: true,
+        productionReport: true,
+        segments: {
+          include: {
+            bezetting: {
+              include: {
+                person: true,
+                position: true,
+              },
+            },
+          },
+          orderBy: { volgorde: 'asc' },
+        },
+        interviewSubjects: {
+          include: {
+            player: {
+              include: {
+                club: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!production) return res.status(404).json({ error: 'Production not found' });
+
+    const report = production.productionReport;
+    const match = production.matchSchedule;
+
+    // Verzamel enriched data
+    const uniquePeople = new Set<string>();
+    production.segments.forEach((seg) => {
+      seg.bezetting.forEach((b) => uniquePeople.add(b.person.name));
+    });
+    const attendees = Array.from(uniquePeople).sort();
+
+    // Groepeer rollen per sectie (met isStudio info)
+    const rolesBySection: Record<string, Array<{ positionName: string; personNames: string[]; isStudio: boolean }>> = {};
+    production.segments.forEach((segment) => {
+      const section = mapSegmentToSection(segment.naam);
+      if (!rolesBySection[section]) rolesBySection[section] = [];
+
+      const positionMap = new Map<string, { names: Set<string>; isStudio: boolean }>();
+      segment.bezetting.forEach((b) => {
+        if (!positionMap.has(b.position.name)) {
+          positionMap.set(b.position.name, { names: new Set(), isStudio: b.position.isStudio });
+        }
+        positionMap.get(b.position.name)!.names.add(b.person.name);
+      });
+
+      positionMap.forEach((data, posName) => {
+        const existing = rolesBySection[section].find((r) => r.positionName === posName);
+        if (existing) {
+          data.names.forEach((n) => {
+            if (!existing.personNames.includes(n)) existing.personNames.push(n);
+          });
+        } else {
+          rolesBySection[section].push({
+            positionName: posName,
+            personNames: Array.from(data.names),
+            isStudio: data.isStudio,
+          });
+        }
+      });
+    });
+
+    // Sorteer
+    Object.keys(rolesBySection).forEach((section) => {
+      rolesBySection[section].sort((a, b) => a.positionName.localeCompare(b.positionName));
+    });
+
+    // Interview subjects
+    const interviews = {
+      home: {
+        players: production.interviewSubjects.filter((s) => s.side === 'HOME' && s.role === 'PLAYER').map((s) => s.player),
+        coaches: production.interviewSubjects.filter((s) => s.side === 'HOME' && s.role === 'COACH').map((s) => s.player),
+      },
+      away: {
+        players: production.interviewSubjects.filter((s) => s.side === 'AWAY' && s.role === 'PLAYER').map((s) => s.player),
+        coaches: production.interviewSubjects.filter((s) => s.side === 'AWAY' && s.role === 'COACH').map((s) => s.player),
+      },
+    };
+
+    // Format datum en tijd
+    const matchDate = new Date(match.date);
+    const timeStr = matchDate.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+    const matchTitle = `${match.homeTeamName} - ${match.awayTeamName}: ${timeStr} uur`;
+
+    // Bouw WhatsApp tekst (met emoji's voor opmaak)
+    let text = `*📺 Livestream bezetting*\n\n`;
+    text += `${matchTitle}\n\n`;
+
+    // Aanwezigen
+    text += `*👥 Aanwezig*\n`;
+    text += `${attendees.join(', ') || 'Geen aanwezigen'}\n\n`;
+
+    // Wedstrijdsponsor
+    if (report?.matchSponsor) {
+      text += `*🏢 Wedstrijdsponsor*\n`;
+      text += `${report.matchSponsor}\n\n`;
+    }
+
+    // Positie bezetting
+    text += `*📋 Positie bezetting*\n\n`;
+
+    // Verzamel alle posities uit alle secties
+    const allRoles: Array<{ positionName: string; personNames: string[]; isStudio: boolean }> = [];
+    Object.values(rolesBySection).forEach((roles) => {
+      roles.forEach((role) => {
+        const existing = allRoles.find((r) => r.positionName === role.positionName);
+        if (existing) {
+          role.personNames.forEach((name) => {
+            if (!existing.personNames.includes(name)) {
+              existing.personNames.push(name);
+            }
+          });
+        } else {
+          allRoles.push({ positionName: role.positionName, personNames: [...role.personNames], isStudio: role.isStudio });
+        }
+      });
+    });
+
+    // Splits in Studio en Productie posities op basis van isStudio veld
+    const studioRoles = allRoles.filter((r) => r.isStudio);
+    const productieRoles = allRoles.filter((r) => !r.isStudio);
+
+    // Studio posities
+    text += `_Studio posities_\n`;
+    if (studioRoles.length === 0) {
+      text += `Geen posities toegewezen\n`;
+    } else {
+      studioRoles.forEach((role) => {
+        text += `• ${role.positionName}: ${role.personNames.join(', ')}\n`;
+      });
+    }
+    text += `\n`;
+
+    // Productie posities
+    text += `_Productie posities_\n`;
+    if (productieRoles.length === 0) {
+      text += `Geen posities toegewezen\n`;
+    } else {
+      productieRoles.forEach((role) => {
+        text += `• ${role.positionName}: ${role.personNames.join(', ')}\n`;
+      });
+    }
+    text += `\n`;
+
+    // Interview sectie
+    const allInterviewees = [...interviews.home.players, ...interviews.home.coaches, ...interviews.away.players, ...interviews.away.coaches];
+    if (allInterviewees.length > 0) {
+      text += `*🎤 Spelers voor interviews*\n\n`;
+
+      // Home team
+      if (interviews.home.players.length > 0 || interviews.home.coaches.length > 0) {
+        text += `_${match.homeTeamName}_\n`;
+
+        if (interviews.home.coaches.length > 0) {
+          const coach = interviews.home.coaches[0];
+          text += `• ${coach.name}`;
+          if (coach.function) text += ` - ${coach.function}`;
+          text += `\n`;
+        }
+
+        interviews.home.players.forEach((player) => {
+          text += `• ${player.name}`;
+          if (player.shirtNo != null && player.shirtNo > 0) text += ` (#${player.shirtNo})`;
+          if (player.function) text += ` - ${player.function}`;
+          text += `\n`;
+        });
+        text += `\n`;
+      }
+
+      // Away team
+      if (interviews.away.players.length > 0 || interviews.away.coaches.length > 0) {
+        text += `_${match.awayTeamName}_\n`;
+
+        if (interviews.away.coaches.length > 0) {
+          const coach = interviews.away.coaches[0];
+          text += `• ${coach.name}`;
+          if (coach.function) text += ` - ${coach.function}`;
+          text += `\n`;
+        }
+
+        interviews.away.players.forEach((player) => {
+          text += `• ${player.name}`;
+          if (player.shirtNo != null && player.shirtNo > 0) text += ` (#${player.shirtNo})`;
+          if (player.function) text += ` - ${player.function}`;
+          text += `\n`;
+        });
+        text += `\n`;
+      }
+    }
+
+    // Interview rationale
+    if (report?.interviewRationale) {
+      text += `*💭 Argumentatie voor spelerkeuze*\n`;
+      text += `${report.interviewRationale}\n`;
+    }
+
+    // Set response headers
+    const filename = `Productie_Positie_Overzicht_${match.homeTeamName.replace(/[^a-z0-9]/gi, '_')}_${matchDate.toISOString().split('T')[0]}.txt`;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    return res.send(text);
   } catch (err) {
     return next(err);
   }

@@ -15,7 +15,7 @@ async function extractError(res: Response): Promise<string> {
   return `Request failed (${res.status})`;
 }
 
-export type Position = { id: number; name: string; capability?: { id: number; code: string; functionName: string } | null };
+export type Position = { id: number; name: string; skill?: { id: number; code: string; name: string } | null };
 
 export function usePositionsCatalog() {
   return useQuery({
@@ -31,7 +31,7 @@ export function usePositionsCatalog() {
 export function useCreatePosition() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { name: string; capabilityId?: number | null }): Promise<Position> => {
+    mutationFn: async (input: { name: string; skillId?: number | null }): Promise<Position> => {
       const res = await fetch(url('/api/production/positions'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -47,11 +47,11 @@ export function useCreatePosition() {
 export function useUpdatePosition() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: number; name?: string; capabilityId?: number | null }): Promise<Position> => {
+    mutationFn: async (input: { id: number; name?: string; skillId?: number | null }): Promise<Position> => {
       const res = await fetch(url(`/api/production/positions/${input.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: input.name, capabilityId: input.capabilityId }),
+        body: JSON.stringify({ name: input.name, skillId: input.skillId }),
       });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();

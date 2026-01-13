@@ -44,25 +44,25 @@ describe('PersonsAdminPage', () => {
       if (u.pathname.match(/\/api\/production\/persons\/(\d+)/) && init?.method === 'DELETE') {
         return { ok: true, status: 204, json: async () => ({}) } as any;
       }
-      // Capabilities catalog (paginated)
-      if (u.pathname.endsWith('/api/production/capabilities') && (!init || init.method === 'GET')) {
+      // Skills catalog (paginated)
+      if (u.pathname.endsWith('/api/production/skills') && (!init || init.method === 'GET')) {
         return { ok: true, json: async () => ({ items: [
-          { id: 10, code: 'COACH', functionName: 'Coach', nameMale: 'Coach', nameFemale: 'Coach', vMixTitle: false },
-          { id: 11, code: 'COMMENTATOR', functionName: 'Commentaar', nameMale: 'Commentator', nameFemale: 'Commentatrice', vMixTitle: true },
+          { id: 10, code: 'COACH', name: 'Coach', nameMale: 'Coach', nameFemale: 'Coach' },
+          { id: 11, code: 'COMMENTATOR', name: 'Commentaar', nameMale: 'Commentator', nameFemale: 'Commentatrice' },
         ], page: 1, limit: 100, total: 2, pages: 1 }) } as any;
       }
-      // Capabilities list for person 1
-      if (u.pathname.endsWith('/api/production/persons/1/capabilities') && (!init || init.method === 'GET')) {
+      // Skills list for person 1
+      if (u.pathname.endsWith('/api/production/persons/1/skills') && (!init || init.method === 'GET')) {
         return { ok: true, json: async () => ([
-          { personId: 1, capabilityId: 10, capability: { id: 10, code: 'COACH', nameMale: 'Coach', nameFemale: 'Coach' } },
+          { personId: 1, skillId: 10, skill: { id: 10, code: 'COACH', nameMale: 'Coach', nameFemale: 'Coach' } },
         ]) } as any;
       }
-      // Add capability for any person
-      if (u.pathname.match(/\/api\/production\/(?:persons)\/(\d+)\/capabilities$/) && init?.method === 'POST') {
+      // Add skill for any person
+      if (u.pathname.match(/\/api\/production\/(?:persons)\/(\d+)\/skills$/) && init?.method === 'POST') {
         return { ok: true, json: async () => ({ ok: true }) } as any;
       }
-      // Remove capability
-      if (u.pathname.match(/\/api\/production\/persons\/(\d+)\/capabilities\/(\d+)/) && init?.method === 'DELETE') {
+      // Remove skill
+      if (u.pathname.match(/\/api\/production\/persons\/(\d+)\/skills\/(\d+)/) && init?.method === 'DELETE') {
         return { ok: true, status: 204, json: async () => ({}) } as any;
       }
       return { ok: false, status: 404 } as any;
@@ -101,50 +101,50 @@ describe('PersonsAdminPage', () => {
     });
   });
 
-  it('manages capabilities: open modal focuses first field, add, edit and remove', async () => {
+  it('manages skills: open modal focuses first field, add, edit and remove', async () => {
     renderWithProviders(<PersonsAdminPage />);
     await waitFor(() => expect(screen.queryByText('Laden...')).not.toBeInTheDocument());
 
-    // Open capabilities for first person (Alice, id=1)
-    const manageBtns = screen.getAllByLabelText('Manage capabilities');
+    // Open skills for first person (Alice, id=1)
+    const manageBtns = screen.getAllByLabelText('Manage skills');
     expect(manageBtns.length).toBeGreaterThan(0);
     fireEvent.click(manageBtns[0]);
 
     // Wait for modal
-    await waitFor(() => expect(screen.getByText('Capabilities')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Skills')).toBeInTheDocument());
 
     // First field (add select) should have focus
-    const addSel = screen.getByLabelText('Add capability select') as HTMLSelectElement;
+    const addSel = screen.getByLabelText('Add skill select') as HTMLSelectElement;
     expect(addSel).toHaveFocus();
 
-    // Add capability via top select + add button
+    // Add skill via top select + add button
     fireEvent.change(addSel, { target: { value: '11' } });
-    const addBtn = screen.getByLabelText('Add capability');
+    const addBtn = screen.getByLabelText('Add skill');
     fireEvent.click(addBtn);
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/production/persons/1/capabilities'), expect.objectContaining({ method: 'POST' })));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/production/persons/1/skills'), expect.objectContaining({ method: 'POST' })));
 
-    // Edit existing capability: click edit, change to 11
-    const editBtns = screen.getAllByLabelText('Edit capability');
+    // Edit existing skill: click edit, change to 11
+    const editBtns = screen.getAllByLabelText('Edit skill');
     expect(editBtns.length).toBeGreaterThan(0);
     fireEvent.click(editBtns[0]);
 
-    const editSel = screen.getByLabelText('Edit capability select') as HTMLSelectElement;
+    const editSel = screen.getByLabelText('Edit skill select') as HTMLSelectElement;
     fireEvent.change(editSel, { target: { value: '11' } });
 
     // Expect a POST then DELETE calls happened for replace
     await waitFor(() => {
       const calls = (global.fetch as any).mock.calls.map((c: any[]) => ({ url: typeof c[0] === 'string' ? c[0] : c[0].toString(), init: c[1] }));
-      const postReplace = calls.some((c: any) => c.url.includes('/api/production/persons/1/capabilities') && c.init?.method === 'POST');
-      const delReplace = calls.some((c: any) => c.url.match(/\/api\/production\/persons\/1\/capabilities\/10$/) && c.init?.method === 'DELETE');
+      const postReplace = calls.some((c: any) => c.url.includes('/api/production/persons/1/skills') && c.init?.method === 'POST');
+      const delReplace = calls.some((c: any) => c.url.match(/\/api\/production\/persons\/1\/skills\/10$/) && c.init?.method === 'DELETE');
       expect(postReplace && delReplace).toBe(true);
     });
 
-    // Remove capability
-    const rmBtns = screen.getAllByLabelText('Remove capability');
+    // Remove skill
+    const rmBtns = screen.getAllByLabelText('Remove skill');
     fireEvent.click(rmBtns[0]);
     await waitFor(() => {
       const calls = (global.fetch as any).mock.calls.map((c: any[]) => ({ url: typeof c[0] === 'string' ? c[0] : c[0].toString(), init: c[1] }));
-      expect(calls.some((c: any) => c.url.match(/\/api\/production\/persons\/1\/capabilities\/(\d+)$/) && c.init?.method === 'DELETE')).toBe(true);
+      expect(calls.some((c: any) => c.url.match(/\/api\/production\/persons\/1\/skills\/(\d+)$/) && c.init?.method === 'DELETE')).toBe(true);
     });
   });
 
@@ -178,7 +178,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../theme/ThemeProvider';
 import PersonsAdminPage from './PersonsAdminPage';
 
-describe('PersonsAdminPage (create with inline capabilities)', () => {
+describe('PersonsAdminPage (create with inline skills)', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: any, init?: any) => {
@@ -192,22 +192,22 @@ describe('PersonsAdminPage (create with inline capabilities)', () => {
       if (u.pathname.endsWith('/api/production/persons') && init?.method === 'POST') {
         return { ok: true, json: async () => ({ id: 3, name: 'Cara', gender: 'female', createdAt: new Date().toISOString() }) } as any;
       }
-      // Capabilities catalog
-      if (u.pathname.endsWith('/api/production/capabilities') && (!init || init.method === 'GET')) {
+      // Skills catalog
+      if (u.pathname.endsWith('/api/production/skills') && (!init || init.method === 'GET')) {
         return { ok: true, json: async () => ({ items: [
-          { id: 10, code: 'COACH', functionName: 'Coach', nameMale: 'Coach', nameFemale: 'Coach', vMixTitle: false },
-          { id: 11, code: 'COMMENTATOR', functionName: 'Commentaar', nameMale: 'Commentator', nameFemale: 'Commentatrice', vMixTitle: true },
+          { id: 10, code: 'COACH', name: 'Coach', nameMale: 'Coach', nameFemale: 'Coach' },
+          { id: 11, code: 'COMMENTATOR', name: 'Commentaar', nameMale: 'Commentator', nameFemale: 'Commentatrice' },
         ], page: 1, limit: 100, total: 2, pages: 1 }) } as any;
       }
-      // Add capability for person 3 after create
-      if (u.pathname.endsWith('/api/production/persons/3/capabilities') && init?.method === 'POST') {
+      // Add skill for person 3 after create
+      if (u.pathname.endsWith('/api/production/persons/3/skills') && init?.method === 'POST') {
         return { ok: true, json: async () => ({ ok: true }) } as any;
       }
       return { ok: false, status: 404 } as any;
     });
   });
 
-  it('stages selected capabilities and posts them after creating the person', async () => {
+  it('stages selected skills and posts them after creating the person', async () => {
     renderWithProviders(<PersonsAdminPage />);
 
     // Open create modal
@@ -219,11 +219,11 @@ describe('PersonsAdminPage (create with inline capabilities)', () => {
     expect(nameInput).toHaveFocus();
     fireEvent.change(nameInput, { target: { value: 'Cara' } });
 
-    // Select capability inline and add
-    const addSels = await screen.findAllByLabelText('Add capability inline');
+    // Select skill inline and add
+    const addSels = await screen.findAllByLabelText('Add skill inline');
     const addSel = addSels.find(el => el.tagName.toLowerCase() === 'select') as HTMLSelectElement;
     fireEvent.change(addSel, { target: { value: '11' } });
-    const addBtn = screen.getAllByLabelText('Add capability inline')[1] || screen.getByLabelText('Add capability inline');
+    const addBtn = screen.getAllByLabelText('Add skill inline')[1] || screen.getByLabelText('Add skill inline');
     fireEvent.click(addBtn);
 
     // Save
@@ -232,8 +232,8 @@ describe('PersonsAdminPage (create with inline capabilities)', () => {
     await waitFor(() => {
       const calls = (global.fetch as any).mock.calls.map((c: any[]) => ({ url: typeof c[0] === 'string' ? c[0] : c[0].toString(), init: c[1] }));
       const created = calls.some((c: any) => c.url.endsWith('/api/production/persons') && c.init?.method === 'POST');
-      const capPost = calls.some((c: any) => c.url.match(/\/api\/production\/persons\/3\/capabilities$/) && c.init?.method === 'POST');
-      expect(created && capPost).toBe(true);
+      const skillPost = calls.some((c: any) => c.url.match(/\/api\/production\/persons\/3\/skills$/) && c.init?.method === 'POST');
+      expect(created && skillPost).toBe(true);
     });
   });
 });

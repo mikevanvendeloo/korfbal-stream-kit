@@ -112,7 +112,7 @@ describe('Production segment assignments copy API', () => {
 
   it('copies assignments in overwrite mode by clearing targets first', async () => {
     // Pre-seed different rows on target 2 to prove they are removed
-    assignments.push({ id: 98, productionSegmentId: 2, personId: 999, capabilityId: 999, createdAt: new Date() });
+    assignments.push({ id: 98, productionSegmentId: 2, personId: 999, skillId: 999, createdAt: new Date() });
 
     const res = await request(app)
       .post('/api/production/segments/1/assignments/copy')
