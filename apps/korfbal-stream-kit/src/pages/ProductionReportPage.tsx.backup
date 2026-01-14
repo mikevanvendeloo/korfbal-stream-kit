@@ -1,0 +1,245 @@
+import React, { useState, useEffect } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import {
+  useProductionReport,
+  useSaveProductionReport,
+  getProductionReportPdfUrl,
+  ProductionReportRole,
+  ReportSection,
+} from '../hooks/useProductionReport';
+
+const SECTION_LABELS: Record<ReportSection, string> = {
+  OPLOPEN: 'Oplopen',
+  WEDSTRIJD: 'Wedstrijd',
+  STUDIO: 'Studio',
+  COMMENTAAR: 'Commentaar',
+  SPEAKER: 'Speaker',
+  INTERVIEWS: 'Spelers voor interviews',
+};
+
+const SECTIONS: ReportSection[] = ['OPLOPEN', 'WEDSTRIJD', 'STUDIO', 'COMMENTAAR', 'SPEAKER', 'INTERVIEWS'];
+
+export default function ProductionReportPage() {
+  const params = useParams<{ id: string }>();
+  const productionId = Number(params.id);
+  const { data, isLoading, error } = useProductionReport(productionId);
+  const saveMutation = useSaveProductionReport(productionId);
+
+  const [attendees, setAttendees] = useState('');
+  const [matchSponsor, setMatchSponsor] = useState('');
+  const [notes, setNotes] = useState('');
+  const [interviewRationale, setInterviewRationale] = useState('');
+  const [roles, setRoles] = useState<ProductionReportRole[]>([]);
+
+  // Initialiseer form data wanneer data is geladen
+  useEffect(() => {
+    if (data?.report) {
+      setAttendees(data.report.attendees || '');
+      setMatchSponsor(data.report.matchSponsor || '');
+      setNotes(data.report.notes || '');
+      setInterviewRationale(data.report.interviewRationale || '');
+      setRoles(data.report.roles || []);
+    }
+  }, [data]);
+
+  if (!productionId) return <div className="container py-6">Invalid production id</div>;
+  if (isLoading) return <div className="container py-6">Laden…</div>;
+  if (error) return <div className="container py-6 text-red-700">{String((error as any)?.message || error)}</div>;
+  if (!data) return <div className="container py-6">Geen data</div>;
+
+  const handleAddRole = (section: ReportSection) => {
+    const maxOrder = roles.filter((r) => r.section === section).reduce((max, r) => Math.max(max, r.orderIndex), -1);
+    setRoles([
+      ...roles,
+      {
+        section,
+        positionName: '',
+        personName: '',
+        orderIndex: maxOrder + 1,
+        note: '',
+      },
+    ]);
+  };
+
+  const handleRemoveRole = (index: number) => {
+    setRoles(roles.filter((_, i) => i !== index));
+  };
+
+  const handleRoleChange = (index: number, field: keyof ProductionReportRole, value: string) => {
+    const updated = [...roles];
+    updated[index] = { ...updated[index], [field]: value };
+    setRoles(updated);
+  };
+
+  const handleSave = async () => {
+    try {
+      await saveMutation.mutateAsync({
+        attendees: attendees || null,
+        matchSponsor: matchSponsor || null,
+        notes: notes || null,
+        interviewRationale: interviewRationale || null,
+        roles: roles.filter((r) => r.positionName && r.personName),
+      });
+      alert('Rapport opgeslagen!');
+    } catch (err: any) {
+      alert('Fout bij opslaan: ' + (err?.message || String(err)));
+    }
+  };
+
+  const matchTitle = `${data.production.homeTeam} - ${data.production.awayTeam}`;
+  const matchDate = new Date(data.production.date);
+
+  return (
+    <div className="container py-6 text-gray-800 dark:text-gray-100">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-semibold">Livestream Productie Rapport</h1>
+        <div className="flex items-center gap-2">
+          {data.report && (
+            <a
+              href={getProductionReportPdfUrl(productionId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Download PDF
+            </a>
+          )}
+          <Link className="px-3 py-1 border rounded" to={`/admin/productions/${productionId}`}>
+            Terug naar productie
+          </Link>
+        </div>
+      </div>
+
+      <div className="mb-4 p-3 border rounded border-gray-200 dark:border-gray-800">
+        <div className="font-medium">{matchTitle}</div>
+        <div className="text-sm text-gray-500">{matchDate.toLocaleString('nl-NL')}</div>
+      </div>
+
+      <div className="space-y-4">
+        {/* Aanwezigen */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Aanwezig (komma-gescheiden):</label>
+          <input
+            type="text"
+            value={attendees}
+            onChange={(e) => setAttendees(e.target.value)}
+            className="w-full px-3 py-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+            placeholder="Mike, Richard, Henk, Bastiaan, Peter Jan, Ron, Michel, Pascal, Thomas"
+          />
+        </div>
+
+        {/* Wedstrijdsponsor */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Wedstrijdsponsor:</label>
+          <input
+            type="text"
+            value={matchSponsor}
+            onChange={(e) => setMatchSponsor(e.target.value)}
+            className="w-full px-3 py-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+            placeholder="Ruitenheer"
+          />
+        </div>
+
+        {/* Rollen per sectie */}
+        {SECTIONS.map((section) => {
+          const sectionRoles = roles.filter((r) => r.section === section);
+          return (
+            <div key={section} className="border rounded p-4 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-semibold">{SECTION_LABELS[section]}</h2>
+                <button
+                  onClick={() => handleAddRole(section)}
+                  className="px-2 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                >
+                  + Voeg toe
+                </button>
+              </div>
+
+              {sectionRoles.length === 0 ? (
+                <p className="text-sm text-gray-500 italic">Geen rollen toegevoegd</p>
+              ) : (
+                <div className="space-y-2">
+                  {sectionRoles.map((role, idx) => {
+                    const globalIdx = roles.indexOf(role);
+                    return (
+                      <div key={globalIdx} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={role.positionName}
+                          onChange={(e) => handleRoleChange(globalIdx, 'positionName', e.target.value)}
+                          placeholder="Positie (bijv. Licht)"
+                          className="flex-1 px-2 py-1 border rounded text-sm dark:bg-gray-900 dark:border-gray-700"
+                        />
+                        <input
+                          type="text"
+                          value={role.personName}
+                          onChange={(e) => handleRoleChange(globalIdx, 'personName', e.target.value)}
+                          placeholder="Naam (bijv. Richard)"
+                          className="flex-1 px-2 py-1 border rounded text-sm dark:bg-gray-900 dark:border-gray-700"
+                        />
+                        <input
+                          type="text"
+                          value={role.note || ''}
+                          onChange={(e) => handleRoleChange(globalIdx, 'note', e.target.value)}
+                          placeholder="Notitie (optioneel)"
+                          className="flex-1 px-2 py-1 border rounded text-sm dark:bg-gray-900 dark:border-gray-700"
+                        />
+                        <button
+                          onClick={() => handleRemoveRole(globalIdx)}
+                          className="px-2 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+                        >
+                          Verwijder
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Interview rationale */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Argumentatie voor spelerkeuze:</label>
+          <textarea
+            value={interviewRationale}
+            onChange={(e) => setInterviewRationale(e.target.value)}
+            rows={4}
+            className="w-full px-3 py-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+            placeholder="Laura van der Linden&#10;Nikkie Boerhout, nieuw talent bij Oranje, ontwikkelt zich sterk. (vriendin Tim van Oosten, speler van de maand November)"
+          />
+        </div>
+
+        {/* Extra notities */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Extra notities:</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            className="w-full px-3 py-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+            placeholder="Extra opmerkingen of notities"
+          />
+        </div>
+
+        {/* Save button */}
+        <div className="flex justify-end">
+          <button
+            onClick={handleSave}
+            disabled={saveMutation.isPending}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saveMutation.isPending ? 'Opslaan...' : 'Opslaan'}
+          </button>
+        </div>
+
+        {saveMutation.isError && (
+          <div className="mt-2 text-red-600 text-sm">
+            Fout: {(saveMutation.error as any)?.message || String(saveMutation.error)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
