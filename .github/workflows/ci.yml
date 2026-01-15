@@ -60,9 +60,9 @@ jobs:
           SANITIZED_APPS_JSON=$(echo "$AFFECTED_OUTPUT" | jq -c '
             map({
               original: .,
-              sanitized: . 
+              sanitized: .
                 # **ALGEMEEN GEMAAKT:** Verwijdert elke @scope-naam/ prefix aan het begin van de string.
-                | sub("^@[^/]+/|@"; "") 
+                | sub("^@[^/]+/|@"; "")
                 | sub("/"; "-")
             })
           ')
@@ -178,6 +178,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          platforms: linux/amd64,linux/arm64
           # We assume the Dockerfile is at 'apps/<app-name>/Dockerfile'
           # Use the 'original' name for the file path
           file: ./apps/${{ matrix.app.sanitized }}/Dockerfile

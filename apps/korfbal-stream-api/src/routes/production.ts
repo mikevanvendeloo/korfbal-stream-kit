@@ -2659,7 +2659,7 @@ productionRouter.get('/:id/report/whatsapp', async (req, res, next) => {
     const matchTitle = `${match.homeTeamName} - ${match.awayTeamName}: ${timeStr} uur`;
 
     // Bouw WhatsApp tekst (met emoji's voor opmaak)
-    let text = `*📺 Livestream bezetting*\n\n`;
+    let text = `*🎬 Livestream bezetting*\n\n`;
     text += `${matchTitle}\n\n`;
 
     // Aanwezigen
@@ -2668,12 +2668,12 @@ productionRouter.get('/:id/report/whatsapp', async (req, res, next) => {
 
     // Wedstrijdsponsor
     if (report?.matchSponsor) {
-      text += `*🏢 Wedstrijdsponsor*\n`;
+      text += `*🤝 Wedstrijdsponsor*\n`;
       text += `${report.matchSponsor}\n\n`;
     }
 
     // Positie bezetting
-    text += `*📋 Positie bezetting*\n\n`;
+    text += `*📍 Positie bezetting*\n\n`;
 
     // Verzamel alle posities uit alle secties
     const allRoles: Array<{ positionName: string; personNames: string[]; isStudio: boolean }> = [];
@@ -2723,26 +2723,6 @@ productionRouter.get('/:id/report/whatsapp', async (req, res, next) => {
     if (allInterviewees.length > 0) {
       text += `*🎤 Spelers voor interviews*\n\n`;
 
-      // Home team
-      if (interviews.home.players.length > 0 || interviews.home.coaches.length > 0) {
-        text += `_${match.homeTeamName}_\n`;
-
-        if (interviews.home.coaches.length > 0) {
-          const coach = interviews.home.coaches[0];
-          text += `• ${coach.name}`;
-          if (coach.function) text += ` - ${coach.function}`;
-          text += `\n`;
-        }
-
-        interviews.home.players.forEach((player) => {
-          text += `• ${player.name}`;
-          if (player.shirtNo != null && player.shirtNo > 0) text += ` (#${player.shirtNo})`;
-          if (player.function) text += ` - ${player.function}`;
-          text += `\n`;
-        });
-        text += `\n`;
-      }
-
       // Away team
       if (interviews.away.players.length > 0 || interviews.away.coaches.length > 0) {
         text += `_${match.awayTeamName}_\n`;
@@ -2755,6 +2735,26 @@ productionRouter.get('/:id/report/whatsapp', async (req, res, next) => {
         }
 
         interviews.away.players.forEach((player) => {
+          text += `• ${player.name}`;
+          if (player.shirtNo != null && player.shirtNo > 0) text += ` (#${player.shirtNo})`;
+          if (player.function) text += ` - ${player.function}`;
+          text += `\n`;
+        });
+        text += `\n`;
+      }
+
+      // Home team
+      if (interviews.home.players.length > 0 || interviews.home.coaches.length > 0) {
+        text += `_${match.homeTeamName}_\n`;
+
+        if (interviews.home.coaches.length > 0) {
+          const coach = interviews.home.coaches[0];
+          text += `• ${coach.name}`;
+          if (coach.function) text += ` - ${coach.function}`;
+          text += `\n`;
+        }
+
+        interviews.home.players.forEach((player) => {
           text += `• ${player.name}`;
           if (player.shirtNo != null && player.shirtNo > 0) text += ` (#${player.shirtNo})`;
           if (player.function) text += ` - ${player.function}`;

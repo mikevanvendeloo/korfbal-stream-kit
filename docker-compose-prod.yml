@@ -1,16 +1,16 @@
 services:
-  db:
+  streamz-db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: korfbal
-      POSTGRES_PASSWORD: korfbal
-      POSTGRES_DB: korfbal
+      POSTGRES_USER: fortuna
+      POSTGRES_PASSWORD: K0rfbal!
+      POSTGRES_DB: streamz
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ./data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U korfbal -d korfbal"]
+      test: ["CMD-SHELL", "pg_isready -U fortuna -d streamz"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -18,33 +18,29 @@ services:
   # Eénmalige migratie/seed job. Draait bij 'up' en stopt na succes.
   migrate:
     # Gebruik dezelfde image als de API. In CI/CD vervang door jouw registry:tag
-    build:
-      context: .
-      dockerfile: apps/korfbal-stream-api/Dockerfile
+    image: mvanvendeloo/korfbal-stream-api:2026.01.1
     depends_on:
-      db:
+      streamz-db:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://korfbal:korfbal@db:5432/korfbal?schema=public
+      DATABASE_URL: postgresql://fortuna:K0rfbal!@db:5432/streamz?schema=public
     entrypoint: ["sh", "-lc"]
     command: >-
       npx prisma migrate deploy --schema=/app/apps/korfbal-stream-api/prisma/schema.prisma &&
       node /app/seed/seed.cjs
     restart: "no"
 
-  korfbal-stream-api:
-    build:
-      context: .
-      dockerfile: apps/korfbal-stream-api/Dockerfile
+  korfbal-streamz-api:
+    image: mvanvendeloo/korfbal-stream-api:2026.01.1
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://korfbal:korfbal@db:5432/korfbal?schema=public
+      DATABASE_URL: postgresql://fortuna:K0rfbal!@db:5432/streamz?schema=public
       PORT: 3333
       ASSETS_DIR: /app/assets
       UPLOADS_DIR: /app/uploads
     depends_on:
-      db:
+      streamz-db:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
@@ -58,14 +54,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-  korfbal-stream-kit:
-    build:
-      context: .
-      dockerfile: apps/korfbal-stream-kit/Dockerfile
+  korfbal-streamz-kit:
+    image: mvanvendeloo/korfbal-stream-kit:2026.01.1
     ports:
       - "8080:80" # Host poort 8080 -> Container poort 80 (Nginx default)
     depends_on:
-      - korfbal-stream-api # Wacht tot de API (waarmee het praat) online is
+      - korfbal-streamz-api # Wacht tot de API (waarmee het praat) online is
 
 volumes:
   pgdata:
