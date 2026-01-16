@@ -1,7 +1,10 @@
 services:
   db:
     image: postgres:16-alpine
+    networks:
+      - korfbal-network
     environment:
+      TZ: Europe/Amsterdam
       POSTGRES_USER: korfbal
       POSTGRES_PASSWORD: korfbal
       POSTGRES_DB: korfbal
@@ -21,10 +24,13 @@ services:
     build:
       context: .
       dockerfile: apps/korfbal-stream-api/Dockerfile
+    networks:
+      - korfbal-network
     depends_on:
       db:
         condition: service_healthy
     environment:
+      TZ: Europe/Amsterdam
       NODE_ENV: production
       DATABASE_URL: postgresql://korfbal:korfbal@db:5432/korfbal?schema=public
     entrypoint: ["sh", "-lc"]
@@ -37,9 +43,14 @@ services:
     build:
       context: .
       dockerfile: apps/korfbal-stream-api/Dockerfile
+    networks:
+      - korfbal-network
     environment:
+      TZ: Europe/Amsterdam
       NODE_ENV: production
-      DATABASE_URL: postgresql://korfbal:korfbal@db:5432/korfbal?schema=public
+      DATABASE_URL: "postgresql://korfbal:korfbal@db:5432/korfbal?schema=public"
+      MATCH_SCHEDULE_BASE_URL: "https://api.sportclubvrijwilligersmanagement.nl/v1"
+      MATCH_SCHEDULE_API_TOKEN: "aDvjETZ54R6T3qnhExI5gcbfDceDxqN0"
       PORT: 3333
       ASSETS_DIR: /app/assets
       UPLOADS_DIR: /app/uploads
@@ -55,17 +66,26 @@ services:
       - ./uploads:/app/uploads
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3333/api/health"]
-      interval: 10s
+      interval: 60s
       timeout: 5s
       retries: 5
   korfbal-stream-kit:
     build:
       context: .
       dockerfile: apps/korfbal-stream-kit/Dockerfile
+    networks:
+      - korfbal-network
     ports:
       - "8080:80" # Host poort 8080 -> Container poort 80 (Nginx default)
+    environment:
+      TZ: Europe/Amsterdam
+      VITE_API_BASE_URL: "http://localhost:3333"
     depends_on:
       - korfbal-stream-api # Wacht tot de API (waarmee het praat) online is
 
 volumes:
   pgdata:
+
+networks:
+  korfbal-network:
+    driver: bridge

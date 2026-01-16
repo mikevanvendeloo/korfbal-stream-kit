@@ -35,7 +35,7 @@ function mapToModel(rec: SourceSponsor) {
   const websiteUrl = rec.siteUrl;
   const baseLogo = rec.logoFileName || name.trim().replace(/\s+/g, '-').toLowerCase();
   const logoUrl = `${baseLogo}.png`;
-  return { name, type, websiteUrl, logoUrl };
+  return {name, type, websiteUrl, logoUrl};
 }
 
 async function main() {
@@ -49,12 +49,12 @@ async function main() {
     }
 
     // Idempotent upsert by name (name not unique in schema, so emulate)
-    const existing = await prisma.sponsor.findFirst({ where: { name: data.name } });
+    const existing = await prisma.sponsor.findFirst({where: {name: data.name}});
     if (existing) {
-      await prisma.sponsor.update({ where: { id: existing.id }, data });
+      await prisma.sponsor.update({where: {id: existing.id}, data});
       console.log(`Updated sponsor: ${data.name}`);
     } else {
-      await prisma.sponsor.create({ data });
+      await prisma.sponsor.create({data});
       console.log(`Created sponsor: ${data.name}`);
     }
   }
@@ -63,29 +63,40 @@ async function main() {
   type Gender = 'male' | 'female';
 
   const desiredSkills: Array<{ code: string; name: string; nameMale: string; nameFemale: string }> = [
-    { code: 'REGISSEUR', name: 'Regie livestream', nameMale: 'Regisseur', nameFemale: 'Regisseuse' },
-    { code: 'SCHERM_REGISSEUR', name: 'Regie LEDscherm', nameMale: 'Regisseur', nameFemale: 'Regisseuse' },
-    { code: 'COMMENTAAR', name: 'Commentaar', nameMale: 'Commentator', nameFemale: 'Commentatrice' },
-    { code: 'PRESENTATIE', name: 'Presentatie', nameMale: 'Presentator', nameFemale: 'Presentatrice' },
-    { code: 'ANALIST', name: 'Analist', nameMale: 'Analist', nameFemale: 'Analist' },
-    { code: 'GELUID', name: 'Geluid', nameMale: 'Geluidsman', nameFemale: 'Geluidsvrouw' },
-    { code: 'SPOTLIGHT', name: 'Volgspot oplopen', nameMale: 'Lichtman', nameFemale: 'Lichtvrouw' },
-    { code: 'CAMERA_OVERVIEW', name: 'Camera overzicht', nameMale: 'Cameraman', nameFemale: 'Cameravrouw' },
-    { code: 'CAMERA_ZOOM', name: 'Camera zoom', nameMale: 'Cameraman', nameFemale: 'Cameravrouw' },
-    { code: 'INTERVIEW_COORDINATOR', name: 'Interview coordinator', nameMale: 'Interview coordinator', nameFemale: 'Interview coordinator' },
-    { code: 'SHOW_CALLER', name: 'Show caller', nameMale: 'Show caller', nameFemale: 'Show caller' },
-    { code: 'HERHALINGEN', name: 'Herhalingen operator', nameMale: 'Herhalingen operator', nameFemale: 'Herhalingen operator' },
-    { code: 'RUNNER', name: 'Runner', nameMale: 'Runner', nameFemale: 'Runner' },
-    { code: 'SPEAKER', name: 'Speaker', nameMale: 'Speaker', nameFemale: 'Speaker'},
-    { code: 'CAMERA_PTZ', name: 'PTZ operator', nameMale: 'PTZ operator', nameFemale: 'PTZ operator'},
+    {code: 'REGISSEUR', name: 'Regie livestream', nameMale: 'Regisseur', nameFemale: 'Regisseuse'},
+    {code: 'SCHERM_REGISSEUR', name: 'Regie LEDscherm', nameMale: 'Regisseur', nameFemale: 'Regisseuse'},
+    {code: 'COMMENTAAR', name: 'Commentaar', nameMale: 'Commentator', nameFemale: 'Commentatrice'},
+    {code: 'PRESENTATIE', name: 'Presentatie', nameMale: 'Presentator', nameFemale: 'Presentatrice'},
+    {code: 'ANALIST', name: 'Analist', nameMale: 'Analist', nameFemale: 'Analist'},
+    {code: 'GELUID', name: 'Geluid', nameMale: 'Geluidsman', nameFemale: 'Geluidsvrouw'},
+    {code: 'SPOTLIGHT', name: 'Volgspot oplopen', nameMale: 'Lichtman', nameFemale: 'Lichtvrouw'},
+    {code: 'CAMERA_OVERVIEW', name: 'Camera overzicht', nameMale: 'Cameraman', nameFemale: 'Cameravrouw'},
+    {code: 'CAMERA_ZOOM', name: 'Camera zoom', nameMale: 'Cameraman', nameFemale: 'Cameravrouw'},
+    {
+      code: 'INTERVIEW_COORDINATOR',
+      name: 'Interview coordinator',
+      nameMale: 'Interview coordinator',
+      nameFemale: 'Interview coordinator'
+    },
+    {code: 'SHOW_CALLER', name: 'Show caller', nameMale: 'Show caller', nameFemale: 'Show caller'},
+    {
+      code: 'HERHALINGEN',
+      name: 'Herhalingen operator',
+      nameMale: 'Herhalingen operator',
+      nameFemale: 'Herhalingen operator'
+    },
+    {code: 'RUNNER', name: 'Runner', nameMale: 'Runner', nameFemale: 'Runner'},
+    {code: 'SPEAKER', name: 'Speaker', nameMale: 'Speaker', nameFemale: 'Speaker'},
+    {code: 'CAMERA_PTZ', name: 'PTZ operator', nameMale: 'PTZ operator', nameFemale: 'PTZ operator'},
+    {code: 'IN_EAR_SUPPORT', name:'In-ear ondersteuning', nameFemale: 'In-ear ondersteuning', nameMale: 'In-ear ondersteuning'},
   ];
 
   console.log('Seeding skills catalog...');
   for (const s of desiredSkills) {
     await prisma.skill.upsert({
-      where: { code: s.code },
-      update: { name: s.name, nameMale: s.nameMale, nameFemale: s.nameFemale },
-      create: { code: s.code, name: s.name, nameMale: s.nameMale, nameFemale: s.nameFemale },
+      where: {code: s.code},
+      update: {name: s.name, nameMale: s.nameMale, nameFemale: s.nameFemale},
+      create: {code: s.code, name: s.name, nameMale: s.nameMale, nameFemale: s.nameFemale},
     });
     console.log(`Ensured skill: ${s.code}`);
   }
@@ -124,9 +135,18 @@ async function main() {
         if (!skillId) continue;
         // Upsert new relation and delete old row
         try {
-          await prisma.personSkill.create({ data: { personId: (ps as any).personId, skillId } as any });
-        } catch { /* empty */ }
-        await prisma.personSkill.delete({ where: { personId_skillId: { personId: (ps as any).personId, skillId } } }).catch(() => {});
+          await prisma.personSkill.create({data: {personId: (ps as any).personId, skillId} as any});
+        } catch { /* empty */
+        }
+        await prisma.personSkill.delete({
+          where: {
+            personId_skillId: {
+              personId: (ps as any).personId,
+              skillId
+            }
+          }
+        }).catch(() => {
+        });
       }
 
       // For each match role assignment, map function -> skill
@@ -138,8 +158,9 @@ async function main() {
         const skillId = code ? codeToId[code] : undefined;
         if (!skillId) continue;
         try {
-          await prisma.matchRoleAssignment.update({ where: { id: mr.id }, data: { skillId } as any });
-        } catch { /* empty */ }
+          await prisma.matchRoleAssignment.update({where: {id: mr.id}, data: {skillId} as any});
+        } catch { /* empty */
+        }
       }
       console.log('Migration from ProductionFunction completed (best-effort).');
     }
@@ -149,32 +170,32 @@ async function main() {
 
   // Seed Positions catalog with isStudio flag
   const positions: Array<{ name: string; isStudio: boolean }> = [
-    { name: 'Camera overzicht', isStudio: false },
-    { name: 'Camera links', isStudio: false },
-    { name: 'Camera rechts', isStudio: false },
-    { name: 'Camera studio', isStudio: true },
-    { name: 'Regie livestream', isStudio: false },
-    { name: 'Regie LEDscherm', isStudio: false },
-    { name: 'Muziek', isStudio: false },
-    { name: 'Oplopen geluid', isStudio: false },
-    { name: 'Oplopen volgspot', isStudio: false },
-    { name: 'Interview coordinator', isStudio: true },
-    { name: 'Camera studio', isStudio: true },
-    { name: 'Herhalingen', isStudio: false },
-    { name: 'Show caller', isStudio: false },
-    { name: 'Presentatie', isStudio: true },
-    { name: 'Commentaar', isStudio: true },
-    { name: 'Analist', isStudio: true },
-    { name: 'PTZ operator', isStudio: true },
-    { name: 'Runner', isStudio: false },
-    { name: 'Speaker', isStudio: true }
+    {name: 'Camera overzicht', isStudio: false},
+    {name: 'Camera links', isStudio: false},
+    {name: 'Camera rechts', isStudio: false},
+    {name: 'Camera studio', isStudio: true},
+    {name: 'Regie livestream', isStudio: false},
+    {name: 'Regie LEDscherm', isStudio: false},
+    {name: 'Muziek', isStudio: false},
+    {name: 'Oplopen geluid', isStudio: false},
+    {name: 'Oplopen volgspot', isStudio: false},
+    {name: 'Interview coordinator', isStudio: true},
+    {name: 'Camera studio', isStudio: true},
+    {name: 'Herhalingen', isStudio: false},
+    {name: 'Show caller', isStudio: false},
+    {name: 'Presentatie', isStudio: true},
+    {name: 'Commentaar', isStudio: true},
+    {name: 'Analist', isStudio: true},
+    {name: 'PTZ operator', isStudio: true},
+    {name: 'Runner', isStudio: false},
+    {name: 'Speaker', isStudio: true}
   ];
   console.log('Seeding positions catalog...');
   for (const pos of positions) {
     await prisma.position.upsert({
-      where: { name: pos.name },
-      update: { isStudio: pos.isStudio },
-      create: { name: pos.name, isStudio: pos.isStudio },
+      where: {name: pos.name},
+      update: {isStudio: pos.isStudio},
+      create: {name: pos.name, isStudio: pos.isStudio},
     });
   }
 
@@ -205,34 +226,46 @@ async function main() {
     const skillId = skillsByCode[code];
     if (!skillId) continue;
     try {
-      await prisma.position.update({ where: { name }, data: { skillId: skillId } });
-    } catch { /* empty */ }
+      await prisma.position.update({where: {name}, data: {skillId: skillId}});
+    } catch { /* empty */
+    }
   }
 
   // Seed a default template for Voorbeschouwing if not configured
-  const existingDefaults = await prisma.segmentDefaultPosition.findMany({ where: { segmentName: 'Voorbeschouwing' } });
+  const existingDefaults = await prisma.segmentDefaultPosition.findMany({where: {segmentName: 'Voorbeschouwing'}});
   if (existingDefaults.length === 0) {
     const defaultNames = ['camera overzicht', 'camera links', 'camera rechts', 'regie', 'scherm regie', 'commentaar', 'analist', 'presentatie'];
-    const allPos = await prisma.position.findMany({ where: { name: { in: defaultNames } } });
+    const allPos = await prisma.position.findMany({where: {name: {in: defaultNames}}});
     const byName = new Map(allPos.map((p) => [p.name, p] as const));
     let order = 0;
     for (const nm of defaultNames) {
       const p = byName.get(nm);
       if (!p) continue;
-      await prisma.segmentDefaultPosition.create({ data: { segmentName: 'Voorbeschouwing', positionId: p.id, order: order++ } });
+      await prisma.segmentDefaultPosition.create({
+        data: {
+          segmentName: 'Voorbeschouwing',
+          positionId: p.id,
+          order: order++
+        }
+      });
     }
   }
 
   // Seed default vMix Title Templates (global templates: productionId = null)
   // Only create when none exist yet to avoid overwriting admin-configured templates.
-  const existingTemplateCount = await (prisma as any).titleDefinition.count({ where: { productionId: null } }).catch(() => 0);
+  const existingTemplateCount = await (prisma as any).titleDefinition.count({where: {productionId: null}}).catch(() => 0);
   if (existingTemplateCount === 0) {
     console.log('Seeding default vMix title templates...');
     // Helper to create a template with parts
     let order = 1;
-    async function createTemplate(name: string, parts: Array<{ sourceType: 'COMMENTARY' | 'PRESENTATION' | 'PRESENTATION_AND_ANALIST' | 'TEAM_PLAYER' | 'TEAM_COACH'; teamSide?: 'HOME' | 'AWAY' | 'NONE'; limit?: number | null }>) {
+
+    async function createTemplate(name: string, parts: Array<{
+      sourceType: 'COMMENTARY' | 'PRESENTATION_AND_ANALIST' | 'TEAM_COACH' | 'TEAM_PLAYER';
+      teamSide?: 'AWAY' | 'HOME' | 'NONE';
+      limit?: number | null
+    }>) {
       const def = await (prisma as any).titleDefinition.create({
-        data: { productionId: null, name, order: order++, enabled: true },
+        data: {productionId: null, name, order: order++, enabled: true},
       });
       for (const p of parts) {
         await (prisma as any).titlePart.create({
@@ -248,25 +281,31 @@ async function main() {
     }
 
     await createTemplate('Presentatie & analist', [
-      { sourceType: 'PRESENTATION_AND_ANALIST', teamSide: 'NONE' },
+      {sourceType: 'PRESENTATION_AND_ANALIST', teamSide: 'NONE'},
     ]);
-    await createTemplate('Presentatie', [
-      { sourceType: 'PRESENTATION', teamSide: 'NONE' },
-    ]);
+
     await createTemplate('Commentaar (allen)', [
-      { sourceType: 'COMMENTARY', teamSide: 'NONE' },
+      {sourceType: 'COMMENTARY', teamSide: 'NONE'},
     ]);
-    await createTemplate('Thuis speler', [
-      { sourceType: 'TEAM_PLAYER', teamSide: 'HOME' },
-    ]);
-    await createTemplate('Uit speler', [
-      { sourceType: 'TEAM_PLAYER', teamSide: 'AWAY' },
-    ]);
-    await createTemplate('Thuis coach', [
-      { sourceType: 'TEAM_COACH', teamSide: 'HOME' },
-    ]);
+
     await createTemplate('Uit coach', [
-      { sourceType: 'TEAM_COACH', teamSide: 'AWAY' },
+      {sourceType: 'TEAM_COACH', teamSide: 'AWAY'},
+    ]);
+
+    await createTemplate('Uit speler', [
+      {sourceType: 'TEAM_PLAYER', teamSide: 'AWAY'},
+    ]);
+
+    await createTemplate('Thuis coach', [
+      {sourceType: 'TEAM_COACH', teamSide: 'HOME'},
+    ]);
+
+    await createTemplate('Thuis speler', [
+      {sourceType: 'TEAM_PLAYER', teamSide: 'HOME'},
+    ]);
+
+    await createTemplate('Presentatie', [
+      {sourceType: 'PRESENTATION', teamSide: 'NONE'},
     ]);
   } else {
     console.log('Skipping vMix title templates seeding: templates already exist');
@@ -274,52 +313,69 @@ async function main() {
 
   // Seed persons with their capabilities
   const seedPersons: Array<{ name: string; gender: Gender; skillCodes: string[] }> = [
-    { name: 'Danny', gender: 'male', skillCodes: ['REGISSEUR', 'CAMERA_ZOOM', 'CAMERA_OVERVIEW', 'SCHERM_REGISSEUR'] },
-    { name: 'Pascal', gender: 'male', skillCodes: ['REGISSEUR', 'GELUID', 'SPOTLIGHT', 'SCHERM_REGISSEUR', 'CAMERA_ZOOM', 'CAMERA_OVERVIEW', 'HERHALINGEN'] },
-    { name: 'Michel', gender: 'male', skillCodes: ['REGISSEUR', 'CAMERA_ZOOM', 'CAMERA_OVERVIEW', 'SCHERM_REGISSEUR', 'SPOTLIGHT','HERHALINGEN'] },
-    { name: 'Richard', gender: 'male', skillCodes: ['CAMERA_ZOOM', 'SPOTLIGHT', 'GELUID', 'CAMERA_OVERVIEW', 'REGISSEUR','HERHALINGEN'] },
-    { name: 'Henk', gender: 'male', skillCodes: ['CAMERA_OVERVIEW'] },
-    { name: 'Mike', gender: 'male', skillCodes: ['CAMERA_OVERVIEW', 'CAMERA_ZOOM', 'SCHERM_REGISSEUR', 'INTERVIEW_COORDINATOR','HERHALINGEN'] },
-    { name: 'Bart', gender: 'male', skillCodes: ['CAMERA_ZOOM', 'REGISSEUR','HERHALINGEN'] },
-    { name: 'Christie', gender: 'female', skillCodes: ['CAMERA_OVERVIEW', 'CAMERA_ZOOM', 'INTERVIEW_COORDINATOR'] },
-    { name: 'Peter Jan', gender: 'male', skillCodes: ['CAMERA_OVERVIEW', 'CAMERA_ZOOM','SCHERM_REGISSEUR'] },
-    { name: 'Bastiaan', gender: 'male', skillCodes: ['CAMERA_OVERVIEW', 'CAMERA_ZOOM','SCHERM_REGISSEUR'] },
-    { name: 'Ron', gender: 'male', skillCodes: ['CAMERA_OVERVIEW', 'CAMERA_ZOOM','SCHERM_REGISSEUR'] },
-    { name: 'Justin', gender: 'male', skillCodes: ['SCHERM_REGISSEUR'] },
-    { name: 'Thomas', gender: 'male', skillCodes: ['CAMERA_OVERVIEW', 'CAMERA_ZOOM', 'SPOTLIGHT', 'GELUID'] },
-    { name: 'Ferdinand Wittenberg', gender: 'male', skillCodes: ['PRESENTATIE', 'COMMENTAAR'] },
-    { name: 'Daan de Groot', gender: 'male', skillCodes: ['COMMENTAAR'] },
-    { name: 'Peter Boes', gender: 'male', skillCodes: ['ANALIST'] },
-    { name: 'Ryanne Segaar', gender: 'female', skillCodes: ['PRESENTATIE'] },
-    { name: 'Clair van Oosten', gender: 'female', skillCodes: ['PRESENTATIE','ANALIST'] },
-    { name: 'Jennifer Tromp', gender: 'female', skillCodes: ['COMMENTAAR', 'ANALIST'] },
-    { name: 'Ed van der Steen', gender: 'male', skillCodes: ['ANALIST'] },
-    { name: 'Laurens Verbaan', gender: 'male', skillCodes: ['ANALIST','COMMENTAAR'] },
-    { name: 'Bruun van der Steuijt', gender: 'male', skillCodes: ['SPEAKER'] },
-    { name: 'Maarten Boot', gender: 'male', skillCodes: ['SPEAKER'] },
+    {name: 'Danny', gender: 'male', skillCodes: ['REGISSEUR', 'CAMERA_ZOOM', 'CAMERA_OVERVIEW', 'SCHERM_REGISSEUR','IN_EAR_SUPPORT']},
+    {
+      name: 'Pascal',
+      gender: 'male',
+      skillCodes: ['REGISSEUR', 'GELUID', 'SPOTLIGHT', 'SCHERM_REGISSEUR', 'CAMERA_ZOOM', 'CAMERA_OVERVIEW', 'HERHALINGEN','IN_EAR_SUPPORT','PTZ_OPERATOR','RUNNER']
+    },
+    {
+      name: 'Michel',
+      gender: 'male',
+      skillCodes: ['REGISSEUR', 'CAMERA_ZOOM', 'CAMERA_OVERVIEW', 'SCHERM_REGISSEUR', 'SPOTLIGHT', 'HERHALINGEN','IN_EAR_SUPPORT']
+    },
+    {
+      name: 'Richard',
+      gender: 'male',
+      skillCodes: ['CAMERA_ZOOM', 'SPOTLIGHT', 'GELUID', 'CAMERA_OVERVIEW', 'REGISSEUR', 'HERHALINGEN']
+    },
+    {name: 'Henk', gender: 'male', skillCodes: ['CAMERA_OVERVIEW']},
+    {
+      name: 'Mike',
+      gender: 'male',
+      skillCodes: ['CAMERA_OVERVIEW', 'CAMERA_ZOOM', 'SCHERM_REGISSEUR', 'INTERVIEW_COORDINATOR', 'HERHALINGEN']
+    },
+    {name: 'Bart', gender: 'male', skillCodes: ['CAMERA_ZOOM', 'REGISSEUR', 'HERHALINGEN']},
+    {name: 'Christie', gender: 'female', skillCodes: ['CAMERA_OVERVIEW', 'CAMERA_ZOOM', 'INTERVIEW_COORDINATOR']},
+    {name: 'Peter Jan', gender: 'male', skillCodes: ['CAMERA_OVERVIEW', 'CAMERA_ZOOM', 'SCHERM_REGISSEUR']},
+    {name: 'Bastiaan', gender: 'male', skillCodes: ['CAMERA_OVERVIEW', 'CAMERA_ZOOM', 'SCHERM_REGISSEUR']},
+    {name: 'Ron', gender: 'male', skillCodes: ['CAMERA_OVERVIEW', 'CAMERA_ZOOM', 'SCHERM_REGISSEUR']},
+    {name: 'Justin', gender: 'male', skillCodes: ['SCHERM_REGISSEUR']},
+    {name: 'Thomas', gender: 'male', skillCodes: ['CAMERA_OVERVIEW', 'CAMERA_ZOOM', 'SPOTLIGHT', 'GELUID']},
+    {name: 'Ferdinand Wittenberg', gender: 'male', skillCodes: ['PRESENTATIE', 'COMMENTAAR']},
+    {name: 'Daan de Groot', gender: 'male', skillCodes: ['COMMENTAAR']},
+    {name: 'Peter Boes', gender: 'male', skillCodes: ['ANALIST']},
+    {name: 'Ryanne Segaar', gender: 'female', skillCodes: ['PRESENTATIE']},
+    {name: 'Claire van Oosten', gender: 'female', skillCodes: ['PRESENTATIE', 'ANALIST']},
+    {name: 'Jennifer Tromp', gender: 'female', skillCodes: ['COMMENTAAR', 'ANALIST']},
+    {name: 'Ed van der Steen', gender: 'male', skillCodes: ['ANALIST']},
+    {name: 'Laurens Verbaan', gender: 'male', skillCodes: ['ANALIST', 'COMMENTAAR']},
+    {name: 'Bruun van der Steuijt', gender: 'male', skillCodes: ['SPEAKER']},
+    {name: 'Maarten Boot', gender: 'male', skillCodes: ['SPEAKER']},
+    {name: 'Cindy van Eijk', gender: 'female', skillCodes: ['COMMENTAAR', 'ANALIST']},
   ];
 
   console.log('Seeding persons with capabilities...');
   for (const p of seedPersons) {
     // Upsert person by name
-    const existingPerson = await prisma.person.findFirst({ where: { name: p.name } });
+    const existingPerson = await prisma.person.findFirst({where: {name: p.name}});
 
     let person;
     if (existingPerson) {
       person = await prisma.person.update({
-        where: { id: existingPerson.id },
-        data: { gender: p.gender },
+        where: {id: existingPerson.id},
+        data: {gender: p.gender},
       });
       console.log(`Updated person: ${p.name}`);
     } else {
       person = await prisma.person.create({
-        data: { name: p.name, gender: p.gender },
+        data: {name: p.name, gender: p.gender},
       });
       console.log(`Created person: ${p.name}`);
     }
 
     // Delete existing capabilities for this person
-    await prisma.personSkill.deleteMany({ where: { personId: person.id } });
+    await prisma.personSkill.deleteMany({where: {personId: person.id}});
 
     // Add capabilities
     for (const code of p.skillCodes) {
@@ -329,7 +385,7 @@ async function main() {
         continue;
       }
       await prisma.personSkill.create({
-        data: { personId: person.id, skillId: skillId },
+        data: {personId: person.id, skillId: skillId},
       });
     }
     console.log(`  Added ${p.skillCodes.length} capabilities for ${p.name}`);

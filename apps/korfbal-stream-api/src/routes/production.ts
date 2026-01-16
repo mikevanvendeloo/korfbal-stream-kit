@@ -2263,33 +2263,7 @@ productionRouter.get('/:id/report/pdf', async (req, res, next) => {
         return currentY;
       };
 
-      // Home team - 2 kolommen layout
-      if (interviews.home.players.length > 0 || interviews.home.coaches.length > 0) {
-        doc.fontSize(12).font('Helvetica-Bold').text(`${match.homeTeamName}:`);
-        doc.moveDown(0.3);
 
-        const rowStartY = doc.y;
-        let leftY = rowStartY;
-        let rightY = rowStartY;
-
-        // Coach links
-        if (interviews.home.coaches.length > 0) {
-          const coach = interviews.home.coaches[0];
-          leftY = renderPerson(coach, leftColumnX, leftY);
-        }
-
-        // Spelers rechts
-        if (interviews.home.players.length > 0) {
-          for (const player of interviews.home.players) {
-            rightY = renderPerson(player, rightColumnX, rightY);
-            rightY += 20; // Spacing tussen spelers
-          }
-        }
-
-        // Zet cursor onder de hoogste kolom
-        doc.y = Math.max(leftY, rightY) + 2;
-        doc.x = leftColumnX;
-      }
 
       // Away team - 2 kolommen layout
       if (interviews.away.players.length > 0 || interviews.away.coaches.length > 0) {
@@ -2319,6 +2293,33 @@ productionRouter.get('/:id/report/pdf', async (req, res, next) => {
         doc.x = leftColumnX;
       }
 
+      // Home team - 2 kolommen layout
+      if (interviews.home.players.length > 0 || interviews.home.coaches.length > 0) {
+        doc.fontSize(12).font('Helvetica-Bold').text(`${match.homeTeamName}:`);
+        doc.moveDown(0.3);
+
+        const rowStartY = doc.y;
+        let leftY = rowStartY;
+        let rightY = rowStartY;
+
+        // Coach links
+        if (interviews.home.coaches.length > 0) {
+          const coach = interviews.home.coaches[0];
+          leftY = renderPerson(coach, leftColumnX, leftY);
+        }
+
+        // Spelers rechts
+        if (interviews.home.players.length > 0) {
+          for (const player of interviews.home.players) {
+            rightY = renderPerson(player, rightColumnX, rightY);
+            rightY += 20; // Spacing tussen spelers
+          }
+        }
+
+        // Zet cursor onder de hoogste kolom
+        doc.y = Math.max(leftY, rightY) + 2;
+        doc.x = leftColumnX;
+      }
       doc.moveDown(0.5);
     }
 

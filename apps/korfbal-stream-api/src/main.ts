@@ -7,7 +7,7 @@ import {logger} from './utils/logger';
 import {sponsorsRouter} from './routes/sponsors';
 import {matchRouter} from './routes/match';
 import {scoreboardRouter} from './routes/scoreboard';
-import {vmixRouter, adminVmixRouter} from './routes/vmix';
+import {adminVmixRouter, vmixRouter} from './routes/vmix';
 import {settingsRouter} from './routes/settings';
 import {personsRouter} from './routes/persons';
 import {skillsRouter} from './routes/skills';
@@ -15,7 +15,7 @@ import {productionRouter} from './routes/production';
 import {clubsRouter} from './routes/clubs';
 import {playersRouter} from './routes/players';
 import {prisma} from './services/prisma';
-import {config, logConfig, requireConfig, getAssetsRoot} from './services/config';
+import {config, getAssetsRoot, logConfig, requireConfig} from './services/config';
 import {errorHandler} from './middleware/error';
 
 const app: Express = express();
@@ -68,8 +68,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check (also used by Docker healthcheck)
-app.get('/api/health', (_req, res) => res.status(200).send('OK'));
 
 // File uploads (store under assets/)
 const assetsRoot = getAssetsRoot();
@@ -283,6 +281,7 @@ if (process.env.NODE_ENV !== 'test') {
     logger.info(`📚 Sponsors API: http://localhost:${port}/api/sponsors`);
     logger.info(`📚 MatchSchedule API: http://localhost:${port}/api/matches`);
     logger.info(`📚 Scoreboard API: http://localhost:${port}/api/scoreboard`);
+    logger.info(`Database URL: ${config.databaseUrl}`)
     logConfig();
   });
 

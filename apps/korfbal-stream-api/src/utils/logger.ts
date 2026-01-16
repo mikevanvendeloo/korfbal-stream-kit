@@ -6,7 +6,7 @@ const sanitizeAxiosError = (error: any) => {
   // Controleer of het daadwerkelijk een Axios error is (gebaseerd op structuur)
   if (error && error.isAxiosError) {
     const { message, config, code, response } = error;
-    console.log('Sanitizeing axios error')
+    console.log('Sanitizing axios error')
     // Bouw een schone structuur op
     const cleanError: any = {
       message,
