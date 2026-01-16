@@ -254,7 +254,7 @@ vmixRouter.get('/sponsor-names', async (_req, res, next) => {
 //     "commercial": "active-health-center.png"
 //   },
 
-vmixRouter.get('/sponsor-carousel', async (_req, res, next) => {
+vmixRouter.get('/sponsor-carrousel', async (_req, res, next) => {
   try {
     const sponsors = await prisma.sponsor.findMany({
       where: {
@@ -283,7 +283,7 @@ vmixRouter.get('/sponsor-carousel', async (_req, res, next) => {
       website: s.websiteUrl
     })));
   } catch (err) {
-    logger.error('GET /vmix/sponsor-carousel failed', err as any);
+    logger.error('GET /vmix/sponsor-carrousel failed', err as any);
     return next(err);
   }
 });

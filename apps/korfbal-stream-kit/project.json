@@ -53,6 +53,19 @@
         "tsConfig": "apps/korfbal-stream-kit/tsconfig.app.json",
         "noEmit": true
       }
+    },
+    "docker:build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker build -f apps/korfbal-stream-kit/Dockerfile -t korfbal-stream-kit:latest .",
+        "cwd": "."
+      }
+    },
+    "docker:run": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker run -p 80:80 korfbal-stream-kit:latest"
+      }
     }
   },
   "tags": []

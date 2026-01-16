@@ -1,5 +1,5 @@
 # GEEN --platform=linux/amd64 nodig
-FROM node:22 AS builder
+FROM node:22-alpine AS builder
 ENV CI=true
 WORKDIR /app
 

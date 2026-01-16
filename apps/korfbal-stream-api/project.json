@@ -49,15 +49,6 @@
         }
       }
     },
-    "package": {
-      "executor": "@nx/js:package",
-      "dependsOn": ["build"],
-      "options": {
-        "outputPath": "dist/apps/korfbal-stream-api",
-        "project": "apps/korfbal-stream-api/project.json",
-        "externalDependencies": "all"
-      }
-    },
     "serve": {
       "executor": "nx:run-commands",
       "options": {
@@ -93,29 +84,16 @@
       }
     },
     "docker:run": {
-      "executor": "@nx/docker:run",
+      "executor": "nx:run-commands",
       "options": {
-        "image": "korfbal-stream-api:latest",
-        "ports": [
-          "3000:3000"
-        ],
-        "env": {
-          "NODE_ENV": "production",
-          "HOST": "0.0.0.0",
-          "PORT": "3000"
-        }
+        "command": "docker run -p 3333:3333 -e NODE_ENV=production -e HOST=0.0.0.0 -e PORT=3333 korfbal-stream-api:latest"
       }
     },
     "docker:build": {
-      "dependsOn": ["package"],
-      "executor": "@nx/docker:build",
+      "executor": "nx:run-commands",
       "options": {
-        "context": ".",
-        "file": "apps/korfbal-stream-api/Dockerfile",
-        "tags": [
-          "your-registry/korfbal-stream-api:latest"
-        ],
-        "push": true
+        "command": "docker build -f apps/korfbal-stream-api/Dockerfile -t korfbal-stream-api:latest .",
+        "cwd": "."
       }
     }
   },

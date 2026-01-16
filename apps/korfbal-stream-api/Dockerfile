@@ -46,8 +46,10 @@ WORKDIR /app
 # Installeer pnpm ook hier (nodig voor 'pnpm install --prod')
 RUN npm i -g pnpm
 
-# Kopieer ALLEEN de slanke package.json uit de dist-map
+# Kopieer package files voor productie-dependencies
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 
 # Installeer ALLEEN productie-dependencies
 RUN pnpm install --prod
