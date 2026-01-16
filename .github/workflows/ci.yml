@@ -5,11 +5,24 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      docker_tag:
+        description: 'Custom Docker tag (e.g., feature-xyz, test-1.0)'
+        required: true
+        type: string
+      skip_ci_checks:
+        description: 'Skip CI checks (lint, test, typecheck)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   ci-checks:
     name: Lint, Test & Typecheck
     runs-on: ubuntu-latest
+    # Skip CI checks if manually triggered with skip flag
+    if: github.event_name != 'workflow_dispatch' || !inputs.skip_ci_checks
     # Define an output for this job
     outputs:
       affected_apps_json: ${{ steps.get_affected.outputs.affected_apps_json }}
@@ -117,16 +130,22 @@ jobs:
   build-and-publish:
     name: Build & Publish Docker Images
     runs-on: ubuntu-latest
-    # This job only runs if checks pass AND it's a push to main/master
+    # This job only runs if checks pass AND (it's a push to main/master OR manual dispatch)
     needs: [ci-checks, calculate-version]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    if: |
+      always() &&
+      (needs.ci-checks.result == 'success' || needs.ci-checks.result == 'skipped') &&
+      (
+        (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
+        github.event_name == 'workflow_dispatch'
+      )
 
-    # This matrix will run a separate job for each affected app
+    # This matrix will run a separate job for each affected app (or all apps if manual)
     strategy:
       fail-fast: false # Don't cancel other jobs if one app fails
       matrix:
-        # Read the JSON array output from the ci-checks job
-        app: ${{ fromJson(needs.ci-checks.outputs.affected_apps_json || '[]') }}
+        # Read the JSON array output from the ci-checks job, or build all apps for manual dispatch
+        app: ${{ github.event_name == 'workflow_dispatch' && fromJson('[{"original":"korfbal-stream-api","sanitized":"korfbal-stream-api"},{"original":"korfbal-stream-kit","sanitized":"korfbal-stream-kit"}]') || fromJson(needs.ci-checks.outputs.affected_apps_json || '[]') }}
 
     steps:
       - name: Checkout
@@ -169,10 +188,16 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Show new docker tag
-        id: show_tag
+      - name: Determine Docker tag
+        id: docker_tag
         run: |
-           echo "New Docker tag: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:${{ needs.calculate-version.outputs.new_tag }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.docker_tag }}"
+          else
+            TAG="${{ needs.calculate-version.outputs.new_tag }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Docker tag: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:$TAG"
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -184,8 +209,8 @@ jobs:
           file: ./apps/${{ matrix.app.sanitized }}/Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:${{ needs.calculate-version.outputs.new_tag }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:${{ steps.docker_tag.outputs.tag }}
+            ${{ github.event_name != 'workflow_dispatch' && format('{0}/{1}:latest', secrets.DOCKERHUB_USERNAME, matrix.app.sanitized) || '' }}
 
           # FIX 2: Use the 'original' name for the build-arg (if Dockerfile needs it)
           build-args: |
@@ -198,14 +223,19 @@ jobs:
   create-git-tag:
     name: Create Git Tag
     runs-on: ubuntu-latest
-    # This job runs after all builds are successful
+    # This job runs after all builds are successful, only for automatic releases (not manual dispatch)
     needs: [calculate-version, build-and-publish]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    if: |
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create and push tag
         run: |
