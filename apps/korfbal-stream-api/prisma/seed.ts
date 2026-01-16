@@ -304,9 +304,6 @@ async function main() {
       {sourceType: 'TEAM_PLAYER', teamSide: 'HOME'},
     ]);
 
-    await createTemplate('Presentatie', [
-      {sourceType: 'PRESENTATION', teamSide: 'NONE'},
-    ]);
   } else {
     console.log('Skipping vMix title templates seeding: templates already exist');
   }

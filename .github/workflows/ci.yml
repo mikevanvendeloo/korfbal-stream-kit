@@ -211,7 +211,24 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${{ needs.calculate-version.outputs.new_tag }}" -m "Release ${{ needs.calculate-version.outputs.new_tag }}"
+
+          # Get the previous tag
+          PREVIOUS_TAG=$(git tag -l "20*.*.* " | sort -V | tail -n 1)
+
+          # Generate commit summary since previous tag
+          if [ -z "$PREVIOUS_TAG" ]; then
+            COMMIT_SUMMARY=$(git log --pretty=format:"- %s" --no-merges)
+          else
+            COMMIT_SUMMARY=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s" --no-merges)
+          fi
+
+          # Create tag message with commit summary
+          TAG_MESSAGE="Release ${{ needs.calculate-version.outputs.new_tag }}
+
+          Changes since ${PREVIOUS_TAG:-initial commit}:
+          ${COMMIT_SUMMARY}"
+
+          git tag -a "${{ needs.calculate-version.outputs.new_tag }}" -m "$TAG_MESSAGE"
           git push origin "${{ needs.calculate-version.outputs.new_tag }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
