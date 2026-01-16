@@ -195,4 +195,24 @@ jobs:
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:buildcache,mode=max
 
+  create-git-tag:
+    name: Create Git Tag
+    runs-on: ubuntu-latest
+    # This job runs after all builds are successful
+    needs: [calculate-version, build-and-publish]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ needs.calculate-version.outputs.new_tag }}" -m "Release ${{ needs.calculate-version.outputs.new_tag }}"
+          git push origin "${{ needs.calculate-version.outputs.new_tag }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
