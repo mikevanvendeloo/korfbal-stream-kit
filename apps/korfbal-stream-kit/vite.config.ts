@@ -1,5 +1,5 @@
 /// <reference types='vitest' />
-import { defineConfig } from 'vite';
+import {defineConfig} from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(() => ({
@@ -37,6 +37,15 @@ export default defineConfig(() => ({
     coverage: {
       reportsDirectory: './test-output/vitest/coverage',
       provider: 'v8' as const,
+    },
+  },
+  proxy: {
+    // Alle verzoeken naar /api worden nu doorgezonden naar de backend
+    '/api': {
+      target: 'http://localhost:3333',
+      changeOrigin: true,
+      // Als je API intern GEEN /api voorvoegsel heeft, gebruik dan rewrite:
+      // rewrite: (path: string) => path.replace(/^\/api/, ''),
     },
   },
 }));

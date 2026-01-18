@@ -1,8 +1,8 @@
 import request from 'supertest';
-import { execSync } from 'node:child_process';
+import {execSync} from 'node:child_process';
 import app from '../main';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { PrismaClient } from '@prisma/client';
+import {beforeAll, beforeEach, describe, expect, it} from 'vitest';
+import {PrismaClient} from '@prisma/client';
 
 function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
@@ -64,25 +64,25 @@ async function resetDb() {
     expect(cap).toBeTruthy();
 
     // Add skill
-    const addRes = await request(app).post(`/api/persons/${p.id}/capabilities`).send({ skillId: cap!.id });
+    const addRes = await request(app).post(`/api/persons/${p.id}/skills`).send({ skillId: cap!.id });
     expect(addRes.status).toBe(201);
 
     // Idempotent upsert -> 201 first time, conflict on explicit unique
-    const again = await request(app).post(`/api/persons/${p.id}/capabilities`).send({ skillId: cap!.id });
+    const again = await request(app).post(`/api/persons/${p.id}/skills`).send({ skillId: cap!.id });
     expect([201, 409]).toContain(again.status);
 
     // List capabilities
-    const listCaps = await request(app).get(`/api/persons/${p.id}/capabilities`);
+    const listCaps = await request(app).get(`/api/persons/${p.id}/skills`);
     expect(listCaps.status).toBe(200);
     expect(Array.isArray(listCaps.body)).toBe(true);
     expect(listCaps.body.length).toBe(1);
 
     // Remove skill
-    const delCap = await request(app).delete(`/api/persons/${p.id}/capabilities/${cap!.id}`);
+    const delCap = await request(app).delete(`/api/persons/${p.id}/skills/${cap!.id}`);
     expect(delCap.status).toBe(204);
 
     // Removing again -> 404
-    const delCap404 = await request(app).delete(`/api/persons/${p.id}/capabilities/${cap!.id}`);
+    const delCap404 = await request(app).delete(`/api/persons/${p.id}/skills/${cap!.id}`);
     expect(delCap404.status).toBe(404);
   });
 
@@ -108,7 +108,7 @@ async function resetDb() {
     expect(failAssign.status).toBe(422);
 
     // Add skill
-    await request(app).post(`/api/persons/${person.id}/capabilities`).send({ skillId: role!.id });
+    await request(app).post(`/api/persons/${person.id}/skills`).send({ skillId: role!.id });
 
     // Create assignment
     const create = await request(app)
@@ -118,7 +118,7 @@ async function resetDb() {
 
     // Allow multiple persons for the same role: add a second person with same role
     const otherPerson = await request(app).post('/api/persons').send({ name: 'Eve', gender: 'female' }).then(r => r.body);
-    await request(app).post(`/api/persons/${otherPerson.id}/capabilities`).send({ skillId: role!.id });
+    await request(app).post(`/api/persons/${otherPerson.id}/skills`).send({ skillId: role!.id });
     const secondAssign = await request(app)
       .post(`/api/persons/matches/${match.id}/assignments`)
       .send({ personId: otherPerson.id, skillId: role!.id });
@@ -138,7 +138,7 @@ async function resetDb() {
     // Update: switch to another role after adding skill
     const otherRole = await prisma.skill.findFirst({ where: { code: 'PRESENTATOR' } });
     expect(otherRole).toBeTruthy();
-    await request(app).post(`/api/persons/${person.id}/capabilities`).send({ skillId: otherRole!.id });
+    await request(app).post(`/api/persons/${person.id}/skills`).send({ skillId: otherRole!.id });
 
     const patch = await request(app)
       .patch(`/api/persons/matches/${match.id}/assignments/${create.body.id}`)
@@ -167,8 +167,8 @@ async function resetDb() {
     });
 
     // Person must have the capabilities first
-    await request(app).post(`/api/persons/${person.id}/capabilities`).send({ skillId: role1!.id });
-    await request(app).post(`/api/persons/${person.id}/capabilities`).send({ skillId: role2!.id });
+    await request(app).post(`/api/persons/${person.id}/skills`).send({ skillId: role1!.id });
+    await request(app).post(`/api/persons/${person.id}/skills`).send({ skillId: role2!.id });
 
     // Assign both roles to the same person for this match
     const a1 = await request(app)

@@ -1,9 +1,7 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 
 function url(path: string) {
-  if (path.startsWith('http')) return path;
-  const base = (import.meta as any).env?.VITE_API_BASE_URL || '';
-  return base + path;
+  return path;
 }
 
 async function extractError(res: Response) {

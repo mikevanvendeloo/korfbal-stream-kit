@@ -101,10 +101,9 @@ app.use('/api/clubs', clubsRouter);
 // Persons endpoints
 app.use('/api/persons', personsRouter);
 
-// Capabilities endpoints (legacy path for backward-compat)
+// Skills endpoints (legacy path for backward-compat)
 app.use('/api/skills', skillsRouter);
-// Keep legacy capabilities endpoint for backward compatibility
-app.use('/api/capabilities', skillsRouter);
+
 
 // Production namespace (new structured URLs)
 app.use('/api/production', productionRouter);
