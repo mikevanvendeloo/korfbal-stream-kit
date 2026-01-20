@@ -3,24 +3,9 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {ColumnDef, flexRender, getCoreRowModel, useReactTable} from '@tanstack/react-table';
 import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdEdit} from 'react-icons/md';
-import {apiUrl as url} from '../config/env';
+import {extractError} from "../lib/api";
 
 export type Skill = { id: number; code: string; name: string; nameMale: string; nameFemale: string; createdAt?: string };
-
-
-async function extractError(res: Response): Promise<string> {
-  try {
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('application/json')) {
-      const body: any = await res.json().catch(() => ({}));
-      if (body && (body.error || body.message)) return String(body.error || body.message);
-    } else {
-      const text = await res.text();
-      if (text) return text;
-    }
-  } catch {}
-  return `Request failed (${res.status})`;
-}
 
 function useSkills(q?: string) {
   const params = new URLSearchParams();
@@ -29,7 +14,7 @@ function useSkills(q?: string) {
   return useQuery({
     queryKey: qk,
     queryFn: async (): Promise<{ items: Skill[]; total: number }> => {
-      const skillsUrl = url(`/api/skills?${params.toString()}`)
+      const skillsUrl = `/api/skills?${params.toString()}`
       console.log(skillsUrl);
       const res = await fetch(skillsUrl);
       if (!res.ok) throw new Error(await extractError(res));
@@ -43,7 +28,7 @@ function useCreateSkill() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { code: string; name: string; nameMale: string; nameFemale: string }) => {
-      const res = await fetch(url('/api/skills'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+      const res = await fetch('/api/skills', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -55,7 +40,7 @@ function useUpdateSkill() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { id: number; code?: string; name?: string; nameMale?: string; nameFemale?: string }) => {
-      const res = await fetch(url(`/api/skills/${input.id}`), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: input.code, name: input.name, nameMale: input.nameMale, nameFemale: input.nameFemale }) });
+      const res = await fetch(`/api/skills/${input.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: input.code, name: input.name, nameMale: input.nameMale, nameFemale: input.nameFemale }) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -67,7 +52,7 @@ function useDeleteSkill() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(url(`/api/skills/${id}`), { method: 'DELETE' });
+      const res = await fetch(`/api/skills/${id}`, { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['skills'] }),

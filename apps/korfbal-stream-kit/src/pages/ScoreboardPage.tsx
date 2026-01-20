@@ -3,7 +3,6 @@ import {useMatchClock, useScoreboard, useShotclock} from '../hooks/useMatch';
 import {labels} from '../config/scoreboardLabels';
 import {useProductions} from '../hooks/useProductions';
 import {Club, useClubs} from '../hooks/useClubs';
-import { assetUrl } from '../config/env';
 
 function fmt(n: number | undefined) {
   if (typeof n !== 'number' || isNaN(n)) return '';
@@ -91,7 +90,7 @@ export default function ScoreboardPage() {
             <div className="flex items-center gap-2 min-w-0">
               {homeClub?.logoUrl ? (
                 <img
-                  src={assetUrl(homeClub.logoUrl)}
+                  src={`/assets/${homeClub.logoUrl}`}
                   alt={homeClub.shortName || homeClub.name}
                   className="h-20 w-20 object-contain"
                 />
@@ -108,7 +107,7 @@ export default function ScoreboardPage() {
               </div>
               {awayClub?.logoUrl ? (
                 <img
-                  src={assetUrl(awayClub.logoUrl)}
+                  src={`/assets/${awayClub.logoUrl}`}
                   alt={awayClub.shortName || awayClub.name}
                   className="h-20 w-20 object-contain"
                 />

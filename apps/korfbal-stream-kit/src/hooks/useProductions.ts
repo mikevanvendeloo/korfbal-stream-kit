@@ -1,19 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiUrl as url } from '../config/env';
-
-async function extractError(res: Response): Promise<string> {
-  try {
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('application/json')) {
-      const body: any = await res.json().catch(() => ({}));
-      if (body && (body.error || body.message)) return String(body.error || body.message);
-    } else {
-      const text = await res.text();
-      if (text) return text;
-    }
-  } catch {}
-  return `Request failed (${res.status})`;
-}
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import {extractError} from "../lib/api";
 
 export type Production = { id: number; matchScheduleId: number; createdAt: string; isActive?: boolean; matchSchedule?: any };
 export type MatchCandidate = { id: number; date: string; homeTeamName: string; awayTeamName: string };
@@ -22,7 +8,7 @@ export function useProductionMatches() {
   return useQuery({
     queryKey: ['production-matches'],
     queryFn: async (): Promise<{ items: MatchCandidate[]; filters: string[] }> => {
-      const res = await fetch(url('/api/production/matches'));
+      const res = await fetch('/api/production/matches');
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -33,7 +19,7 @@ export function useProductions() {
   return useQuery({
     queryKey: ['productions'],
     queryFn: async (): Promise<{ items: Production[]; total: number }> => {
-      const res = await fetch(url('/api/production'));
+      const res = await fetch('/api/production');
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -45,7 +31,7 @@ export function useProduction(id: number) {
     queryKey: ['production', id],
     enabled: !!id,
     queryFn: async (): Promise<Production> => {
-      const res = await fetch(url(`/api/production/${id}`));
+      const res = await fetch(`/api/production/${id}`);
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -56,7 +42,7 @@ export function useCreateProduction() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { matchScheduleId: number }): Promise<Production> => {
-      const res = await fetch(url('/api/production'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+      const res = await fetch('/api/production', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -68,7 +54,7 @@ export function useUpdateProduction() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { id: number; matchScheduleId: number }): Promise<Production> => {
-      const res = await fetch(url(`/api/production/${input.id}`), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matchScheduleId: input.matchScheduleId }) });
+      const res = await fetch(`/api/production/${input.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matchScheduleId: input.matchScheduleId }) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -80,7 +66,7 @@ export function useDeleteProduction() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(url(`/api/production/${id}`), { method: 'DELETE' });
+      const res = await fetch(`/api/production/${id}`, { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['productions'] }),
@@ -91,7 +77,7 @@ export function useActivateProduction() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(url(`/api/production/${id}/activate`), { method: 'POST' });
+      const res = await fetch(`/api/production/${id}/activate`, { method: 'POST' });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -106,7 +92,7 @@ export function useProductionSegments(productionId: number) {
     queryKey: ['production', productionId, 'segments'],
     enabled: !!productionId,
     queryFn: async (): Promise<ProductionSegment[]> => {
-      const res = await fetch(url(`/api/production/${productionId}/segments`));
+      const res = await fetch(`/api/production/${productionId}/segments`);
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -117,7 +103,7 @@ export function useCreateSegment(productionId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { naam: string; duurInMinuten: number; volgorde?: number; isTimeAnchor?: boolean }): Promise<ProductionSegment> => {
-      const res = await fetch(url(`/api/production/${productionId}/segments`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+      const res = await fetch(`/api/production/${productionId}/segments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -133,7 +119,7 @@ export function useUpdateSegment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { id: number; naam?: string; duurInMinuten?: number; volgorde?: number; isTimeAnchor?: boolean }): Promise<ProductionSegment> => {
-      const res = await fetch(url(`/api/production/segments/${input.id}`), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+      const res = await fetch(`/api/production/segments/${input.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -155,7 +141,7 @@ export function useDeleteSegment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (segmentId: number) => {
-      const res = await fetch(url(`/api/production/segments/${segmentId}`), { method: 'DELETE' });
+      const res = await fetch(`/api/production/segments/${segmentId}`, { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => {
@@ -171,7 +157,7 @@ export function useProductionTiming(productionId: number) {
     queryKey: ['production', productionId, 'timing'],
     enabled: !!productionId,
     queryFn: async (): Promise<Array<ProductionSegment & { start: string; end: string }>> => {
-      const res = await fetch(url(`/api/production/${productionId}/timing`));
+      const res = await fetch(`/api/production/${productionId}/timing`);
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -185,7 +171,7 @@ export function useSegmentAssignments(segmentId: number) {
     queryKey: ['segment', segmentId, 'assignments'],
     enabled: !!segmentId,
     queryFn: async (): Promise<SegmentAssignment[]> => {
-      const res = await fetch(url(`/api/production/segments/${segmentId}/assignments`));
+      const res = await fetch(`/api/production/segments/${segmentId}/assignments`);
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -196,7 +182,7 @@ export function useAddSegmentAssignment(segmentId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { personId: number; positionId: number }): Promise<SegmentAssignment> => {
-      const res = await fetch(url(`/api/production/segments/${segmentId}/assignments`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+      const res = await fetch(`/api/production/segments/${segmentId}/assignments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -208,7 +194,7 @@ export function useDeleteSegmentAssignment(segmentId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (assignmentId: number) => {
-      const res = await fetch(url(`/api/production/segments/${segmentId}/assignments/${assignmentId}`), { method: 'DELETE' });
+      const res = await fetch(`/api/production/segments/${segmentId}/assignments/${assignmentId}`, { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['segment', segmentId, 'assignments'] }),
@@ -219,7 +205,7 @@ export function useCopySegmentAssignments(segmentId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { targetSegmentIds: number[]; mode?: 'merge' | 'overwrite' }): Promise<{ ok: boolean }> => {
-      const res = await fetch(url(`/api/production/segments/${segmentId}/assignments/copy`), {
+      const res = await fetch(`/api/production/segments/${segmentId}/assignments/copy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
@@ -244,7 +230,7 @@ export function useCrewPersonsForSegment(segmentId: number) {
     queryKey: ['segment', segmentId, 'crew-persons'],
     enabled: !!segmentId,
     queryFn: async (): Promise<CrewPerson[]> => {
-      const res = await fetch(url(`/api/production/segments/${segmentId}/persons`));
+      const res = await fetch(`/api/production/segments/${segmentId}/persons`);
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -257,7 +243,7 @@ export function useSegmentDefaultPositions(segmentId: number) {
     queryKey: ['segment', segmentId, 'default-positions'],
     enabled: !!segmentId,
     queryFn: async (): Promise<SegmentDefaultPosition[]> => {
-      const res = await fetch(url(`/api/production/segments/${segmentId}/positions`));
+      const res = await fetch(`/api/production/segments/${segmentId}/positions`);
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -271,7 +257,7 @@ export function useProductionAssignments(productionId: number) {
     queryKey: ['production', productionId, 'assignments'],
     enabled: !!productionId,
     queryFn: async (): Promise<Assignment[]> => {
-      const res = await fetch(url(`/api/production/${productionId}/assignments`));
+      const res = await fetch(`/api/production/${productionId}/assignments`);
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -282,7 +268,7 @@ export function useAddProductionAssignment(productionId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { personId: number; skillId: number }): Promise<Assignment> => {
-      const res = await fetch(url(`/api/production/${productionId}/assignments`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+      const res = await fetch(`/api/production/${productionId}/assignments`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -304,7 +290,7 @@ export function useUpdateProductionAssignment(productionId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { id: number; personId?: number; skillId?: number }): Promise<Assignment> => {
-      const res = await fetch(url(`/api/production/${productionId}/assignments/${input.id}`), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId: input.personId, skillId: input.skillId }) });
+      const res = await fetch(`/api/production/${productionId}/assignments/${input.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId: input.personId, skillId: input.skillId }) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -316,7 +302,7 @@ export function useDeleteProductionAssignment(productionId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (assignmentId: number) => {
-      const res = await fetch(url(`/api/production/${productionId}/assignments/${assignmentId}`), { method: 'DELETE' });
+      const res = await fetch(`/api/production/${productionId}/assignments/${assignmentId}`, { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['production', productionId, 'assignments'] }),

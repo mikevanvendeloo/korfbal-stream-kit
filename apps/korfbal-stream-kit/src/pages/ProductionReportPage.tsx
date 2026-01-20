@@ -7,7 +7,6 @@ import {
   useProductionReport,
   useSaveProductionReport,
 } from '../hooks/useProductionReport';
-import {apiUrl} from '../config/env';
 import {MdPictureAsPdf} from 'react-icons/md';
 import {FaCheck, FaMarkdown, FaWhatsapp} from 'react-icons/fa';
 
@@ -240,7 +239,7 @@ export default function ProductionReportPage() {
                       {data.enriched.interviews.away.coaches[0].photoUrl && (
                         <div className="w-64 h-64 overflow-hidden rounded">
                           <img
-                            src={apiUrl(`/uploads/${data.enriched.interviews.away.coaches[0].photoUrl}`)}
+                            src={`/uploads/${data.enriched.interviews.away.coaches[0].photoUrl}`}
                             alt={data.enriched.interviews.away.coaches[0].name}
                             className="w-full h-full object-cover scale-125 origin-top"
                             style={{objectPosition: 'center top', aspectRatio: '1'}}
@@ -269,7 +268,7 @@ export default function ProductionReportPage() {
                           {player.photoUrl && (
                             <div className="w-64 h-64 overflow-hidden rounded">
                               <img
-                                src={apiUrl(`/uploads/${player.photoUrl}`)}
+                                src={`/uploads/${player.photoUrl}`}
                                 alt={player.name}
                                 className="w-full h-full object-cover scale-125 origin-top"
                                 style={{objectPosition: 'center top', aspectRatio: '1'}}
@@ -305,7 +304,7 @@ export default function ProductionReportPage() {
                       {data.enriched.interviews.home.coaches[0].photoUrl && (
                         <div className="w-64 h-64 overflow-hidden rounded">
                           <img
-                            src={apiUrl(`/uploads/${data.enriched.interviews.home.coaches[0].photoUrl}`)}
+                            src={`/uploads/${data.enriched.interviews.home.coaches[0].photoUrl}`}
                             alt={data.enriched.interviews.home.coaches[0].name}
                             className="w-full h-full object-cover scale-125 origin-top"
                             style={{objectPosition: 'center top', aspectRatio: '1'}}
@@ -334,10 +333,10 @@ export default function ProductionReportPage() {
                           {player.photoUrl && (
                             <div className="w-64 h-64 overflow-hidden rounded">
                               <img
-                                src={apiUrl(`/uploads/${player.photoUrl}`)}
+                                src={`/uploads/${player.photoUrl}`}
                                 alt={player.name}
                                 className="w-full h-full object-cover scale-125 origin-top"
-                                style={{objectPosition: 'center top', aspectRatio: '1'}}
+                                style={{ objectPosition: 'center top', aspectRatio: '1'}}
                               />
                             </div>
                           )}

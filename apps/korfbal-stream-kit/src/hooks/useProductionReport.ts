@@ -1,19 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiUrl as url } from '../config/env';
-
-async function extractError(res: Response): Promise<string> {
-  try {
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('application/json')) {
-      const body: any = await res.json().catch(() => ({}));
-      if (body && (body.error || body.message)) return String(body.error || body.message);
-    } else {
-      const text = await res.text();
-      if (text) return text;
-    }
-  } catch {}
-  return `Request failed (${res.status})`;
-}
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import {extractError} from "../lib/api";
 
 export type ProductionReport = {
   id: number;
@@ -71,7 +57,7 @@ export function useProductionReport(productionId: number) {
     queryKey: ['production', productionId, 'report'],
     enabled: !!productionId,
     queryFn: async (): Promise<ProductionReportData> => {
-      const res = await fetch(url(`/api/production/${productionId}/report`));
+      const res = await fetch(`/api/production/${productionId}/report`);
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -85,7 +71,7 @@ export function useSaveProductionReport(productionId: number) {
       matchSponsor?: string | null;
       interviewRationale?: string | null;
     }): Promise<ProductionReport> => {
-      const res = await fetch(url(`/api/production/${productionId}/report`), {
+      const res = await fetch(`/api/production/${productionId}/report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
@@ -101,7 +87,7 @@ export function useDeleteProductionReport(productionId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const res = await fetch(url(`/api/production/${productionId}/report`), { method: 'DELETE' });
+      const res = await fetch(`/api/production/${productionId}/report`, { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['production', productionId, 'report'] }),
@@ -109,13 +95,13 @@ export function useDeleteProductionReport(productionId: number) {
 }
 
 export function getProductionReportPdfUrl(productionId: number): string {
-  return url(`/api/production/${productionId}/report/pdf`);
+  return `/api/production/${productionId}/report/pdf`;
 }
 
 export function getProductionReportMarkdownUrl(productionId: number): string {
-  return url(`/api/production/${productionId}/report/markdown`);
+  return `/api/production/${productionId}/report/markdown`;
 }
 
 export function getProductionReportWhatsappUrl(productionId: number): string {
-  return url(`/api/production/${productionId}/report/whatsapp`);
+  return `/api/production/${productionId}/report/whatsapp`;
 }

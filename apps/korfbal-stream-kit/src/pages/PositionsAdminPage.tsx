@@ -1,9 +1,9 @@
 import React from 'react';
 import {useCreatePosition, useDeletePosition, usePositionsCatalog, useUpdatePosition} from '../hooks/usePositions';
 import {useQuery} from '@tanstack/react-query';
-import {apiUrl as url} from '../config/env';
 import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdEdit} from 'react-icons/md';
+import {logger} from "nx/src/utils/logger";
 
 type Skill = { id: number; code: string; name: string };
 
@@ -17,7 +17,9 @@ async function extractError(res: Response): Promise<string> {
       const text = await res.text();
       if (text) return text;
     }
-  } catch {}
+  } catch {
+    logger.error(`Failed to extract error from response for url: ${res.url}`);
+  }
   return `Request failed (${res.status})`;
 }
 
@@ -26,7 +28,7 @@ function useAllSkills() {
     queryKey: ['skills', 'all'],
     queryFn: async (): Promise<Skill[]> => {
       // Backend skills endpoint limits page size to 200 via schema; request max allowed
-      const res = await fetch(url('/api/skills?limit=200&page=1'));
+      const res = await fetch('/api/skills?limit=200&page=1');
       if (!res.ok) throw new Error(await extractError(res));
       const data = await res.json();
       return Array.isArray(data) ? data : data.items;
