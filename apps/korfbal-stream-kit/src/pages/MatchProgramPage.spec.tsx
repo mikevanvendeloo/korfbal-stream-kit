@@ -7,7 +7,7 @@ function setupFetchMock() {
   const mock = vi.fn(async (input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : (input as URL).toString();
     const u = new URL(url);
-    if (u.pathname.endsWith('/api/match/matches/schedule')) {
+    if (u.pathname.endsWith('/match/matches/schedule')) {
       const date = u.searchParams.get('date');
       const location = u.searchParams.get('location');
       if (date === '2025-11-01') {
@@ -66,7 +66,7 @@ function setupFetchMock() {
     }
     return { ok: false, status: 404 } as any;
   });
-  // @ts-ignore
+  // @ts-expect-error Test
   global.fetch = mock;
   return { restore: () => (global.fetch = original), mock };
 }
@@ -74,7 +74,7 @@ function setupFetchMock() {
 // Helper to freeze today's date so component default is predictable
 const RealDate = Date;
 function mockNow(iso: string) {
-  // @ts-ignore
+  // @ts-expect-error Test
   global.Date = class extends RealDate {
     constructor(...args: any[]) {
       if (args.length) return new RealDate(...args) as any;
@@ -146,15 +146,15 @@ it('triggers import with default params and refreshes the list', async () => {
     const method = init?.method || 'GET';
     calls.push({ url, method });
     const u = new URL(url);
-    if (u.pathname.endsWith('/api/match/matches/schedule/import') && method === 'POST') {
+    if (u.pathname.endsWith('/match/matches/schedule/import') && method === 'POST') {
       return { ok: true, json: async () => ({ ok: true, inserted: 1, updated: 0 }) } as any;
     }
-    if (u.pathname.endsWith('/api/match/matches/schedule')) {
+    if (u.pathname.endsWith('/match/matches/schedule')) {
       return { ok: true, json: async () => ({ date: u.searchParams.get('date') || '', count: 0, items: [] }) } as any;
     }
     return { ok: false, status: 404 } as any;
   }) as any;
-  // @ts-expect-error
+  // @ts-expect-error Test
   global.fetch = fetchMock;
 
   render(
@@ -170,9 +170,9 @@ it('triggers import with default params and refreshes the list', async () => {
   fireEvent.click(screen.getByLabelText('import-default'));
 
   await waitFor(() => {
-    expect(calls.some((c) => c.url.includes('/api/match/matches/schedule/import') && c.method === 'POST')).toBe(true);
+    expect(calls.some((c) => c.url.includes('/match/matches/schedule/import') && c.method === 'POST')).toBe(true);
     // After import, a GET should be called again
-    const getCalls = calls.filter((c) => c.url.includes('/api/match/matches/schedule') && c.method === 'GET');
+    const getCalls = calls.filter((c) => c.url.includes('/match/matches/schedule') && c.method === 'GET');
     expect(getCalls.length).toBeGreaterThanOrEqual(2);
   });
 

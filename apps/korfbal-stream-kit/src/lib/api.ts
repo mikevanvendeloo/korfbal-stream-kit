@@ -1,5 +1,13 @@
 import {logger} from "nx/src/utils/logger";
 
+function getApiBaseUrl() {
+  return import.meta.env.VITE_API_BASE_URL || '/api';
+}
+
+export function createUrl(path: string): URL {
+  return new URL(path, getApiBaseUrl());
+}
+
 export type Sponsor = {
   id: number;
   name: string;
@@ -35,7 +43,7 @@ export type ScoreboardItem = { status: string; home: number; guest: number };
 export type ShotclockItem = { status: string; time: number; color?: 'green' | 'orange' | 'red' };
 export type MatchClockItem = { status: string; minute: string; second: string; period: 0 | 1 | 2 };
 
-export type ProgramMatch = {
+export type MatchSchedule = {
   id: number;
   externalId: string;
   date: string; // ISO
@@ -55,41 +63,35 @@ export type ProgramMatch = {
   color?: string | null;
 };
 
-// New alias using matchSchedule terminology
-export type MatchSchedule = ProgramMatch;
-
-//const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3333';
-
 // -------- Settings: vMix Web URL --------
 export type VmixSettings = { vmixWebUrl: string | null };
 
 export async function getVmixSettings(): Promise<VmixSettings> {
-  const url = new URL('/api/settings/vmix-url');
+  const url = createUrl('/settings/vmix-url');
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error(`Failed to load vMix settings: ${res.status}`);
   return res.json();
 }
 
 export async function setVmixSettings(vmixWebUrl: string): Promise<VmixSettings> {
-  const url = new URL('/api/settings/vmix-url');
+  const url = createUrl('/settings/vmix-url');
   const res = await fetch(url.toString(), {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ vmixWebUrl }),
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({vmixWebUrl}),
   });
   if (!res.ok) throw new Error(`Failed to save vMix settings: ${res.status}`);
   return res.json();
 }
 
-export async function vmixSetTimer(seconds: number): Promise<{ ok: boolean; seconds: number }>
-{
+export async function vmixSetTimer(seconds: number): Promise<{ ok: boolean; seconds: number }> {
 
-  const url = new URL('/api/vmix/set-timer');
-  logger.info(`Setting vMix timer to ${JSON.stringify({ seconds: seconds })} seconds`);
+  const url = createUrl('/vmix/set-timer');
+  logger.info(`Setting vMix timer to ${JSON.stringify({seconds: seconds})} seconds`);
   const res = await fetch(url.toString(), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ seconds: seconds }),
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({seconds: seconds}),
   });
   if (!res.ok) {
     const msg = await res.text();
@@ -99,8 +101,12 @@ export async function vmixSetTimer(seconds: number): Promise<{ ok: boolean; seco
   return res.json();
 }
 
-export async function fetchSponsors(params: { type?: Sponsor['type']; page?: number; limit?: number } = {}): Promise<Paginated<Sponsor>> {
-  const url = new URL('/api/sponsors');
+export async function fetchSponsors(params: {
+  type?: Sponsor['type'];
+  page?: number;
+  limit?: number
+} = {}): Promise<Paginated<Sponsor>> {
+  const url = createUrl('/sponsors');
   if (params.type) url.searchParams.set('type', params.type);
   if (params.page) url.searchParams.set('page', String(params.page));
   if (params.limit) url.searchParams.set('limit', String(params.limit));
@@ -112,10 +118,10 @@ export async function fetchSponsors(params: { type?: Sponsor['type']; page?: num
 }
 
 export async function createSponsor(input: SponsorInput): Promise<Sponsor> {
-  const url = new URL('/api/sponsors');
+  const url = createUrl('/sponsors');
   const res = await fetch(url.toString(), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(`Failed to create sponsor: ${res.status}`);
@@ -123,10 +129,10 @@ export async function createSponsor(input: SponsorInput): Promise<Sponsor> {
 }
 
 export async function updateSponsor(id: number, input: Partial<SponsorInput>): Promise<Sponsor> {
-  const url = new URL(`/api/sponsors/${id}`);
+  const url = createUrl(`/sponsors/${id}`);
   const res = await fetch(url.toString(), {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(input),
   });
   if (!res.ok) throw new Error(`Failed to update sponsor: ${res.status}`);
@@ -134,22 +140,22 @@ export async function updateSponsor(id: number, input: Partial<SponsorInput>): P
 }
 
 export async function deleteSponsor(id: number): Promise<void> {
-  const url = new URL(`/api/sponsors/${id}`);
-  const res = await fetch(url.toString(), { method: 'DELETE' });
+  const url = createUrl(`/sponsors/${id}`);
+  const res = await fetch(url.toString(), {method: 'DELETE'});
   if (!res.ok) throw new Error(`Failed to delete sponsor: ${res.status}`);
 }
 
 export async function uploadSponsorsExcel(file: File): Promise<any> {
-  const url = new URL('/api/sponsors/upload-excel');
+  const url = createUrl('/sponsors/upload-excel');
   const form = new FormData();
   form.append('file', file, file.name);
-  const res = await fetch(url.toString(), { method: 'POST', body: form as any });
+  const res = await fetch(url.toString(), {method: 'POST', body: form as any});
   if (!res.ok) throw new Error(`Failed to upload sponsors: ${res.status}`);
   return res.json();
 }
 
 export async function fetchScoreboard(): Promise<ScoreboardItem[]> {
-  const url = new URL('/api/scoreboard');
+  const url = createUrl('/scoreboard');
   const res = await fetch(url.toString());
   if (!res.ok) {
     throw new Error(`Failed to load scoreboard: ${res.status}`);
@@ -158,7 +164,7 @@ export async function fetchScoreboard(): Promise<ScoreboardItem[]> {
 }
 
 export async function fetchShotclock(): Promise<ShotclockItem[]> {
-  const url = new URL('/api/scoreboard/shotclock');
+  const url = createUrl('/scoreboard/shotclock');
   const res = await fetch(url.toString());
   if (!res.ok) {
     throw new Error(`Failed to load shotclock: ${res.status}`);
@@ -167,7 +173,7 @@ export async function fetchShotclock(): Promise<ShotclockItem[]> {
 }
 
 export async function fetchMatchClock(): Promise<MatchClockItem[]> {
-  const url = new URL('/api/scoreboard/clock');
+  const url = createUrl('/api/scoreboard/clock');
   const res = await fetch(url.toString());
   if (!res.ok) {
     throw new Error(`Failed to load match clock: ${res.status}`);
@@ -175,9 +181,13 @@ export async function fetchMatchClock(): Promise<MatchClockItem[]> {
   return res.json();
 }
 
-export async function fetchProgram(params: { date: string; location?: 'HOME' | 'AWAY' | 'ALL' }): Promise<{ items: ProgramMatch[]; count: number; date: string }> {
+export async function fetchMatchSchedule(params: { date: string; location?: 'HOME' | 'AWAY' | 'ALL' }): Promise<{
+  items: MatchSchedule[];
+  count: number;
+  date: string
+}> {
   // Legacy alias: now served by match schedule endpoint
-  const url = new URL('/api/match/matches/schedule');
+  const url = createUrl('/match/matches/schedule');
   url.searchParams.set('date', params.date);
   if (params.location) url.searchParams.set('location', params.location);
   const res = await fetch(url.toString());
@@ -187,20 +197,12 @@ export async function fetchProgram(params: { date: string; location?: 'HOME' | '
   return res.json();
 }
 
-// New function using matchSchedule terminology
-export async function fetchMatchSchedule(params: { date: string; location?: 'HOME' | 'AWAY' | 'ALL' }): Promise<{ items: MatchSchedule[]; count: number; date: string }> {
-  // Reuse the same backend endpoint
-  const res = await fetchProgram(params);
-  // Type-wise it's the same shape; just return as-is
-  return res as any;
-}
-
 export async function importMatchSchedule(params?: { date?: string; location?: 'HOME' | 'AWAY' | 'ALL' }) {
-  const url = new URL('/api/match/matches/schedule/import');
+  const url = createUrl('/match/matches/schedule/import');
   if (params?.date) url.searchParams.set('date', params.date);
   if (params?.location) url.searchParams.set('location', params.location);
 
-  const res = await fetch(url.toString(), { method: 'POST' });
+  const res = await fetch(url.toString(), {method: 'POST'});
   if (!res.ok) {
     throw new Error(`Failed to import match schedule: ${res.status}`);
   }
@@ -209,34 +211,34 @@ export async function importMatchSchedule(params?: { date?: string; location?: '
 
 
 export async function listPlayerImages(): Promise<{ items: PlayerImage[] }> {
-  const url = new URL('/api/players/images');
+  const url = createUrl('/players/images');
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error(`Failed to load player images: ${res.status}`);
   return res.json();
 }
 
 export async function uploadPlayerImage(subject: string | undefined, file: File): Promise<PlayerImage> {
-  const url = new URL('/api/players/images');
+  const url = createUrl('/players/images');
   const form = new FormData();
   if (subject && subject.trim() !== '') form.append('subject', subject);
   form.append('file', file, file.name);
-  const res = await fetch(url.toString(), { method: 'POST', body: form as any });
+  const res = await fetch(url.toString(), {method: 'POST', body: form as any});
   if (!res.ok) throw new Error(`Failed to upload player image: ${res.status}`);
   return res.json();
 }
 
 export async function deletePlayerImage(id: number): Promise<void> {
-  const url = new URL(`/api/players/images/${id}`);
-  const res = await fetch(url.toString(), { method: 'DELETE' });
+  const url = createUrl(`/players/images/${id}`);
+  const res = await fetch(url.toString(), {method: 'DELETE'});
   if (!res.ok) throw new Error(`Failed to delete player image: ${res.status}`);
 }
 
 export async function generateSponsorRowsApi(sponsorIds?: number[]): Promise<SponsorRow[]> {
-  const url = new URL('/api/vmix/sponsor-rows');
+  const url = createUrl('/vmix/sponsor-rows');
   const res = await fetch(url.toString(), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sponsorIds }),
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({sponsorIds}),
   });
   if (!res.ok) throw new Error(`Failed to generate sponsor rows: ${res.status}`);
   return res.json();
@@ -244,14 +246,17 @@ export async function generateSponsorRowsApi(sponsorIds?: number[]): Promise<Spo
 
 export async function extractError(res: Response): Promise<string> {
   try {
-    const ct = res.headers.get('content-type') || '';
+    const ct = res?.headers?.get('content-type') || '';
     if (ct.includes('application/json')) {
       const body: any = await res.json().catch(() => ({}));
       if (body && (body.error || body.message)) return String(body.error || body.message);
+    } else if (res.bodyUsed) {
+      return await res.text()
     } else {
-      const text = await res.text();
-      if (text) return text;
+      return res.statusText;
     }
-  } catch {}
+  } catch (e) {
+    logger.error(`Failed to extract error from response: ${JSON.stringify(res)}\n${e}`);
+  }
   return `Request failed (${res.status})`;
 }

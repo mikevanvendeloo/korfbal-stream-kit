@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '../theme/ThemeProvider';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {ThemeProvider} from '../theme/ThemeProvider';
 import ProductionsAdminPage from './ProductionsAdminPage';
 
 function renderWithProviders(ui: React.ReactNode) {
@@ -18,10 +18,10 @@ describe('ProductionsAdminPage', () => {
     vi.restoreAllMocks();
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: any, init?: any) => {
       const url = typeof input === 'string' ? input : input.toString();
-      const u = new URL(url, 'http://localhost');
+      const u = new URL(url, 'http://localhost/api');
 
       // List productions
-      if (u.pathname.endsWith('/api/production') && (!init || init.method === 'GET')) {
+      if (u.pathname.endsWith('/production') && (!init || init.method === 'GET')) {
         return { ok: true, json: async () => ({ items: [
           { id: 1, matchScheduleId: 100, createdAt: new Date().toISOString(), matchSchedule: { id: 100, homeTeamName: 'Fortuna/Ruitenheer 1', awayTeamName: 'Opp' } },
         ], total: 1 }) } as any;

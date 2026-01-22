@@ -35,11 +35,11 @@ describe('SponsorsPage CRUD', () => {
       const method = (init?.method || 'GET').toUpperCase();
       const body = init?.body ? String(init.body) : undefined;
       calls.push({ url, method, body });
-      const u = new URL(url, 'http://localhost');
-      if (u.pathname.endsWith('/api/sponsors') && method === 'GET') {
+      const u = new URL(url, 'http://localhost/api');
+      if (u.pathname.endsWith('/sponsors') && method === 'GET') {
         return { ok: true, json: async () => baseList } as any;
       }
-      if (u.pathname.endsWith('/api/sponsors') && method === 'POST') {
+      if (u.pathname.endsWith('/sponsors') && method === 'POST') {
         // Echo created sponsor
         const parsed = body ? JSON.parse(body) : {};
         return { ok: true, json: async () => ({ id: 99, createdAt: new Date().toISOString(), logoUrl: parsed.logoUrl || 'acme.png', ...parsed }) } as any;
@@ -67,11 +67,11 @@ describe('SponsorsPage CRUD', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Opslaan' }));
 
     await waitFor(() => {
-      expect(calls.some((c) => c.url.includes('/api/sponsors') && c.method === 'POST')).toBe(true);
+      expect(calls.some((c) => c.url.includes('/sponsors') && c.method === 'POST')).toBe(true);
     });
 
     // Verify that BV was stripped in the payload
-    const post = calls.find((c) => c.method === 'POST' && c.url.includes('/api/sponsors'));
+    const post = calls.find((c) => c.method === 'POST' && c.url.includes('/sponsors'));
     expect(JSON.parse(post.body).name).toBe('ACME');
   });
 
@@ -83,14 +83,14 @@ describe('SponsorsPage CRUD', () => {
       const body = init?.body ? String(init.body) : undefined;
       calls.push({ url, method, body });
       const u = new URL(url, 'http://localhost');
-      if (u.pathname.endsWith('/api/sponsors') && method === 'GET') {
+      if (u.pathname.endsWith('/sponsors') && method === 'GET') {
         return { ok: true, json: async () => baseList } as any;
       }
-      if (u.pathname.endsWith('/api/sponsors/1') && method === 'PUT') {
+      if (u.pathname.endsWith('/sponsors/1') && method === 'PUT') {
         const parsed = body ? JSON.parse(body) : {};
         return { ok: true, json: async () => ({ id: 1, createdAt: new Date().toISOString(), logoUrl: 'ruitenheer.png', name: 'Ruitenheer', type: 'premium', websiteUrl: parsed.websiteUrl || 'https://www.ruitenheer.nl' }) } as any;
       }
-      if (u.pathname.endsWith('/api/sponsors/1') && method === 'DELETE') {
+      if (u.pathname.endsWith('/sponsors/1') && method === 'DELETE') {
         return { ok: true, json: async () => ({ ok: true }) } as any;
       }
       return { ok: false, status: 404 } as any;
@@ -109,7 +109,7 @@ describe('SponsorsPage CRUD', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Opslaan' }));
 
     await waitFor(() => {
-      expect(calls.some((c) => c.url.endsWith('/api/sponsors/1') && c.method === 'PUT')).toBe(true);
+      expect(calls.some((c) => c.url.endsWith('/sponsors/1') && c.method === 'PUT')).toBe(true);
     });
 
     // Delete
@@ -119,7 +119,7 @@ describe('SponsorsPage CRUD', () => {
     fireEvent.click(delBtns[0]);
 
     await waitFor(() => {
-      expect(calls.some((c) => c.url.endsWith('/api/sponsors/1') && c.method === 'DELETE')).toBe(true);
+      expect(calls.some((c) => c.url.endsWith('/sponsors/1') && c.method === 'DELETE')).toBe(true);
     });
   });
 });

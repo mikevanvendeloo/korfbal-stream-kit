@@ -3,9 +3,16 @@ import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import SponsorsPage from './SponsorsPage';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {ThemeProvider} from '../theme/ThemeProvider';
+import {logger} from "nx/src/utils/logger";
 
 function renderWithProviders(ui: React.ReactNode) {
-  const qc = new QueryClient();
+  const qc = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
   return render(
     <ThemeProvider>
       <QueryClientProvider client={qc}>{ui}</QueryClientProvider>
@@ -73,6 +80,7 @@ describe('SponsorsPage', () => {
 
 
 it('has an Upload sponsors button that posts the Excel and refetches', async () => {
+  console.log(`BASE API URL: ${import.meta.env.VITE_API_BASE_URL}`)
   const qc = new QueryClient();
   const origFetch = global.fetch as any;
   const calls: Array<{ url: string; method: string }> = [];
@@ -80,16 +88,16 @@ it('has an Upload sponsors button that posts the Excel and refetches', async () 
     const url = typeof input === 'string' ? input : (input as URL).toString();
     const method = init?.method || 'GET';
     calls.push({ url, method });
-    const u = new URL(url, 'http://localhost');
-    if (u.pathname.endsWith('/api/sponsors/upload-excel') && method === 'POST') {
+    const u = new URL(url, 'http://localhost/api');
+    if (u.pathname.endsWith('/sponsors/upload-excel') && method === 'POST') {
       return { ok: true, json: async () => ({ ok: true, created: 2, updated: 0 }) } as any;
     }
-    if (u.pathname.endsWith('/api/sponsors') && method === 'GET') {
+    if (u.pathname.endsWith('/sponsors') && method === 'GET') {
       return { ok: true, json: async () => mockData } as any;
     }
     return { ok: false, status: 404 } as any;
   }) as any;
-  // @ts-expect-error
+  // @ts-expect-error Test
   global.fetch = mock;
 
   render(
@@ -118,11 +126,12 @@ it('has an Upload sponsors button that posts the Excel and refetches', async () 
 
   // Expect POST called and then GET refetch called again
   await waitFor(() => {
-    expect(calls.some((c) => c.url.includes('/api/sponsors/upload-excel') && c.method === 'POST')).toBe(true);
+    expect(calls.some((c) => c.url.includes('/sponsors/upload-excel') && c.method === 'POST')).toBe(true);
   });
 
   // After upload, a GET for sponsors should have been made at least twice (initial + refetch)
-  const getCalls = calls.filter((c) => c.url.includes('/api/sponsors') && c.method === 'GET');
+  const getCalls = calls.filter((c) => c.url.includes('/sponsors') && c.method === 'GET');
+  logger.info(getCalls);
   expect(getCalls.length).toBeGreaterThanOrEqual(2);
 
   global.fetch = origFetch;

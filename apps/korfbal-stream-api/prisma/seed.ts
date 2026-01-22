@@ -145,7 +145,8 @@ async function main() {
               skillId
             }
           }
-        }).catch(() => {
+        }).catch((e) => {
+          console.error(`Failed to remove duplicate person skill: ${e}`);
         });
       }
 

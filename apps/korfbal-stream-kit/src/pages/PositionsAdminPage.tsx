@@ -3,25 +3,9 @@ import {useCreatePosition, useDeletePosition, usePositionsCatalog, useUpdatePosi
 import {useQuery} from '@tanstack/react-query';
 import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdEdit} from 'react-icons/md';
-import {logger} from "nx/src/utils/logger";
+import {extractError} from "../lib/api";
 
 type Skill = { id: number; code: string; name: string };
-
-async function extractError(res: Response): Promise<string> {
-  try {
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('application/json')) {
-      const body: any = await res.json().catch(() => ({}));
-      if (body && (body.error || body.message)) return String(body.error || body.message);
-    } else {
-      const text = await res.text();
-      if (text) return text;
-    }
-  } catch {
-    logger.error(`Failed to extract error from response for url: ${res.url}`);
-  }
-  return `Request failed (${res.status})`;
-}
 
 function useAllSkills() {
   return useQuery({

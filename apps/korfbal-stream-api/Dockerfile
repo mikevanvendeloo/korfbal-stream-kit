@@ -2,7 +2,7 @@
 # Build with:  docker build -f apps/korfbal-stream-api/Dockerfile .
 # Or via Nx:   npx nx docker:build @korfbal-stream-kit/korfbal-stream-api
 # STAGE 1: De Bouwer
-FROM node:22 AS builder
+FROM node:22-alpine AS builder
 
 ENV CI=true
 
@@ -39,7 +39,7 @@ RUN npx tsc apps/korfbal-stream-api/prisma/seed.ts \
 # ----------------------------------------------------------------
 
 # STAGE 2: De Productie-Image
-FROM node:22
+FROM node:22-alpine
 
 WORKDIR /app
 

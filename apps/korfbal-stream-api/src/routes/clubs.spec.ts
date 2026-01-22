@@ -1,9 +1,10 @@
 import request from 'supertest';
 import app from '../main';
-import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 // Mock prisma client methods used by the routes
 import * as prismaSvc from '../services/prisma';
+
 const prisma = (prismaSvc as any).prisma as any;
 
 // Provide a controllable global fetch
@@ -75,7 +76,7 @@ describe('Clubs import and listing API', () => {
       if (url.startsWith('https://api-saas-site-prod-236.dotlab.net/general/api/get-template-data')) {
         // Distinguish by data_key
         let body: any = {};
-        try { body = init?.body ? JSON.parse(init.body) : {}; } catch {}
+        try { body = init?.body ? JSON.parse(init.body) : {}; } catch { /* empty */ }
         const dataKey = body?.data_key;
         if (dataKey === 'sportsuite_get_person_cards') {
           // Return a team/cards payload

@@ -15,20 +15,20 @@ function setupFetchMock() {
   const original = global.fetch as any;
   const mock = vi.fn(async (input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : (input as URL).toString();
-    if (url.includes('/api/scoreboard/shotclock')) {
+    if (url.includes('/scoreboard/shotclock')) {
       return {
         ok: true,
         json: async () => [{ status: 'OK', time: 9, color: 'orange' }],
       } as any;
     }
-    if (url.includes('/api/scoreboard/clock')) {
+    if (url.includes('/scoreboard/clock')) {
       return {
         ok: true,
         // 7 minutes and 3 seconds
         json: async () => [{ status: 'OK', minute: '7', second: '03', period: 1 }],
       } as any;
     }
-    if (url.includes('/api/scoreboard')) {
+    if (url.includes('/scoreboard')) {
       return {
         ok: true,
         json: async () => [{ status: 'OK', home: 5, guest: 12 }],
@@ -36,7 +36,6 @@ function setupFetchMock() {
     }
     return { ok: false, status: 404 } as any;
   });
-  // @ts-expect-error
   global.fetch = mock;
   return { restore: () => (global.fetch = original), mock };
 }
@@ -68,9 +67,9 @@ describe('ScoreboardPage', () => {
 
     // Ensure our API endpoints were called
     const calledUrls = (mock.mock.calls as any[]).map((c: any[]) => c[0].toString());
-    expect(calledUrls.some((u: string) => u.includes('/api/scoreboard'))).toBe(true);
-    expect(calledUrls.some((u: string) => u.includes('/api/scoreboard/shotclock'))).toBe(true);
-    expect(calledUrls.some((u: string) => u.includes('/api/scoreboard/clock'))).toBe(true);
+    expect(calledUrls.some((u: string) => u.includes('/scoreboard'))).toBe(true);
+    expect(calledUrls.some((u: string) => u.includes('/scoreboard/shotclock'))).toBe(true);
+    expect(calledUrls.some((u: string) => u.includes('/scoreboard/clock'))).toBe(true);
 
     restore();
   });

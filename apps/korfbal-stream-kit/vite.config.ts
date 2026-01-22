@@ -38,6 +38,9 @@ export default defineConfig(() => ({
       reportsDirectory: './test-output/vitest/coverage',
       provider: 'v8' as const,
     },
+    env: {
+      VITE_API_BASE_URL: 'http://localhost/api',
+    },
   },
   proxy: {
     // Alle verzoeken naar /api worden nu doorgezonden naar de backend
