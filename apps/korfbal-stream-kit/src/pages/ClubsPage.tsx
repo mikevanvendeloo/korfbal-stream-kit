@@ -1,14 +1,20 @@
 import React from 'react';
 import {useClubPlayers, useClubs, useDeleteClub, useImportClubs, useImportLeagueTeams} from '../hooks/useClubs';
-function Img({ src, alt, className }: { src?: string | null; alt: string; className?: string }) {
-  if (!src) return <div className={`w-10 h-10 bg-gray-200 dark:bg-gray-800 rounded ${className || ''}`} aria-hidden />;
+import {createUrl} from "../lib/api";
+
+function Img({src, alt, className}: { src?: string | null; alt: string; className?: string }) {
+  if (!src) return <div className={`w-10 h-10 bg-gray-200 dark:bg-gray-800 rounded ${className || ''}`} aria-hidden/>;
   // If file is a local upload (e.g., saved path or bare filename), try to resolve from /uploads. Otherwise use as-is.
   const isAbsolute = /^https?:\/\//i.test(src);
   const resolved = isAbsolute ? src : `/uploads/${src}`;
-  return <img src={resolved} alt={alt} className={`w-10 h-10 object-cover rounded ${className || ''}`} />;
+  return <img src={resolved} alt={alt} className={`w-10 h-10 object-cover rounded ${className || ''}`}/>;
 }
 
-function DeleteClubButton({ slug, clubs, onDeleted }: { slug: string; clubs: Array<{ slug: string }> ; onDeleted: (nextSlug: string | '') => void }) {
+function DeleteClubButton({slug, clubs, onDeleted}: {
+  slug: string;
+  clubs: Array<{ slug: string }>;
+  onDeleted: (nextSlug: string | '') => void
+}) {
   const del = useDeleteClub();
   const [busy, setBusy] = React.useState(false);
   return (
@@ -44,7 +50,7 @@ function DeleteClubButton({ slug, clubs, onDeleted }: { slug: string; clubs: Arr
 }
 
 export default function ClubsPage() {
-  const { data: clubs, isLoading, error } = useClubs();
+  const {data: clubs, isLoading, error} = useClubs();
   const [slug, setSlug] = React.useState<string | ''>('');
   const players = useClubPlayers(slug || null);
 
@@ -66,9 +72,9 @@ export default function ClubsPage() {
     setMsg(null);
     try {
       if (apiUrl.trim()) {
-        await importClubs.mutateAsync({ apiUrl: apiUrl.trim() });
+        await importClubs.mutateAsync({apiUrl: apiUrl.trim()});
       } else if (teamId.trim() && poolId.trim()) {
-        await importClubs.mutateAsync({ teamId: teamId.trim(), poolId: poolId.trim() });
+        await importClubs.mutateAsync({teamId: teamId.trim(), poolId: poolId.trim()});
       } else {
         setMsg('Vul een API URL in of zowel teamId als poolId.');
         return;
@@ -113,42 +119,55 @@ export default function ClubsPage() {
               return (
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <Img src={club.logoUrl ? `/assets/${club.logoUrl}` : ''} alt={`${title} logo`} className="w-12 h-12 rounded" />
+                    <Img src={club.logoUrl ? createUrl(`/assets/${club.logoUrl}`) : ''} alt={`${title} logo`}
+                         className="w-12 h-12 rounded"/>
                     <div className="text-lg font-medium">{title}</div>
                   </div>
-                  <DeleteClubButton slug={club.slug} onDeleted={(nextSlug) => setSlug(nextSlug)} clubs={clubs || []} />
+                  <DeleteClubButton slug={club.slug} onDeleted={(nextSlug) => setSlug(nextSlug)} clubs={clubs || []}/>
                 </div>
               );
             })()}
 
             <table className="min-w-full border border-gray-200 dark:border-gray-800 text-sm">
               <thead className="bg-gray-50 dark:bg-gray-900">
-                <tr>
-                  <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800"># / Functie</th>
-                  <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Foto</th>
-                  <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Naam</th>
-                </tr>
+              <tr>
+                <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Persoon</th>
+              </tr>
               </thead>
               <tbody>
-                {(players.data || []).map((p) => (
-                  <tr key={p.id}>
-                    <td className="p-2 border-b border-gray-200 dark:border-gray-800 w-40">
-                      {p.personType === 'coach' ? (p.function || '') : (p.shirtNo ?? '')}
-                    </td>
-                    <td className="p-2 border-b border-gray-200 dark:border-gray-800 w-16">
-                      <img src={p.photoUrl ? `/assets/${p.photoUrl}` : ''} className="h-24 w-24 object-cover rounded" alt={p.name}
-                           onError={(e) => {
-                             (e.currentTarget as any).style.visibility = 'hidden';
-                           }}/>
-                    </td>
-                    <td className="p-2 border-b border-gray-200 dark:border-gray-800">{p.name}</td>
-                  </tr>
-                ))}
-                {players.data && players.data.length === 0 && (
-                  <tr>
-                    <td colSpan={3} className="p-3 text-gray-500">Geen spelers gevonden voor deze club.</td>
-                  </tr>
-                )}
+              {(players.data || []).map((player) => (
+                <tr key={player.id}>
+                  <td>
+                  <div  className="space-y-2">
+
+                    {player.photoUrl && (
+                      <div className="w-64 h-64 overflow-hidden rounded">
+                        <img
+                          src={createUrl(`/uploads/${player.photoUrl}`).toString()}
+                          alt={player.name}
+                          className="w-full h-full object-cover scale-125 origin-top"
+                          style={{objectPosition: 'center top', aspectRatio: '1'}}
+                        />
+                      </div>
+                    )}
+                    <div className="font-medium text-base">
+                      {player.name}
+                      {player.shirtNo != null && player.shirtNo > 0 && (
+                        <span className="text-gray-500"> (#{player.shirtNo})</span>
+                      )}
+                    </div>
+                    {player.function && (
+                      <div className="text-sm text-gray-600 dark:text-gray-400">{player.function}</div>
+                    )}
+                  </div>
+                  </td>
+                </tr>
+              ))}
+              {players.data && players.data.length === 0 && (
+                <tr>
+                  <td className="p-3 text-gray-500">Geen spelers gevonden voor deze club.</td>
+                </tr>
+              )}
               </tbody>
             </table>
           </div>
@@ -158,10 +177,12 @@ export default function ClubsPage() {
         <div>
           <div className="border rounded p-3">
             <h2 className="font-semibold mb-2">Importeer clubs & spelers</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">Met één klik alle teams uit de Korfbal League importeren. Je kunt de import herhalen; bestaande data wordt bijgewerkt.</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">Met één klik alle teams uit de Korfbal League
+              importeren. Je kunt de import herhalen; bestaande data wordt bijgewerkt.</p>
 
             {msg && (
-              <div role="alert" className="mb-3 rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-3 py-2">
+              <div role="alert"
+                   className="mb-3 rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-3 py-2">
                 {msg}
               </div>
             )}
@@ -192,7 +213,8 @@ export default function ClubsPage() {
 
             <details>
               <summary className="cursor-pointer text-sm mb-2">Handmatige import (optioneel)</summary>
-              <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">Voer een Korfbal League team API URL in, of geef teamId + poolId op voor een specifieke club.</p>
+              <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">Voer een Korfbal League team API URL in, of
+                geef teamId + poolId op voor een specifieke club.</p>
               <form className="space-y-3" onSubmit={onImport}>
                 <div>
                   <label className="block text-sm mb-1">Team API URL</label>

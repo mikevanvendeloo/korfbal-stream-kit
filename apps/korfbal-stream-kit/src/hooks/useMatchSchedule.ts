@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { fetchMatchSchedule, MatchSchedule } from '../lib/api';
+import {useEffect, useRef, useState} from 'react';
+import {fetchMatchSchedule, MatchSchedule} from '../lib/api';
 
 export type LocationFilter = 'HOME' | 'AWAY' | 'ALL';
 

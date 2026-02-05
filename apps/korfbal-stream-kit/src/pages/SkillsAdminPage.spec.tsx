@@ -65,7 +65,14 @@ describe('SkillsAdminPage', () => {
     fireEvent.change(femaleInput, { target: { value: 'Analist' } });
     fireEvent.click(screen.getByText('Opslaan'));
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/skills'), expect.objectContaining({ method: 'POST' })));
+    await waitFor(() => {
+      const calls = (global.fetch as any).mock.calls;
+      const hasSkillPost = calls.some((call: any[]) => {
+        const url = typeof call[0] === 'string' ? call[0] : call[0].toString();
+        return url.includes('/api/skills') && call[1]?.method === 'POST';
+      });
+      expect(hasSkillPost).toBe(true);
+    });
 
     // Edit first row
     const editBtns = screen.getAllByLabelText('Edit skill');
@@ -74,7 +81,14 @@ describe('SkillsAdminPage', () => {
     fireEvent.change(maleEdit, { target: { value: 'Coach NL' } });
     fireEvent.click(screen.getByText('Opslaan'));
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/skills/1'), expect.objectContaining({ method: 'PUT' })));
+    await waitFor(() => {
+      const calls = (global.fetch as any).mock.calls;
+      const hasSkillPut = calls.some((call: any[]) => {
+        const url = typeof call[0] === 'string' ? call[0] : call[0].toString();
+        return url.includes('/api/skills/1') && call[1]?.method === 'PUT';
+      });
+      expect(hasSkillPut).toBe(true);
+    });
 
     // Delete second row
     const delBtns = screen.getAllByLabelText('Delete skill');

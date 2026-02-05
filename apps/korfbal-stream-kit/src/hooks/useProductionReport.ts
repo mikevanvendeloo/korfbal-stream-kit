@@ -1,5 +1,5 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {extractError} from "../lib/api";
+import {createUrl, extractError} from "../lib/api";
 
 export type ProductionReport = {
   id: number;
@@ -57,7 +57,7 @@ export function useProductionReport(productionId: number) {
     queryKey: ['production', productionId, 'report'],
     enabled: !!productionId,
     queryFn: async (): Promise<ProductionReportData> => {
-      const res = await fetch(`/api/production/${productionId}/report`);
+      const res = await fetch(createUrl(`/api/production/${productionId}/report`));
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -71,7 +71,7 @@ export function useSaveProductionReport(productionId: number) {
       matchSponsor?: string | null;
       interviewRationale?: string | null;
     }): Promise<ProductionReport> => {
-      const res = await fetch(`/api/production/${productionId}/report`, {
+      const res = await fetch(createUrl(`/api/production/${productionId}/report`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
@@ -87,7 +87,7 @@ export function useDeleteProductionReport(productionId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/production/${productionId}/report`, { method: 'DELETE' });
+      const res = await fetch(createUrl(`/api/production/${productionId}/report`), { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['production', productionId, 'report'] }),

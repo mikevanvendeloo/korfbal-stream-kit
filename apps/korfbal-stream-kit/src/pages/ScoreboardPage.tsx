@@ -3,6 +3,7 @@ import {useMatchClock, useScoreboard, useShotclock} from '../hooks/useMatch';
 import {labels} from '../config/scoreboardLabels';
 import {useProductions} from '../hooks/useProductions';
 import {Club, useClubs} from '../hooks/useClubs';
+import {createUrl} from "../lib/api";
 
 function fmt(n: number | undefined) {
   if (typeof n !== 'number' || isNaN(n)) return '';
@@ -85,14 +86,14 @@ export default function ScoreboardPage() {
       <div className="w-full max-w-5xl grid grid-cols-3 gap-4 items-stretch">
         {/* Active production teams header */}
         {(homeTeamName || awayTeamName) && (
-          <div className="col-span-3 flex items-center justify-center gap-6 mb-2">
+          <div className="col-span-3 flex items-center justify-center gap-6 mb-4">
             {/* Home side */}
             <div className="flex items-center gap-2 min-w-0">
               {homeClub?.logoUrl ? (
                 <img
-                  src={`/assets/${homeClub.logoUrl}`}
+                  src={createUrl(`/assets/${homeClub.logoUrl}`).toString()}
                   alt={homeClub.shortName || homeClub.name}
-                  className="h-20 w-20 object-contain"
+                  className="h-36 w-36 object-contain"
                 />
               ) : null}
               <div className="text-lg sm:text-xl font-semibold truncate max-w-[40vw] text-white/90">
@@ -107,9 +108,9 @@ export default function ScoreboardPage() {
               </div>
               {awayClub?.logoUrl ? (
                 <img
-                  src={`/assets/${awayClub.logoUrl}`}
+                  src={createUrl(`/assets/${awayClub.logoUrl}`).toString()}
                   alt={awayClub.shortName || awayClub.name}
-                  className="h-20 w-20 object-contain"
+                  className="h-36 w-36 object-contain"
                 />
               ) : null}
             </div>

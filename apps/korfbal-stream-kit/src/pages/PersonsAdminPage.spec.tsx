@@ -1,8 +1,7 @@
-
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '../theme/ThemeProvider';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {ThemeProvider} from '../theme/ThemeProvider';
 import PersonsAdminPage from './PersonsAdminPage';
 
 function renderWithProviders(ui: React.ReactNode) {
@@ -85,7 +84,14 @@ describe('PersonsAdminPage', () => {
     fireEvent.change(nameInput, { target: { value: 'Cara' } });
     fireEvent.click(screen.getByText('Opslaan'));
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/production/persons'), expect.objectContaining({ method: 'POST' })));
+    await waitFor(() => {
+      const calls = (global.fetch as any).mock.calls;
+      const hasPersonPost = calls.some((call: any[]) => {
+        const url = typeof call[0] === 'string' ? call[0] : call[0].toString();
+        return url.includes('/api/production/persons') && call[1]?.method === 'POST';
+      });
+      expect(hasPersonPost).toBe(true);
+    });
   });
 
   it('filters by gender', async () => {
@@ -121,7 +127,14 @@ describe('PersonsAdminPage', () => {
     fireEvent.change(addSel, { target: { value: '11' } });
     const addBtn = screen.getByLabelText('Add skill');
     fireEvent.click(addBtn);
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/production/persons/1/skills'), expect.objectContaining({ method: 'POST' })));
+    await waitFor(() => {
+      const calls = (global.fetch as any).mock.calls;
+      const hasSkillPost = calls.some((call: any[]) => {
+        const url = typeof call[0] === 'string' ? call[0] : call[0].toString();
+        return url.includes('/api/production/persons/1/skills') && call[1]?.method === 'POST';
+      });
+      expect(hasSkillPost).toBe(true);
+    });
 
     // Edit existing skill: click edit, change to 11
     const editBtns = screen.getAllByLabelText('Edit skill');
@@ -170,13 +183,6 @@ describe('PersonsAdminPage', () => {
     });
   });
 });
-
-
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '../theme/ThemeProvider';
-import PersonsAdminPage from './PersonsAdminPage';
 
 describe('PersonsAdminPage (create with inline skills)', () => {
   beforeEach(() => {

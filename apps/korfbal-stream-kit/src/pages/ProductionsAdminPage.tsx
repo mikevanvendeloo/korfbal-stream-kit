@@ -133,7 +133,7 @@ export default function ProductionsAdminPage() {
                       <IconButton
                         ariaLabel="Toon details"
                         title="Details"
-                        onClick={() => navigate(`/admin/productions/${p.id}`)}
+                        onClick={() => window.location.href = `/admin/productions/${p.id}`}
                       >
                         <MdInfo className="w-5 h-5" />
                       </IconButton>

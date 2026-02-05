@@ -9,6 +9,7 @@ import {
 } from '../hooks/useProductionReport';
 import {MdPictureAsPdf} from 'react-icons/md';
 import {FaCheck, FaMarkdown, FaWhatsapp} from 'react-icons/fa';
+import {createUrl} from "../lib/api";
 
 const SECTION_LABELS: Record<string, string> = {
   OPLOPEN: 'Oplopen',
@@ -239,7 +240,7 @@ export default function ProductionReportPage() {
                       {data.enriched.interviews.away.coaches[0].photoUrl && (
                         <div className="w-64 h-64 overflow-hidden rounded">
                           <img
-                            src={`/uploads/${data.enriched.interviews.away.coaches[0].photoUrl}`}
+                            src={createUrl(`/uploads/${data.enriched.interviews.away.coaches[0].photoUrl}`).toString()}
                             alt={data.enriched.interviews.away.coaches[0].name}
                             className="w-full h-full object-cover scale-125 origin-top"
                             style={{objectPosition: 'center top', aspectRatio: '1'}}
@@ -268,7 +269,7 @@ export default function ProductionReportPage() {
                           {player.photoUrl && (
                             <div className="w-64 h-64 overflow-hidden rounded">
                               <img
-                                src={`/uploads/${player.photoUrl}`}
+                                src={createUrl(`/uploads/${player.photoUrl}`).toString()}
                                 alt={player.name}
                                 className="w-full h-full object-cover scale-125 origin-top"
                                 style={{objectPosition: 'center top', aspectRatio: '1'}}

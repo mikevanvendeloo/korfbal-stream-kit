@@ -3,7 +3,7 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {ColumnDef, flexRender, getCoreRowModel, useReactTable} from '@tanstack/react-table';
 import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdEdit} from 'react-icons/md';
-import {extractError} from "../lib/api";
+import {createUrl, extractError} from "../lib/api";
 
 export type Skill = { id: number; code: string; name: string; nameMale: string; nameFemale: string; createdAt?: string };
 
@@ -14,8 +14,7 @@ function useSkills(q?: string) {
   return useQuery({
     queryKey: qk,
     queryFn: async (): Promise<{ items: Skill[]; total: number }> => {
-      const skillsUrl = `/api/skills?${params.toString()}`
-      console.log(skillsUrl);
+      const skillsUrl = createUrl(`/api/skills?${params.toString()}`);
       const res = await fetch(skillsUrl);
       if (!res.ok) throw new Error(await extractError(res));
       const data = await res.json();
@@ -28,7 +27,7 @@ function useCreateSkill() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { code: string; name: string; nameMale: string; nameFemale: string }) => {
-      const res = await fetch('/api/skills', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+      const res = await fetch(createUrl('/api/skills'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -40,7 +39,7 @@ function useUpdateSkill() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { id: number; code?: string; name?: string; nameMale?: string; nameFemale?: string }) => {
-      const res = await fetch(`/api/skills/${input.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: input.code, name: input.name, nameMale: input.nameMale, nameFemale: input.nameFemale }) });
+      const res = await fetch(createUrl(`/api/skills/${input.id}`), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: input.code, name: input.name, nameMale: input.nameMale, nameFemale: input.nameFemale }) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -52,7 +51,7 @@ function useDeleteSkill() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/skills/${id}`, { method: 'DELETE' });
+      const res = await fetch(createUrl(`/api/skills/${id}`), { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['skills'] }),

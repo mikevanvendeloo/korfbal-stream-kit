@@ -106,7 +106,7 @@ export async function fetchSponsors(params: {
   page?: number;
   limit?: number
 } = {}): Promise<Paginated<Sponsor>> {
-  const url = createUrl('/sponsors');
+  const url = createUrl('/api/sponsors');
   if (params.type) url.searchParams.set('type', params.type);
   if (params.page) url.searchParams.set('page', String(params.page));
   if (params.limit) url.searchParams.set('limit', String(params.limit));
@@ -118,7 +118,7 @@ export async function fetchSponsors(params: {
 }
 
 export async function createSponsor(input: SponsorInput): Promise<Sponsor> {
-  const url = createUrl('/sponsors');
+  const url = createUrl('/api/sponsors');
   const res = await fetch(url.toString(), {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -129,7 +129,7 @@ export async function createSponsor(input: SponsorInput): Promise<Sponsor> {
 }
 
 export async function updateSponsor(id: number, input: Partial<SponsorInput>): Promise<Sponsor> {
-  const url = createUrl(`/sponsors/${id}`);
+  const url = createUrl(`/api/sponsors/${id}`);
   const res = await fetch(url.toString(), {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
@@ -140,13 +140,13 @@ export async function updateSponsor(id: number, input: Partial<SponsorInput>): P
 }
 
 export async function deleteSponsor(id: number): Promise<void> {
-  const url = createUrl(`/sponsors/${id}`);
+  const url = createUrl(`/api/sponsors/${id}`);
   const res = await fetch(url.toString(), {method: 'DELETE'});
   if (!res.ok) throw new Error(`Failed to delete sponsor: ${res.status}`);
 }
 
 export async function uploadSponsorsExcel(file: File): Promise<any> {
-  const url = createUrl('/sponsors/upload-excel');
+  const url = createUrl('/api/sponsors/upload-excel');
   const form = new FormData();
   form.append('file', file, file.name);
   const res = await fetch(url.toString(), {method: 'POST', body: form as any});
@@ -155,7 +155,7 @@ export async function uploadSponsorsExcel(file: File): Promise<any> {
 }
 
 export async function fetchScoreboard(): Promise<ScoreboardItem[]> {
-  const url = createUrl('/scoreboard');
+  const url = createUrl('/api/scoreboard');
   const res = await fetch(url.toString());
   if (!res.ok) {
     throw new Error(`Failed to load scoreboard: ${res.status}`);
@@ -164,7 +164,7 @@ export async function fetchScoreboard(): Promise<ScoreboardItem[]> {
 }
 
 export async function fetchShotclock(): Promise<ShotclockItem[]> {
-  const url = createUrl('/scoreboard/shotclock');
+  const url = createUrl('/api/scoreboard/shotclock');
   const res = await fetch(url.toString());
   if (!res.ok) {
     throw new Error(`Failed to load shotclock: ${res.status}`);
@@ -187,7 +187,8 @@ export async function fetchMatchSchedule(params: { date: string; location?: 'HOM
   date: string
 }> {
   // Legacy alias: now served by match schedule endpoint
-  const url = createUrl('/match/matches/schedule');
+  const url = createUrl('/api/match/matches/schedule');
+
   url.searchParams.set('date', params.date);
   if (params.location) url.searchParams.set('location', params.location);
   const res = await fetch(url.toString());
@@ -198,7 +199,7 @@ export async function fetchMatchSchedule(params: { date: string; location?: 'HOM
 }
 
 export async function importMatchSchedule(params?: { date?: string; location?: 'HOME' | 'AWAY' | 'ALL' }) {
-  const url = createUrl('/match/matches/schedule/import');
+  const url = createUrl('/api/match/matches/schedule/import');
   if (params?.date) url.searchParams.set('date', params.date);
   if (params?.location) url.searchParams.set('location', params.location);
 
@@ -211,14 +212,14 @@ export async function importMatchSchedule(params?: { date?: string; location?: '
 
 
 export async function listPlayerImages(): Promise<{ items: PlayerImage[] }> {
-  const url = createUrl('/players/images');
+  const url = createUrl('/api/players/images');
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error(`Failed to load player images: ${res.status}`);
   return res.json();
 }
 
 export async function uploadPlayerImage(subject: string | undefined, file: File): Promise<PlayerImage> {
-  const url = createUrl('/players/images');
+  const url = createUrl('/api/players/images');
   const form = new FormData();
   if (subject && subject.trim() !== '') form.append('subject', subject);
   form.append('file', file, file.name);
@@ -228,13 +229,13 @@ export async function uploadPlayerImage(subject: string | undefined, file: File)
 }
 
 export async function deletePlayerImage(id: number): Promise<void> {
-  const url = createUrl(`/players/images/${id}`);
+  const url = createUrl(`/api/players/images/${id}`);
   const res = await fetch(url.toString(), {method: 'DELETE'});
   if (!res.ok) throw new Error(`Failed to delete player image: ${res.status}`);
 }
 
 export async function generateSponsorRowsApi(sponsorIds?: number[]): Promise<SponsorRow[]> {
-  const url = createUrl('/vmix/sponsor-rows');
+  const url = createUrl('/api/vmix/sponsor-rows');
   const res = await fetch(url.toString(), {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},

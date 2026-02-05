@@ -45,7 +45,7 @@ export default defineConfig(() => ({
   proxy: {
     // Alle verzoeken naar /api worden nu doorgezonden naar de backend
     '/api': {
-      target: 'http://localhost:3333',
+      target: 'http://localhost:3333/api',
       changeOrigin: true,
       // Als je API intern GEEN /api voorvoegsel heeft, gebruik dan rewrite:
       // rewrite: (path: string) => path.replace(/^\/api/, ''),

@@ -34,7 +34,7 @@ export function useInterviewOptions(productionId: number, side: InterviewSide, r
       const params = new URLSearchParams({ side, role });
       const url = createUrl(`/production/${productionId}/interviews/options`);
       url.search = params.toString();
-      const res = await fetch(url.toString());
+      const res = await fetch(url);
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },

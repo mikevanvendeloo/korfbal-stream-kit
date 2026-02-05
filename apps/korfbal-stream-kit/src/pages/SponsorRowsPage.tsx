@@ -161,6 +161,7 @@ export default function SponsorRowsPage() {
   }
 
   async function onDeletePlayer(p: PlayerImage) {
+    // eslint-disable-next-line no-restricted-globals
     if (!confirm(`Verwijder speler ‘${p.subject}’`)) return;
     try {
       await deletePlayerImage(p.id);

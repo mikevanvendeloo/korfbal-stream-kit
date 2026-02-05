@@ -1,5 +1,5 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {extractError} from "../lib/api";
+import {createUrl, extractError} from "../lib/api";
 
 export type TitleSourceType = 'COMMENTARY' | 'PRESENTATION' | 'PRESENTATION_AND_ANALIST' | 'TEAM_PLAYER' | 'TEAM_COACH' | 'FREE_TEXT';
 export type TeamSide = 'HOME' | 'AWAY' | 'NONE';
@@ -31,7 +31,7 @@ export function useVmixTitles(productionId: number) {
     queryKey: ['vmix', 'production', productionId, 'titles'],
     enabled: !!productionId,
     queryFn: async (): Promise<VmixTitleItem[]> => {
-      const res = await fetch(`/api/vmix/production/${productionId}/titles`);
+      const res = await fetch(createUrl(`/api/vmix/production/${productionId}/titles`));
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -44,7 +44,7 @@ export function useProductionTitles(productionId: number) {
     queryKey: ['production', productionId, 'titles'],
     enabled: !!productionId,
     queryFn: async (): Promise<TitleDefinition[]> => {
-      const res = await fetch(`/api/production/${productionId}/titles`);
+      const res = await fetch(createUrl(`/api/production/${productionId}/titles`));
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -56,7 +56,7 @@ export function useCreateProductionTitle(productionId: number) {
   return useMutation({
     mutationFn: async (input: { name: string; enabled?: boolean; order?: number; parts: TitlePart[] }): Promise<TitleDefinition> => {
       const sanitized = sanitizeDefinitionInput(input);
-      const res = await fetch(`/api/production/${productionId}/titles`, {
+      const res = await fetch(createUrl(`/api/production/${productionId}/titles`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sanitized),
@@ -76,7 +76,7 @@ export function useUpdateProductionTitle(productionId: number) {
   return useMutation({
     mutationFn: async (input: { id: number; name?: string; enabled?: boolean; parts?: TitlePart[] }): Promise<TitleDefinition> => {
       const sanitized = input.parts ? { ...input, parts: input.parts.map(sanitizePart) } : input;
-      const res = await fetch(`/api/production/${productionId}/titles/${input.id}`, {
+      const res = await fetch(createUrl(`/api/production/${productionId}/titles/${input.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sanitized),
@@ -95,7 +95,7 @@ export function useDeleteProductionTitle(productionId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (titleId: number) => {
-      const res = await fetch(`/api/production/${productionId}/titles/${titleId}`, { method: 'DELETE' });
+      const res = await fetch(createUrl(`/api/production/${productionId}/titles/${titleId}`), { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => {
@@ -109,7 +109,7 @@ export function useReorderProductionTitles(productionId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (ids: number[]) => {
-      const res = await fetch(`/api/production/${productionId}/titles:reorder`, {
+      const res = await fetch(createUrl(`/api/production/${productionId}/titles:reorder`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids }),
@@ -127,7 +127,7 @@ export function useApplyDefaultTitles(productionId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/admin/vmix/production/${productionId}/titles/use-default`, { method: 'POST' });
+      const res = await fetch(createUrl(`/api/admin/vmix/production/${productionId}/titles/use-default`), { method: 'POST' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => {
@@ -142,7 +142,7 @@ export function useTitleTemplates() {
   return useQuery({
     queryKey: ['admin', 'vmix', 'title-templates'],
     queryFn: async (): Promise<TitleDefinition[]> => {
-      const res = await fetch(`/api/admin/vmix/title-templates`);
+      const res = await fetch(createUrl(`/api/admin/vmix/title-templates`));
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -154,7 +154,7 @@ export function useCreateTitleTemplate() {
   return useMutation({
     mutationFn: async (input: { name: string; enabled?: boolean; order?: number; parts: TitlePart[] }): Promise<TitleDefinition> => {
       const sanitized = sanitizeDefinitionInput(input);
-      const res = await fetch(`/api/admin/vmix/title-templates`, {
+      const res = await fetch(createUrl(`/api/admin/vmix/title-templates`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sanitized),
@@ -171,7 +171,7 @@ export function useUpdateTitleTemplate() {
   return useMutation({
     mutationFn: async (input: { id: number; name?: string; enabled?: boolean; parts?: TitlePart[] }): Promise<TitleDefinition> => {
       const sanitized = input.parts ? { ...input, parts: input.parts.map(sanitizePart) } : input;
-      const res = await fetch(`/api/admin/vmix/title-templates/${input.id}`, {
+      const res = await fetch(createUrl(`/api/admin/vmix/title-templates/${input.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sanitized),
@@ -187,7 +187,7 @@ export function useDeleteTitleTemplate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/admin/vmix/title-templates/${id}`, { method: 'DELETE' });
+      const res = await fetch(createUrl(`/api/admin/vmix/title-templates/${id}`), { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'vmix', 'title-templates'] }),
@@ -198,7 +198,7 @@ export function useReorderTitleTemplates() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (ids: number[]) => {
-      const res = await fetch(`/api/admin/vmix/title-templates:reorder`, {
+      const res = await fetch(createUrl(`/api/admin/vmix/title-templates:reorder`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids }),
