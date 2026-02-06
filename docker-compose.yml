@@ -19,7 +19,7 @@ services:
       retries: 5
 
   # Eénmalige migratie/seed job. Draait bij 'up' en stopt na succes.
-  migrate:
+  migrate-streamz:
     # Gebruik dezelfde image als de API. In CI/CD vervang door jouw registry:tag
     build:
       context: .
@@ -46,7 +46,7 @@ services:
         echo "=== Seed completed successfully ==="
     restart: "no"
 
-  korfbal-stream-api:
+  korfbal-streamz-api:
     build:
       context: .
       dockerfile: apps/korfbal-stream-api/Dockerfile
@@ -64,7 +64,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      migrate:
+      migrate-streamz:
         condition: service_completed_successfully
     ports:
       - "3333:3333"
@@ -76,7 +76,7 @@ services:
       interval: 60s
       timeout: 5s
       retries: 5
-  korfbal-stream-kit:
+  korfbal-streamz-kit:
     build:
       context: .
       dockerfile: apps/korfbal-stream-kit/Dockerfile
@@ -87,7 +87,7 @@ services:
     environment:
       TZ: Europe/Amsterdam
     depends_on:
-      - korfbal-stream-api # Wacht tot de API (waarmee het praat) online is
+      - korfbal-streamz-api # Wacht tot de API (waarmee het praat) online is
 
 volumes:
   pgdata:

@@ -126,7 +126,9 @@ export default function SponsorsPage() {
 
       {isLoading && <div role="status" className="mt-6 text-gray-600 dark:text-gray-300">Laden…</div>}
       {isError && (
-        <div role="alert" className="mt-6 text-red-600">Fout bij laden: {(error as Error).message}</div>
+        <div role="alert" className="mt-6 text-red-600">Fout bij laden: {(error as Error).message}<br/>
+          {(error as Error).stack}<br/>Contacteer de beheerder als dit probleem zich blijft voordoen.</div>
+
       )}
 
       {data && (
