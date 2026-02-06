@@ -1,11 +1,21 @@
 import {logger} from "nx/src/utils/logger";
 
 function getApiBaseUrl() {
-  return import.meta.env.VITE_API_BASE_URL || '/api';
+  // In de browser is window.location.origin de base URL
+  // In Docker is dit de nginx container zelf die de /api proxied naar de backend
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/api`;
+  }
+  return '/api';
 }
 
 export function createUrl(path: string): URL {
-  return new URL(path, getApiBaseUrl());
+  const base = getApiBaseUrl();
+  // Als path al met /api begint, gebruik dan alleen de base origin
+  if (path.startsWith('/api')) {
+    return new URL(path, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+  }
+  return new URL(path, base);
 }
 
 export type Sponsor = {
@@ -107,6 +117,7 @@ export async function fetchSponsors(params: {
   limit?: number
 } = {}): Promise<Paginated<Sponsor>> {
   const url = createUrl('/api/sponsors');
+  logger.info(`Fetching sponsors: ${JSON.stringify(params)}`);
   if (params.type) url.searchParams.set('type', params.type);
   if (params.page) url.searchParams.set('page', String(params.page));
   if (params.limit) url.searchParams.set('limit', String(params.limit));

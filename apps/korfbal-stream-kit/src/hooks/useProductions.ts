@@ -19,7 +19,7 @@ export function useProductions() {
   return useQuery({
     queryKey: ['productions'],
     queryFn: async (): Promise<{ items: Production[]; total: number }> => {
-      const res = await fetch(createUrl('/api/production'));
+      const res = await fetch(createUrl('/api/production').toString());
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
