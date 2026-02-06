@@ -117,7 +117,7 @@ export async function fetchSponsors(params: {
   limit?: number
 } = {}): Promise<Paginated<Sponsor>> {
   const url = createUrl('/api/sponsors');
-  logger.info(`Fetching sponsors: ${JSON.stringify(params)}`);
+  logger.info(`Fetching sponsors: ${url}`);
   if (params.type) url.searchParams.set('type', params.type);
   if (params.page) url.searchParams.set('page', String(params.page));
   if (params.limit) url.searchParams.set('limit', String(params.limit));
