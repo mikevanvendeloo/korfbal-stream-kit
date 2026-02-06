@@ -39,6 +39,43 @@ sponsorsRouter.get('/', async (req, res, next) => {
   }
 });
 
+// GET /api/sponsors/export-excel
+// Exports all sponsors to Excel with the same format as import
+// IMPORTANT: This route must be BEFORE /:id to avoid "export-excel" being treated as an ID
+sponsorsRouter.get('/export-excel', async (_req, res, next) => {
+  try {
+    const sponsors = await prisma.sponsor.findMany({ orderBy: { id: 'asc' } });
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+
+    // Map sponsors to Excel rows
+    const rows = sponsors.map((s) => ({
+      Name: s.name,
+      Labels: s.type,
+      'Website URL': s.websiteUrl,
+      'Logo file name': s.logoUrl,
+      Sponsorcategorieën: s.categories || '',
+      DisplayName: (s as any).displayName || '',
+    }));
+
+    // Create sheet
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Sponsors');
+
+    // Generate buffer
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    // Send file
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=Sponsors.xlsx');
+    return res.send(buffer);
+  } catch (err) {
+    logger.error('GET /sponsors/export-excel failed', err as any);
+    return next(err);
+  }
+});
+
 // Get sponsor by id
 sponsorsRouter.get('/:id', async (req, res, next) => {
   const id = Number(req.params.id);
@@ -91,6 +128,7 @@ sponsorsRouter.put('/:id', async (req, res, next) => {
         type: (input.type as any) ?? existing.type,
         websiteUrl: input.websiteUrl ?? existing.websiteUrl,
         logoUrl: nextLogo,
+        displayName: input.displayName !== undefined ? (input.displayName || null) : (existing as any).displayName,
       },
     });
     return res.json(updated);
@@ -178,6 +216,7 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
       const website = String(obj['website'] || obj['websiteurl'] || obj['site'] || obj['url'] || '').trim();
       const logo = String(obj['logo'] || obj['logourl'] || obj['logofilename'] || '').trim();
       const categories = String(obj['sponsorcategorieen'] || obj['categories'] || '').trim();
+      const displayName = String(obj['displayname'] || obj['weergavenaam'] || '').trim();
 
       // map type to enum or handle missing: default to 'brons' when not provided
       const allowed = ['premium', 'goud', 'zilver', 'brons'];
@@ -208,6 +247,12 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
         categories: categories || undefined,
       };
 
+      // Only update displayName if the column is present in the Excel (even if empty)
+      const hasDisplayNameColumn = 'displayname' in obj || 'weergavenaam' in obj;
+      if (hasDisplayNameColumn) {
+        data.displayName = displayName || null;
+      }
+
       const existing = await prisma.sponsor.findFirst({ where: { name } });
       const performUpdate = async () => {
         try {
@@ -217,6 +262,9 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
             existing.type = data.type;
             existing.websiteUrl = data.websiteUrl;
             existing.categories = data.categories;
+            if (hasDisplayNameColumn) {
+              (existing as any).displayName = data.displayName;
+            }
 
             await prisma.sponsor.update({ where: { id: existing.id }, data: existing });
             updated++;
@@ -228,18 +276,18 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
           }
         } catch (err: any) {
           const msg = String(err?.message || '');
-          // Backward compatibility: if Prisma client/schema doesn’t have `categories` column yet,
+          // Backward compatibility: if Prisma client/schema doesn't have `categories` or `displayName` column yet,
           // retry without that field so uploads continue to work without immediate migration.
-          if (/Unknown argument `categories`/i.test(msg)) {
-            const { categories: _omit, ...dataNoCategories } = data;
+          if (/Unknown argument `(categories|displayName)`/i.test(msg)) {
+            const { categories: _omitCat, displayName: _omitDN, ...dataFallback } = data;
             if (existing) {
-              await prisma.sponsor.update({ where: { id: existing.id }, data: dataNoCategories as any });
+              await prisma.sponsor.update({ where: { id: existing.id }, data: dataFallback as any });
               updated++;
-              logger.info('Updated sponsor from Excel (no categories fallback)', { name } as any);
+              logger.info('Updated sponsor from Excel (fallback without new fields)', { name } as any);
             } else {
-              await prisma.sponsor.create({ data: dataNoCategories as any });
+              await prisma.sponsor.create({ data: dataFallback as any });
               created++;
-              logger.info('Created sponsor from Excel (no categories fallback)', { name } as any);
+              logger.info('Created sponsor from Excel (fallback without new fields)', { name } as any);
             }
           } else {
             throw err;

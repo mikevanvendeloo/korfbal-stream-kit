@@ -7,6 +7,7 @@ export const SponsorInputSchema = z.object({
   type: SponsorTypeEnum,
   websiteUrl: z.string().url(),
   logoUrl: z.string().optional(),
+  displayName: z.string().optional(),
 });
 
 export const SponsorUpdateSchema = SponsorInputSchema.partial();

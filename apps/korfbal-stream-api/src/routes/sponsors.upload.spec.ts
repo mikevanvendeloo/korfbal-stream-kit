@@ -105,6 +105,52 @@ describe('Sponsors Excel upload API', () => {
     expect(typeof epsilon.categories === 'string' || epsilon.categories === null).toBe(true);
   });
 
+  it('imports displayName when DisplayName column is present', async () => {
+    const buf = makeWorkbookBuffer([
+      { Name: 'Test Sponsor', Labels: 'Goud', Website: 'https://test.example', DisplayName: 'Test (Official)' },
+      { Name: 'Another', Labels: 'Zilver', Website: 'https://another.example' }, // no displayName
+    ]);
+
+    const res = await request(app)
+      .post('/api/sponsors/upload-excel')
+      .attach('file', buf, { filename: 'sponsors.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.created).toBe(2);
+
+    const list = await request(app).get('/api/sponsors?limit=100');
+    const testSponsor = list.body.items.find((s: any) => s.name === 'Test Sponsor');
+    const another = list.body.items.find((s: any) => s.name === 'Another');
+
+    expect(testSponsor.displayName).toBe('Test (Official)');
+    expect(another.displayName).toBeFalsy();
+  });
+
+  it('does NOT overwrite displayName when DisplayName column is absent', async () => {
+    // First create a sponsor with displayName via API
+    await request(app).post('/api/sponsors').send({
+      name: 'Preserved', type: 'brons', websiteUrl: 'https://preserved.example', displayName: 'Original Display'
+    });
+
+    // Now upload Excel WITHOUT DisplayName column
+    const buf = makeWorkbookBuffer([
+      { Name: 'Preserved', Labels: 'Brons', Website: 'https://preserved.example' },
+    ]);
+
+    const res = await request(app)
+      .post('/api/sponsors/upload-excel')
+      .attach('file', buf, { filename: 'sponsors.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.updated).toBe(1);
+
+    const list = await request(app).get('/api/sponsors?limit=100');
+    const preserved = list.body.items.find((s: any) => s.name === 'Preserved');
+
+    // displayName should still be 'Original Display'
+    expect(preserved.displayName).toBe('Original Display');
+  });
+
   it('normalizes logo filenames during Excel import (ampersand, slashes, diacritics)', async () => {
     const buf = makeWorkbookBuffer([
       { Name: 'A and B', Labels: 'Brons', Website: 'https://ab.example', Logo: 'A&B.png' },

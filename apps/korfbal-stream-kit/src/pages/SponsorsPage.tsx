@@ -4,7 +4,7 @@ import {useRef, useState} from 'react';
 // Using a plain anchor to avoid Router context requirement in tests
 // import { Link } from 'react-router-dom';
 import {uploadSponsorsExcel} from '../lib/api';
-import {MdAdd, MdRefresh, MdUploadFile} from 'react-icons/md';
+import {MdAdd, MdRefresh, MdUploadFile, MdDownload} from 'react-icons/md';
 import SponsorFormModal from '../components/SponsorFormModal';
 
 export default function SponsorsPage() {
@@ -19,7 +19,7 @@ export default function SponsorsPage() {
   const update = useUpdateSponsor();
   const del = useDeleteSponsor();
 
-  const [editing, setEditing] = useState<null | { id?: number; name?: string; type?: 'premium' | 'goud' | 'zilver' | 'brons'; websiteUrl?: string; logoUrl?: string }>(null);
+  const [editing, setEditing] = useState<null | { id?: number; name?: string; type?: 'premium' | 'goud' | 'zilver' | 'brons'; websiteUrl?: string; logoUrl?: string; displayName?: string }>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const onPickFile = () => fileRef.current?.click();
@@ -42,7 +42,7 @@ export default function SponsorsPage() {
     }
   };
 
-  async function handleSubmitSponsor(input: { name: string; type: 'premium' | 'goud' | 'zilver' | 'brons'; websiteUrl: string; logoUrl?: string }) {
+  async function handleSubmitSponsor(input: { name: string; type: 'premium' | 'goud' | 'zilver' | 'brons'; websiteUrl: string; logoUrl?: string; displayName?: string }) {
     try {
       setActionError(null);
       if (editing?.id) {
@@ -98,6 +98,10 @@ export default function SponsorsPage() {
             <MdUploadFile className="w-5 h-5" />
             <span className="sr-only">Upload sponsors</span>
           </button>
+          <a href="/api/sponsors/export-excel" className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center" title="Export sponsors naar Excel" download>
+            <MdDownload className="w-5 h-5" />
+            <span className="sr-only">Export Excel</span>
+          </a>
           <a href="/vmix/sponsor-rows" className="px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 inline-flex items-center justify-center gap-1" title="Genereer sponsor JSON">
             Sponsor JSON
           </a>
@@ -135,7 +139,7 @@ export default function SponsorsPage() {
         <div className="mt-4">
           <SponsorsTable
             data={data.items}
-            onEdit={(s) => setEditing({ id: s.id, name: s.name, type: s.type, websiteUrl: s.websiteUrl, logoUrl: s.logoUrl })}
+            onEdit={(s) => setEditing({ id: s.id, name: s.name, type: s.type, websiteUrl: s.websiteUrl, logoUrl: s.logoUrl, displayName: (s as any).displayName })}
             onDelete={(s) => handleDeleteSponsor(s)}
           />
         </div>

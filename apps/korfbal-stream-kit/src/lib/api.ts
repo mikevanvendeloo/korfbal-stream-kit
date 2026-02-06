@@ -25,6 +25,7 @@ export type Sponsor = {
   logoUrl: string;
   websiteUrl: string;
   categories?: string | null;
+  displayName?: string | null;
   createdAt: string;
 };
 
@@ -37,6 +38,7 @@ export type SponsorInput = {
   type: Sponsor['type'];
   websiteUrl: string;
   logoUrl?: string;
+  displayName?: string;
 };
 
 export type SponsorUpdate = Partial<SponsorInput> & { id: number };

@@ -8,6 +8,22 @@ export default defineConfig(() => ({
   server: {
     port: 4200,
     host: 'localhost',
+    proxy: {
+      // Alle verzoeken naar /api worden nu doorgezonden naar de backend
+      '/api': {
+        target: 'http://localhost:3333',
+        changeOrigin: true,
+      },
+      // Statische assets (sponsors logo's, player images, etc.)
+      '/uploads': {
+        target: 'http://localhost:3333',
+        changeOrigin: true,
+      },
+      '/assets': {
+        target: 'http://localhost:3333',
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port: 4300,
@@ -40,15 +56,6 @@ export default defineConfig(() => ({
     },
     env: {
       VITE_API_BASE_URL: 'http://localhost/api',
-    },
-  },
-  proxy: {
-    // Alle verzoeken naar /api worden nu doorgezonden naar de backend
-    '/api': {
-      target: 'http://localhost:3333/api',
-      changeOrigin: true,
-      // Als je API intern GEEN /api voorvoegsel heeft, gebruik dan rewrite:
-      // rewrite: (path: string) => path.replace(/^\/api/, ''),
     },
   },
 }));

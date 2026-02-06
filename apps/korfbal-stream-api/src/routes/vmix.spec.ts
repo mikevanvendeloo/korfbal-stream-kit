@@ -45,4 +45,21 @@ describe('vMix API - sponsor names ticker', () => {
     expect(Array.isArray(res.body)).toBe(true);
     expect(res.body[0]['sponsor-names']).toBe('');
   });
+
+  it('uses displayName when available, otherwise falls back to name', async () => {
+    prisma.sponsor.findMany = vi.fn(async () => [
+      { id: 1, name: 'Alpha BV', displayName: 'Alpha (Hoofdsponsor)' },
+      { id: 2, name: 'Beta Co', displayName: null },
+      { id: 3, name: 'Gamma N.V.', displayName: '' },
+    ]);
+
+    const res = await request(app).get('/api/vmix/sponsor-names');
+
+    expect(res.status).toBe(200);
+    const ticker = res.body[0]['sponsor-names'];
+    expect(ticker).toContain('Alpha (Hoofdsponsor)'); // uses displayName
+    expect(ticker).toContain('Beta Co'); // no displayName, uses name
+    expect(ticker).toContain('Gamma N.V.'); // empty displayName, uses name
+    expect(ticker).not.toContain('Alpha BV'); // original name should not appear
+  });
 });

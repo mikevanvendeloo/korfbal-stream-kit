@@ -239,7 +239,10 @@ vmixRouter.get('/sponsor-names', async (_req, res, next) => {
     const premium = shuffle(sponsors.filter((s) => s.type === 'premium'));
     const other =  shuffle(sponsors.filter((s) => s.type !== 'premium'));
 
-    const names = [...premium, ...other].map((s) => (s.name || '').trim()).filter(Boolean);
+    const names = [...premium, ...other].map((s) => {
+      const dn = ((s as any).displayName || '').trim();
+      return dn || (s.name || '').trim();
+    }).filter(Boolean);
     const sep = '   |   ';
     const ticker = names.length > 0 ? names.join(sep) + sep : '';
     return res.status(200).json([{ 'sponsor-names': ticker }]);
@@ -275,13 +278,16 @@ vmixRouter.get('/sponsor-carrousel', async (_req, res, next) => {
       websiteUrl: 'https://www.fortuna-korfbal.nl/sponsoring/businessclub/',
       categories: null,
       createdAt: new Date()
-    })
-    return res.status(200).json(shuffle(sponsors).map((s) => ({
-      name: s.name,
-      commercial: s.logoUrl.toLowerCase(),
-      type: s.type,
-      website: s.websiteUrl
-    })));
+    } as any)
+    return res.status(200).json(shuffle(sponsors).map((s) => {
+      const dn = ((s as any).displayName || '').trim();
+      return {
+        name: dn || s.name,
+        commercial: s.logoUrl.toLowerCase(),
+        type: s.type,
+        website: s.websiteUrl
+      };
+    }));
   } catch (err) {
     logger.error('GET /vmix/sponsor-carrousel failed', err as any);
     return next(err);

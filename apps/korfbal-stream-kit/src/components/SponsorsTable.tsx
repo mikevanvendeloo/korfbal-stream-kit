@@ -11,6 +11,8 @@ import {
 import {Sponsor} from '../lib/api';
 import IconButton from './IconButton';
 import { MdDelete, MdEdit } from 'react-icons/md';
+import { RiVipCrown2Fill } from 'react-icons/ri';
+import { FaMedal } from 'react-icons/fa';
 
 export type SponsorsTableProps = {
   data: Sponsor[];
@@ -19,6 +21,21 @@ export type SponsorsTableProps = {
 };
 
 export function SponsorsTable({ data, onEdit, onDelete }: SponsorsTableProps) {
+  const typeIcon = (type: string) => {
+    switch (type) {
+      case 'premium':
+        return <RiVipCrown2Fill className="w-5 h-5 inline-block" style={{ color: '#7c3aed' }} title="Premium" />;
+      case 'goud':
+        return <FaMedal className="w-5 h-5 inline-block" style={{ color: '#d4af37' }} title="Goud" />;
+      case 'zilver':
+        return <FaMedal className="w-5 h-5 inline-block" style={{ color: '#9ca3af' }} title="Zilver" />;
+      case 'brons':
+        return <FaMedal className="w-5 h-5 inline-block" style={{ color: '#cd7f32' }} title="Brons" />;
+      default:
+        return String(type);
+    }
+  };
+
   const columns = useMemo<ColumnDef<Sponsor>[]>(
     () => [
       {
@@ -27,9 +44,23 @@ export function SponsorsTable({ data, onEdit, onDelete }: SponsorsTableProps) {
         cell: (info) => info.getValue() as string,
       },
       {
+        accessorKey: 'displayName',
+        header: () => 'Weergavenaam',
+        cell: (info) => {
+          const dn = (info.getValue() as string | null | undefined) || '';
+          return dn ? <span className="text-sm text-gray-600 dark:text-gray-400">{dn}</span> : <span className="text-xs text-gray-400">—</span>;
+        },
+      },
+      {
         accessorKey: 'type',
         header: () => 'Type',
-        cell: (info) => String(info.getValue()),
+        cell: (info) => typeIcon(String(info.getValue())),
+        sortingFn: (rowA, rowB) => {
+          const typeOrder: Record<string, number> = { premium: 0, goud: 1, zilver: 2, brons: 3 };
+          const a = typeOrder[rowA.original.type] ?? 999;
+          const b = typeOrder[rowB.original.type] ?? 999;
+          return a - b;
+        },
       },
       {
         accessorKey: 'websiteUrl',
@@ -93,7 +124,12 @@ export function SponsorsTable({ data, onEdit, onDelete }: SponsorsTableProps) {
               <img src={`/uploads/sponsors/${row.original.logoUrl}`} alt={row.original.name} className="h-10 w-10 object-contain" onError={(e) => ((e.currentTarget.style.visibility = 'hidden'))} />
               <div className="flex-1">
                 <div className="font-semibold">{row.original.name}</div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">{row.original.type}</div>
+                {(row.original as any).displayName && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Weergave: {(row.original as any).displayName}</div>
+                )}
+                <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  {typeIcon(row.original.type)}
+                </div>
               </div>
               <div className="flex gap-2">
                 {onEdit && (

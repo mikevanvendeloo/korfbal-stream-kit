@@ -13,6 +13,7 @@ export default function SponsorFormModal({ initial, onCancel, onSubmit }: Sponso
   const [type, setType] = React.useState<Exclude<Sponsor['type'], undefined>>(initial?.type || 'brons');
   const [websiteUrl, setWebsiteUrl] = React.useState(initial?.websiteUrl || '');
   const [logoUrl, setLogoUrl] = React.useState(initial?.logoUrl || '');
+  const [displayName, setDisplayName] = React.useState((initial as any)?.displayName || '');
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const firstRef = React.useRef<HTMLInputElement>(null);
@@ -28,7 +29,7 @@ export default function SponsorFormModal({ initial, onCancel, onSubmit }: Sponso
     if (!cleanedName) return setError('Naam is verplicht');
     if (!websiteUrl || !isValidSponsorUrl(websiteUrl)) return setError('Ongeldige website URL');
 
-    const payload: SponsorInput = { name: cleanedName, type, websiteUrl, logoUrl: logoUrl || undefined };
+    const payload: SponsorInput = { name: cleanedName, type, websiteUrl, logoUrl: logoUrl || undefined, displayName: displayName || undefined };
     try {
       setBusy(true);
       await onSubmit(payload);
@@ -68,6 +69,11 @@ export default function SponsorFormModal({ initial, onCancel, onSubmit }: Sponso
           <div>
             <label htmlFor="sponsor-logo" className="block text-xs mb-1">Logo bestandsnaam (optioneel)</label>
             <input id="sponsor-logo" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="wordt-afgeleid-van-naam.png" className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-950" />
+          </div>
+          <div>
+            <label htmlFor="sponsor-displayname" className="block text-xs mb-1">Weergavenaam (optioneel)</label>
+            <input id="sponsor-displayname" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Laat leeg om reguliere naam te gebruiken" className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-950" />
+            <div className="text-xs text-gray-500 mt-1">Wordt gebruikt in vMix ticker en carrousel als deze gevuld is</div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onCancel} className="px-3 py-1 border rounded">Annuleren</button>
