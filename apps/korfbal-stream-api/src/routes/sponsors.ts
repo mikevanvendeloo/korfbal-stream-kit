@@ -93,13 +93,14 @@ sponsorsRouter.get('/:id', async (req, res, next) => {
 // Create sponsor
 sponsorsRouter.post('/', async (req, res, next) => {
   try {
-    const { name, type, websiteUrl, logoUrl } = SponsorInputSchema.parse(req.body);
+    const { name, type, websiteUrl, logoUrl, displayName } = SponsorInputSchema.parse(req.body);
     const created = await prisma.sponsor.create({
       data: {
         name,
         type,
         websiteUrl,
         logoUrl: logoUrl ? normalizeLogoFilename(logoUrl) : makeLogoUrl(name),
+        displayName: displayName || null,
       },
     });
     return res.status(201).json(created);
@@ -128,7 +129,7 @@ sponsorsRouter.put('/:id', async (req, res, next) => {
         type: (input.type as any) ?? existing.type,
         websiteUrl: input.websiteUrl ?? existing.websiteUrl,
         logoUrl: nextLogo,
-        displayName: input.displayName !== undefined ? (input.displayName || null) : (existing as any).displayName,
+        displayName: input.displayName === undefined ? (existing as any).displayName : (input.displayName || null),
       },
     });
     return res.json(updated);
@@ -257,16 +258,22 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
       const performUpdate = async () => {
         try {
           if (existing) {
-            if (!existing.name) existing.name = data.name;
-            if (!existing.logoUrl) existing.logoUrl = data.logoUrl;
-            existing.type = data.type;
-            existing.websiteUrl = data.websiteUrl;
-            existing.categories = data.categories;
-            if (hasDisplayNameColumn) {
-              (existing as any).displayName = data.displayName;
-            }
+            // Build update data with only fields we want to change
+            const updateData: any = {
+              name: existing.name || data.name,
+              logoUrl: existing.logoUrl || data.logoUrl,
+              type: data.type,
+              websiteUrl: data.websiteUrl,
+              categories: data.categories,
+            };
 
-            await prisma.sponsor.update({ where: { id: existing.id }, data: existing });
+            // Only include displayName if the column was present in the Excel
+            if (hasDisplayNameColumn) {
+              updateData.displayName = data.displayName;
+            } else { updateData.displayName = existing.displayName; }
+            // If column was NOT present, don't touch displayName at all (keep existing value)
+
+            await prisma.sponsor.update({ where: { id: existing.id }, data: updateData });
             updated++;
             logger.info('Updated sponsor from Excel', { name } as any);
           } else {

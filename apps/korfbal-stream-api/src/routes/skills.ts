@@ -31,6 +31,67 @@ skillsRouter.get('/', async (req, res, next) => {
   }
 });
 
+// GET /api/skills/export-json
+// Export all skills as JSON
+// IMPORTANT: Must be BEFORE /:id route
+skillsRouter.get('/export-json', async (_req, res, next) => {
+  try {
+    const skills = await prisma.skill.findMany({ orderBy: { code: 'asc' } });
+
+    // Map to export format (without id and createdAt)
+    const exportData = skills.map((s) => ({
+      code: s.code,
+      name: s.name,
+      nameMale: s.nameMale,
+      nameFemale: s.nameFemale,
+    }));
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename=skills.json');
+    return res.json(exportData);
+  } catch (err) {
+    logger.error('GET /skills/export-json failed', err as any);
+    return next(err);
+  }
+});
+
+// POST /api/skills/import-json
+// Import skills from JSON (upsert based on code)
+skillsRouter.post('/import-json', async (req, res, next) => {
+  try {
+    const data = req.body;
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ error: 'Expected an array of skills' });
+    }
+
+    let created = 0;
+    let updated = 0;
+    const problems: { code: string; reason: string }[] = [];
+
+    for (const item of data) {
+      try {
+        const input = SkillInputSchema.parse(item);
+        const existing = await prisma.skill.findUnique({ where: { code: input.code } });
+
+        if (existing) {
+          await prisma.skill.update({ where: { id: existing.id }, data: input as any });
+          updated++;
+        } else {
+          await prisma.skill.create({ data: input as any });
+          created++;
+        }
+      } catch (err: any) {
+        problems.push({ code: item.code || 'unknown', reason: err.message || 'validation failed' });
+      }
+    }
+
+    return res.json({ ok: true, total: data.length, created, updated, problems });
+  } catch (err) {
+    logger.error('POST /skills/import-json failed', err as any);
+    return next(err);
+  }
+});
+
 skillsRouter.get('/:id', async (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'invalid id' });

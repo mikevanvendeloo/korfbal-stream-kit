@@ -2,7 +2,9 @@ import React from 'react';
 import { useCreatePerson, useDeletePerson, usePersons, useUpdatePerson, Gender, useSkills, useAddSkill, useRemoveSkill, useSkillsCatalog, useAddSkillsBulk } from '../hooks/usePersons';
 import PersonsTable from '../components/PersonsTable';
 import IconButton from '../components/IconButton';
-import { MdDelete, MdEdit, MdAdd } from 'react-icons/md';
+import { MdDelete, MdEdit, MdAdd, MdDownload, MdUploadFile } from 'react-icons/md';
+import { createUrl, extractError } from '../lib/api';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function PersonsAdminPage() {
   const [q, setQ] = React.useState('');
@@ -11,7 +13,10 @@ export default function PersonsAdminPage() {
   const create = useCreatePerson();
   const update = useUpdatePerson();
   const del = useDeletePerson();
+  const qc = useQueryClient();
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
+  const fileRef = React.useRef<HTMLInputElement | null>(null);
 
   const [editing, setEditing] = React.useState<{ id?: number; name: string; gender: Gender } | null>(null);
   const [skillsFor, setSkillsFor] = React.useState<number | null>(null);
@@ -65,9 +70,46 @@ export default function PersonsAdminPage() {
     }
   }
 
+  async function onImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const res = await fetch(createUrl('/api/persons/import-json'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(await extractError(res));
+      const result = await res.json();
+      setSuccessMsg(`Geïmporteerd: ${result.created} nieuw, ${result.updated} bijgewerkt`);
+      await qc.invalidateQueries({ queryKey: ['persons'] });
+    } catch (e: any) {
+      setErrorMsg(e?.message || 'Import mislukt');
+    } finally {
+      e.target.value = '';
+    }
+  }
+
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
-      <h1 className="text-xl font-semibold mb-4">Persons</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-semibold">Persons</h1>
+        <div className="flex items-center gap-2">
+          <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={onImport} />
+          <button className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center" title="Import JSON" onClick={() => fileRef.current?.click()}>
+            <MdUploadFile className="w-5 h-5" />
+            <span className="sr-only">Import</span>
+          </button>
+          <a href="/api/persons/export-json" download className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center" title="Export JSON">
+            <MdDownload className="w-5 h-5" />
+            <span className="sr-only">Export</span>
+          </a>
+        </div>
+      </div>
 
       <div className="flex items-end gap-2 mb-4">
         <div>
@@ -87,6 +129,11 @@ export default function PersonsAdminPage() {
 
       {isLoading && <div>Laden...</div>}
       {error && <div className="text-red-600">Er ging iets mis.</div>}
+      {successMsg && (
+        <div role="status" className="mt-2 rounded-md border border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300 px-3 py-2">
+          {successMsg}
+        </div>
+      )}
       {errorMsg && (
         <div role="alert" className="mt-2 rounded-md border border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300 px-3 py-2">
           {errorMsg}

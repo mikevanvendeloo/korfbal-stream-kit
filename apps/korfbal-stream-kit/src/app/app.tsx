@@ -1,5 +1,5 @@
 import React from 'react';
-import { Route, Routes, Link, useLocation } from 'react-router-dom';
+import {Link, Route, Routes, useLocation} from 'react-router-dom';
 import SponsorsPage from '../pages/SponsorsPage';
 import ScoreboardPage from '../pages/ScoreboardPage';
 import MatchSchedulePage from '../pages/MatchSchedulePage';
@@ -18,21 +18,20 @@ import ProductionReportPage from '../pages/ProductionReportPage';
 import CallSheetsPage from '../pages/CallSheetsPage';
 import CallSheetEditPage from '../pages/CallSheetEditPage';
 import ActiveProductionPage from '../pages/ActiveProductionPage';
-import { ThemeProvider, useTheme } from '../theme/ThemeProvider';
+import {ThemeProvider, useTheme} from '../theme/ThemeProvider';
 import {
-  MdPeople,
-  MdTableChart,
-  MdSchedule,
+  MdBuild,
+  MdGroups,
   MdList,
+  MdPeople,
   MdPlayCircleFilled,
-  MdViewCarousel,
+  MdQrCode,
+  MdSchedule,
+  MdTableChart,
   MdTextFields,
   MdVideocam,
-  MdBuild,
-  MdWork,
   MdViewList,
-  MdGroups,
-  MdQrCode,
+  MdWork,
 } from 'react-icons/md';
 import VmixTemplatesPage from '../pages/VmixTemplatesPage';
 import VmixControlPage from '../pages/VmixControlPage';
@@ -41,11 +40,10 @@ function Nav() {
   const { theme, toggle } = useTheme();
   const location = useLocation();
   const liveRef = React.useRef<HTMLDetailsElement>(null);
-  const prodRef = React.useRef<HTMLDetailsElement>(null);
-  const confRef = React.useRef<HTMLDetailsElement>(null);
+  const beheerRef = React.useRef<HTMLDetailsElement>(null);
 
   function closeAll() {
-    for (const ref of [liveRef, prodRef, confRef]) {
+    for (const ref of [liveRef, beheerRef]) {
       if (ref.current) ref.current.open = false;
     }
   }
@@ -61,7 +59,7 @@ function Nav() {
     if (!el) return;
     // When this menu opens, close others
     if (el.open) {
-      for (const other of [liveRef, prodRef, confRef]) {
+      for (const other of [liveRef, beheerRef]) {
         if (other !== ref && other.current) other.current.open = false;
       }
     }
@@ -72,17 +70,17 @@ function Nav() {
         <nav className="flex items-center gap-6 text-sm">
           <Link to="/" className="font-semibold text-gray-900 dark:text-gray-100">Korfbal Stream Kit</Link>
 
-          {/* Live */}
+          {/* LIVE - Tijdens productie */}
           <details ref={liveRef} onToggle={() => onToggle(liveRef)} className="relative group">
-            <summary className="list-none cursor-pointer text-gray-800 dark:text-gray-200 hover:underline">
-              Live
+            <summary className="list-none cursor-pointer text-gray-800 dark:text-gray-200 hover:underline font-semibold">
+              🎬 LIVE
             </summary>
-            <div className="absolute left-0 mt-2 min-w-48 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
+            <div className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
               <ul className="text-sm">
                 <li>
-                  <Link to="/sponsors" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
-                    <MdPeople />
-                    <span>Sponsors</span>
+                  <Link to="/active" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdPlayCircleFilled />
+                    <span>Actieve productie</span>
                   </Link>
                 </li>
                 <li>
@@ -94,43 +92,7 @@ function Nav() {
                 <li>
                   <Link to="/matches/schedule" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
                     <MdSchedule />
-                    <span>Match schedule</span>
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </details>
-
-          {/* Producties */}
-          <details ref={prodRef} onToggle={() => onToggle(prodRef)} className="relative group">
-            <summary className="list-none cursor-pointer text-gray-800 dark:text-gray-200 hover:underline">
-              Producties
-            </summary>
-            <div className="absolute left-0 mt-2 min-w-56 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
-              <ul className="text-sm">
-                <li>
-                  <Link to="/admin/productions" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
-                    <MdList />
-                    <span>Overzicht</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/active" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
-                    <MdPlayCircleFilled />
-                    <span>Actieve productie</span>
-                  </Link>
-                </li>
-                <li className="mt-1 px-3 py-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">vMix</li>
-                <li>
-                  <Link to="/vmix/sponsor-rows" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
-                    <MdViewCarousel />
-                    <span>Sponsor rows</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/admin/vmix/title-templates" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
-                    <MdTextFields />
-                    <span>Titel templates</span>
+                    <span>Wedstrijd programma</span>
                   </Link>
                 </li>
                 <li>
@@ -143,13 +105,50 @@ function Nav() {
             </div>
           </details>
 
-          {/* Configuratie */}
-          <details ref={confRef} onToggle={() => onToggle(confRef)} className="relative group">
+          {/* BEHEER */}
+          <details ref={beheerRef} onToggle={() => onToggle(beheerRef)} className="relative group">
             <summary className="list-none cursor-pointer text-gray-800 dark:text-gray-200 hover:underline">
-              Configuratie
+              Beheer
             </summary>
-            <div className="absolute left-0 mt-2 min-w-56 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
+            <div className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
               <ul className="text-sm">
+                <li className="px-3 py-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Producties</li>
+                <li>
+                  <Link to="/admin/productions" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdList />
+                    <span>Productie overzicht</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/admin/vmix/title-templates" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdTextFields />
+                    <span>vMix titel templates</span>
+                  </Link>
+                </li>
+
+                <li className="mt-3 px-3 py-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Basis data</li>
+                <li>
+                  <Link to="/admin/vmix/control" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdVideocam />
+                    <span>vMix control</span>
+                  </Link>
+                </li>
+
+                <li className="mt-3 px-3 py-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Basis data</li>
+                <li>
+                  <Link to="/sponsors" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdPeople />
+                    <span>Sponsors</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/admin/clubs" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdGroups />
+                    <span>Clubs & Spelers</span>
+                  </Link>
+                </li>
+
+                <li className="mt-3 px-3 py-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Team</li>
                 <li>
                   <Link to="/admin/persons" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
                     <MdPeople />
@@ -174,12 +173,8 @@ function Nav() {
                     <span>Segment posities</span>
                   </Link>
                 </li>
-                <li>
-                  <Link to="/admin/clubs" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
-                    <MdGroups />
-                    <span>Clubs</span>
-                  </Link>
-                </li>
+
+                <li className="mt-3 px-3 py-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Tools</li>
                 <li>
                   <Link to="/admin/qr" className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
                     <MdQrCode />
@@ -205,7 +200,7 @@ export function App() {
         <Nav />
         <main>
           <Routes>
-            <Route path="/" element={<div className="container py-6 text-gray-800 dark:text-gray-100">Welkom! Ga naar <><Link className="underline" to="/sponsors">Sponsors</Link>, <Link className="underline" to="/scoreboard">Scoreboard</Link> of <Link className="underline" to="/matches/schedule">Match schedule</Link></>.</div>} />
+            <Route path="/" element={<div className="container py-6 text-gray-800 dark:text-gray-100">Welkom! <p>Deze applicatie helpt met ondersteunen van planning van livestreams en het voorzien van data aan livestream software zoals vMix.</p></div>} />
             <Route path="/sponsors" element={<SponsorsPage />} />
             <Route path="/scoreboard" element={<ScoreboardPage />} />
             <Route path="/matches/schedule" element={<MatchSchedulePage />} />

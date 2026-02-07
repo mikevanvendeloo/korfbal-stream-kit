@@ -2,7 +2,7 @@ import React from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {ColumnDef, flexRender, getCoreRowModel, useReactTable} from '@tanstack/react-table';
 import IconButton from '../components/IconButton';
-import {MdAdd, MdDelete, MdEdit} from 'react-icons/md';
+import {MdAdd, MdDelete, MdEdit, MdDownload, MdUploadFile} from 'react-icons/md';
 import {createUrl, extractError} from "../lib/api";
 
 export type Skill = { id: number; code: string; name: string; nameMale: string; nameFemale: string; createdAt?: string };
@@ -60,13 +60,16 @@ function useDeleteSkill() {
 
 export default function SkillsAdminPage() {
   const [q, setQ] = React.useState('');
-  const { data, isLoading, error } = useSkills(q);
+  const { data, isLoading, error, refetch } = useSkills(q);
   const create = useCreateSkill();
   const update = useUpdateSkill();
   const del = useDeleteSkill();
+  const qc = useQueryClient();
 
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<{ id?: number; code: string; name: string; nameMale: string; nameFemale: string } | null>(null);
+  const fileRef = React.useRef<HTMLInputElement | null>(null);
 
   const columns = React.useMemo<ColumnDef<Skill>[]>(() => [
     { header: 'Code', accessorKey: 'code' },
@@ -113,13 +116,48 @@ export default function SkillsAdminPage() {
     }
   }
 
+  async function onImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const res = await fetch(createUrl('/api/skills/import-json'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(await extractError(res));
+      const result = await res.json();
+      setSuccessMsg(`Geïmporteerd: ${result.created} nieuw, ${result.updated} bijgewerkt`);
+      await qc.invalidateQueries({ queryKey: ['skills'] });
+    } catch (e: any) {
+      setErrorMsg(e?.message || 'Import mislukt');
+    } finally {
+      e.target.value = '';
+    }
+  }
+
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
       <div className="flex items-center justify-between mb-3">
         <h1 className="text-xl font-semibold">Skills</h1>
-        <button className="px-3 py-1 border rounded inline-flex items-center gap-1" onClick={() => setEditing({ code: '', name: '', nameMale: '', nameFemale: '' })}>
-          <MdAdd /> Nieuw
-        </button>
+        <div className="flex items-center gap-2">
+          <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={onImport} />
+          <button className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center" title="Import JSON" onClick={() => fileRef.current?.click()}>
+            <MdUploadFile className="w-5 h-5" />
+            <span className="sr-only">Import</span>
+          </button>
+          <a href="/api/skills/export-json" download className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center" title="Export JSON">
+            <MdDownload className="w-5 h-5" />
+            <span className="sr-only">Export</span>
+          </a>
+          <button className="px-3 py-1 border rounded inline-flex items-center gap-1" onClick={() => setEditing({ code: '', name: '', nameMale: '', nameFemale: '' })}>
+            <MdAdd /> Nieuw
+          </button>
+        </div>
       </div>
 
       <div className="mb-3">
@@ -128,6 +166,11 @@ export default function SkillsAdminPage() {
 
       {isLoading && <div>Laden…</div>}
       {error && <div className="text-red-600">Fout bij laden</div>}
+      {successMsg && (
+        <div role="status" className="mt-2 rounded-md border border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300 px-3 py-2">
+          {successMsg}
+        </div>
+      )}
       {errorMsg && (
         <div role="alert" className="mt-2 rounded-md border border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300 px-3 py-2">
           {errorMsg}

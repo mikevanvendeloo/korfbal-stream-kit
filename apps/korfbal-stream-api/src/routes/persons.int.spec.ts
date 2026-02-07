@@ -186,4 +186,42 @@ async function resetDb() {
     expect(list.status).toBe(200);
     expect(list.body.length).toBe(2);
   });
+
+  it('exports and imports persons via JSON', async () => {
+    // Create some test persons
+    const person1 = { name: 'Export Person 1', gender: 'male', email: 'export1@test.com', phone: '123' };
+    const person2 = { name: 'Export Person 2', gender: 'female', email: 'export2@test.com', phone: '456' };
+    await request(app).post('/api/persons').send(person1);
+    await request(app).post('/api/persons').send(person2);
+
+    // Export
+    const exportRes = await request(app).get('/api/persons/export-json');
+    expect(exportRes.status).toBe(200);
+    expect(Array.isArray(exportRes.body)).toBe(true);
+    expect(exportRes.body.some((p: any) => p.name === 'Export Person 1')).toBe(true);
+
+    // Modify exported data
+    const exportData = exportRes.body.map((p: any) =>
+      p.name === 'Export Person 1' ? { ...p, email: 'modified@test.com' } : p
+    );
+
+    // Add a new person in export
+    exportData.push({ name: 'Import New Person', gender: 'male', email: 'new@test.com', phone: '789' });
+
+    // Import
+    const importRes = await request(app).post('/api/persons/import-json').send(exportData);
+    expect(importRes.status).toBe(200);
+    expect(importRes.body.ok).toBe(true);
+    expect(importRes.body.created).toBeGreaterThanOrEqual(1); // At least Import New Person
+    expect(importRes.body.updated).toBeGreaterThanOrEqual(1); // At least Export Person 1 was modified
+
+    // Verify updated person
+    const listRes = await request(app).get('/api/persons?q=Export Person 1');
+    const updated = listRes.body.items.find((p: any) => p.name === 'Export Person 1');
+    expect(updated.email).toBe('modified@test.com');
+
+    // Verify new person
+    const listRes2 = await request(app).get('/api/persons?q=Import New Person');
+    expect(listRes2.body.items.some((p: any) => p.name === 'Import New Person')).toBe(true);
+  });
 });

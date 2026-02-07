@@ -4,10 +4,10 @@ import {logger} from '../utils/logger';
 import {
   AssignmentCreateSchema,
   AssignmentUpdateSchema,
-  SkillInputSchema,
   PaginationQuerySchema,
   PersonInputSchema,
   PersonUpdateSchema,
+  SkillInputSchema,
 } from '../schemas/person';
 
 export const personsRouter: Router = Router();
@@ -40,6 +40,65 @@ personsRouter.get('/', async (req, res, next) => {
     return res.json({ items, page, limit, total, pages: Math.ceil(total / limit) || 1 });
   } catch (err) {
     logger.error('GET /persons failed', err as any);
+    return next(err);
+  }
+});
+
+// GET /api/persons/export-json
+// Export all persons as JSON
+// IMPORTANT: Must be BEFORE /:id route
+personsRouter.get('/export-json', async (_req, res, next) => {
+  try {
+    const persons = await prisma.person.findMany({ orderBy: { id: 'asc' } });
+
+    // Map to export format (without id and createdAt)
+    const exportData = persons.map((p) => ({
+      name: p.name,
+      gender: p.gender,
+    }));
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename=persons.json');
+    return res.json(exportData);
+  } catch (err) {
+    logger.error('GET /persons/export-json failed', err as any);
+    return next(err);
+  }
+});
+
+// POST /api/persons/import-json
+// Import persons from JSON (upsert based on name)
+personsRouter.post('/import-json', async (req, res, next) => {
+  try {
+    const data = req.body;
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ error: 'Expected an array of persons' });
+    }
+
+    let created = 0;
+    let updated = 0;
+    const problems: { name: string; reason: string }[] = [];
+
+    for (const item of data) {
+      try {
+        const input = PersonInputSchema.parse(item);
+        const existing = await prisma.person.findFirst({ where: { name: input.name } });
+
+        if (existing) {
+          await prisma.person.update({ where: { id: existing.id }, data: input as any });
+          updated++;
+        } else {
+          await prisma.person.create({ data: input as any });
+          created++;
+        }
+      } catch (err: any) {
+        problems.push({ name: item.name || 'unknown', reason: err.message || 'validation failed' });
+      }
+    }
+
+    return res.json({ ok: true, total: data.length, created, updated, problems });
+  } catch (err) {
+    logger.error('POST /persons/import-json failed', err as any);
     return next(err);
   }
 });
