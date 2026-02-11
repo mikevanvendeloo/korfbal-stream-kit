@@ -58,14 +58,20 @@ enum Gender {
   female
 }
 
+enum SkillType {
+  crew
+  on_stream
+}
+
 /// Catalog of skills (roles) with code and gendered display names
 model Skill {
-  id         Int      @id @default(autoincrement())
-  code       String   @unique // UPPERCASE short code
+  id         Int       @id @default(autoincrement())
+  code       String    @unique // UPPERCASE short code
   name       String
   nameMale   String
   nameFemale String
-  createdAt  DateTime @default(now())
+  type       SkillType @default(crew)
+  createdAt  DateTime  @default(now())
 
   // Relations
   skills      PersonSkill[]
@@ -102,9 +108,10 @@ model Person {
   createdAt DateTime @default(now())
 
   // Relations
-  skills             PersonSkill[]
-  assignments        MatchRoleAssignment[]
-  segmentAssignments SegmentRoleAssignment[]
+  skills              PersonSkill[]
+  assignments         MatchRoleAssignment[]
+  segmentAssignments  SegmentRoleAssignment[]
+  productionPresences ProductionPerson[]
 }
 
 /// Link table: which skills a person has
@@ -152,6 +159,22 @@ model Production {
   TitleDefinition   TitleDefinition[]
   interviewSubjects InterviewSubject[]
   productionReport  ProductionReport?
+  productionPersons ProductionPerson[]
+}
+
+/// People marked as present for a production
+model ProductionPerson {
+  id           Int      @id @default(autoincrement())
+  productionId Int
+  personId     Int
+  createdAt    DateTime @default(now())
+
+  production Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  person     Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([productionId, personId])
+  @@index([productionId])
+  @@index([personId])
 }
 
 /// Segments within a production (oplopen, wedstrijd, rust, etc.)

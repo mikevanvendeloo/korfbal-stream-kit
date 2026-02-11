@@ -12,6 +12,7 @@ import QRAdminPage from '../pages/QRAdminPage';
 import ProductionsAdminPage from '../pages/ProductionsAdminPage';
 import ProductionDetailPage from '../pages/ProductionDetailPage';
 import ProductionTitlesPage from '../pages/ProductionTitlesPage';
+import ProductionAttendancePage from '../pages/ProductionAttendancePage';
 import ClubsPage from '../pages/ClubsPage';
 import CrewReportPage from '../pages/CrewReportPage';
 import ProductionReportPage from '../pages/ProductionReportPage';
@@ -212,6 +213,7 @@ export function App() {
             <Route path="/admin/qr" element={<QRAdminPage />} />
             <Route path="/admin/productions" element={<ProductionsAdminPage />} />
             <Route path="/admin/productions/:id" element={<ProductionDetailPage />} />
+            <Route path="/admin/productions/:id/attendance" element={<ProductionAttendancePage />} />
             <Route path="/admin/productions/:id/titles" element={<ProductionTitlesPage />} />
             <Route path="/admin/productions/:id/crew-report" element={<CrewReportPage />} />
             <Route path="/admin/productions/:id/production-report" element={<ProductionReportPage />} />

@@ -5,7 +5,6 @@ import fs from 'node:fs';
 import * as XLSX from 'xlsx';
 import PDFDocument from 'pdfkit';
 import {skillsRouter} from './skills';
-import {personsRouter} from './persons';
 import {prisma} from '../services/prisma';
 import {findClubByTeamName} from '../utils/clubs';
 import {logger} from '../utils/logger';
@@ -29,9 +28,80 @@ export const productionRouter: Router = Router();
 // Multer memory storage for Excel upload (used by callsheet import)
 const uploadMem = multer({ storage: multer.memoryStorage() });
 
-// Nest existing routers under production namespace
+// IMPORTANT: Production-specific routes with :id param must come BEFORE nested routers
+// to avoid conflicts with /persons and /skills routes
+
+// -------- Production Persons (attendance tracking) --------
+// These routes must be defined BEFORE productionRouter.use('/persons', personsRouter)
+// List persons marked as present for a production
+productionRouter.get('/:id/persons', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+    const prod = await prisma.production.findUnique({ where: { id } });
+    if (!prod) return res.status(404).json({ error: 'Not found' });
+
+    const items = await prisma.productionPerson.findMany({
+      where: { productionId: id },
+      include: { person: true },
+      orderBy: { person: { name: 'asc' } },
+    });
+    return res.json(items);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Add person to production (mark as present)
+productionRouter.post('/:id/persons', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+    const prod = await prisma.production.findUnique({ where: { id } });
+    if (!prod) return res.status(404).json({ error: 'Not found' });
+
+    const personId = Number(req.body?.personId);
+    if (!Number.isInteger(personId) || personId <= 0) {
+      return res.status(400).json({ error: 'Invalid personId' });
+    }
+
+    const person = await prisma.person.findUnique({ where: { id: personId } });
+    if (!person) return res.status(404).json({ error: 'Person not found' });
+
+    const created = await prisma.productionPerson.create({
+      data: { productionId: id, personId },
+      include: { person: true },
+    });
+    return res.status(201).json(created);
+  } catch (err: any) {
+    if (err?.code === 'P2002') return res.status(409).json({ error: 'Person already marked as present' });
+    return next(err);
+  }
+});
+
+// Remove person from production (mark as absent)
+productionRouter.delete('/:id/persons/:productionPersonId', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+    const productionPersonId = Number(req.params.productionPersonId);
+    if (!Number.isInteger(productionPersonId) || productionPersonId <= 0) {
+      return res.status(400).json({ error: 'Invalid productionPersonId' });
+    }
+
+    const existing = await prisma.productionPerson.findUnique({ where: { id: productionPersonId } });
+    if (!existing || existing.productionId !== id) return res.status(404).json({ error: 'Not found' });
+
+    await prisma.productionPerson.delete({ where: { id: productionPersonId } });
+    return res.status(204).send();
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Nest skills router under production namespace for backward compatibility
+// Note: /persons router is NOT nested here - persons are available at /api/persons
 productionRouter.use('/skills', skillsRouter);
-productionRouter.use('/persons', personsRouter);
 
 // -------- Positions catalog (place before dynamic \/:id routes to avoid conflicts) --------
 const PositionSchema = z.object({
@@ -348,110 +418,6 @@ async function getMatchIdForProductionOr404(res: any, idParam: string): Promise<
   }
   return prod.matchScheduleId;
 }
-
-// Production-scoped assignments (map to MatchRoleAssignment via production.matchScheduleId)
-productionRouter.get('/:id/assignments', async (req, res, next) => {
-  try {
-    const matchId = await getMatchIdForProductionOr404(res, req.params.id);
-    if (!matchId) return;
-    const items = await prisma.matchRoleAssignment.findMany({
-      where: { matchScheduleId: matchId },
-      include: { person: true, skill: true },
-      orderBy: { id: 'asc' },
-    });
-    return res.json(items);
-  } catch (err) {
-    return next(err);
-  }
-});
-
-// Create assignment for a production
-productionRouter.post('/:id/assignments', async (req, res, next) => {
-  try {
-    const matchId = await getMatchIdForProductionOr404(res, req.params.id);
-    if (!matchId) return;
-
-    const skillId = Number(req.body?.skillId);
-    const personId = Number(req.body?.personId);
-    if (!Number.isInteger(skillId) || skillId <= 0 || !Number.isInteger(personId) || personId <= 0) {
-      return res.status(400).json({ error: 'Invalid personId or skillId' });
-    }
-
-    // Validate entities and skill ownership
-    const [person, capDef] = await Promise.all([
-      prisma.person.findUnique({ where: { id: personId } }),
-      prisma.skill.findUnique({ where: { id: skillId } }),
-    ]);
-    if (!person) return res.status(404).json({ error: 'Person not found' });
-    if (!capDef) return res.status(404).json({ error: 'Skill not found' });
-
-    const hasSkill = await prisma.personSkill.findUnique({
-      where: { personId_skillId: { personId, skillId } },
-    });
-    if (!hasSkill) return res.status(422).json({ error: 'Person lacks required skill for this role' });
-
-    const created = await prisma.matchRoleAssignment.create({
-      data: { matchScheduleId: matchId, personId, skillId },
-      include: { person: true, skill: true },
-    });
-    return res.status(201).json(created);
-  } catch (err: any) {
-    if (err?.code === 'P2002') return res.status(409).json({ error: 'This person already has this role for this production' });
-    return next(err);
-  }
-});
-
-// Update an assignment
-productionRouter.patch('/:id/assignments/:assignmentId', async (req, res, next) => {
-  try {
-    const matchId = await getMatchIdForProductionOr404(res, req.params.id);
-    if (!matchId) return;
-    const assignmentId = Number(req.params.assignmentId);
-    if (!Number.isInteger(assignmentId) || assignmentId <= 0) return res.status(400).json({ error: 'Invalid assignment id' });
-
-    const existing = await prisma.matchRoleAssignment.findUnique({ where: { id: assignmentId } });
-    if (!existing || existing.matchScheduleId !== matchId) return res.status(404).json({ error: 'Not found' });
-
-    const nextPersonId = req.body?.personId != null ? Number(req.body.personId) : existing.personId;
-    const nextSkillId = req.body?.skillId != null ? Number(req.body.skillId) : existing.skillId;
-    if (!Number.isInteger(nextPersonId) || nextPersonId <= 0 || !Number.isInteger(nextSkillId) || nextSkillId <= 0) {
-      return res.status(400).json({ error: 'Invalid personId or skillId' });
-    }
-
-    const hasSkill = await prisma.personSkill.findUnique({
-      where: { personId_skillId: { personId: nextPersonId, skillId: nextSkillId } },
-    });
-    if (!hasSkill) return res.status(422).json({ error: 'Person lacks required skill for this role' });
-
-    const updated = await prisma.matchRoleAssignment.update({
-      where: { id: assignmentId },
-      data: { personId: nextPersonId, skillId: nextSkillId },
-      include: { person: true, skill: true },
-    });
-    return res.json(updated);
-  } catch (err: any) {
-    if (err?.code === 'P2002') return res.status(409).json({ error: 'This role is already assigned for this production' });
-    return next(err);
-  }
-});
-
-// Delete an assignment
-productionRouter.delete('/:id/assignments/:assignmentId', async (req, res, next) => {
-  try {
-    const matchId = await getMatchIdForProductionOr404(res, req.params.id);
-    if (!matchId) return;
-    const assignmentId = Number(req.params.assignmentId);
-    if (!Number.isInteger(assignmentId) || assignmentId <= 0) return res.status(400).json({ error: 'Invalid assignment id' });
-
-    const existing = await prisma.matchRoleAssignment.findUnique({ where: { id: assignmentId } });
-    if (!existing || existing.matchScheduleId !== matchId) return res.status(404).json({ error: 'Not found' });
-
-    await prisma.matchRoleAssignment.delete({ where: { id: assignmentId } });
-    return res.status(204).send();
-  } catch (err) {
-    return next(err);
-  }
-});
 
 // ---------------- Segments CRUD ----------------
 // List segments for a production

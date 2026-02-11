@@ -13,6 +13,7 @@ const prisma = new PrismaClient();
 
 async function resetDb() {
   await prisma.$transaction([
+    prisma.productionPerson.deleteMany({}),
     prisma.matchRoleAssignment.deleteMany({}),
     prisma.personSkill.deleteMany({}),
     prisma.person.deleteMany({}),
@@ -68,47 +69,53 @@ async function resetDb() {
     expect(del.status).toBe(204);
   });
 
-  it('manages assignments scoped by production', async () => {
+  it('manages production persons (attendance tracking)', async () => {
     // Setup production
     const match = await prisma.matchSchedule.create({
-      data: { externalId: 'm-assign', date: new Date(), homeTeamName: 'Fortuna/Ruitenheer 1', awayTeamName: 'Opp', isHomeMatch: true },
+      data: { externalId: 'm-persons', date: new Date(), homeTeamName: 'Fortuna/Ruitenheer 1', awayTeamName: 'Opp', isHomeMatch: true },
     });
     const prod = await prisma.production.create({ data: { matchScheduleId: match.id } });
 
-    // Person + capabilities
-    const person = await prisma.person.create({ data: { name: 'Alice', gender: 'female' } });
-    const role1 = await prisma.skill.findFirst({ where: { code: 'COACH' } });
-    const role2 = await prisma.skill.findFirst({ where: { code: 'COMMENTATOR' } });
-    expect(role1 && role2).toBeTruthy();
+    // Create persons
+    const alice = await prisma.person.create({ data: { name: 'Alice', gender: 'female' } });
+    const bob = await prisma.person.create({ data: { name: 'Bob', gender: 'male' } });
 
-    // Add person capabilities
-    await prisma.personSkill.create({ data: { personId: person.id, skillId: role1!.id } });
-    await prisma.personSkill.create({ data: { personId: person.id, skillId: role2!.id } });
+    // Initially no persons present
+    const list1 = await request(app).get(`/api/production/${prod.id}/persons`);
+    expect(list1.status).toBe(200);
+    expect(list1.body.length).toBe(0);
 
-    // Create two assignments for same person with different roles
-    const a1 = await request(app)
-      .post(`/api/production/${prod.id}/assignments`)
-      .send({ personId: person.id, skillId: role1!.id });
-    expect(a1.status).toBe(201);
+    // Mark Alice as present
+    const add1 = await request(app)
+      .post(`/api/production/${prod.id}/persons`)
+      .send({ personId: alice.id });
+    expect(add1.status).toBe(201);
 
-    const a2 = await request(app)
-      .post(`/api/production/${prod.id}/assignments`)
-      .send({ personId: person.id, skillId: role2!.id });
-    expect(a2.status).toBe(201);
+    // Mark Bob as present
+    const add2 = await request(app)
+      .post(`/api/production/${prod.id}/persons`)
+      .send({ personId: bob.id });
+    expect(add2.status).toBe(201);
 
     // List should show 2
-    const list = await request(app).get(`/api/production/${prod.id}/assignments`);
-    expect(list.status).toBe(200);
-    expect(list.body.length).toBe(2);
+    const list2 = await request(app).get(`/api/production/${prod.id}/persons`);
+    expect(list2.status).toBe(200);
+    expect(list2.body.length).toBe(2);
 
-    // Update assignment 1 to role2 should conflict (unique per skill per match)
-    const patch = await request(app)
-      .patch(`/api/production/${prod.id}/assignments/${a1.body.id}`)
-      .send({ skillId: role2!.id });
-    expect([409, 422]).toContain(patch.status);
+    // Adding Alice again should conflict
+    const addDupe = await request(app)
+      .post(`/api/production/${prod.id}/persons`)
+      .send({ personId: alice.id });
+    expect(addDupe.status).toBe(409);
 
-    // Delete first assignment
-    const del = await request(app).delete(`/api/production/${prod.id}/assignments/${a1.body.id}`);
+    // Remove Alice
+    const del = await request(app).delete(`/api/production/${prod.id}/persons/${add1.body.id}`);
     expect(del.status).toBe(204);
+
+    // List should show 1
+    const list3 = await request(app).get(`/api/production/${prod.id}/persons`);
+    expect(list3.status).toBe(200);
+    expect(list3.body.length).toBe(1);
+    expect(list3.body[0].person.name).toBe('Bob');
   });
 });

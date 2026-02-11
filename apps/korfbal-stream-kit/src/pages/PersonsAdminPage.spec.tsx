@@ -27,20 +27,20 @@ describe('PersonsAdminPage', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: any, init?: any) => {
       const url = typeof input === 'string' ? input : input.toString();
       const u = new URL(url, 'http://localhost');
-      // Persons list
-      if (u.pathname.endsWith('/api/production/persons') && (!init || init.method === 'GET')) {
+      // Persons list - now at /api/persons
+      if (u.pathname.endsWith('/api/persons') && (!init || init.method === 'GET')) {
         return { ok: true, json: async () => paginated } as any;
       }
       // Create person
-      if (u.pathname.endsWith('/api/production/persons') && init?.method === 'POST') {
+      if (u.pathname.endsWith('/api/persons') && init?.method === 'POST') {
         return { ok: true, json: async () => ({ id: 3, name: 'Cara', gender: 'female', createdAt: new Date().toISOString() }) } as any;
       }
       // Update person
-      if (u.pathname.match(/\/api\/production\/persons\/(\d+)/) && init?.method === 'PUT') {
+      if (u.pathname.match(/\/api\/persons\/(\d+)/) && init?.method === 'PUT') {
         return { ok: true, json: async () => ({ ...persons[0], name: 'Alice Doe' }) } as any;
       }
       // Delete person
-      if (u.pathname.match(/\/api\/production\/persons\/(\d+)/) && init?.method === 'DELETE') {
+      if (u.pathname.match(/\/api\/persons\/(\d+)/) && init?.method === 'DELETE') {
         return { ok: true, status: 204, json: async () => ({}) } as any;
       }
       // Skills catalog (paginated)
@@ -51,17 +51,17 @@ describe('PersonsAdminPage', () => {
         ], page: 1, limit: 100, total: 2, pages: 1 }) } as any;
       }
       // Skills list for person 1
-      if (u.pathname.endsWith('/api/production/persons/1/skills') && (!init || init.method === 'GET')) {
+      if (u.pathname.endsWith('/api/persons/1/skills') && (!init || init.method === 'GET')) {
         return { ok: true, json: async () => ([
           { personId: 1, skillId: 10, skill: { id: 10, code: 'COACH', nameMale: 'Coach', nameFemale: 'Coach' } },
         ]) } as any;
       }
       // Add skill for any person
-      if (u.pathname.match(/\/api\/production\/(?:persons)\/(\d+)\/skills$/) && init?.method === 'POST') {
+      if (u.pathname.match(/\/api\/persons\/(\d+)\/skills$/) && init?.method === 'POST') {
         return { ok: true, json: async () => ({ ok: true }) } as any;
       }
       // Remove skill
-      if (u.pathname.match(/\/api\/production\/persons\/(\d+)\/skills\/(\d+)/) && init?.method === 'DELETE') {
+      if (u.pathname.match(/\/api\/persons\/(\d+)\/skills\/(\d+)/) && init?.method === 'DELETE') {
         return { ok: true, status: 204, json: async () => ({}) } as any;
       }
       return { ok: false, status: 404 } as any;
@@ -88,7 +88,7 @@ describe('PersonsAdminPage', () => {
       const calls = (global.fetch as any).mock.calls;
       const hasPersonPost = calls.some((call: any[]) => {
         const url = typeof call[0] === 'string' ? call[0] : call[0].toString();
-        return url.includes('/api/production/persons') && call[1]?.method === 'POST';
+        return url.includes('/api/persons') && call[1]?.method === 'POST';
       });
       expect(hasPersonPost).toBe(true);
     });
@@ -131,7 +131,7 @@ describe('PersonsAdminPage', () => {
       const calls = (global.fetch as any).mock.calls;
       const hasSkillPost = calls.some((call: any[]) => {
         const url = typeof call[0] === 'string' ? call[0] : call[0].toString();
-        return url.includes('/api/production/persons/1/skills') && call[1]?.method === 'POST';
+        return url.includes('/api/persons/1/skills') && call[1]?.method === 'POST';
       });
       expect(hasSkillPost).toBe(true);
     });
@@ -147,8 +147,8 @@ describe('PersonsAdminPage', () => {
     // Expect a POST then DELETE calls happened for replace
     await waitFor(() => {
       const calls = (global.fetch as any).mock.calls.map((c: any[]) => ({ url: typeof c[0] === 'string' ? c[0] : c[0].toString(), init: c[1] }));
-      const postReplace = calls.some((c: any) => c.url.includes('/api/production/persons/1/skills') && c.init?.method === 'POST');
-      const delReplace = calls.some((c: any) => c.url.match(/\/api\/production\/persons\/1\/skills\/10$/) && c.init?.method === 'DELETE');
+      const postReplace = calls.some((c: any) => c.url.includes('/api/persons/1/skills') && c.init?.method === 'POST');
+      const delReplace = calls.some((c: any) => c.url.match(/\/api\/persons\/1\/skills\/10$/) && c.init?.method === 'DELETE');
       expect(postReplace && delReplace).toBe(true);
     });
 
@@ -157,7 +157,7 @@ describe('PersonsAdminPage', () => {
     fireEvent.click(rmBtns[0]);
     await waitFor(() => {
       const calls = (global.fetch as any).mock.calls.map((c: any[]) => ({ url: typeof c[0] === 'string' ? c[0] : c[0].toString(), init: c[1] }));
-      expect(calls.some((c: any) => c.url.match(/\/api\/production\/persons\/1\/skills\/(\d+)$/) && c.init?.method === 'DELETE')).toBe(true);
+      expect(calls.some((c: any) => c.url.match(/\/api\/persons\/1\/skills\/(\d+)$/) && c.init?.method === 'DELETE')).toBe(true);
     });
   });
 
@@ -191,11 +191,11 @@ describe('PersonsAdminPage (create with inline skills)', () => {
       const url = typeof input === 'string' ? input : input.toString();
       const u = new URL(url, 'http://localhost');
       // Persons list
-      if (u.pathname.endsWith('/api/production/persons') && (!init || init.method === 'GET')) {
+      if (u.pathname.endsWith('/api/persons') && (!init || init.method === 'GET')) {
         return { ok: true, json: async () => ({ items: [], page: 1, limit: 50, total: 0, pages: 1 }) } as any;
       }
       // Create person
-      if (u.pathname.endsWith('/api/production/persons') && init?.method === 'POST') {
+      if (u.pathname.endsWith('/api/persons') && init?.method === 'POST') {
         return { ok: true, json: async () => ({ id: 3, name: 'Cara', gender: 'female', createdAt: new Date().toISOString() }) } as any;
       }
       // Skills catalog
@@ -206,7 +206,7 @@ describe('PersonsAdminPage (create with inline skills)', () => {
         ], page: 1, limit: 100, total: 2, pages: 1 }) } as any;
       }
       // Add skill for person 3 after create
-      if (u.pathname.endsWith('/api/production/persons/3/skills') && init?.method === 'POST') {
+      if (u.pathname.endsWith('/api/persons/3/skills') && init?.method === 'POST') {
         return { ok: true, json: async () => ({ ok: true }) } as any;
       }
       return { ok: false, status: 404 } as any;
@@ -237,8 +237,8 @@ describe('PersonsAdminPage (create with inline skills)', () => {
 
     await waitFor(() => {
       const calls = (global.fetch as any).mock.calls.map((c: any[]) => ({ url: typeof c[0] === 'string' ? c[0] : c[0].toString(), init: c[1] }));
-      const created = calls.some((c: any) => c.url.endsWith('/api/production/persons') && c.init?.method === 'POST');
-      const skillPost = calls.some((c: any) => c.url.match(/\/api\/production\/persons\/3\/skills$/) && c.init?.method === 'POST');
+      const created = calls.some((c: any) => c.url.endsWith('/api/persons') && c.init?.method === 'POST');
+      const skillPost = calls.some((c: any) => c.url.match(/\/api\/persons\/3\/skills$/) && c.init?.method === 'POST');
       expect(created && skillPost).toBe(true);
     });
   });

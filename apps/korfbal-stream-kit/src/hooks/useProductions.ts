@@ -250,61 +250,39 @@ export function useSegmentDefaultPositions(segmentId: number) {
   });
 }
 
-export type Assignment = { id: number; personId: number; skillId: number; person: { id: number; name: string; gender: 'male' | 'female' }; skill: { id: number; code: string; nameMale: string; nameFemale: string } };
+export type ProductionPerson = { id: number; productionId: number; personId: number; person: { id: number; name: string; gender: 'male' | 'female' }; createdAt: string };
 
-export function useProductionAssignments(productionId: number) {
+export function useProductionPersons(productionId: number) {
   return useQuery({
-    queryKey: ['production', productionId, 'assignments'],
+    queryKey: ['production', productionId, 'persons'],
     enabled: !!productionId,
-    queryFn: async (): Promise<Assignment[]> => {
-      const res = await fetch(createUrl(`/api/production/${productionId}/assignments`));
+    queryFn: async (): Promise<ProductionPerson[]> => {
+      const res = await fetch(createUrl(`/api/production/${productionId}/persons`));
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
   });
 }
 
-export function useAddProductionAssignment(productionId: number) {
+export function useAddProductionPerson(productionId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { personId: number; skillId: number }): Promise<Assignment> => {
-      const res = await fetch(createUrl(`/api/production/${productionId}/assignments`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+    mutationFn: async (input: { personId: number }): Promise<ProductionPerson> => {
+      const res = await fetch(createUrl(`/api/production/${productionId}/persons`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
-    onSuccess: (created) => {
-      // Optimistically append to the cache so multiple roles for the same person show immediately
-      const key = ['production', productionId, 'assignments'] as const;
-      const prev = qc.getQueryData<Assignment[]>(key) || [];
-      // Avoid duplicate append by id
-      if (!prev.some((a) => a.id === created.id)) {
-        qc.setQueryData<Assignment[]>(key, [...prev, created]);
-      }
-      // Trigger a refetch on a microtask to let the optimistic update render first
-      setTimeout(() => qc.invalidateQueries({ queryKey: key }), 0);
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['production', productionId, 'persons'] }),
   });
 }
 
-export function useUpdateProductionAssignment(productionId: number) {
+export function useDeleteProductionPerson(productionId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: number; personId?: number; skillId?: number }): Promise<Assignment> => {
-      const res = await fetch(  createUrl(`/api/production/${productionId}/assignments/${input.id}`), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId: input.personId, skillId: input.skillId }) });
-      if (!res.ok) throw new Error(await extractError(res));
-      return res.json();
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['production', productionId, 'assignments'] }),
-  });
-}
-
-export function useDeleteProductionAssignment(productionId: number) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (assignmentId: number) => {
-      const res = await fetch(createUrl(`/api/production/${productionId}/assignments/${assignmentId}`), { method: 'DELETE' });
+    mutationFn: async (productionPersonId: number) => {
+      const res = await fetch(createUrl(`/api/production/${productionId}/persons/${productionPersonId}`), { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['production', productionId, 'assignments'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['production', productionId, 'persons'] }),
   });
 }

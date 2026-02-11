@@ -8,7 +8,7 @@ export const skillsRouter: Router = Router();
 // List skills with optional search + pagination
 skillsRouter.get('/', async (req, res, next) => {
   try {
-    const { q, page, limit } = SkillQuerySchema.parse(req.query);
+    const { q, type, page, limit } = SkillQuerySchema.parse(req.query);
     const where: any = {};
     if (q && q.trim()) {
       const s = q.trim();
@@ -18,6 +18,9 @@ skillsRouter.get('/', async (req, res, next) => {
         { nameMale: { contains: s, mode: 'insensitive' } },
         { nameFemale: { contains: s, mode: 'insensitive' } },
       ];
+    }
+    if (type) {
+      where.type = type;
     }
     const skip = (page - 1) * limit;
     const [items, total] = await Promise.all([
@@ -44,6 +47,7 @@ skillsRouter.get('/export-json', async (_req, res, next) => {
       name: s.name,
       nameMale: s.nameMale,
       nameFemale: s.nameFemale,
+      type: s.type,
     }));
 
     res.setHeader('Content-Type', 'application/json');

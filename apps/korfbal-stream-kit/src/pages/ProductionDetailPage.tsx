@@ -11,7 +11,7 @@ import {
 } from '../hooks/useProductions';
 import SegmentFormModal, {SegmentFormValues} from '../components/SegmentFormModal';
 import IconButton from '../components/IconButton';
-import {MdAdd, MdAnchor, MdArrowDownward, MdArrowUpward, MdDelete, MdEdit} from 'react-icons/md';
+import {MdAdd, MdAnchor, MdArrowDownward, MdArrowUpward, MdDelete, MdEdit, MdGroups} from 'react-icons/md';
 import SegmentAssignmentsCard from '../components/SegmentAssignmentsCard';
 import {usePersons} from '../hooks/usePersons';
 import ProductionHeader from '../components/ProductionHeader';
@@ -128,6 +128,10 @@ export default function ProductionDetailPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-lg font-semibold">Productiedetails</h1>
         <div className="flex items-center gap-2">
+          <Link to={`/admin/productions/${id}/attendance`} className="px-3 py-1 border rounded inline-flex items-center gap-2">
+            <MdGroups className="w-5 h-5" />
+            <span>Aanwezigheid</span>
+          </Link>
           <Link to={`/admin/productions/${id}/titles`} className="px-3 py-1 border rounded" aria-label="vmix-titles-link">vMix titels</Link>
         </div>
       </div>

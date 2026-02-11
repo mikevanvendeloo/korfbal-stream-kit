@@ -5,12 +5,14 @@ import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdEdit, MdDownload, MdUploadFile} from 'react-icons/md';
 import {createUrl, extractError} from "../lib/api";
 
-export type Skill = { id: number; code: string; name: string; nameMale: string; nameFemale: string; createdAt?: string };
+export type SkillType = 'crew' | 'on_stream';
+export type Skill = { id: number; code: string; name: string; nameMale: string; nameFemale: string; type: SkillType; createdAt?: string };
 
-function useSkills(q?: string) {
+function useSkills(q?: string, type?: SkillType) {
   const params = new URLSearchParams();
   if (q) params.set('q', q);
-  const qk = ['skills', q] as const;
+  if (type) params.set('type', type);
+  const qk = ['skills', q, type] as const;
   return useQuery({
     queryKey: qk,
     queryFn: async (): Promise<{ items: Skill[]; total: number }> => {
@@ -26,7 +28,7 @@ function useSkills(q?: string) {
 function useCreateSkill() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { code: string; name: string; nameMale: string; nameFemale: string }) => {
+    mutationFn: async (input: { code: string; name: string; nameMale: string; nameFemale: string; type: SkillType }) => {
       const res = await fetch(createUrl('/api/skills'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
@@ -38,8 +40,8 @@ function useCreateSkill() {
 function useUpdateSkill() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: number; code?: string; name?: string; nameMale?: string; nameFemale?: string }) => {
-      const res = await fetch(createUrl(`/api/skills/${input.id}`), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: input.code, name: input.name, nameMale: input.nameMale, nameFemale: input.nameFemale }) });
+    mutationFn: async (input: { id: number; code?: string; name?: string; nameMale?: string; nameFemale?: string; type?: SkillType }) => {
+      const res = await fetch(createUrl(`/api/skills/${input.id}`), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: input.code, name: input.name, nameMale: input.nameMale, nameFemale: input.nameFemale, type: input.type }) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
@@ -60,7 +62,8 @@ function useDeleteSkill() {
 
 export default function SkillsAdminPage() {
   const [q, setQ] = React.useState('');
-  const { data, isLoading, error, refetch } = useSkills(q);
+  const [typeFilter, setTypeFilter] = React.useState<SkillType | ''>('');
+  const { data, isLoading, error, refetch } = useSkills(q, typeFilter || undefined);
   const create = useCreateSkill();
   const update = useUpdateSkill();
   const del = useDeleteSkill();
@@ -68,7 +71,7 @@ export default function SkillsAdminPage() {
 
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
-  const [editing, setEditing] = React.useState<{ id?: number; code: string; name: string; nameMale: string; nameFemale: string } | null>(null);
+  const [editing, setEditing] = React.useState<{ id?: number; code: string; name: string; nameMale: string; nameFemale: string; type: SkillType } | null>(null);
   const fileRef = React.useRef<HTMLInputElement | null>(null);
 
   const columns = React.useMemo<ColumnDef<Skill>[]>(() => [
@@ -77,10 +80,19 @@ export default function SkillsAdminPage() {
     { header: 'Male', accessorKey: 'nameMale' },
     { header: 'Female', accessorKey: 'nameFemale' },
     {
+      header: 'Type',
+      accessorKey: 'type',
+      cell: ({ row }) => (
+        <span className={`px-2 py-1 rounded text-xs ${row.original.type === 'crew' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'}`}>
+          {row.original.type === 'crew' ? 'Crew' : 'On-stream'}
+        </span>
+      ),
+    },
+    {
       header: 'Actions',
       cell: ({ row }) => (
         <div className="flex gap-2">
-          <IconButton ariaLabel="Edit skill" title="Wijzig" onClick={() => setEditing({ id: row.original.id, code: row.original.code, name: row.original.name, nameMale: row.original.nameMale, nameFemale: row.original.nameFemale })}>
+          <IconButton ariaLabel="Edit skill" title="Wijzig" onClick={() => setEditing({ id: row.original.id, code: row.original.code, name: row.original.name, nameMale: row.original.nameMale, nameFemale: row.original.nameFemale, type: row.original.type })}>
             <MdEdit className="w-5 h-5" />
           </IconButton>
           <IconButton ariaLabel="Delete skill" title="Verwijder" onClick={async () => {
@@ -102,7 +114,7 @@ export default function SkillsAdminPage() {
 
   async function onSave() {
     if (!editing) return;
-    const payload = { code: editing.code.toUpperCase(), name: editing.name, nameMale: editing.nameMale, nameFemale: editing.nameFemale };
+    const payload = { code: editing.code.toUpperCase(), name: editing.name, nameMale: editing.nameMale, nameFemale: editing.nameFemale, type: editing.type };
     setErrorMsg(null);
     try {
       if (editing.id) {
@@ -154,14 +166,19 @@ export default function SkillsAdminPage() {
             <MdDownload className="w-5 h-5" />
             <span className="sr-only">Export</span>
           </a>
-          <button className="px-3 py-1 border rounded inline-flex items-center gap-1" onClick={() => setEditing({ code: '', name: '', nameMale: '', nameFemale: '' })}>
+          <button className="px-3 py-1 border rounded inline-flex items-center gap-1" onClick={() => setEditing({ code: '', name: '', nameMale: '', nameFemale: '', type: 'crew' })}>
             <MdAdd /> Nieuw
           </button>
         </div>
       </div>
 
-      <div className="mb-3">
+      <div className="mb-3 flex gap-2">
         <input aria-label="Search skills" value={q} onChange={(e) => setQ(e.target.value)} className="px-2 py-1 border rounded w-64 bg-white dark:bg-gray-950" placeholder="Zoek code of naam" />
+        <select aria-label="Filter by type" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as SkillType | '')} className="px-2 py-1 border rounded bg-white dark:bg-gray-950">
+          <option value="">Alle types</option>
+          <option value="crew">Crew</option>
+          <option value="on_stream">On-stream</option>
+        </select>
       </div>
 
       {isLoading && <div>Laden…</div>}
@@ -222,6 +239,13 @@ export default function SkillsAdminPage() {
               <div>
                 <label className="block text-xs mb-1">Naam (vrouw)</label>
                 <input aria-label="Skill name female" value={editing.nameFemale} onChange={(e) => setEditing({ ...editing, nameFemale: e.target.value })} className="px-2 py-1 border rounded w-full bg-white dark:bg-gray-950" />
+              </div>
+              <div>
+                <label className="block text-xs mb-1">Type</label>
+                <select aria-label="Skill type" value={editing.type} onChange={(e) => setEditing({ ...editing, type: e.target.value as SkillType })} className="px-2 py-1 border rounded w-full bg-white dark:bg-gray-950">
+                  <option value="crew">Crew</option>
+                  <option value="on_stream">On-stream</option>
+                </select>
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">

@@ -2,16 +2,12 @@ import React from 'react';
 
 import {
   useActivateProduction,
-  useAddProductionAssignment,
   useCreateProduction,
   useDeleteProduction,
-  useDeleteProductionAssignment,
-  useProductionAssignments,
   useProductionMatches,
   useProductions,
   useUpdateProduction,
 } from '../hooks/useProductions';
-import {usePersons, useSkillsCatalog} from '../hooks/usePersons';
 import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdEdit, MdGroups, MdInfo, MdPlayCircle} from 'react-icons/md';
 
@@ -22,20 +18,9 @@ export default function ProductionsAdminPage() {
   const update = useUpdateProduction();
   const del = useDeleteProduction();
   const activate = useActivateProduction();
-
+  const [selectedProdId, setSelectedProdId] = React.useState<number | null>(null);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<{ id?: number; matchScheduleId: number } | null>(null);
-  const [selectedProdId, setSelectedProdId] = React.useState<number | null>(null);
-
-  const assignments = useProductionAssignments(selectedProdId || 0);
-  const addAssign = useAddProductionAssignment(selectedProdId || 0);
-  const delAssign = useDeleteProductionAssignment(selectedProdId || 0);
-
-  const persons = usePersons({ page: 1, limit: 100 });
-  const skills = useSkillsCatalog();
-
-  const [newPersonId, setNewPersonId] = React.useState<number>(0);
-  const [newSkillId, setNewSkillId] = React.useState<number>(0);
 
   async function onSaveProduction() {
     if (!editing) return;
@@ -49,20 +34,6 @@ export default function ProductionsAdminPage() {
       setEditing(null);
     } catch (e: any) {
       setErrorMsg(e?.message || 'Opslaan mislukt');
-    }
-  }
-
-  async function onAddAssignment() {
-    if (!selectedProdId) return;
-    setErrorMsg(null);
-    try {
-      if (newPersonId > 0 && newSkillId > 0) {
-        await addAssign.mutateAsync({ personId: newPersonId, skillId: newSkillId });
-        setNewPersonId(0);
-        setNewSkillId(0);
-      }
-    } catch (e: any) {
-      setErrorMsg(e?.message || 'Toevoegen mislukt');
     }
   }
 
@@ -83,9 +54,7 @@ export default function ProductionsAdminPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <table className="min-w-full border border-gray-200 dark:border-gray-800 text-sm">
+      <table className="min-w-full border border-gray-200 dark:border-gray-800 text-sm">
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
                 <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">ID</th>
@@ -138,13 +107,11 @@ export default function ProductionsAdminPage() {
                         <MdInfo className="w-5 h-5" />
                       </IconButton>
                       <IconButton
-                        ariaLabel="Selecteer crew-paneel"
-                        title="Crew"
-                        className={selectedProdId === p.id ? 'bg-blue-600 text-white' : ''}
-                        onClick={() => setSelectedProdId(p.id)}
+                        ariaLabel="Aanwezigheid beheren"
+                        title="Aanwezigheid"
+                        onClick={() => window.location.href = `/admin/productions/${p.id}/attendance`}
                       >
                         <MdGroups className="w-5 h-5" />
-                        <span className="sr-only">Crew</span>
                       </IconButton>
                     </div>
                   </td>
@@ -152,56 +119,6 @@ export default function ProductionsAdminPage() {
               ))}
             </tbody>
           </table>
-        </div>
-
-        {/* Assignments panel */}
-        <div>
-          <h2 className="font-semibold mb-2">Crew assignments</h2>
-          {!selectedProdId && <div className="text-sm text-gray-500">Selecteer een production om crew toe te wijzen</div>}
-          {selectedProdId && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-500">Persoon</label>
-                <select aria-label="assignment-person" className="px-2 py-1 border rounded bg-white dark:bg-gray-950" value={newPersonId} onChange={(e) => setNewPersonId(Number(e.target.value))}>
-                  <option value={0}>Kies persoon…</option>
-                  {(persons.data?.items || []).map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-                <label className="text-xs text-gray-500">Rol</label>
-                <select aria-label="assignment-role" className="px-2 py-1 border rounded bg-white dark:bg-gray-950" value={newSkillId} onChange={(e) => setNewSkillId(Number(e.target.value))}>
-                  <option value={0}>Kies rol…</option>
-                  {(skills.data || []).map((c) => (
-                    <option key={c.id} value={c.id}>{c.code}</option>
-                  ))}
-                </select>
-                <button aria-label="add-assignment" className="px-3 py-1 border rounded inline-flex items-center gap-1" onClick={onAddAssignment}>
-                  <MdAdd /> Voeg toe
-                </button>
-              </div>
-
-              <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-                {(assignments.data || []).map((a) => (
-                  <li key={a.id} className="flex items-center justify-between py-1.5">
-                    <div>
-                      <span className="font-medium">{a.person.name}</span>
-                      <span className="text-gray-500 ml-2">[{a.skill.code}]</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <IconButton ariaLabel="Delete assignment" title="Verwijder" onClick={async () => { setErrorMsg(null); try { await delAssign.mutateAsync(a.id); } catch (e: any) { setErrorMsg(e?.message || 'Verwijderen mislukt'); } }}>
-                        <MdDelete className="w-5 h-5 text-red-600" />
-                      </IconButton>
-                    </div>
-                  </li>
-                ))}
-                {assignments.data && assignments.data.length === 0 ? (
-                  <li className="text-xs text-gray-500 py-1.5">Geen toewijzingen</li>
-                ) : null}
-              </ul>
-            </div>
-          )}
-        </div>
-      </div>
 
       {editing && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
