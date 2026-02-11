@@ -9,7 +9,10 @@ import {
 } from '../hooks/useProductionReport';
 import {MdPictureAsPdf} from 'react-icons/md';
 import {FaCheck, FaMarkdown, FaWhatsapp} from 'react-icons/fa';
-import {createUrl} from "../lib/api";
+import PlayerCard from '../components/PlayerCard';
+import {useClubs, Club} from '../hooks/useClubs';
+import ClubLogo from '../components/ClubLogo';
+import {useProductionTiming} from '../hooks/useProductions';
 
 const SECTION_LABELS: Record<string, string> = {
   OPLOPEN: 'Oplopen',
@@ -20,11 +23,41 @@ const SECTION_LABELS: Record<string, string> = {
   OVERIG: 'Overig',
 };
 
+function normalizeTeamForLookup(name?: string): string | undefined {
+  if (!name) return undefined;
+  const trimmed = String(name).trim();
+  const noNumber = trimmed.replace(/\s+\d+$/g, '');
+  const base = noNumber.split('/')[0]?.trim() || noNumber;
+  return base.toLowerCase();
+}
+
+function matchClub(teamName?: string, list?: Club[]): Club | undefined {
+  if (!teamName || !list?.length) return undefined;
+  const key = normalizeTeamForLookup(teamName);
+  if (!key) return undefined;
+  const exactShort = list.find((c) => c.shortName?.toLowerCase() === key);
+  if (exactShort) return exactShort;
+  const exactName = list.find((c) => c.name?.toLowerCase() === key);
+  if (exactName) return exactName;
+  const starts = list.find((c) => key && (c.shortName?.toLowerCase().startsWith(key) || c.name?.toLowerCase().startsWith(key)));
+  if (starts) return starts;
+  return list.find((c) => key && (c.shortName?.toLowerCase().includes(key) || c.name?.toLowerCase().includes(key)));
+}
+
+function timeLocal(iso: string) {
+  const d = new Date(iso);
+  const h = d.getHours().toString().padStart(2, '0');
+  const m = d.getMinutes().toString().padStart(2, '0');
+  return `${h}:${m}`;
+}
+
 export default function ProductionReportPage() {
   const params = useParams<{ id: string }>();
   const productionId = Number(params.id);
   const {data, isLoading, error} = useProductionReport(productionId);
   const saveMutation = useSaveProductionReport(productionId);
+  const {data: clubs} = useClubs();
+  const timing = useProductionTiming(productionId);
 
   const [matchSponsor, setMatchSponsor] = useState('');
   const [interviewRationale, setInterviewRationale] = useState('');
@@ -70,6 +103,9 @@ export default function ProductionReportPage() {
 
   const matchTitle = `${data.production.homeTeam} - ${data.production.awayTeam}`;
   const matchDate = new Date(data.production.date);
+
+  const homeClub = matchClub(data.production.homeTeam, clubs);
+  const awayClub = matchClub(data.production.awayTeam, clubs);
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
@@ -117,8 +153,20 @@ export default function ProductionReportPage() {
       </div>
 
       <div className="mb-4 p-3 border rounded border-gray-200 dark:border-gray-800">
-        <div className="font-medium">{matchTitle}</div>
-        <div className="text-sm text-gray-500">{matchDate.toLocaleString('nl-NL')}</div>
+        <div className="flex items-center justify-center gap-4 mb-2">
+          <ClubLogo
+            logoUrl={homeClub?.logoUrl}
+            alt={homeClub?.shortName || homeClub?.name || data.production.homeTeam}
+            size="medium"
+          />
+          <div className="font-medium">{matchTitle}</div>
+          <ClubLogo
+            logoUrl={awayClub?.logoUrl}
+            alt={awayClub?.shortName || awayClub?.name || data.production.awayTeam}
+            size="medium"
+          />
+        </div>
+        <div className="text-sm text-gray-500 text-center">{matchDate.toLocaleString('nl-NL')}</div>
       </div>
 
       <div className="space-y-6">
@@ -128,6 +176,36 @@ export default function ProductionReportPage() {
           <div className="text-sm">
             {data.enriched.attendees.length > 0 ? data.enriched.attendees.join(', ') : 'Geen aanwezigen'}
           </div>
+        </div>
+
+        {/* Tijdschema */}
+        <div className="border rounded p-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+          <h2 className="text-lg font-semibold mb-2">Tijdschema</h2>
+          {timing.isLoading && <div className="text-sm text-gray-500">Laden…</div>}
+          {timing.data && timing.data.length > 0 ? (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b dark:border-gray-600">
+                  <th className="text-left py-2 pr-4 font-medium">Segment</th>
+                  <th className="text-left py-2 pr-4 font-medium">Start</th>
+                  <th className="text-left py-2 pr-4 font-medium">Einde</th>
+                  <th className="text-left py-2 font-medium">Duur</th>
+                </tr>
+              </thead>
+              <tbody>
+                {timing.data.map((segment) => (
+                  <tr key={segment.id} className="border-b dark:border-gray-700">
+                    <td className="py-2 pr-4">{segment.naam}</td>
+                    <td className="py-2 pr-4">{timeLocal(segment.start)}</td>
+                    <td className="py-2 pr-4">{timeLocal(segment.end)}</td>
+                    <td className="py-2">{segment.duurInMinuten} min</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="text-sm text-gray-500">Geen tijdschema beschikbaar</div>
+          )}
         </div>
 
         {/* Positie bezetting (read-only, vanuit productie) */}
@@ -228,57 +306,28 @@ export default function ProductionReportPage() {
                 {/* Coach kolom */}
                 <div>
                   {data.enriched.interviews.away.coaches.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="font-medium text-base">
-                        {data.enriched.interviews.away.coaches[0].name}
-                      </div>
-                      {data.enriched.interviews.away.coaches[0].function && (
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                          {data.enriched.interviews.away.coaches[0].function}
-                        </div>
-                      )}
-                      {data.enriched.interviews.away.coaches[0].photoUrl && (
-                        <div className="w-64 h-64 overflow-hidden rounded">
-                          <img
-                            src={createUrl(`/uploads/${data.enriched.interviews.away.coaches[0].photoUrl}`).toString()}
-                            alt={data.enriched.interviews.away.coaches[0].name}
-                            className="w-full h-full object-cover scale-125 origin-top"
-                            style={{objectPosition: 'center top', aspectRatio: '1'}}
-                          />
-                        </div>
-                      )}
-                    </div>
+                    <PlayerCard
+                      name={data.enriched.interviews.away.coaches[0].name}
+                      photoUrl={data.enriched.interviews.away.coaches[0].photoUrl}
+                      function={data.enriched.interviews.away.coaches[0].function}
+                    />
                   )}
                 </div>
 
                 {/* Spelers kolom */}
-                <div>
+                <div className="space-y-4">
                   {data.enriched.interviews.away.players.length > 0 && (
-                    <div className="space-y-4">
+                    <>
                       {data.enriched.interviews.away.players.map((player) => (
-                        <div key={player.id} className="space-y-2">
-                          <div className="font-medium text-base">
-                            {player.name}
-                            {player.shirtNo != null && player.shirtNo > 0 && (
-                              <span className="text-gray-500"> (#{player.shirtNo})</span>
-                            )}
-                          </div>
-                          {player.function && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400">{player.function}</div>
-                          )}
-                          {player.photoUrl && (
-                            <div className="w-64 h-64 overflow-hidden rounded">
-                              <img
-                                src={createUrl(`/uploads/${player.photoUrl}`).toString()}
-                                alt={player.name}
-                                className="w-full h-full object-cover scale-125 origin-top"
-                                style={{objectPosition: 'center top', aspectRatio: '1'}}
-                              />
-                            </div>
-                          )}
-                        </div>
+                        <PlayerCard
+                          key={player.id}
+                          name={player.name}
+                          photoUrl={player.photoUrl}
+                          shirtNo={player.shirtNo}
+                          function={player.function}
+                        />
                       ))}
-                    </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -293,57 +342,28 @@ export default function ProductionReportPage() {
                 {/* Coach kolom */}
                 <div>
                   {data.enriched.interviews.home.coaches.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="font-medium text-base">
-                        {data.enriched.interviews.home.coaches[0].name}
-                      </div>
-                      {data.enriched.interviews.home.coaches[0].function && (
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                          {data.enriched.interviews.home.coaches[0].function}
-                        </div>
-                      )}
-                      {data.enriched.interviews.home.coaches[0].photoUrl && (
-                        <div className="w-64 h-64 overflow-hidden rounded">
-                          <img
-                            src={`/uploads/${data.enriched.interviews.home.coaches[0].photoUrl}`}
-                            alt={data.enriched.interviews.home.coaches[0].name}
-                            className="w-full h-full object-cover scale-125 origin-top"
-                            style={{objectPosition: 'center top', aspectRatio: '1'}}
-                          />
-                        </div>
-                      )}
-                    </div>
+                    <PlayerCard
+                      name={data.enriched.interviews.home.coaches[0].name}
+                      photoUrl={data.enriched.interviews.home.coaches[0].photoUrl}
+                      function={data.enriched.interviews.home.coaches[0].function}
+                    />
                   )}
                 </div>
 
                 {/* Spelers kolom */}
-                <div>
+                <div className="space-y-4">
                   {data.enriched.interviews.home.players.length > 0 && (
-                    <div className="space-y-4">
+                    <>
                       {data.enriched.interviews.home.players.map((player) => (
-                        <div key={player.id} className="space-y-2">
-                          <div className="font-medium text-base">
-                            {player.name}
-                            {player.shirtNo != null && player.shirtNo > 0 && (
-                              <span className="text-gray-500"> (#{player.shirtNo})</span>
-                            )}
-                          </div>
-                          {player.function && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400">{player.function}</div>
-                          )}
-                          {player.photoUrl && (
-                            <div className="w-64 h-64 overflow-hidden rounded">
-                              <img
-                                src={`/uploads/${player.photoUrl}`}
-                                alt={player.name}
-                                className="w-full h-full object-cover scale-125 origin-top"
-                                style={{ objectPosition: 'center top', aspectRatio: '1'}}
-                              />
-                            </div>
-                          )}
-                        </div>
+                        <PlayerCard
+                          key={player.id}
+                          name={player.name}
+                          photoUrl={player.photoUrl}
+                          shirtNo={player.shirtNo}
+                          function={player.function}
+                        />
                       ))}
-                    </div>
+                    </>
                   )}
                 </div>
               </div>

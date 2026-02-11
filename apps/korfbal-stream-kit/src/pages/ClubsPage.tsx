@@ -1,14 +1,7 @@
 import React from 'react';
 import {useClubPlayers, useClubs, useDeleteClub, useImportClubs, useImportLeagueTeams} from '../hooks/useClubs';
-import {createUrl} from "../lib/api";
-
-function Img({src, alt, className}: { src?: string | null; alt: string; className?: string }) {
-  if (!src) return <div className={`w-10 h-10 bg-gray-200 dark:bg-gray-800 rounded ${className || ''}`} aria-hidden/>;
-  // If file is a local upload (e.g., saved path or bare filename), try to resolve from /uploads. Otherwise use as-is.
-  const isAbsolute = /^https?:\/\//i.test(src);
-  const resolved = isAbsolute ? src : `/uploads/${src}`;
-  return <img src={resolved} alt={alt} className={`w-10 h-10 object-cover rounded ${className || ''}`}/>;
-}
+import PlayerCard from '../components/PlayerCard';
+import ClubLogo from '../components/ClubLogo';
 
 function DeleteClubButton({slug, clubs, onDeleted}: {
   slug: string;
@@ -111,65 +104,56 @@ export default function ClubsPage() {
           {isLoading && <div>Laden…</div>}
           {error && <div className="text-red-600">Fout bij laden clubs</div>}
 
-          <div className="overflow-auto">
+          <div>
             {(() => {
               const club = (clubs || []).find((c) => c.slug === slug);
               if (!club) return null;
               const title = club.shortName || club.name;
+
+              // Sort players: coaches first, then women, then men
+              const sortedPlayers = [...(players.data || [])].sort((a, b) => {
+                // Check if player is a coach (function contains 'coach' or 'trainer')
+                const aIsCoach = a.function?.toLowerCase().includes('coach') || a.function?.toLowerCase().includes('trainer');
+                const bIsCoach = b.function?.toLowerCase().includes('coach') || b.function?.toLowerCase().includes('trainer');
+
+                if (aIsCoach && !bIsCoach) return -1;
+                if (!aIsCoach && bIsCoach) return 1;
+
+                // If both are coaches or both are not coaches, sort by gender
+                if (a.gender === 'female' && b.gender === 'male') return -1;
+                if (a.gender === 'male' && b.gender === 'female') return 1;
+
+                return 0;
+              });
+
               return (
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <Img src={club.logoUrl ? createUrl(`/assets/${club.logoUrl}`) : ''} alt={`${title} logo`}
-                         className="w-12 h-12 rounded"/>
-                    <div className="text-lg font-medium">{title}</div>
+                <>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <ClubLogo logoUrl={club.logoUrl} alt={`${title} logo`} size="large" />
+                      <div className="text-lg font-medium">{title}</div>
+                    </div>
+                    <DeleteClubButton slug={club.slug} onDeleted={(nextSlug) => setSlug(nextSlug)} clubs={clubs || []}/>
                   </div>
-                  <DeleteClubButton slug={club.slug} onDeleted={(nextSlug) => setSlug(nextSlug)} clubs={clubs || []}/>
-                </div>
+
+                  {sortedPlayers.length === 0 ? (
+                    <div className="p-6 text-center text-gray-500">Geen spelers gevonden voor deze club.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                      {sortedPlayers.map((player) => (
+                        <PlayerCard
+                          key={player.id}
+                          name={player.name}
+                          photoUrl={player.photoUrl}
+                          shirtNo={player.shirtNo}
+                          function={player.function}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               );
             })()}
-
-            <table className="min-w-full border border-gray-200 dark:border-gray-800 text-sm">
-              <thead className="bg-gray-50 dark:bg-gray-900">
-              <tr>
-                <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Persoon</th>
-              </tr>
-              </thead>
-              <tbody>
-              {(players.data || []).map((player) => (
-                <tr key={player.id}>
-                  <td>
-                  <div  className="space-y-2">
-
-                    {player.photoUrl && (
-                      <div className="w-64 h-64 overflow-hidden rounded">
-                        <img
-                          src={createUrl(`/uploads/${player.photoUrl}`).toString()}
-                          alt={player.name}
-                          className="w-full h-full object-cover scale-125 origin-top"
-                          style={{objectPosition: 'center top', aspectRatio: '1'}}
-                        />
-                      </div>
-                    )}
-                    <div className="font-medium text-base">
-                      {player.name}
-                      {player.shirtNo != null && player.shirtNo > 0 && (
-                        <span className="text-gray-500"> (#{player.shirtNo})</span>
-                      )}
-                    </div>
-                    {player.function && (
-                      <div className="text-sm text-gray-600 dark:text-gray-400">{player.function}</div>
-                    )}
-                  </div>
-                  </td>
-                </tr>
-              ))}
-              {players.data && players.data.length === 0 && (
-                <tr>
-                  <td className="p-3 text-gray-500">Geen spelers gevonden voor deze club.</td>
-                </tr>
-              )}
-              </tbody>
-            </table>
           </div>
         </div>
 

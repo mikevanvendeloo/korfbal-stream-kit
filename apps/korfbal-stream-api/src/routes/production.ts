@@ -2057,23 +2057,126 @@ productionRouter.get('/:id/report/pdf', async (req, res, next) => {
     // Titel
     doc.fontSize(18).font('Helvetica-Bold').text('Livestream bezetting', { align: 'center' });
     doc.moveDown(0.5);
-    doc.fontSize(14).font('Helvetica').text(matchTitle, { align: 'center' });
-    doc.moveDown(1);
+
+    // Match titel met club logos
+    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const centerX = doc.page.margins.left + pageWidth / 2;
+    const logoSize = 40;
+    const logoSpacing = 150;
+
+    // Helper functie om club logo te vinden en renderen
+    const renderClubLogo = async (teamName: string, xPos: number, yPos: number) => {
+      try {
+        // Vind club door team naam
+        const normalized = teamName.trim().replace(/\s+\d+$/g, '').split('/')[0]?.trim().toLowerCase();
+        const club = await prisma.club.findFirst({
+          where: {
+            OR: [
+              { shortName: { contains: normalized, mode: 'insensitive' } },
+              { name: { contains: normalized, mode: 'insensitive' } },
+            ],
+          },
+        });
+
+        if (club?.logoUrl) {
+          const logoPath = path.join(process.cwd(), 'assets', club.logoUrl);
+          if (fs.existsSync(logoPath)) {
+            doc.image(logoPath, xPos - logoSize / 2, yPos, { width: logoSize, height: logoSize, fit: [logoSize, logoSize] });
+          }
+        }
+      } catch (e) {
+        logger.warn(`Could not add logo for team ${teamName}: ${e}`);
+      }
+    };
+
+    // Render home logo, match title, away logo in één lijn
+    const titleY = doc.y;
+    await renderClubLogo(match.homeTeamName, centerX - logoSpacing, titleY);
+    await renderClubLogo(match.awayTeamName, centerX + logoSpacing, titleY);
+
+    // Match titel in het midden
+    doc.fontSize(14).font('Helvetica').text(matchTitle, doc.page.margins.left, titleY + (logoSize / 2) - 7, {
+      width: pageWidth,
+      align: 'center',
+    });
+
+    // Move down na logos en titel
+    doc.y = titleY + logoSize + 10;
+    doc.moveDown(0.5);
 
     // Aanwezigen
     doc.fontSize(12).font('Helvetica-Bold').text('Aanwezig:', { continued: false });
     doc.font('Helvetica').text(attendees.join(', ') || 'Geen aanwezigen');
     doc.moveDown(0.5);
 
-    // Wedstrijdsponsor
-    if (report?.matchSponsor) {
-      doc.fontSize(12).font('Helvetica-Bold').text('Wedstrijdsponsor:', { continued: false });
-      doc.font('Helvetica').text(report.matchSponsor);
-      doc.moveDown(1);
-    } else {
+    // Tijdschema - bereken timing inline
+    const segments = await prisma.productionSegment.findMany({ where: { productionId: id }, orderBy: { volgorde: 'asc' } });
+    let timing: Array<{ id: number; naam: string; start: string; end: string; duurInMinuten: number }> = [];
+
+    if (segments.length > 0) {
+      const anchorIdx = segments.findIndex((s) => s.isTimeAnchor);
+      if (anchorIdx !== -1) {
+        const anchorStart = new Date(match.date).getTime();
+        const result = segments.map((s) => ({ id: s.id, naam: s.naam, start: '', end: '', duurInMinuten: s.duurInMinuten }));
+
+        // forward from anchor
+        let t = anchorStart;
+        for (let i = anchorIdx; i < result.length; i++) {
+          result[i].start = new Date(t).toISOString();
+          t += result[i].duurInMinuten * 60 * 1000;
+          result[i].end = new Date(t).toISOString();
+        }
+
+        // backward from anchor
+        t = anchorStart;
+        for (let i = anchorIdx - 1; i >= 0; i--) {
+          t -= result[i].duurInMinuten * 60 * 1000;
+          result[i].start = new Date(t).toISOString();
+          result[i].end = new Date(t + result[i].duurInMinuten * 60 * 1000).toISOString();
+        }
+
+        timing = result;
+      }
+    }
+
+    if (timing.length > 0) {
+      doc.fontSize(12).font('Helvetica-Bold').text('Tijdschema:', { continued: false });
+      doc.moveDown(0.3);
+
+      // Tabel headers
+      const tableStartX = doc.page.margins.left;
+      const col1Width = 200;
+      const col2Width = 80;
+      const col3Width = 80;
+      const col4Width = 80;
+
+      let tableY = doc.y;
+      doc.fontSize(10).font('Helvetica-Bold');
+      doc.text('Segment', tableStartX, tableY, { width: col1Width, continued: false });
+      doc.text('Start', tableStartX + col1Width, tableY, { width: col2Width, continued: false });
+      doc.text('Einde', tableStartX + col1Width + col2Width, tableY, { width: col3Width, continued: false });
+      doc.text('Duur', tableStartX + col1Width + col2Width + col3Width, tableY, { width: col4Width, continued: false });
+      tableY += 15;
+
+      // Tabel rijen
+      doc.fontSize(9).font('Helvetica');
+      timing.forEach((segment) => {
+        const startTime = new Date(segment.start).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+        const endTime = new Date(segment.end).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+
+        doc.text(segment.naam, tableStartX, tableY, { width: col1Width, continued: false });
+        doc.text(startTime, tableStartX + col1Width, tableY, { width: col2Width, continued: false });
+        doc.text(endTime, tableStartX + col1Width + col2Width, tableY, { width: col3Width, continued: false });
+        doc.text(`${segment.duurInMinuten} min`, tableStartX + col1Width + col2Width + col3Width, tableY, { width: col4Width, continued: false });
+        tableY += 12;
+      });
+
+      doc.y = tableY;
       doc.moveDown(0.5);
     }
 
+    doc.moveDown(1);
+    doc.x = doc.page.margins.left;
     // Positie bezetting header
     doc.fontSize(14).font('Helvetica-Bold').text('Positie bezetting', { underline: true });
     doc.moveDown(0.5);
@@ -2106,7 +2209,6 @@ productionRouter.get('/:id/report/pdf', async (req, res, next) => {
     const productieRoles = allRoles.filter((r) => !r.isStudio);
 
     // Render twee kolommen met tabellen
-    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
     const columnWidth = pageWidth / 2 - 10;
     const leftColumnX = doc.page.margins.left;
     const rightColumnX = doc.page.margins.left + columnWidth + 20;
@@ -2168,10 +2270,24 @@ productionRouter.get('/:id/report/pdf', async (req, res, next) => {
     // Zet cursor naar de laagste punt van beide kolommen
     doc.y = Math.max(currentY, rightCurrentY);
     doc.moveDown(1);
+    doc.x = doc.page.margins.left;
+
+    // Wedstrijdsponsor
+    if (report?.matchSponsor) {
+      doc.fontSize(12).font('Helvetica-Bold').text('Wedstrijdsponsor:', { continued: false });
+      doc.font('Helvetica').text(report.matchSponsor);
+      doc.moveDown(1);
+    } else {
+      doc.moveDown(0.5);
+    }
+    doc.moveDown(1);
 
     // Interview sectie met foto's in 2 kolommen (coach links, speler rechts)
     const allInterviewees = [...interviews.home.players, ...interviews.home.coaches, ...interviews.away.players, ...interviews.away.coaches];
     if (allInterviewees.length > 0) {
+      // Page break voor interviews sectie
+      doc.addPage();
+
       const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
       const columnWidth = pageWidth / 2 - 10;
       const leftColumnX = doc.page.margins.left;

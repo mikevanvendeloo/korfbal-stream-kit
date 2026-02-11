@@ -1,6 +1,7 @@
 import React from 'react';
 import { useProduction } from '../hooks/useProductions';
 import { useClubs, Club } from '../hooks/useClubs';
+import ClubLogo from './ClubLogo';
 
 function formatDateTime(iso?: string) {
   if (!iso) return '';
@@ -73,10 +74,19 @@ function TeamLogos({ side, homeTeamName, awayTeamName }: { side: 'home' | 'away'
 
   if (side === 'home') {
     return homeClub?.logoUrl ? (
-      <img src={`/assets/${homeClub.logoUrl}`} alt={homeClub.shortName || homeClub.name} className="h-10 w-10 object-contain" />
+      <ClubLogo
+        logoUrl={homeClub.logoUrl}
+        alt={homeClub.shortName || homeClub.name}
+        size="medium"
+      />
     ) : null;
   }
   return awayClub?.logoUrl ? (
-    <img src={`/assets/${awayClub.logoUrl}`} alt={awayClub.shortName || awayClub.name} className="h-10 w-10 object-contain ml-2" />
+    <ClubLogo
+      logoUrl={awayClub.logoUrl}
+      alt={awayClub.shortName || awayClub.name}
+      size="medium"
+      className="ml-2"
+    />
   ) : null;
 }
