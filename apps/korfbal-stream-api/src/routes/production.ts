@@ -404,21 +404,6 @@ productionRouter.delete('/:id', async (req, res, next) => {
   }
 });
 
-// Helper to resolve production and return its matchScheduleId
-async function getMatchIdForProductionOr404(res: any, idParam: string): Promise<number | undefined> {
-  const prodId = Number(idParam);
-  if (!Number.isInteger(prodId) || prodId <= 0) {
-    res.status(400).json({ error: 'Invalid production id' });
-    return undefined;
-  }
-  const prod = await prisma.production.findUnique({ where: { id: prodId } });
-  if (!prod) {
-    res.status(404).json({ error: 'Production not found' });
-    return undefined;
-  }
-  return prod.matchScheduleId;
-}
-
 // ---------------- Segments CRUD ----------------
 // List segments for a production
 productionRouter.get('/:id/segments', async (req, res, next) => {
