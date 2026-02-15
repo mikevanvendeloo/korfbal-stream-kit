@@ -12,6 +12,7 @@ import {
 } from '../schemas/title';
 import {buildVmixApiUrl, getVmixUrl} from '../services/appSettings';
 import {shuffle} from "../utils/array-utils";
+import os from 'os';
 
 export const vmixRouter: Router = Router();
 export const adminVmixRouter: Router = Router();
@@ -403,6 +404,57 @@ vmixRouter.get('/active-production/staff', async (req, res, next) => {
   } catch (error) {
     // Stuur fouten door naar de error handler
     return next(error);
+  }
+});
+
+// GET /api/vmix/endpoints
+// Returns a list of available vMix GET endpoints with host IP
+vmixRouter.get('/endpoints', async (req, res, next) => {
+  try {
+    // Determine host IP
+    const nets = os.networkInterfaces();
+    let hostIp = 'localhost';
+
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name] || []) {
+        // Skip internal (i.e. 127.0.0.1) and non-IPv4 addresses
+        if (net.family === 'IPv4' && !net.internal) {
+          hostIp = net.address;
+          break;
+        }
+      }
+      if (hostIp !== 'localhost') break;
+    }
+
+    const port = process.env.PORT || 3000; // Assuming default port if not set
+    const baseUrl = `http://${hostIp}:${port}/api/vmix`;
+
+    const endpoints = [
+      {
+        name: 'Sponsor Names (Ticker)',
+        url: `${baseUrl}/sponsor-names`,
+        description: 'Returns concatenated sponsor names for ticker.'
+      },
+      {
+        name: 'Sponsor Carrousel',
+        url: `${baseUrl}/sponsor-carrousel`,
+        description: 'Returns list of sponsors for carousel.'
+      },
+      {
+        name: 'Active Production Staff',
+        url: `${baseUrl}/active-production/staff`,
+        description: 'Returns staff list for the active production.'
+      },
+      {
+        name: 'Active Production Titles',
+        url: `${baseUrl}/production/active/titles`,
+        description: 'Returns titles for the active production.'
+      }
+    ];
+
+    return res.json({ hostIp, endpoints });
+  } catch (err) {
+    return next(err);
   }
 });
 
