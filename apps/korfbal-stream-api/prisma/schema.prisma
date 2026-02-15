@@ -96,8 +96,7 @@ model Position {
   segmentAssignments     SegmentRoleAssignment[]
   callSheetItemPositions CallSheetItemPosition[]
   SegmentDefaultPosition SegmentDefaultPosition[]
-
-  @@map("Position")
+  productionPositions    ProductionPersonPosition[] // NIEUW: Productie-brede positie toewijzingen
 }
 
 /// People who can be assigned roles in livestream productions
@@ -112,6 +111,7 @@ model Person {
   assignments         MatchRoleAssignment[]
   segmentAssignments  SegmentRoleAssignment[]
   productionPresences ProductionPerson[]
+  productionPositions ProductionPersonPosition[] // NIEUW: Productie-brede positie toewijzingen
 }
 
 /// Link table: which skills a person has
@@ -148,18 +148,20 @@ model MatchRoleAssignment {
 
 /// A production instance for a given match
 model Production {
-  id              Int      @id @default(autoincrement())
-  matchScheduleId Int      @unique
-  isActive        Boolean  @default(false)
-  createdAt       DateTime @default(now())
+  id              Int       @id @default(autoincrement())
+  matchScheduleId Int       @unique
+  isActive        Boolean   @default(false)
+  liveTime        DateTime? // NIEUW: Tijdstip waarop de stream live gaat
+  createdAt       DateTime  @default(now())
 
-  matchSchedule     MatchSchedule       @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
-  segments          ProductionSegment[]
-  callSheets        CallSheet[]
-  TitleDefinition   TitleDefinition[]
-  interviewSubjects InterviewSubject[]
-  productionReport  ProductionReport?
-  productionPersons ProductionPerson[]
+  matchSchedule       MatchSchedule              @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
+  segments            ProductionSegment[]
+  callSheets          CallSheet[]
+  TitleDefinition     TitleDefinition[]
+  interviewSubjects   InterviewSubject[]
+  productionReport    ProductionReport?
+  productionPersons   ProductionPerson[]
+  productionPositions ProductionPersonPosition[] // NIEUW: Productie-brede positie toewijzingen
 }
 
 /// People marked as present for a production
@@ -175,6 +177,24 @@ model ProductionPerson {
   @@unique([productionId, personId])
   @@index([productionId])
   @@index([personId])
+}
+
+/// NIEUW: Toewijzing van een persoon aan een positie voor de hele productie (standaard)
+model ProductionPersonPosition {
+  id           Int      @id @default(autoincrement())
+  productionId Int
+  personId     Int
+  positionId   Int
+  createdAt    DateTime @default(now())
+
+  production Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  person     Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  position   Position   @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@unique([productionId, personId, positionId]) // Een persoon kan een specifieke positie maar één keer hebben per productie
+  @@index([productionId])
+  @@index([personId])
+  @@index([positionId])
 }
 
 /// Segments within a production (oplopen, wedstrijd, rust, etc.)
@@ -273,8 +293,8 @@ enum TitleSourceType {
   COMMENTARY
   PRESENTATION
   PRESENTATION_AND_ANALIST
-  TEAM_PLAYER
   TEAM_COACH
+  TEAM_PLAYER
   FREE_TEXT
 }
 
@@ -435,6 +455,9 @@ model ProductionReport {
 
   /// Interview spelers argumentatie
   interviewRationale String?
+
+  /// Opmerkingen (vrij tekstveld, meerdere regels)
+  remarks String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

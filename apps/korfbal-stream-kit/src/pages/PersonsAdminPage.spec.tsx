@@ -46,14 +46,14 @@ describe('PersonsAdminPage', () => {
       // Skills catalog (paginated)
       if (u.pathname.endsWith('/api/production/skills') && (!init || init.method === 'GET')) {
         return { ok: true, json: async () => ({ items: [
-          { id: 10, code: 'COACH', name: 'Coach', nameMale: 'Coach', nameFemale: 'Coach' },
-          { id: 11, code: 'COMMENTATOR', name: 'Commentaar', nameMale: 'Commentator', nameFemale: 'Commentatrice' },
+          { id: 10, code: 'COACH', name: 'Coach', type: 'crew' },
+          { id: 11, code: 'COMMENTATOR', name: 'Commentaar', type: 'on_stream' },
         ], page: 1, limit: 100, total: 2, pages: 1 }) } as any;
       }
       // Skills list for person 1
       if (u.pathname.endsWith('/api/persons/1/skills') && (!init || init.method === 'GET')) {
         return { ok: true, json: async () => ([
-          { personId: 1, skillId: 10, skill: { id: 10, code: 'COACH', nameMale: 'Coach', nameFemale: 'Coach' } },
+          { personId: 1, skillId: 10, skill: { id: 10, code: 'COACH', name: 'Coach', type: 'crew' } },
         ]) } as any;
       }
       // Add skill for any person
@@ -201,8 +201,8 @@ describe('PersonsAdminPage (create with inline skills)', () => {
       // Skills catalog
       if (u.pathname.endsWith('/api/production/skills') && (!init || init.method === 'GET')) {
         return { ok: true, json: async () => ({ items: [
-          { id: 10, code: 'COACH', name: 'Coach', nameMale: 'Coach', nameFemale: 'Coach' },
-          { id: 11, code: 'COMMENTATOR', name: 'Commentaar', nameMale: 'Commentator', nameFemale: 'Commentatrice' },
+          { id: 10, code: 'COACH', name: 'Coach', type: 'crew' },
+          { id: 11, code: 'COMMENTATOR', name: 'Commentaar', type: 'on_stream' },
         ], page: 1, limit: 100, total: 2, pages: 1 }) } as any;
       }
       // Add skill for person 3 after create

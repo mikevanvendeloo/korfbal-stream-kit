@@ -34,12 +34,28 @@ describe('vMix Titles - templates, copy-to-production and resolver', () => {
     prisma.club = { findFirst: vi.fn(async () => null) };
     prisma.player = { findMany: vi.fn(async () => []) };
 
-    // Match role assignments used by resolver for crew
-    prisma.matchRoleAssignment = {
-      findMany: vi.fn(async (_: any) => [
-        { id: 1, matchScheduleId: 777, person: { id: 1, name: 'Alice' }, skill: { id: 10, code: 'COMMENTAAR', name: 'Commentaar' } },
-        { id: 2, matchScheduleId: 777, person: { id: 2, name: 'Bob' }, skill: { id: 11, code: 'COMMENTAAR', name: 'Commentaar' } },
-      ]),
+    // Mock productionPersonPosition for resolver
+    prisma.productionPersonPosition = {
+      findMany: vi.fn(async ({ where }: any) => {
+        // Check if we are looking for on_stream skills
+        if (where?.position?.skill?.type === 'on_stream') {
+          return [
+            {
+              id: 1,
+              productionId: 10,
+              person: { id: 1, name: 'Alice' },
+              position: { id: 10, name: 'Commentator 1', skill: { code: 'COMMENTAAR' } }
+            },
+            {
+              id: 2,
+              productionId: 10,
+              person: { id: 2, name: 'Bob' },
+              position: { id: 11, name: 'Commentator 2', skill: { code: 'COMMENTAAR' } }
+            }
+          ];
+        }
+        return [];
+      }),
     };
 
     // Template storage using in-memory arrays

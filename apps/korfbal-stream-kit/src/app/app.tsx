@@ -36,6 +36,7 @@ import {
 } from 'react-icons/md';
 import VmixTemplatesPage from '../pages/VmixTemplatesPage';
 import VmixControlPage from '../pages/VmixControlPage';
+import SegmentAssignmentsPage from '../pages/SegmentAssignmentsPage'; // Import the new page
 
 function Nav() {
   const { theme, toggle } = useTheme();
@@ -219,6 +220,7 @@ export function App() {
             <Route path="/admin/productions/:id/production-report" element={<ProductionReportPage />} />
             <Route path="/admin/productions/:id/callsheets" element={<CallSheetsPage />} />
             <Route path="/admin/productions/:id/callsheets/:callSheetId" element={<CallSheetEditPage />} />
+            <Route path="/admin/productions/:id/segment-assignments" element={<SegmentAssignmentsPage />} /> {/* New route */}
             <Route path="/active" element={<ActiveProductionPage />} />
             <Route path="/vmix/sponsor-rows" element={<SponsorRowsPage />} />
             <Route path="/admin/vmix/title-templates" element={<VmixTemplatesPage />} />

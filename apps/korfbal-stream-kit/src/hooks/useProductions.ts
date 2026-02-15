@@ -1,7 +1,26 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {createUrl, extractError} from "../lib/api";
 
-export type Production = { id: number; matchScheduleId: number; createdAt: string; isActive?: boolean; matchSchedule?: any };
+export type ProductionPersonPosition = {
+  id: number;
+  productionId: number;
+  personId: number;
+  positionId: number;
+  createdAt: string;
+  person: { id: number; name: string; gender: 'male' | 'female' };
+  position: { id: number; name: string; isStudio: boolean };
+};
+
+export type Production = {
+  id: number;
+  matchScheduleId: number;
+  createdAt: string;
+  isActive?: boolean;
+  liveTime?: string; // NIEUW: liveTime toegevoegd
+  matchSchedule?: any;
+  productionPersons?: ProductionPerson[];
+  productionPositions?: ProductionPersonPosition[]; // NIEUW: Productie-brede positie toewijzingen
+};
 export type MatchCandidate = { id: number; date: string; homeTeamName: string; awayTeamName: string };
 
 export function useProductionMatches() {
@@ -33,6 +52,7 @@ export function useProduction(id: number) {
     queryFn: async (): Promise<Production> => {
       const res = await fetch(createUrl(`/api/production/${id}`));
       if (!res.ok) throw new Error(await extractError(res));
+      // De backend moet de productionPositions includen, anders is dit type-cast niet veilig
       return res.json();
     },
   });
@@ -53,12 +73,15 @@ export function useCreateProduction() {
 export function useUpdateProduction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: number; matchScheduleId: number }): Promise<Production> => {
-      const res = await fetch(createUrl(`/api/production/${input.id}`), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matchScheduleId: input.matchScheduleId }) });
+    mutationFn: async (input: { id: number; matchScheduleId?: number; liveTime?: string | null }): Promise<Production> => {
+      const res = await fetch(createUrl(`/api/production/${input.id}`), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['productions'] }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['productions'] });
+      qc.invalidateQueries({ queryKey: ['production', data.id] });
+    },
   });
 }
 
@@ -164,7 +187,7 @@ export function useProductionTiming(productionId: number) {
   });
 }
 
-export type SegmentAssignment = { id: number; personId: number; positionId: number; person: { id: number; name: string; gender: 'male' | 'female' }; position: { id: number; name: string } };
+export type SegmentAssignment = { id: number; personId: number; positionId: number; person: { id: number; name: string; gender: 'male' | 'female' }; position: { id: number; name: string; isStudio: boolean } };
 
 export function useSegmentAssignments(segmentId: number) {
   return useQuery({
@@ -250,6 +273,23 @@ export function useSegmentDefaultPositions(segmentId: number) {
   });
 }
 
+// NIEUW: Type voor Position
+export type Position = { id: number; name: string; isStudio: boolean; skillId?: number | null; skill?: any };
+
+// NIEUW: Hook om alle posities op te halen
+// NIEUW: Hook om alle posities op te halen
+export function usePositions() {
+  return useQuery({
+    queryKey: ['positions'],
+    queryFn: async (): Promise<Position[]> => {
+      // FOUT: createUrl('/api/positions')
+      // CORRECT: createUrl('/api/production/positions')
+      const res = await fetch(createUrl('/api/production/positions'));
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+  });
+}
 export type ProductionPerson = { id: number; productionId: number; personId: number; person: { id: number; name: string; gender: 'male' | 'female' }; createdAt: string };
 
 export function useProductionPersons(productionId: number) {
@@ -284,5 +324,67 @@ export function useDeleteProductionPerson(productionId: number) {
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['production', productionId, 'persons'] }),
+  });
+}
+
+// NIEUW: Hooks voor ProductionPersonPosition
+export function useProductionPersonPositions(productionId: number) {
+  return useQuery({
+    queryKey: ['production', productionId, 'person-positions'],
+    enabled: !!productionId,
+    queryFn: async (): Promise<ProductionPersonPosition[]> => {
+      const res = await fetch(createUrl(`/api/production/${productionId}/person-positions`));
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+  });
+}
+
+// NIEUW: Mutatie om ProductionPersonPositions te updaten (meerdere tegelijk)
+export function useUpdateProductionPersonPositions(productionId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { personId: number; positionIds: number[] }): Promise<void> => {
+      // Haal de huidige toewijzingen op voor deze persoon
+      const currentAssignments = qc.getQueryData<ProductionPersonPosition[]>(['production', productionId, 'person-positions']) || [];
+      const currentPersonAssignments = currentAssignments.filter(pa => pa.personId === input.personId);
+      const currentPositionIds = new Set(currentPersonAssignments.map(pa => pa.positionId));
+
+      const toAdd = input.positionIds.filter(pid => !currentPositionIds.has(pid));
+      const toRemove = currentPersonAssignments.filter(pa => !input.positionIds.includes(pa.positionId));
+
+      const promises: Promise<any>[] = [];
+
+      for (const positionId of toAdd) {
+        promises.push(
+          fetch(createUrl(`/api/production/${productionId}/person-positions`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ personId: input.personId, positionId }),
+          }).then(res => {
+            if (!res.ok) throw new Error('Failed to add position');
+            return res.json();
+          })
+        );
+      }
+
+      for (const assignment of toRemove) {
+        promises.push(
+          fetch(createUrl(`/api/production/${productionId}/person-positions/${assignment.id}`), {
+            method: 'DELETE',
+          }).then(res => {
+            if (!res.ok && res.status !== 204) throw new Error('Failed to remove position');
+          })
+        );
+      }
+
+      await Promise.all(promises);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['production', productionId, 'person-positions'] });
+      qc.invalidateQueries({ queryKey: ['production', productionId] }); // Invalideer hoofd productie query
+      // Invalideer ook alle segment-specifieke toewijzingen, omdat de 'basis' is gewijzigd
+      qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'segment' && q.queryKey[2] === 'assignments' });
+    },
   });
 }

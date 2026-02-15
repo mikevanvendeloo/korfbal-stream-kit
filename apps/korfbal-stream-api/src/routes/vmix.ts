@@ -160,7 +160,7 @@ vmixRouter.post('/sponsor-rows', async (req, res, next) => {
         // Try to minimize overlap with previous row by shifting mid/bot if needed
         if (prevSet && (prevSet.has(image1) || prevSet.has(image2) || prevSet.has(image3))) {
           // Try a couple of shifts to reduce overlap
-          for (let step = 1; step <= 3; step++) {
+          for (let step = 1; step < 3; step++) { // Changed loop limit to 3
             const cand2 = partMid[(i + step) % partMid.length];
             const cand3 = partBot[(i + step) % partBot.length];
             const set = new Set([image1, cand2, cand3]);
@@ -447,16 +447,44 @@ vmixRouter.get('/production/:id/titles', async (req, res, next) => {
       include: { parts: { orderBy: { id: 'asc' } } },
     }).catch(() => []);
 
-    // Helper: load crew by capability codes
+    // Helper: load crew by capability codes (uses new production crew endpoint logic)
     async function loadCrew() {
-      const msId = production?.matchScheduleId;
-      const rows = await prisma.matchRoleAssignment.findMany({
-        where: { matchScheduleId: msId, skill: { code: { in: ['COMMENTAAR', 'PRESENTATIE', 'ANALIST'] } as any } },
-        include: { person: true, skill: true },
+      // Fetch production-wide person-position assignments with on-stream skills
+      const productionPositions = await prisma.productionPersonPosition.findMany({
+        where: {
+          productionId: id,
+          position: {
+            skill: {
+              type: 'on_stream',
+            },
+          },
+        },
+        include: {
+          person: true,
+          position: {
+            include: {
+              skill: true,
+            },
+          },
+        },
       });
-      const commentary = rows.filter((r) => r.skill.code === 'COMMENTAAR').map((r) => r.person.name);
-      const presenter = rows.filter((r) => r.skill.code === 'PRESENTATIE').map((r) => r.person.name);
-      const analyst = rows.filter((r) => r.skill.code === 'ANALIST').map((r) => r.person.name);
+
+      // Build crew by skill code
+      const commentary: string[] = [];
+      const presenter: string[] = [];
+      const analyst: string[] = [];
+
+      for (const pp of productionPositions) {
+        const code = pp.position.skill?.code;
+        if (code === 'COMMENTAAR') {
+          commentary.push(pp.person.name);
+        } else if (code === 'PRESENTATIE') {
+          presenter.push(pp.person.name);
+        } else if (code === 'ANALIST') {
+          analyst.push(pp.person.name);
+        }
+      }
+
       return { commentary, presenter, analyst };
     }
 
@@ -482,85 +510,19 @@ vmixRouter.get('/production/:id/titles', async (req, res, next) => {
     const homePeople = await loadClubPeople(homeClub?.id || null);
     const awayPeople = await loadClubPeople(awayClub?.id || null);
 
-    // Sorting for players: Speelster -> Speler -> others, then alphabet
-    function sortPlayers(arr: any[]) {
-      const weight = (fn: string | null | undefined) => (fn === 'Speelster' ? 0 : fn === 'Speler' ? 1 : 2);
-      return [...arr].sort((a, b) => {
-        const wa = weight(a.function);
-        const wb = weight(b.function);
-        if (wa !== wb) return wa - wb;
-        return (a.name || '').localeCompare(b.name || '', 'nl', { sensitivity: 'base' });
-      });
-    }
-
     function buildDefaultDefinitions() {
       return [
         { key: 'presentation_analyst', parts: ['PRESENTATION_AND_ANALIST'] },
         { key: 'commentary', parts: ['COMMENTARY'] },
-        { key: 'home_players', parts: [{ type: 'TEAM_PLAYER', side: 'HOME', limit: null }] },
-        { key: 'away_players', parts: [{ type: 'TEAM_PLAYER', side: 'AWAY', limit: null }] },
-        { key: 'home_coaches', parts: [{ type: 'TEAM_COACH', side: 'HOME', limit: null }] },
         { key: 'away_coaches', parts: [{ type: 'TEAM_COACH', side: 'AWAY', limit: null }] },
+        { key: 'away_players', parts: [{ type: 'TEAM_PLAYER', side: 'AWAY', limit: null }] },
+        { key: 'home_players', parts: [{ type: 'TEAM_PLAYER', side: 'HOME', limit: null }] },
+        { key: 'home_coaches', parts: [{ type: 'TEAM_COACH', side: 'HOME', limit: null }] },
+
       ];
     }
 
     const result: VmixTitleItem[] = [];
-
-    async function emitFromPart(part: any) {
-      const type = typeof part === 'string' ? part : part.type;
-      const side = typeof part === 'string' ? 'NONE' : (part.side || 'NONE');
-      const limit = typeof part === 'string' ? null : (part.limit ?? null);
-      if (type === 'COMMENTARY') {
-        if (crew.commentary.length > 0) {
-          result.push({ functionName: 'Commentaar', name: crew.commentary.join(' & ') });
-        }
-      } else if (type === 'PRESENTATION_AND_ANALIST') {
-        const names = [...crew.presenter, ...crew.analyst].filter(Boolean);
-        if (names.length > 0) {
-          result.push({ functionName: 'Presentatie & analist', name: names.join(' & ') });
-        }
-      }  else if (type === 'PRESENTATION') {
-        const names = [...crew.presenter].filter(Boolean);
-        if (names.length > 0) {
-          result.push({ functionName: 'Presentatie', name: names.join(' & ') });
-        }
-      }else if (type === 'TEAM_PLAYER' || type === 'TEAM_COACH') {
-        const isPlayers = type === 'TEAM_PLAYER';
-        const people = side === 'HOME' ? (isPlayers ? homePeople.players : homePeople.coaches) : side === 'AWAY' ? (isPlayers ? awayPeople.players : awayPeople.coaches) : [];
-        // Use the club shortName/name (not the match team label with squad suffixes like "1" or "J1")
-        const clubName = side === 'HOME'
-          ? ((homeClub?.shortName || homeClub?.name) ?? '')
-          : side === 'AWAY'
-          ? ((awayClub?.shortName || awayClub?.name) ?? '')
-          : '';
-        const list = isPlayers ? sortPlayers(people) : [...people].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'nl', { sensitivity: 'base' }));
-        const sliced = typeof limit === 'number' && limit > 0 ? list.slice(0, limit) : list;
-        for (const p of sliced) {
-          const fn = (p.function || '').trim();
-          const suffix = clubName ? ` ${clubName}` : '';
-          const functionName = fn ? `${fn}${suffix}`.trim() : (isPlayers ? `Speler${suffix}`.trim() : `Coach${suffix}`.trim());
-          result.push({ functionName, name: p.name });
-        }
-      } else if (type === 'FREE_TEXT') {
-        // Expecting customFunction and customName on part
-        const fn = (part.customFunction || '').trim();
-        const nm = (part.customName || '').trim();
-        if (fn && nm) {
-          result.push({ functionName: fn, name: nm });
-        }
-      }
-    }
-
-    // If the production has no definitions, try global templates (productionId=null)
-    let effectiveDefinitions: any[] = Array.isArray(definitions) ? definitions : [];
-    if (!effectiveDefinitions || effectiveDefinitions.length === 0) {
-      const templates = await (prisma as any).titleDefinition.findMany({
-        where: { productionId: null, enabled: true },
-        orderBy: { order: 'asc' },
-        include: { parts: { orderBy: { id: 'asc' } } },
-      }).catch(() => []);
-      effectiveDefinitions = templates;
-    }
 
     // Load interview subject overrides for this production (if any)
     const interviewSubjects: Array<{ id: number; side: 'HOME'|'AWAY'|'NONE'; role: 'PLAYER'|'COACH'; playerId: number; titleDefinitionId: number | null }> = await (prisma as any).interviewSubject.findMany({
@@ -587,51 +549,95 @@ vmixRouter.get('/production/:id/titles', async (req, res, next) => {
       return interviewSubjects.find((s) => s.side === side && s.role === role && (s.titleDefinitionId === null || typeof s.titleDefinitionId === 'undefined')) || null;
     }
 
-    async function emitSelectedPlayer(playerId: number, isPlayers: boolean, side: 'HOME'|'AWAY'|'NONE') {
-      const people = side === 'HOME' ? (isPlayers ? homePeople.players : homePeople.coaches) : side === 'AWAY' ? (isPlayers ? awayPeople.players : awayPeople.coaches) : [];
-      let p = people.find((x: any) => x.id === playerId);
-      if (!p) {
-        // Fetch as fallback
-        p = await prisma.player.findUnique({ where: { id: playerId } }).catch(() => null) as any;
-        if (!p) return;
+    async function emitFromPart(part: any, defId?: number | null) {
+      const type = part.sourceType;
+      const side = part.teamSide || 'NONE';
+
+      if (type === 'COMMENTARY') {
+        if (crew.commentary.length > 0) {
+          result.push({ functionName: 'Commentaar', name: crew.commentary.join(' & ') });
+        } else {
+          result.push({ functionName: 'Commentaar', name: null }); // Ensure placeholder
+        }
+      } else if (type === 'PRESENTATION_AND_ANALIST') {
+        const names = [...crew.presenter, ...crew.analyst].filter(Boolean);
+        if (names.length > 0) {
+          result.push({ functionName: 'Presentatie & analist', name: names.join(' & ') });
+        } else {
+          result.push({ functionName: 'Presentatie & analist', name: null }); // Ensure placeholder
+        }
+      }  else if (type === 'PRESENTATION') {
+        const names = [...crew.presenter].filter(Boolean);
+        if (names.length > 0) {
+          result.push({ functionName: 'Presentatie', name: names.join(' & ') });
+        } else {
+          result.push({ functionName: 'Presentatie', name: null }); // Ensure placeholder
+        }
+      } else if (type === 'TEAM_PLAYER' || type === 'TEAM_COACH') {
+        const role = type === 'TEAM_PLAYER' ? 'PLAYER' : 'COACH';
+        const sel = findInterviewSelection(side as any, role as any, defId);
+        if (sel) {
+          const isPlayers = type === 'TEAM_PLAYER';
+          const people = side === 'HOME' ? (isPlayers ? homePeople.players : homePeople.coaches) : side === 'AWAY' ? (isPlayers ? awayPeople.players : awayPeople.coaches) : [];
+          let p = people.find((x: any) => x.id === sel.playerId);
+          if (!p) {
+            p = await prisma.player.findUnique({ where: { id: sel.playerId } }).catch(() => null) as any;
+            if (!p) {
+              // If player not found, still push a placeholder
+              const clubName = side === 'HOME' ? ((homeClub?.shortName || homeClub?.name) ?? '') : side === 'AWAY' ? ((awayClub?.shortName || awayClub?.name) ?? '') : '';
+              const fn = isPlayers ? `Speler${clubName ? ` ${clubName}` : ''}` : `Coach${clubName ? ` ${clubName}` : ''}`;
+              result.push({ functionName: fn, name: null });
+              return;
+            }
+          }
+          const clubName = side === 'HOME'
+            ? ((homeClub?.name || homeClub?.shortName) ?? '')
+            : side === 'AWAY'
+            ? ((awayClub?.name || awayClub?.shortName) ?? '')
+            : '';
+          logger.info('Club player selected for interview: ', { playerId: sel.playerId, clubName, isPlayers, side, name: p.name });
+          const fn = (p.function || '').trim().replace('Hoofd coach','Coach');
+          const suffix = clubName ? ` ${clubName}` : '';
+          const functionName = fn ? `${fn}${suffix}`.trim() : (isPlayers ? `Speler${suffix}`.trim() : `Coach${suffix}`.trim());
+          result.push({ functionName, name: p.name });
+        } else {
+          const isPlayers = type === 'TEAM_PLAYER';
+          const clubName = side === 'HOME'
+            ? ((homeClub?.shortName || homeClub?.name) ?? '')
+            : side === 'AWAY'
+            ? ((awayClub?.shortName || awayClub?.name) ?? '')
+            : '';
+          const fn = isPlayers ? `Speler${clubName ? ` ${clubName}` : ''}` : `Coach${clubName ? ` ${clubName}` : ''}`;
+          result.push({ functionName: fn, name: null });
+        }
+      } else if (type === 'FREE_TEXT') {
+        const fn = (part.customFunction || '').trim();
+        const nm = (part.customName || '').trim();
+        if (fn && nm) {
+          result.push({ functionName: fn, name: nm });
+        } else {
+          result.push({ functionName: fn || 'Vrije tekst', name: nm || null }); // Ensure placeholder
+        }
       }
-      const clubName = side === 'HOME'
-        ? ((homeClub?.name || homeClub?.shortName) ?? '')
-        : side === 'AWAY'
-        ? ((awayClub?.name || awayClub?.shortName) ?? '')
-        : '';
-      logger.info('Club player selected for interview: ', { playerId, clubName, isPlayers, side, name: p.name });
-      const fn = (p.function || '').trim().replace('Hoofd coach','Coach');
-      const suffix = clubName ? ` ${clubName}` : '';
-      const functionName = fn ? `${fn}${suffix}`.trim() : (isPlayers ? `Speler${suffix}`.trim() : `Coach${suffix}`.trim());
-      result.push({ functionName, name: p.name });
     }
+
+    // If the production has no definitions, try global templates (productionId=null)
+    let effectiveDefinitions: any[] = Array.isArray(definitions) ? definitions : [];
+    if (!effectiveDefinitions || effectiveDefinitions.length === 0) {
+      const templates = await (prisma as any).titleDefinition.findMany({
+        where: { productionId: null, enabled: true },
+        orderBy: { order: 'asc' },
+        include: { parts: { orderBy: { id: 'asc' } } },
+      }).catch(() => []);
+      effectiveDefinitions = templates;
+    }
+
+    logger.info('🎬 vMix resolver – Effective Definitions:', effectiveDefinitions.map((def: any) => ({ id: def.id, name: def.name, order: def.order, parts: def.parts.map((p: any) => ({ sourceType: p.sourceType, teamSide: p.teamSide, customFunction: p.customFunction, customName: p.customName })) })));
 
     if (Array.isArray(effectiveDefinitions) && effectiveDefinitions.length > 0) {
       for (const def of effectiveDefinitions) {
         for (const part of (def.parts || [])) {
-          const type = part.sourceType;
-          const side = part.teamSide || 'NONE';
-          if (type === 'TEAM_PLAYER' || type === 'TEAM_COACH') {
-            const role = type === 'TEAM_PLAYER' ? 'PLAYER' : 'COACH';
-            const sel = findInterviewSelection(side as any, role as any, def.id);
-            if (sel) {
-              await emitSelectedPlayer(sel.playerId, type === 'TEAM_PLAYER', side);
-              continue; // override: do not fall back to list/limit
-            }
-            // Geen selectie ingesteld: NIET automatisch de eerste(n) kiezen.
-            // In plaats daarvan een placeholder tonen om duidelijk te maken dat er geen keuze is gemaakt.
-            const isPlayers = type === 'TEAM_PLAYER';
-            const clubName = side === 'HOME'
-              ? ((homeClub?.shortName || homeClub?.name) ?? '')
-              : side === 'AWAY'
-              ? ((awayClub?.shortName || awayClub?.name) ?? '')
-              : '';
-            const fn = isPlayers ? `Speler${clubName ? ` ${clubName}` : ''}` : `Coach${clubName ? ` ${clubName}` : ''}`;
-            result.push({ functionName: fn, name: null });
-            continue;
-          }
-          await emitFromPart({ type: type, side: side, limit: part.limit ?? null, customFunction: (part as any).customFunction, customName: (part as any).customName });
+          await emitFromPart(part, def.id);
         }
       }
     } else {
@@ -642,6 +648,7 @@ vmixRouter.get('/production/:id/titles', async (req, res, next) => {
       }
     }
 
+    logger.info('🎬 vMix resolver – Final Result:', result);
     return res.json(result);
   } catch (err) {
     return next(err);

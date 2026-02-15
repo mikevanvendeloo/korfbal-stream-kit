@@ -263,10 +263,11 @@ async function main() {
     async function createTemplate(name: string, parts: Array<{
       sourceType: 'COMMENTARY' | 'PRESENTATION_AND_ANALIST' | 'TEAM_COACH' | 'TEAM_PLAYER';
       teamSide?: 'AWAY' | 'HOME' | 'NONE';
+      order?: number;
       limit?: number | null
     }>) {
       const def = await (prisma as any).titleDefinition.create({
-        data: {productionId: null, name, order: order++, enabled: true},
+        data: {productionId: null, name, order: order, enabled: true},
       });
       for (const p of parts) {
         await (prisma as any).titlePart.create({
@@ -282,27 +283,27 @@ async function main() {
     }
 
     await createTemplate('Presentatie & analist', [
-      {sourceType: 'PRESENTATION_AND_ANALIST', teamSide: 'NONE'},
+      {sourceType: 'PRESENTATION_AND_ANALIST', teamSide: 'NONE', order: 1},
     ]);
 
     await createTemplate('Commentaar (allen)', [
-      {sourceType: 'COMMENTARY', teamSide: 'NONE'},
+      {sourceType: 'COMMENTARY', teamSide: 'NONE', order: 2},
     ]);
 
     await createTemplate('Uit coach', [
-      {sourceType: 'TEAM_COACH', teamSide: 'AWAY'},
+      {sourceType: 'TEAM_COACH', teamSide: 'AWAY', order: 3},
     ]);
 
     await createTemplate('Uit speler', [
-      {sourceType: 'TEAM_PLAYER', teamSide: 'AWAY'},
+      {sourceType: 'TEAM_PLAYER', teamSide: 'AWAY', order: 4},
     ]);
 
     await createTemplate('Thuis coach', [
-      {sourceType: 'TEAM_COACH', teamSide: 'HOME'},
+      {sourceType: 'TEAM_COACH', teamSide: 'HOME', order: 5},
     ]);
 
     await createTemplate('Thuis speler', [
-      {sourceType: 'TEAM_PLAYER', teamSide: 'HOME'},
+      {sourceType: 'TEAM_PLAYER', teamSide: 'HOME', order: 6},
     ]);
 
   } else {

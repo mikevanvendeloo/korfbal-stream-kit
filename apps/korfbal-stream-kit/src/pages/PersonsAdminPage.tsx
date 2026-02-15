@@ -38,10 +38,9 @@ export default function PersonsAdminPage() {
   const [newPendingSkillIds, setNewPendingSkillIds] = React.useState<number[]>([]);
 
   const selectedPerson = React.useMemo(() => data?.items.find(p => p.id === skillsFor) || null, [data, skillsFor]);
-  const displayNameForSkill = React.useCallback((skill: { nameMale: string; nameFemale: string }) => {
-    if (!selectedPerson) return `${skill.nameMale} / ${skill.nameFemale}`;
-    return selectedPerson.gender === 'female' ? skill.nameFemale : skill.nameMale;
-  }, [selectedPerson]);
+  const displayNameForSkill = React.useCallback((skill: { name: string }) => {
+    return skill.name;
+  }, []);
 
   async function onSave() {
     if (!editing) return;
@@ -183,7 +182,7 @@ export default function PersonsAdminPage() {
                       >
                         <option value={0}>Kies rol...</option>
                         {catalog?.map((f) => (
-                          <option key={f.id} value={f.id}>{editing.gender === 'female' ? f.nameFemale : f.nameMale}</option>
+                          <option key={f.id} value={f.id}>{f.name}</option>
                         ))}
                       </select>
                       <IconButton
@@ -207,7 +206,7 @@ export default function PersonsAdminPage() {
                     <ul className="divide-y divide-gray-200 dark:divide-gray-800">
                       {editSkills?.map((c) => (
                         <li key={c.skillId} className="flex items-center justify-between py-1.5">
-                          <div>{editing.gender === 'female' ? c.skill.nameFemale : c.skill.nameMale}</div>
+                          <div>{c.skill.name}</div>
                           <IconButton ariaLabel="Remove skill inline" title="Verwijder" onClick={async () => {
                             setErrorMsg(null);
                             try { await rmSkillEdit.mutateAsync(c.skillId); } catch (e: any) { setErrorMsg(e?.message || 'Verwijderen mislukt'); }
@@ -233,7 +232,7 @@ export default function PersonsAdminPage() {
                       >
                         <option value={0}>Kies rol...</option>
                         {catalog?.map((f) => (
-                          <option key={f.id} value={f.id}>{editing.gender === 'female' ? f.nameFemale : f.nameMale}</option>
+                          <option key={f.id} value={f.id}>{f.name}</option>
                         ))}
                       </select>
                       <IconButton
@@ -253,10 +252,9 @@ export default function PersonsAdminPage() {
                       {newPendingSkillIds.map((id) => {
                         const skill = catalog?.find((c) => c.id === id);
                         if (!skill) return null;
-                        const label = editing.gender === 'female' ? skill.nameFemale : skill.nameMale;
                         return (
                           <li key={id} className="flex items-center justify-between py-1.5">
-                            <div>{label}</div>
+                            <div>{skill.name}</div>
                             <IconButton ariaLabel="Remove skill inline" title="Verwijder" onClick={() => setNewPendingSkillIds((prev) => prev.filter((x) => x !== id))}>
                               <MdDelete className="w-5 h-5 text-red-600" />
                             </IconButton>

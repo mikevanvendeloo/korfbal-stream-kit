@@ -4,6 +4,7 @@ import { render, screen, within } from '@testing-library/react';
 import { fireEvent } from '@testing-library/react';
 import ProductionDetailPage from './ProductionDetailPage';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Mock hooks used by the page so we can control data and capture mutations
 vi.mock('../hooks/useProductions', async () => {
@@ -22,6 +23,10 @@ vi.mock('../hooks/useProductions', async () => {
     useCreateSegment: () => ({ mutateAsync: vi.fn() }),
     useUpdateSegment: () => ({ mutateAsync }),
     useDeleteSegment: () => ({ mutateAsync: vi.fn() }),
+    useProductionPersonPositions: () => ({ data: [] }),
+    useProductionPersons: () => ({ data: [] }),
+    useUpdateProductionPersonPositions: () => ({ mutateAsync: vi.fn() }),
+    useUpdateProduction: () => ({ mutateAsync: vi.fn() }),
     // expose to test to assert calls
     __mutateAsync: mutateAsync,
   };
@@ -36,6 +41,7 @@ vi.mock('../hooks/usePersons', () => ({
 // Mock positions hook indirectly used by SegmentAssignmentsCard (not under test here)
 vi.mock('../hooks/usePositions', () => ({
   usePositionsCatalog: () => ({ data: [] }),
+  usePositions: () => ({ data: [] }),
 }));
 
 // Mock SegmentAssignmentsCard to avoid unrelated complexity
@@ -44,13 +50,29 @@ vi.mock('../components/SegmentAssignmentsCard', () => ({
   default: () => <div data-testid="segment-assignments-card" />,
 }));
 
+// Mock SegmentOverridesManager to avoid unrelated complexity
+vi.mock('../components/SegmentOverridesManager', () => ({
+  __esModule: true,
+  default: () => <div data-testid="segment-overrides-manager" />,
+}));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+});
+
 function renderWithRoute() {
   return render(
-    <MemoryRouter initialEntries={["/admin/productions/1"]}>
-      <Routes>
-        <Route path="/admin/productions/:id" element={<ProductionDetailPage />} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/admin/productions/1"]}>
+        <Routes>
+          <Route path="/admin/productions/:id" element={<ProductionDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 

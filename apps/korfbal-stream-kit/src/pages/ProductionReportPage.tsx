@@ -10,7 +10,7 @@ import {
 import {MdPictureAsPdf} from 'react-icons/md';
 import {FaCheck, FaMarkdown, FaWhatsapp} from 'react-icons/fa';
 import PlayerCard from '../components/PlayerCard';
-import {useClubs, Club} from '../hooks/useClubs';
+import {Club, useClubs} from '../hooks/useClubs';
 import ClubLogo from '../components/ClubLogo';
 import {useProductionTiming} from '../hooks/useProductions';
 
@@ -61,6 +61,7 @@ export default function ProductionReportPage() {
 
   const [matchSponsor, setMatchSponsor] = useState('');
   const [interviewRationale, setInterviewRationale] = useState('');
+  const [remarks, setRemarks] = useState('');
   const [whatsappCopied, setWhatsappCopied] = useState(false);
 
   // Initialiseer form data wanneer data is geladen
@@ -68,6 +69,7 @@ export default function ProductionReportPage() {
     if (data?.report) {
       setMatchSponsor(data.report.matchSponsor || '');
       setInterviewRationale(data.report.interviewRationale || '');
+      setRemarks(data.report.remarks || '');
     }
   }, [data]);
 
@@ -81,6 +83,7 @@ export default function ProductionReportPage() {
       await saveMutation.mutateAsync({
         matchSponsor: matchSponsor || null,
         interviewRationale: interviewRationale || null,
+        remarks: remarks || null,
       });
       alert('Positie overzicht opgeslagen!');
     } catch (err: any) {
@@ -171,10 +174,20 @@ export default function ProductionReportPage() {
 
       <div className="space-y-6">
         {/* Aanwezigen (read-only, vanuit productie) */}
+        {/* Aanwezigen (read-only, vanuit productie) */}
         <div className="border rounded p-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
           <h2 className="text-lg font-semibold mb-2">Aanwezig</h2>
           <div className="text-sm">
-            {data.enriched.attendees.length > 0 ? data.enriched.attendees.join(', ') : 'Geen aanwezigen'}
+            {data.enriched.attendees.length > 0 ? (
+              data.enriched.attendees.map((person, index) => (
+                <span key={person.name} className={person.isAssigned ? '' : 'italic'}>
+          {person.name}
+                  {index < data.enriched.attendees.length - 1 ? ', ' : ''}
+        </span>
+              ))
+            ) : (
+              'Geen aanwezigen'
+            )}
           </div>
         </div>
 
@@ -193,6 +206,15 @@ export default function ProductionReportPage() {
                 </tr>
               </thead>
               <tbody>
+                {/* Show Livestream Start if set */}
+                {data.production.liveTime && (
+                  <tr className="border-b dark:border-gray-700 bg-green-50 dark:bg-green-900/20">
+                    <td className="py-2 pr-4 font-medium">LIVESTREAM START</td>
+                    <td className="py-2 pr-4 font-mono">{timeLocal(data.production.liveTime)}</td>
+                    <td className="py-2 pr-4 font-mono">{timeLocal(data.production.liveTime)}</td>
+                    <td className="py-2">-</td>
+                  </tr>
+                )}
                 {timing.data.map((segment) => (
                   <tr key={segment.id} className="border-b dark:border-gray-700">
                     <td className="py-2 pr-4">{segment.naam}</td>
@@ -412,6 +434,18 @@ export default function ProductionReportPage() {
             rows={5}
             className="w-full px-3 py-2 border rounded dark:bg-gray-900 dark:border-gray-700"
             placeholder="Bijv:&#10;• Laura van der Linden&#10;• Nikkie Boerhout, nieuw talent bij Oranje, ontwikkelt zich sterk. (vriendin Tim van Oosten, speler van de maand November)"
+          />
+        </div>
+
+        {/* Remarks (editable) */}
+        <div className="border rounded p-4 dark:border-gray-700">
+          <label className="block text-sm font-medium mb-2">Opmerkingen:</label>
+          <textarea
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+            rows={5}
+            className="w-full px-3 py-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+            placeholder="Algemene opmerkingen voor de productie..."
           />
         </div>
 

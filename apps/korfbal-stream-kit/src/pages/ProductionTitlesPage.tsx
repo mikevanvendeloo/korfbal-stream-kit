@@ -1,5 +1,4 @@
-import React from 'react';
-import { useParams, Link } from 'react-router-dom';
+import {Link, useParams} from 'react-router-dom';
 import TitlesManager from '../components/TitlesManager';
 import ProductionHeader from '../components/ProductionHeader';
 

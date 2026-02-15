@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SegmentAssignmentsCard from './SegmentAssignmentsCard';
 
 // Mock hooks used by SegmentAssignmentsCard
@@ -40,39 +40,58 @@ vi.mock('../hooks/usePersons', () => {
   return {
     useSkillsCatalog: () => ({
       data: [
-        { id: 100, code: 'COMMENTAAR', nameMale: 'Commentator', nameFemale: 'Commentatrice' },
-        { id: 200, code: 'REGISSEUR', nameMale: 'Regisseur', nameFemale: 'Regisseuse' },
+        { id: 100, code: 'COMMENTAAR', name: 'Commentaar', type: 'on_stream' },
+        { id: 200, code: 'REGISSEUR', name: 'Regisseur', type: 'crew' },
       ],
     }),
   };
 });
 
+// Mock fetch for person skills
+global.fetch = vi.fn((url) => {
+  if (url.toString().includes('/api/persons/1/skills')) {
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve([{ skillId: 100 }]), // Alice has COMMENTAAR
+    });
+  }
+  if (url.toString().includes('/api/persons/2/skills')) {
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve([{ skillId: 200 }]), // Bob has REGISSEUR
+    });
+  }
+  return Promise.resolve({ ok: false });
+}) as any;
+
 describe('SegmentAssignmentsCard', () => {
   const seg = { id: 99, productionId: 1, naam: 'Test', volgorde: 1, duurInMinuten: 5, isTimeAnchor: false };
+  const productionPersons = [
+    { person: { id: 1, name: 'Alice' } },
+    { person: { id: 2, name: 'Bob' } }
+  ];
 
   it('renders default positions and filters crew by required capability when a position is selected', async () => {
     render(
-      <SegmentAssignmentsCard segment={seg as any} allSegments={[seg as any]} />
+      <SegmentAssignmentsCard segment={seg as any} allSegments={[seg as any]} productionPersons={productionPersons as any} />
     );
 
     // Default positions visible
-    expect(screen.getByText('Standaard posities voor dit segment')).toBeInTheDocument();
+    expect(screen.getByText('Standaard posities voor dit segment (template)')).toBeInTheDocument();
     const btnCommentaar = screen.getByRole('button', { name: /commentaar/i });
     expect(btnCommentaar).toBeInTheDocument();
 
     // Click default position to preselect
     fireEvent.click(btnCommentaar);
 
-    // Now person dropdown should include only Alice (has COMMENTAAR skill 100), not Bob
-    const personSelect = screen.getByLabelText('Persoon') as HTMLSelectElement;
-    // open/select programmatically
-    fireEvent.change(personSelect, { target: { value: '1' } });
-    expect(personSelect.value).toBe('1');
-
-    // Ensure Bob is not offered when filtering by COMMENTAAR
-    const options = Array.from(personSelect.querySelectorAll('option')).map((o) => o.textContent);
-    expect(options).toContain('Alice');
-    // Option list includes placeholder '— kies —' and Alice; Bob should be absent
-    expect(options.some((t) => (t || '').includes('Bob'))).toBe(false);
+    // Wait for skills to be fetched and filtering to apply
+    await waitFor(() => {
+      const personSelect = screen.getByLabelText('Persoon') as HTMLSelectElement;
+      const options = Array.from(personSelect.querySelectorAll('option')).map((o) => o.textContent);
+      // Alice should be present (has COMMENTAAR)
+      expect(options).toContain('Alice');
+      // Bob should be absent (does not have COMMENTAAR)
+      expect(options.some((t) => (t || '').includes('Bob'))).toBe(false);
+    });
   });
 });

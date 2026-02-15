@@ -6,6 +6,7 @@ export type ProductionReport = {
   productionId: number;
   matchSponsor?: string | null;
   interviewRationale?: string | null;
+  remarks?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -33,10 +34,11 @@ export type ProductionReportData = {
     homeTeam: string;
     awayTeam: string;
     date: string;
+    liveTime?: string | null;
   };
   report: ProductionReport | null;
   enriched: {
-    attendees: string[];
+    attendees: Array<{ name: string; isAssigned: boolean }>; // Aangepast type
     rolesBySection: Record<string, Array<{ positionName: string; personNames: string[]; isStudio: boolean }>>;
     interviews: {
       home: {
@@ -70,6 +72,7 @@ export function useSaveProductionReport(productionId: number) {
     mutationFn: async (input: {
       matchSponsor?: string | null;
       interviewRationale?: string | null;
+      remarks?: string | null;
     }): Promise<ProductionReport> => {
       const res = await fetch(createUrl(`/api/production/${productionId}/report`), {
         method: 'POST',

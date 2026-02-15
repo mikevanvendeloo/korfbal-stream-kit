@@ -30,8 +30,8 @@ export async function findClubByTeamName(prisma: PrismaClient | any, teamName: s
   let club = await prisma.club.findFirst({
     where: {
       OR: [
-        { shortName: { startsWith: normalized, mode: 'insensitive' } as any },
-        { name: { startsWith: normalized, mode: 'insensitive' } as any },
+        { shortName: { equals: normalized, mode: 'insensitive' } as any },
+        { name: { equals: normalized, mode: 'insensitive' } as any },
       ],
     } as any,
   });
@@ -45,8 +45,8 @@ export async function findClubByTeamName(prisma: PrismaClient | any, teamName: s
   club = await prisma.club.findFirst({
     where: {
       OR: [
-        { shortName: { startsWith: normalized, mode: 'insensitive' } as any },
-        { name: { startsWith: normalized, mode: 'insensitive' } as any },
+        { shortName: { contains: normalized, mode: 'insensitive' } as any },
+        { name: { contains: normalized, mode: 'insensitive' } as any },
       ],
     } as any,
   });

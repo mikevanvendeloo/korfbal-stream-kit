@@ -66,7 +66,7 @@ export function useDeletePerson() {
 }
 
 export type SkillType = 'crew' | 'on_stream';
-export type SkillCatalog = { id: number; code: string; nameMale: string; nameFemale: string; type: SkillType };
+export type SkillCatalog = { id: number; code: string; name: string; type: SkillType };
 
 export function useSkillsCatalog(params: { type?: SkillType } = {}) {
   const qk = ['skills-catalog', params] as const;

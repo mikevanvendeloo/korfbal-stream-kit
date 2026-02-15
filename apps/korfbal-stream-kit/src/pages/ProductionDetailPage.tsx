@@ -5,16 +5,21 @@ import {
   useCreateSegment,
   useDeleteSegment,
   useProduction,
+  useProductionPersonPositions,
+  useProductionPersons,
   useProductionSegments,
   useProductionTiming,
+  usePositions,
+  useUpdateProductionPersonPositions,
   useUpdateSegment,
+  useUpdateProduction,
 } from '../hooks/useProductions';
 import SegmentFormModal, {SegmentFormValues} from '../components/SegmentFormModal';
 import IconButton from '../components/IconButton';
 import {MdAdd, MdAnchor, MdArrowDownward, MdArrowUpward, MdDelete, MdEdit, MdGroups} from 'react-icons/md';
-import SegmentAssignmentsCard from '../components/SegmentAssignmentsCard';
-import {usePersons} from '../hooks/usePersons';
+import SegmentOverridesManager from '../components/SegmentOverridesManager';
 import ProductionHeader from '../components/ProductionHeader';
+import MultiSelect from '../components/MultiSelect';
 
 function timeLocal(iso: string) {
   const d = new Date(iso);
@@ -23,24 +28,101 @@ function timeLocal(iso: string) {
   return `${h}:${m}`;
 }
 
-function PersonFilterControlInner({ value, onChange, persons }: { value: number | null; onChange: (v: number | null) => void; persons: Array<{ id: number; name: string }>; }) {
+// Component voor productie-brede toewijzingen
+function ProductionWideAssignmentsCard({ productionId }: { productionId: number }) {
+  const { data: productionPersons } = useProductionPersons(productionId);
+  const { data: allPositions } = usePositions();
+  const { data: productionPersonPositions } = useProductionPersonPositions(productionId);
+  const updateProductionPersonPositions = useUpdateProductionPersonPositions(productionId);
+
+  const [error, setError] = React.useState<string | null>(null);
+  const [personSkills, setPersonSkills] = React.useState<Record<number, number[]>>({});
+
+  // Fetch skills for all production persons
+  React.useEffect(() => {
+    if (!productionPersons) return;
+
+    const fetchSkills = async () => {
+      const skillsMap: Record<number, number[]> = {};
+      await Promise.all(
+        productionPersons.map(async (pp) => {
+          try {
+            const res = await fetch(`/api/persons/${pp.person.id}/skills`);
+            if (res.ok) {
+              const skills = await res.json();
+              skillsMap[pp.person.id] = skills.map((s: any) => s.skillId);
+            } else {
+              skillsMap[pp.person.id] = [];
+            }
+          } catch {
+            skillsMap[pp.person.id] = [];
+          }
+        })
+      );
+      setPersonSkills(skillsMap);
+    };
+
+    fetchSkills();
+  }, [productionPersons]);
+
+  const handlePositionChange = async (personId: number, selectedPositionIds: number[]) => {
+    setError(null);
+    try {
+      await updateProductionPersonPositions.mutateAsync({ personId, positionIds: selectedPositionIds });
+    } catch (e: any) {
+      setError(e?.message || 'Opslaan mislukt');
+    }
+  };
+
+  if (!productionPersons || !allPositions || !productionPersonPositions) {
+    return <div>Laden productie-brede toewijzingen...</div>;
+  }
+
   return (
-    <label className="text-sm">
-      <div className="mb-1">Filter op persoon</div>
-      <select
-        aria-label="Filter op persoon"
-        className="border rounded px-2 py-1 min-w-[12rem]"
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-      >
-        <option value="">— alle —</option>
-        {persons.map((p) => (
-          <option key={p.id} value={p.id}>{p.name}</option>
-        ))}
-      </select>
-    </label>
+    <div className="border rounded p-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+      <h2 className="text-lg font-semibold mb-3">Productie-brede Positietoewijzingen</h2>
+      {error && (
+        <div role="alert" className="mb-3 rounded-md border border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300 px-3 py-2">{error}</div>
+      )}
+      {productionPersons.length === 0 ? (
+        <p className="text-sm text-gray-500">Geen personen aanwezig voor deze productie.</p>
+      ) : (
+        <ul className="divide-y divide-gray-200 dark:divide-gray-800">
+          {productionPersons.map(pp => {
+            const assignedPositions = productionPersonPositions.filter(ppp => ppp.personId === pp.person.id);
+            const currentSelectedPositionIds = assignedPositions.map(p => p.positionId);
+
+            // Filter positions based on person's skills
+            const personSkillIds = personSkills[pp.person.id] || [];
+            const availablePositions = allPositions.filter(pos => {
+              // If position has no skill requirement, include it
+              if (!pos.skillId) return true;
+              // Otherwise, check if person has the required skill
+              return personSkillIds.includes(pos.skillId);
+            });
+
+            const positionOptions = availablePositions.map(pos => ({ label: pos.name, value: pos.id }));
+
+            return (
+              <li key={pp.person.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="font-medium w-48">{pp.person.name}</div>
+                <div className="flex-grow">
+                  <MultiSelect
+                    options={positionOptions}
+                    value={currentSelectedPositionIds}
+                    onChange={(selected: number[]) => handlePositionChange(pp.person.id, selected)}
+                    placeholder="Selecteer posities"
+                  />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
+
 
 export default function ProductionDetailPage() {
   const params = useParams<{ id: string }>();
@@ -53,10 +135,12 @@ export default function ProductionDetailPage() {
   const updateSeg = useUpdateSegment();
   const deleteSeg = useDeleteSegment();
   const timing = useProductionTiming(id);
+  const updateProduction = useUpdateProduction();
   const [modal, setModal] = React.useState<null | { mode: 'create' | 'edit'; seg?: ProductionSegment }>(null);
   const [err, setErr] = React.useState<string | null>(null);
-  const [personFilterId, setPersonFilterId] = React.useState<number | null>(null);
-  const personsList = usePersons({ page: 1, limit: 200 });
+  const { data: productionPersonPositions } = useProductionPersonPositions(id);
+  const { data: productionPersons } = useProductionPersons(id);
+  const { data: allPositions } = usePositions();
 
   async function handleCreate(values: SegmentFormValues) {
     setErr(null);
@@ -113,6 +197,28 @@ export default function ProductionDetailPage() {
     }
   }
 
+  async function handleLiveTimeChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    setErr(null);
+    try {
+      // Combine date from match with new time
+      if (!prod?.matchSchedule?.date) return;
+
+      let newLiveTime: string | null = null;
+      if (value) {
+        const matchDate = new Date(prod.matchSchedule.date);
+        const [hours, minutes] = value.split(':').map(Number);
+        const newDate = new Date(matchDate);
+        newDate.setHours(hours, minutes, 0, 0);
+        newLiveTime = newDate.toISOString();
+      }
+
+      await updateProduction.mutateAsync({ id, liveTime: newLiveTime });
+    } catch (e: any) {
+      setErr(e?.message || 'Opslaan live tijd mislukt');
+    }
+  }
+
   if (!Number.isInteger(id) || id <= 0) {
     return (
       <div className="container py-6 text-gray-800 dark:text-gray-100">
@@ -141,6 +247,7 @@ export default function ProductionDetailPage() {
           <Link to={`/admin/productions/${id}/crew-report`} className="px-3 py-1 border rounded">Crew report</Link>
           <Link to={`/admin/productions/${id}/production-report`} className="px-3 py-1 border rounded">Productie rapport</Link>
           <Link to={`/admin/productions/${id}/callsheets`} className="px-3 py-1 border rounded">Callsheets</Link>
+          <Link to={`/admin/productions/${id}/segment-assignments`} className="px-3 py-1 border rounded">Segment Toewijzingen</Link>
           <Link to="/admin/productions" className="px-3 py-1 border rounded">Terug naar overzicht</Link>
         </div>
       </div>
@@ -152,11 +259,29 @@ export default function ProductionDetailPage() {
 
       {/* Match header */}
       {prod && (
-        <div className="mb-4 p-3 border rounded border-gray-200 dark:border-gray-800">
-          <div className="font-medium">{prod.matchSchedule?.homeTeamName} vs {prod.matchSchedule?.awayTeamName}</div>
-          <div className="text-sm text-gray-500">{new Date(prod.matchSchedule?.date).toLocaleString()}</div>
+        <div className="mb-4 p-3 border rounded border-gray-200 dark:border-gray-800 flex justify-between items-center">
+          <div>
+            <div className="font-medium">{prod.matchSchedule?.homeTeamName} vs {prod.matchSchedule?.awayTeamName}</div>
+            <div className="text-sm text-gray-500">{new Date(prod.matchSchedule?.date).toLocaleString()}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="liveTime" className="text-sm font-medium">Livestream start:</label>
+            <input
+              type="time"
+              id="liveTime"
+              className="px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-700"
+              value={prod.liveTime ? new Date(prod.liveTime).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : ''}
+              onChange={handleLiveTimeChange}
+            />
+          </div>
         </div>
       )}
+
+      {/* Productie-brede Positietoewijzingen */}
+      <div className="mb-8">
+        <ProductionWideAssignmentsCard productionId={id} />
+      </div>
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Segments column */}
@@ -216,7 +341,7 @@ export default function ProductionDetailPage() {
             <div className="text-sm text-gray-500">Geen segmenten</div>
           )}
           {timing.data && timing.data.length > 0 && (
-            <table className="min-w-full border border-gray-200 dark:border-gray-800 text-sm">
+            <table className="min-w-full border border-gray-200 dark:border-gray-800 dark:text-gray-100 text-sm">
               <thead className="bg-gray-50 dark:bg-gray-900">
                 <tr>
                   <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">#</th>
@@ -226,6 +351,15 @@ export default function ProductionDetailPage() {
                 </tr>
               </thead>
               <tbody>
+                {/* Show Livestream Start if set */}
+                {prod?.liveTime && (
+                  <tr className="bg-green-50 dark:bg-green-900/20">
+                    <td className="p-2 border-b border-gray-200 dark:border-gray-800">-</td>
+                    <td className="p-2 border-b border-gray-200 dark:border-gray-800 font-medium">LIVESTREAM START</td>
+                    <td className="p-2 border-b border-gray-200 dark:border-gray-800 font-mono">{timeLocal(prod.liveTime)}</td>
+                    <td className="p-2 border-b border-gray-200 dark:border-gray-800 font-mono">{timeLocal(prod.liveTime)}</td>
+                  </tr>
+                )}
                 {timing.data.map((t) => (
                   <tr key={t.id} className={t.isTimeAnchor ? 'bg-blue-50 dark:bg-blue-900/20' : ''}>
                     <td className="p-2 border-b border-gray-200 dark:border-gray-800">{t.volgorde}</td>
@@ -240,24 +374,15 @@ export default function ProductionDetailPage() {
         </div>
       </div>
 
-      {/* Assignments overview */}
+      {/* Segment Overrides Manager */}
       <div className="mt-8">
-        <div className="flex items-end justify-between mb-3">
-          <h2 className="font-semibold">Bezetting per segment</h2>
-          <PersonFilterControlInner
-            value={personFilterId}
-            onChange={setPersonFilterId}
-            persons={(personsList.data?.items || []).map((p) => ({ id: p.id, name: p.name }))}
-          />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {(segments.data || []).map((s) => (
-            <SegmentAssignmentsCard key={s.id} segment={s} allSegments={segments.data || []} personFilterId={personFilterId} />
-          ))}
-          {segments.data && segments.data.length === 0 && (
-            <div className="text-sm text-gray-500">Geen segmenten</div>
-          )}
-        </div>
+        <SegmentOverridesManager
+          productionId={id}
+          segments={segments.data || []}
+          productionPersons={productionPersons || []}
+          allPositions={allPositions || []}
+          productionPersonPositions={productionPersonPositions || []}
+        />
       </div>
 
       {modal && (
