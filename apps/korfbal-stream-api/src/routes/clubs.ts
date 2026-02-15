@@ -191,7 +191,7 @@ async function fetchTeamPersonCards(teamId: string | number, poolId: string | nu
         language: 'nl',
         'banner-size': 'fullwidth',
         _person_position_id: '1',
-        limit: '25',
+        limit: '40',
       },
       enable_cache: true,
       is_user_specific: false,
@@ -220,7 +220,7 @@ async function fetchTeamPersonCards(teamId: string | number, poolId: string | nu
     try {
       const result = (json as any).data || json;
       const cards = result?.cards;
-      const len = Array.isArray(cards) ? cards.length : Array.isArray(result?.players) ? result.players.length : 0;
+      const len = Array.isArray(cards) ? cards.filter((card: any) => card.status==='active').length : Array.isArray(result?.players) ? result.players.length : 0;
       const team = result?.cards[0].team || {};
       logger.info(`Template parsed: team_name=${team?.club_name || team?.name || 'n/a'} team_short=${team?.team_name_short || team?.short_name || 'n/a'} cards=${len}`);
     } catch (e: any) {
@@ -238,7 +238,7 @@ async function fetchTeamPersonCards(teamId: string | number, poolId: string | nu
     let players: any[] = [];
     const cards = result?.cards || result?.players || [];
     if (Array.isArray(cards)) {
-      players = cards.map((c: any) => {
+      players = cards.filter((card: any) => card.status==='active').map((c: any) => {
         const p = c?.person || c;
         const id = p.id ?? p.ref_id ?? p.external_id;
         const fullname = (p.fullname || p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ')).trim();
@@ -361,6 +361,7 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
       if (!usedCards && teamId && poolId) {
         try {
           const apiUrl = buildKorfbalApiUrl(teamId, poolId);
+          logger.info(`Now requesting team ${apiUrl}`)
           const resp = await fetch(apiUrl);
           if (resp.ok) {
             const json: any = await resp.json();
@@ -449,18 +450,6 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
         if (!personFunction && inferredFn) personFunction = inferredFn;
         if (!personType && inferredType) (p as any).personType = inferredType;
       }
-
-      // // Optional enrichment via person template when we have both extId (person_id) and poolId
-      // let fullName = rawFullName;
-      // if (currentPoolId && extId) {
-      //   const tpl = await fetchPersonTemplate(extId, currentPoolId).catch(() => null);
-      //   if (tpl) {
-      //     const tplName = `${(tpl.firstName || '').trim()} ${(tpl.lastName || '').trim()}`.trim();
-      //     if (tplName) fullName = tplName;
-      //     if (tpl.gender === 'f') gender = 'female';
-      //     if (tpl.gender === 'm') gender = 'male';
-      //   }
-      // }
 
       // Determine unique where: prefer externalId, else (clubId, name, shirtNo)
       let existingPlayer: any = null;
@@ -650,6 +639,30 @@ clubsRouter.get('/:slug/players', async (req, res, next) => {
       orderBy: [{shirtNo: 'asc' as const}, {name: 'asc' as const}]
     });
     return res.json(items);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Create a new club
+clubsRouter.post('/', async (req, res, next) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    const shortName = String(req.body?.shortName || '').trim();
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+
+    const baseSlug = slugify(shortName || name);
+    const slug = await ensureUniqueSlug(baseSlug);
+
+    const club = await prisma.club.create({
+      data: {
+        name,
+        shortName: shortName || name,
+        slug,
+        logoUrl: null, // Optional: handle logo upload if needed
+      },
+    });
+    return res.status(201).json(club);
   } catch (err) {
     return next(err);
   }

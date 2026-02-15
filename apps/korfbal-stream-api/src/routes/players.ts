@@ -111,4 +111,89 @@ playersRouter.delete('/images/:id', async (req, res, next) => {
   }
 });
 
+// Create a new player
+playersRouter.post('/', async (req, res, next) => {
+  try {
+    const clubId = Number(req.body?.clubId);
+    const name = String(req.body?.name || '').trim();
+    const shirtNo = req.body?.shirtNo ? Number(req.body.shirtNo) : null;
+    const gender = req.body?.gender === 'male' || req.body?.gender === 'female' ? req.body.gender : null;
+    const personType = String(req.body?.personType || 'player').trim();
+    const func = String(req.body?.function || '').trim();
+    const photoUrl = req.body?.photoUrl ? String(req.body.photoUrl).trim() : null;
+
+    if (!Number.isInteger(clubId) || clubId <= 0) return res.status(400).json({ error: 'Invalid clubId' });
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+
+    const club = await prisma.club.findUnique({ where: { id: clubId } });
+    if (!club) return res.status(404).json({ error: 'Club not found' });
+
+    const player = await prisma.player.create({
+      data: {
+        clubId,
+        name,
+        shirtNo,
+        gender,
+        personType,
+        function: func || null,
+        photoUrl,
+      },
+    });
+    return res.status(201).json(player);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Update a player
+playersRouter.put('/:id', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+
+    const existing = await prisma.player.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+
+    const name = req.body.name !== undefined ? String(req.body.name).trim() : undefined;
+    const shirtNo = req.body.shirtNo !== undefined ? (req.body.shirtNo ? Number(req.body.shirtNo) : null) : undefined;
+    const gender = req.body.gender !== undefined ? (req.body.gender === 'male' || req.body.gender === 'female' ? req.body.gender : null) : undefined;
+    const personType = req.body.personType !== undefined ? String(req.body.personType).trim() : undefined;
+    const func = req.body.function !== undefined ? String(req.body.function).trim() : undefined;
+    const photoUrl = req.body.photoUrl !== undefined ? (req.body.photoUrl ? String(req.body.photoUrl).trim() : null) : undefined;
+
+    if (name !== undefined && !name) return res.status(400).json({ error: 'Name cannot be empty' });
+
+    const updated = await prisma.player.update({
+      where: { id },
+      data: {
+        name,
+        shirtNo,
+        gender,
+        personType,
+        function: func || null,
+        photoUrl,
+      },
+    });
+    return res.json(updated);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Delete a player
+playersRouter.delete('/:id', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+
+    const existing = await prisma.player.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+
+    await prisma.player.delete({ where: { id } });
+    return res.status(204).send();
+  } catch (err) {
+    return next(err);
+  }
+});
+
 export default playersRouter;

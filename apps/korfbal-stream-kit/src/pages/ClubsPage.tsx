@@ -1,7 +1,19 @@
 import React from 'react';
-import {useClubPlayers, useClubs, useDeleteClub, useImportClubs, useImportLeagueTeams} from '../hooks/useClubs';
-import PlayerCard from '../components/PlayerCard';
+import {
+  useClubPlayers,
+  useClubs,
+  useCreateClub,
+  useCreatePlayer,
+  useDeleteClub,
+  useDeletePlayer,
+  useImportClubs,
+  useImportLeagueTeams,
+  useUpdatePlayer,
+  useUploadPlayerImage
+} from '../hooks/useClubs';
+import PlayerCard, {PhotoCard} from '../components/PlayerCard';
 import ClubLogo from '../components/ClubLogo';
+import {MdAdd} from 'react-icons/md';
 
 function DeleteClubButton({slug, clubs, onDeleted}: {
   slug: string;
@@ -49,10 +61,33 @@ export default function ClubsPage() {
 
   const importClubs = useImportClubs();
   const importLeague = useImportLeagueTeams();
+  const createClub = useCreateClub();
+  const createPlayer = useCreatePlayer();
+  const updatePlayer = useUpdatePlayer();
+  const deletePlayer = useDeletePlayer();
+  const uploadImage = useUploadPlayerImage();
+
   const [apiUrl, setApiUrl] = React.useState('');
   const [teamId, setTeamId] = React.useState('');
   const [poolId, setPoolId] = React.useState('');
   const [msg, setMsg] = React.useState<string | null>(null);
+
+  // New Club Form State
+  const [newClubName, setNewClubName] = React.useState('');
+  const [newClubShortName, setNewClubShortName] = React.useState('');
+  const [showNewClubForm, setShowNewClubForm] = React.useState(false);
+
+  // Player Form State (Create/Edit)
+  const [playerFormMode, setPlayerFormMode] = React.useState<'create' | 'edit' | null>(null);
+  const [editingPlayerId, setEditingPlayerId] = React.useState<number | null>(null);
+  const [playerName, setPlayerName] = React.useState('');
+  const [playerShirtNo, setPlayerShirtNo] = React.useState('');
+  const [playerGender, setPlayerGender] = React.useState('male');
+  const [playerType, setPlayerType] = React.useState('player');
+  const [playerFunction, setPlayerFunction] = React.useState('');
+  const [playerPhotoUrl, setPlayerPhotoUrl] = React.useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = React.useState(false);
+
 
   React.useEffect(() => {
     if (!slug && clubs && clubs.length > 0) {
@@ -78,6 +113,109 @@ export default function ClubsPage() {
     }
   }
 
+  async function handleCreateClub(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    try {
+      const club = await createClub.mutateAsync({ name: newClubName, shortName: newClubShortName });
+      setNewClubName('');
+      setNewClubShortName('');
+      setShowNewClubForm(false);
+      setSlug(club.slug); // Select the new club
+      setMsg('Club aangemaakt.');
+    } catch (err: any) {
+      setMsg(err?.message || 'Club aanmaken mislukt');
+    }
+  }
+
+  function resetPlayerForm() {
+    setPlayerFormMode(null);
+    setEditingPlayerId(null);
+    setPlayerName('');
+    setPlayerShirtNo('');
+    setPlayerGender('male');
+    setPlayerType('player');
+    setPlayerFunction('');
+    setPlayerPhotoUrl(null);
+  }
+
+  function openCreatePlayerForm() {
+    resetPlayerForm();
+    setPlayerFormMode('create');
+  }
+
+  function openEditPlayerForm(player: any) {
+    setPlayerFormMode('edit');
+    setEditingPlayerId(player.id);
+    setPlayerName(player.name);
+    setPlayerShirtNo(player.shirtNo?.toString() || '');
+    setPlayerGender(player.gender || 'male');
+    setPlayerType(player.personType || 'player');
+    setPlayerFunction(player.function || '');
+    setPlayerPhotoUrl(player.photoUrl || null);
+  }
+
+  async function handlePlayerSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    const club = (clubs || []).find((c) => c.slug === slug);
+    if (!club) return;
+
+    try {
+      if (playerFormMode === 'create') {
+        await createPlayer.mutateAsync({
+          clubId: club.id,
+          name: playerName,
+          shirtNo: playerShirtNo ? Number(playerShirtNo) : undefined,
+          gender: playerGender,
+          personType: playerType,
+          function: playerFunction,
+          photoUrl: playerPhotoUrl || undefined
+        });
+        setMsg('Speler aangemaakt.');
+      } else if (playerFormMode === 'edit' && editingPlayerId) {
+        await updatePlayer.mutateAsync({
+          id: editingPlayerId,
+          name: playerName,
+          shirtNo: playerShirtNo ? Number(playerShirtNo) : undefined,
+          gender: playerGender,
+          personType: playerType,
+          function: playerFunction,
+          photoUrl: playerPhotoUrl || undefined
+        });
+        setMsg('Speler bijgewerkt.');
+      }
+      resetPlayerForm();
+    } catch (err: any) {
+      setMsg(err?.message || 'Opslaan mislukt');
+    }
+  }
+
+  async function handleDeletePlayer(player: any) {
+    if (!confirm(`Weet je zeker dat je ${player.name} wilt verwijderen?`)) return;
+    setMsg(null);
+    try {
+      await deletePlayer.mutateAsync(player.id);
+      setMsg('Speler verwijderd.');
+    } catch (err: any) {
+      setMsg(err?.message || 'Verwijderen mislukt');
+    }
+  }
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    setUploadingPhoto(true);
+    try {
+      const result = await uploadImage.mutateAsync(file);
+      setPlayerPhotoUrl(result.filename);
+    } catch (err: any) {
+      alert('Foto uploaden mislukt: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
       <h1 className="text-xl font-semibold mb-4">Clubs & spelers</h1>
@@ -85,12 +223,12 @@ export default function ClubsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Left: club selector and players table */}
         <div className="md:col-span-2">
-          <div className="mb-3">
-            <label className="text-sm">
+          <div className="mb-3 flex items-end gap-2">
+            <label className="text-sm flex-grow">
               <div className="mb-1">Kies club</div>
               <select
                 aria-label="Kies club"
-                className="border rounded px-2 py-1 min-w-[16rem]"
+                className="border rounded px-2 py-1 w-full"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
               >
@@ -99,7 +237,44 @@ export default function ClubsPage() {
                 ))}
               </select>
             </label>
+            <button
+              className="px-3 py-1 border rounded bg-green-600 text-white flex items-center gap-1 h-[34px]"
+              onClick={() => setShowNewClubForm(!showNewClubForm)}
+            >
+              <MdAdd /> Nieuwe club
+            </button>
           </div>
+
+          {showNewClubForm && (
+            <div className="mb-4 p-3 border rounded bg-gray-50 dark:bg-gray-900 dark:border-gray-700">
+              <h3 className="font-medium mb-2">Nieuwe club toevoegen</h3>
+              <form onSubmit={handleCreateClub} className="flex flex-col gap-3">
+                <div>
+                  <label className="block text-sm mb-1">Naam</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-600"
+                    value={newClubName}
+                    onChange={(e) => setNewClubName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Korte naam (optioneel)</label>
+                  <input
+                    type="text"
+                    className="w-full px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-600"
+                    value={newClubShortName}
+                    onChange={(e) => setNewClubShortName(e.target.value)}
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => setShowNewClubForm(false)} className="px-3 py-1 border rounded">Annuleren</button>
+                  <button type="submit" className="px-3 py-1 border rounded bg-blue-600 text-white" disabled={createClub.isPending}>Opslaan</button>
+                </div>
+              </form>
+            </div>
+          )}
 
           {isLoading && <div>Laden…</div>}
           {error && <div className="text-red-600">Fout bij laden clubs</div>}
@@ -133,8 +308,103 @@ export default function ClubsPage() {
                       <ClubLogo logoUrl={club.logoUrl} alt={`${title} logo`} size="large" />
                       <div className="text-lg font-medium">{title}</div>
                     </div>
-                    <DeleteClubButton slug={club.slug} onDeleted={(nextSlug) => setSlug(nextSlug)} clubs={clubs || []}/>
+                    <div className="flex gap-2">
+                      <button
+                        className="px-3 py-1 border rounded bg-green-600 text-white flex items-center gap-1"
+                        onClick={openCreatePlayerForm}
+                      >
+                        <MdAdd /> Nieuwe speler
+                      </button>
+                      <DeleteClubButton slug={club.slug} onDeleted={(nextSlug) => setSlug(nextSlug)} clubs={clubs || []}/>
+                    </div>
                   </div>
+
+                  {playerFormMode && (
+                    <div className="mb-6 p-3 border rounded bg-gray-50 dark:bg-gray-900 dark:border-gray-700">
+                      <h3 className="font-medium mb-2">{playerFormMode === 'create' ? `Nieuwe speler toevoegen aan ${title}` : 'Speler bewerken'}</h3>
+                      <form onSubmit={handlePlayerSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="md:col-span-2">
+                          <label className="block text-sm mb-1">Naam</label>
+                          <input
+                            type="text"
+                            required
+                            className="w-full px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-600"
+                            value={playerName}
+                            onChange={(e) => setPlayerName(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm mb-1">Rugnummer</label>
+                          <input
+                            type="number"
+                            className="w-full px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-600"
+                            value={playerShirtNo}
+                            onChange={(e) => setPlayerShirtNo(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm mb-1">Geslacht</label>
+                          <select
+                            className="w-full px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-600"
+                            value={playerGender}
+                            onChange={(e) => setPlayerGender(e.target.value)}
+                          >
+                            <option value="male">Man</option>
+                            <option value="female">Vrouw</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm mb-1">Type</label>
+                          <select
+                            className="w-full px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-600"
+                            value={playerType}
+                            onChange={(e) => {
+                              setPlayerType(e.target.value);
+                              // Clear function if type is player
+                              if (e.target.value === 'player') {
+                                setPlayerFunction('');
+                              }
+                            }}
+                          >
+                            <option value="player">Speler</option>
+                            <option value="coach">Coach</option>
+                            <option value="staff">Staf</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm mb-1">Functie (optioneel)</label>
+                          <input
+                            type="text"
+                            placeholder="bv. Hoofdcoach"
+                            className="w-full px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-600 disabled:opacity-50 disabled:bg-gray-100 dark:disabled:bg-gray-800"
+                            value={playerFunction}
+                            onChange={(e) => setPlayerFunction(e.target.value)}
+                            disabled={playerType === 'player'}
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-sm mb-1">Foto</label>
+                          <div className="flex items-center gap-3">
+                            {playerPhotoUrl && (
+                              <PhotoCard name={playerName} photoUrl={playerPhotoUrl} />
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handlePhotoUpload}
+                              className="text-sm"
+                              disabled={uploadingPhoto}
+                            />
+                            {uploadingPhoto && <span className="text-xs text-gray-500">Uploaden...</span>}
+                          </div>
+                        </div>
+                        <div className="md:col-span-2 flex justify-end gap-2 mt-2">
+                          <button type="button" onClick={resetPlayerForm} className="px-3 py-1 border rounded">Annuleren</button>
+                          <button type="submit" className="px-3 py-1 border rounded bg-blue-600 text-white" disabled={createPlayer.isPending || updatePlayer.isPending || uploadingPhoto}>Opslaan</button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
 
                   {sortedPlayers.length === 0 ? (
                     <div className="p-6 text-center text-gray-500">Geen spelers gevonden voor deze club.</div>
@@ -147,6 +417,8 @@ export default function ClubsPage() {
                           photoUrl={player.photoUrl}
                           shirtNo={player.shirtNo}
                           function={player.function}
+                          onEdit={() => openEditPlayerForm(player)}
+                          onDelete={() => handleDeletePlayer(player)}
                         />
                       ))}
                     </div>

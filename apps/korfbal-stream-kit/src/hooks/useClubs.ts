@@ -81,3 +81,86 @@ export function useImportLeagueTeams() {
     },
   });
 }
+
+export function useCreateClub() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { name: string; shortName?: string }) => {
+      const res = await fetch(createUrl('/api/clubs'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['clubs'] }),
+  });
+}
+
+export function useCreatePlayer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { clubId: number; name: string; shirtNo?: number; gender?: string; personType?: string; function?: string; photoUrl?: string }) => {
+      const res = await fetch(createUrl('/api/players'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey.includes('players') });
+    },
+  });
+}
+
+export function useUpdatePlayer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: number; name?: string; shirtNo?: number; gender?: string; personType?: string; function?: string; photoUrl?: string }) => {
+      const res = await fetch(createUrl(`/api/players/${input.id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey.includes('players') });
+    },
+  });
+}
+
+export function useDeletePlayer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(createUrl(`/api/players/${id}`), { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey.includes('players') });
+    },
+  });
+}
+
+export function useUploadPlayerImage() {
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      // Optional: subject can be derived from filename on backend if not provided
+      // formData.append('subject', file.name.replace(/\.[^/.]+$/, ""));
+
+      const res = await fetch(createUrl('/api/players/images'), {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+  });
+}

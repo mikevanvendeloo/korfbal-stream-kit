@@ -205,4 +205,16 @@ describe('Clubs import and listing API', () => {
     const res = await request(app).post('/api/clubs/import').send({});
     expect(res.status).toBe(400);
   });
+
+  it('creates a new club manually', async () => {
+    const res = await request(app)
+      .post('/api/clubs')
+      .send({ name: 'New Club', shortName: 'NC' });
+    expect(res.status).toBe(201);
+    expect(res.body.name).toBe('New Club');
+    expect(res.body.slug).toBe('nc');
+
+    const list = await request(app).get('/api/clubs');
+    expect(list.body.length).toBe(1);
+  });
 });

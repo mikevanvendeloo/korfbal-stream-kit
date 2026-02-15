@@ -45,16 +45,32 @@ personsRouter.get('/', async (req, res, next) => {
 });
 
 // GET /api/persons/export-json
-// Export all persons as JSON
+// Export all persons as JSON with their skills
 // IMPORTANT: Must be BEFORE /:id route
 personsRouter.get('/export-json', async (_req, res, next) => {
   try {
-    const persons = await prisma.person.findMany({ orderBy: { id: 'asc' } });
+    const persons = await prisma.person.findMany({
+      orderBy: { id: 'asc' },
+      include: {
+        skills: {
+          include: {
+            skill: true
+          }
+        }
+      }
+    });
 
     // Map to export format (without id and createdAt)
     const exportData = persons.map((p) => ({
       name: p.name,
       gender: p.gender,
+      skills: p.skills.map(ps => ({
+        code: ps.skill.code,
+        name: ps.skill.name,
+        nameMale: ps.skill.nameMale,
+        nameFemale: ps.skill.nameFemale,
+        type: ps.skill.type
+      }))
     }));
 
     res.setHeader('Content-Type', 'application/json');
@@ -67,7 +83,7 @@ personsRouter.get('/export-json', async (_req, res, next) => {
 });
 
 // POST /api/persons/import-json
-// Import persons from JSON (upsert based on name)
+// Import persons from JSON (upsert based on name) and their skills
 personsRouter.post('/import-json', async (req, res, next) => {
   try {
     const data = req.body;
@@ -81,15 +97,49 @@ personsRouter.post('/import-json', async (req, res, next) => {
 
     for (const item of data) {
       try {
-        const input = PersonInputSchema.parse(item);
-        const existing = await prisma.person.findFirst({ where: { name: input.name } });
+        // Validate basic person data
+        const input = PersonInputSchema.parse({ name: item.name, gender: item.gender });
 
-        if (existing) {
-          await prisma.person.update({ where: { id: existing.id }, data: input as any });
+        // Upsert person
+        let person = await prisma.person.findFirst({ where: { name: input.name } });
+        if (person) {
+          person = await prisma.person.update({ where: { id: person.id }, data: input as any });
           updated++;
         } else {
-          await prisma.person.create({ data: input as any });
+          person = await prisma.person.create({ data: input as any });
           created++;
+        }
+
+        // Process skills if present
+        if (Array.isArray(item.skills)) {
+          for (const skillData of item.skills) {
+            if (!skillData.code || !skillData.name) continue;
+
+            // Upsert skill definition
+            const skill = await prisma.skill.upsert({
+              where: { code: skillData.code },
+              update: {
+                name: skillData.name,
+                nameMale: skillData.nameMale || skillData.name,
+                nameFemale: skillData.nameFemale || skillData.name,
+                type: skillData.type || 'crew'
+              },
+              create: {
+                code: skillData.code,
+                name: skillData.name,
+                nameMale: skillData.nameMale || skillData.name,
+                nameFemale: skillData.nameFemale || skillData.name,
+                type: skillData.type || 'crew'
+              }
+            });
+
+            // Link skill to person
+            await prisma.personSkill.upsert({
+              where: { personId_skillId: { personId: person.id, skillId: skill.id } },
+              update: {},
+              create: { personId: person.id, skillId: skill.id }
+            });
+          }
         }
       } catch (err: any) {
         problems.push({ name: item.name || 'unknown', reason: err.message || 'validation failed' });

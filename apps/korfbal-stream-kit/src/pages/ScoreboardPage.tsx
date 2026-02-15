@@ -20,7 +20,7 @@ function fmtClockParts(totalSeconds?: number): { m: string; ss: string } | null 
 
 function useMatchData() {
   const { data: sb, isLoading: sbLoading, isError: sbErr } = useScoreboard(1000);
-  const { data: sc, isLoading: scLoading, isError: scErr } = useShotclock(500);
+  const { data: sc, isLoading: scLoading } = useShotclock(500);
   const { data: mc, isLoading: mcLoading, isError: mcErr } = useMatchClock(1000);
 
   const { home, guest } = useMemo(() => {
@@ -38,7 +38,8 @@ function useMatchData() {
     return { total: m * 60 + s, period: item.period } as const;
   }, [mc]);
 
-  return { home, guest, shot, matchClock, loading: sbLoading || scLoading || mcLoading, error: sbErr || scErr || mcErr };
+  // Ignore shotclock errors to prevent "Fout bij laden" when shotclock is offline
+  return { home, guest, shot, matchClock, loading: sbLoading || scLoading || mcLoading, error: sbErr || mcErr };
 }
 export default function ScoreboardPage() {
   const { home, guest, shot, matchClock, loading, error } = useMatchData();
@@ -147,7 +148,7 @@ export default function ScoreboardPage() {
         <div className="col-span-1 flex flex-col items-center justify-center">
           <div className="text-gray-300 text-center text-lg sm:text-xl mb-2">Shotclock</div>
           <div aria-label="shotclock" className={`font-mono tabular-nums ${shotColorClass} text-center text-[18vw] sm:text-[10rem] leading-none`}>
-            {typeof shot?.time === 'number' ? shot.time : '--'}
+            {typeof shot?.time === 'number' ? shot.time : ''}
           </div>
         </div>
 
