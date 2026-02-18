@@ -1,6 +1,7 @@
 /// <reference types='vitest' />
 import {defineConfig} from 'vite';
 import react from '@vitejs/plugin-react';
+import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 
 export default defineConfig(() => ({
   root: __dirname,
@@ -29,7 +30,7 @@ export default defineConfig(() => ({
     port: 4300,
     host: 'localhost',
   },
-  plugins: [react()],
+  plugins: [react(), nxViteTsPaths()],
   // Uncomment this if you are using workers.
   // worker: {
   //  plugins: [ nxViteTsPaths() ],
@@ -41,6 +42,9 @@ export default defineConfig(() => ({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
+  },
+  optimizeDeps: {
+    include: ['react-calendar', 'html2canvas'],
   },
   test: {
     name: '@korfbal-stream-kit/korfbal-stream-kit',

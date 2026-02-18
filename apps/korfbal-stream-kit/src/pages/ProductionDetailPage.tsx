@@ -16,10 +16,11 @@ import {
 } from '../hooks/useProductions';
 import SegmentFormModal, {SegmentFormValues} from '../components/SegmentFormModal';
 import IconButton from '../components/IconButton';
-import {MdAdd, MdAnchor, MdArrowDownward, MdArrowUpward, MdDelete, MdEdit, MdGroups} from 'react-icons/md';
+import {MdAdd, MdAnchor, MdArrowDownward, MdArrowUpward, MdDelete, MdEdit, MdGroups, MdDownload} from 'react-icons/md';
 import SegmentOverridesManager from '../components/SegmentOverridesManager';
 import ProductionHeader from '../components/ProductionHeader';
 import MultiSelect from '../components/MultiSelect';
+import {createUrl} from '../lib/api';
 
 function timeLocal(iso: string) {
   const d = new Date(iso);
@@ -219,6 +220,10 @@ export default function ProductionDetailPage() {
     }
   }
 
+  const handleExport = () => {
+    window.open(createUrl(`/api/production/${id}/export`).toString(), '_blank');
+  };
+
   if (!Number.isInteger(id) || id <= 0) {
     return (
       <div className="container py-6 text-gray-800 dark:text-gray-100">
@@ -248,6 +253,9 @@ export default function ProductionDetailPage() {
           <Link to={`/admin/productions/${id}/production-report`} className="px-3 py-1 border rounded">Productie rapport</Link>
           <Link to={`/admin/productions/${id}/callsheets`} className="px-3 py-1 border rounded">Callsheets</Link>
           <Link to={`/admin/productions/${id}/segment-assignments`} className="px-3 py-1 border rounded">Segment Toewijzingen</Link>
+          <button onClick={handleExport} className="px-3 py-1 border rounded flex items-center gap-1" title="Exporteer productie">
+            <MdDownload /> Exporteer
+          </button>
           <Link to="/admin/productions" className="px-3 py-1 border rounded">Terug naar overzicht</Link>
         </div>
       </div>

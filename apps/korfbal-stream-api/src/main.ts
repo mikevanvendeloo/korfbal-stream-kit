@@ -14,6 +14,7 @@ import {skillsRouter} from './routes/skills';
 import {productionRouter} from './routes/production';
 import {clubsRouter} from './routes/clubs';
 import {playersRouter} from './routes/players';
+import {reportsRouter} from './routes/reports'; // Import reports router
 import {prisma} from './services/prisma';
 import {config, getAssetsRoot, logConfig, requireConfig} from './services/config';
 import {errorHandler} from './middleware/error';
@@ -124,6 +125,9 @@ app.use('/api/scoreboard', scoreboardRouter);
 app.use('/api/vmix', vmixRouter);
 // vMix admin (templates) endpoints
 app.use('/api/admin/vmix', adminVmixRouter);
+
+// Reports endpoints
+app.use('/api/reports', reportsRouter);
 
 // OpenAPI JSON
 const openapi = {

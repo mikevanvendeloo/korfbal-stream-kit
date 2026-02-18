@@ -16,6 +16,7 @@ import {productionCallsheetsRouter} from './production/production-callsheets';
 import {segmentAssignmentsRouter} from './production/segment-assignments';
 import {productionReportsRouter} from './production/production-reports';
 import {productionCrewRouter} from './production/production-crew';
+import {productionExportImportRouter} from './production/production-export-import';
 
 // Easily expandable default team filters
 const DEFAULT_TEAM_FILTERS = [
@@ -35,7 +36,7 @@ productionRouter.use(productionPersonPositionsRouter);
 productionRouter.use(positionsRouter);
 productionRouter.use(segmentDefaultPositionsRouter);
 productionRouter.use(segmentsRouter);
-productionRouter.use(productionTimingRouter);
+productionRouter.use(productionTimingRouter); // This now includes /next-date
 productionRouter.use(productionTitlesRouter);
 productionRouter.use(productionInterviewsRouter);
 productionRouter.use(productionCrewReportRouter);
@@ -43,6 +44,7 @@ productionRouter.use(productionCallsheetsRouter);
 productionRouter.use(segmentAssignmentsRouter);
 productionRouter.use(productionReportsRouter);
 productionRouter.use(productionCrewRouter);
+productionRouter.use(productionExportImportRouter);
 
 // Nest skills router under production namespace for backward compatibility
 // Note: /persons router is NOT nested here - persons are available at /api/persons

@@ -33,11 +33,15 @@ import {
   MdVideocam,
   MdViewList,
   MdWork,
+  MdAssessment,
 } from 'react-icons/md';
 import VmixTemplatesPage from '../pages/VmixTemplatesPage';
 import VmixControlPage from '../pages/VmixControlPage';
 import SegmentAssignmentsPage from '../pages/SegmentAssignmentsPage';
-import VmixDatasourcesPage from '../pages/VmixDatasourcesPage'; // Import the new page
+import VmixDatasourcesPage from '../pages/VmixDatasourcesPage';
+import AppLogo from '../components/AppLogo';
+import AppIcon from "../components/AppIcon";
+import ReportsPage from '../pages/ReportsPage'; // Import the new page
 
 function Nav() {
   const {theme, toggle} = useTheme();
@@ -47,9 +51,10 @@ function Nav() {
   const configRef = React.useRef<HTMLDetailsElement>(null);
   const toolsRef = React.useRef<HTMLDetailsElement>(null);
   const vMixRef = React.useRef<HTMLDetailsElement>(null);
+  const reportsRef = React.useRef<HTMLDetailsElement>(null);
 
   function closeAll() {
-    for (const ref of [liveRef, beheerRef, configRef, toolsRef, vMixRef]) {
+    for (const ref of [liveRef, beheerRef, configRef, toolsRef, vMixRef, reportsRef]) {
       if (ref.current) ref.current.open = false;
     }
   }
@@ -65,7 +70,7 @@ function Nav() {
     if (!el) return;
     // When this menu opens, close others
     if (el.open) {
-      for (const other of [liveRef, beheerRef, configRef, toolsRef, vMixRef]) {
+      for (const other of [liveRef, beheerRef, configRef, toolsRef, vMixRef, reportsRef]) {
         if (other !== ref && other.current) other.current.open = false;
       }
     }
@@ -75,7 +80,7 @@ function Nav() {
     <header className="border-b border-gray-200 dark:border-gray-800">
       <div className="container flex items-center justify-between py-3">
         <nav className="flex items-center gap-6 text-sm">
-          <Link to="/" className="font-semibold text-gray-900 dark:text-gray-100">Korfbal Stream Kit</Link>
+          <Link to="/" className="font-semibold text-gray-900 dark:text-gray-100"><AppIcon className={"w-16 h-16 mr-2"}/>Korfbal Streamz Kit</Link>
 
           {/* LIVE - Tijdens productie */}
           <details ref={liveRef} onToggle={() => onToggle(liveRef)} className="relative group">
@@ -252,6 +257,24 @@ function Nav() {
               </ul>
             </div>
           </details>
+          {/* REPORTS */}
+          <details ref={reportsRef} onToggle={() => onToggle(reportsRef)} className="relative group">
+            <summary className="list-none cursor-pointer text-gray-800 dark:text-gray-200 hover:underline">
+              Reports
+            </summary>
+            <div
+              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
+              <ul className="text-sm">
+                <li>
+                  <Link to="/reports"
+                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdAssessment/>
+                    <span>Rapportages</span>
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </details>
         </nav>
         <button onClick={toggle}
                 className="text-sm px-3 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -270,9 +293,16 @@ export function App() {
         <main>
           <Routes>
             <Route path="/"
-                   element={<div className="container py-6 text-gray-800 dark:text-gray-100">Welkom! <p>Deze applicatie
-                     helpt met ondersteunen van planning van livestreams en het voorzien van data aan livestream
-                     software zoals vMix.</p></div>}/>
+                   element={
+                     <div className="container py-6 text-gray-800 dark:text-gray-100 flex flex-col items-center">
+                       <AppLogo className="w-aut h-40 mb-6" />
+                       <h1 className="text-2xl font-bold mb-4">Welkom!</h1>
+                       <p className="text-center max-w-lg">
+                         Deze applicatie helpt met ondersteunen van planning van livestreams en het voorzien van data aan livestream software zoals vMix.
+                       </p>
+                     </div>
+                   }
+            />
             <Route path="/sponsors" element={<SponsorsPage/>}/>
             <Route path="/scoreboard" element={<ScoreboardPage/>}/>
             <Route path="/matches/schedule" element={<MatchSchedulePage/>}/>
@@ -296,7 +326,8 @@ export function App() {
             <Route path="/vmix/sponsor-rows" element={<SponsorRowsPage/>}/>
             <Route path="/admin/vmix/title-templates" element={<VmixTemplatesPage/>}/>
             <Route path="/admin/vmix/control" element={<VmixControlPage/>}/>
-            <Route path="/admin/vmix/datasources" element={<VmixDatasourcesPage/>}/> {/* New route */}
+            <Route path="/admin/vmix/datasources" element={<VmixDatasourcesPage/>}/>
+            <Route path="/reports" element={<ReportsPage/>}/> {/* New route */}
           </Routes>
         </main>
       </div>

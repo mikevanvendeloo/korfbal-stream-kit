@@ -388,3 +388,44 @@ export function useUpdateProductionPersonPositions(productionId: number) {
     },
   });
 }
+
+export function useImportProduction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch(createUrl('/api/production/import'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['productions'] });
+    },
+  });
+}
+
+export function useNextProductionDate() {
+  return useQuery({
+    queryKey: ['next-production-date'],
+    queryFn: async (): Promise<string | null> => {
+      const res = await fetch(createUrl('/api/production/next-date'));
+      if (!res.ok) throw new Error(await extractError(res));
+      const data = await res.json();
+      return data.date;
+    },
+  });
+}
+
+export function useProductionDates() {
+  return useQuery({
+    queryKey: ['production-dates'],
+    queryFn: async (): Promise<string[]> => {
+      const res = await fetch(createUrl('/api/production/dates'));
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+  });
+}

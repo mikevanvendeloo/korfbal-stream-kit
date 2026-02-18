@@ -9,7 +9,9 @@
       "node",
       "@nx/react/typings/cssmodule.d.ts",
       "@nx/react/typings/image.d.ts",
-      "vite/client"
+      "vite/client",
+      "react-calendar",
+      "html2canvas"
     ],
     "rootDir": "src"
   },

@@ -41,3 +41,73 @@ productionTimingRouter.get('/:id/timing', async (req, res, next) => {
     return next(err);
   }
 });
+
+// GET /api/production/next-date
+// Returns the date of the next upcoming production (or today if none)
+productionTimingRouter.get('/next-date', async (req, res, next) => {
+  try {
+    const now = new Date();
+    // Find the first production with a match date >= now
+    const nextProd = await prisma.production.findFirst({
+      where: {
+        matchSchedule: {
+          date: {
+            gte: now
+          }
+        }
+      },
+      orderBy: {
+        matchSchedule: {
+          date: 'asc'
+        }
+      },
+      include: {
+        matchSchedule: true
+      }
+    });
+
+    if (nextProd) {
+      // Return date part only (YYYY-MM-DD)
+      const dateStr = nextProd.matchSchedule.date.toISOString().split('T')[0];
+      return res.json({ date: dateStr });
+    }
+
+    // Fallback to today if no future production found
+    return res.json({ date: now.toISOString().split('T')[0] });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// GET /api/production/dates
+// Returns a list of all dates that have at least one production
+productionTimingRouter.get('/dates', async (req, res, next) => {
+  try {
+    const productions = await prisma.production.findMany({
+      select: {
+        matchSchedule: {
+          select: {
+            date: true
+          }
+        }
+      },
+      orderBy: {
+        matchSchedule: {
+          date: 'asc'
+        }
+      }
+    });
+
+    // Extract unique dates (YYYY-MM-DD)
+    const dates = new Set<string>();
+    for (const p of productions) {
+      if (p.matchSchedule?.date) {
+        dates.add(p.matchSchedule.date.toISOString().split('T')[0]);
+      }
+    }
+
+    return res.json(Array.from(dates));
+  } catch (err) {
+    return next(err);
+  }
+});

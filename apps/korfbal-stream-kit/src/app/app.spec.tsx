@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import {render, screen} from '@testing-library/react';
+import {BrowserRouter} from 'react-router-dom';
 
 import App from './app';
 
@@ -19,7 +19,7 @@ describe('App', () => {
         <App />
       </BrowserRouter>
     );
-    expect(screen.getByText('Korfbal Stream Kit')).toBeInTheDocument();
+    expect(screen.getByText('Korfbal Streamz Kit')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Sponsors' }).length).toBeGreaterThan(0);
   });
 });

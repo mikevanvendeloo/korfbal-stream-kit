@@ -1,4 +1,3 @@
-import React from 'react';
 import {Link, useNavigate} from 'react-router-dom';
 import {useProductions, useProductionSegments} from '../hooks/useProductions';
 import ProductionHeader from '../components/ProductionHeader';
@@ -20,7 +19,6 @@ export default function ActiveProductionPage() {
         <h1 className="text-xl font-semibold">Actieve productie #{active.id}</h1>
         <div className="flex gap-2">
           <Link className="underline" to={`/admin/productions/${active.id}`}>Details</Link>
-          <Link className="underline" to={`/admin/productions/${active.id}/crew-report`}>Crew report</Link>
           <Link className="underline" to={`/admin/productions/${active.id}/callsheets`}>Callsheet</Link>
         </div>
       </div>

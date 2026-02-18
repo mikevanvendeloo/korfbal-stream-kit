@@ -4,12 +4,14 @@ import {
   useActivateProduction,
   useCreateProduction,
   useDeleteProduction,
+  useImportProduction,
   useProductionMatches,
   useProductions,
   useUpdateProduction,
 } from '../hooks/useProductions';
 import IconButton from '../components/IconButton';
-import {MdAdd, MdDelete, MdEdit, MdGroups, MdInfo, MdPlayCircle} from 'react-icons/md';
+import {MdAdd, MdDelete, MdEdit, MdGroups, MdInfo, MdPlayCircle, MdDownload, MdUpload} from 'react-icons/md';
+import {createUrl} from '../lib/api';
 
 export default function ProductionsAdminPage() {
   const { data: prods, isLoading, error } = useProductions();
@@ -18,9 +20,11 @@ export default function ProductionsAdminPage() {
   const update = useUpdateProduction();
   const del = useDeleteProduction();
   const activate = useActivateProduction();
+  const importProd = useImportProduction();
   const [selectedProdId, setSelectedProdId] = React.useState<number | null>(null);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<{ id?: number; matchScheduleId: number } | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   async function onSaveProduction() {
     if (!editing) return;
@@ -37,13 +41,53 @@ export default function ProductionsAdminPage() {
     }
   }
 
+  const handleExport = (id: number) => {
+    window.open(createUrl(`/api/production/${id}/export`).toString(), '_blank');
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        await importProd.mutateAsync(json);
+        setErrorMsg(null);
+        alert('Productie succesvol geïmporteerd!');
+      } catch (err: any) {
+        setErrorMsg('Import mislukt: ' + (err?.message || 'Ongeldig bestand'));
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
       <div className="flex items-center justify-between mb-3">
         <h1 className="text-xl font-semibold">Productions</h1>
-        <button className="px-3 py-1 border rounded inline-flex items-center gap-1" onClick={() => setEditing({ matchScheduleId: 0 })}>
-          <MdAdd /> Nieuw
-        </button>
+        <div className="flex gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            accept=".json"
+            onChange={handleFileChange}
+          />
+          <button className="px-3 py-1 border rounded inline-flex items-center gap-1" onClick={handleImportClick}>
+            <MdUpload /> Importeer
+          </button>
+          <button className="px-3 py-1 border rounded inline-flex items-center gap-1" onClick={() => setEditing({ matchScheduleId: 0 })}>
+            <MdAdd /> Nieuw
+          </button>
+        </div>
       </div>
 
       {isLoading && <div>Laden…</div>}
@@ -112,6 +156,13 @@ export default function ProductionsAdminPage() {
                         onClick={() => window.location.href = `/admin/productions/${p.id}/attendance`}
                       >
                         <MdGroups className="w-5 h-5" />
+                      </IconButton>
+                      <IconButton
+                        ariaLabel="Exporteer productie"
+                        title="Exporteer"
+                        onClick={() => handleExport(p.id)}
+                      >
+                        <MdDownload className="w-5 h-5" />
                       </IconButton>
                     </div>
                   </td>
