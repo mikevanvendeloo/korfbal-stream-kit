@@ -29,7 +29,7 @@ function formatTime(date: string | Date) {
 }
 
 // --- Generic Table Component ---
-function DataTable({ data, columns, stickyFirstColumn = false, id }: { data: any[]; columns: any[]; stickyFirstColumn?: boolean; id?: string }) {
+function DataTable({ data, columns, stickyFirstColumn = false, id, caption }: { data: any[]; columns: any[]; stickyFirstColumn?: boolean; id?: string; caption?: string }) {
   const table = useReactTable({
     data,
     columns,
@@ -38,6 +38,11 @@ function DataTable({ data, columns, stickyFirstColumn = false, id }: { data: any
 
   return (
     <div id={id} className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-900">
+      {caption && (
+        <div className="p-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 font-bold text-lg text-center">
+          {caption}
+        </div>
+      )}
       <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
         <thead className="bg-gray-50 dark:bg-gray-800">
           {table.getHeaderGroups().map((headerGroup) => (
@@ -133,8 +138,11 @@ function DailyOccupancyReport() {
           id: `prod-${prod.id}`,
           header: () => (
             <div className="text-center">
-              <div className="font-bold text-gray-900 dark:text-gray-100">{formatTime(prod.time)}</div>
-              <div className="text-xs normal-case font-normal">{prod.homeTeam} vs {prod.awayTeam}</div>
+              <div className="font-bold text-gray-900 dark:text-gray-100 text-sm">{prod.homeTeam}</div>
+              <div className="text-xs font-normal text-gray-500 dark:text-gray-400">
+                {formatTime(prod.time)}
+                {prod.liveTime && ` (${formatTime(prod.liveTime)})`}
+              </div>
             </div>
           ),
           cell: info => {
@@ -189,7 +197,15 @@ function DailyOccupancyReport() {
       {isLoading && <div className="text-gray-500 animate-pulse">Laden...</div>}
       {error && <div className="text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800">Fout bij laden: {(error as any).message}</div>}
 
-      {data && <DataTable id="daily-occupancy-report" data={data.persons} columns={columns} stickyFirstColumn={true} />}
+      {data && (
+        <DataTable
+          id="daily-occupancy-report"
+          data={data.persons}
+          columns={columns}
+          stickyFirstColumn={true}
+          caption={`Dagbezetting - ${formatDate(date)}`}
+        />
+      )}
     </div>
   );
 }
@@ -207,7 +223,11 @@ function InterviewsReport() {
       helper.accessor('date', {
         id: 'time',
         header: 'Tijd',
-        cell: info => formatTime(info.getValue()),
+        cell: info => {
+          const time = formatTime(info.getValue());
+          const liveTime = info.row.original.liveTime ? ` (${formatTime(info.row.original.liveTime)})` : '';
+          return `${time}${liveTime}`;
+        },
       }),
       helper.accessor(row => `${row.homeTeam} vs ${row.awayTeam}`, {
         id: 'match',
@@ -276,7 +296,11 @@ function CrewRolesReport() {
       helper.accessor('date', {
         id: 'time',
         header: 'Tijd',
-        cell: info => formatTime(info.getValue()),
+        cell: info => {
+          const time = formatTime(info.getValue());
+          const liveTime = info.row.original.liveTime ? ` (${formatTime(info.row.original.liveTime)})` : '';
+          return `${time}${liveTime}`;
+        },
       }),
       helper.accessor(row => `${row.homeTeam} vs ${row.awayTeam}`, {
         id: 'match',

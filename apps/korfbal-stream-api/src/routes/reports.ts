@@ -34,7 +34,11 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
         productionPositions: {
           include: {
             person: true,
-            position: true,
+            position: {
+              include: {
+                skill: true
+              }
+            },
           },
         },
       },
@@ -46,28 +50,40 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
     });
 
     // Collect all unique persons involved in these productions
-    const personMap = new Map<number, { id: number; name: string; assignments: Record<number, string[]> }>();
+    const personMap = new Map<number, { id: number; name: string; hasOnStreamRole: boolean; assignments: Record<number, string[]> }>();
 
     for (const prod of productions) {
       for (const pp of prod.productionPositions) {
         if (!personMap.has(pp.personId)) {
-          personMap.set(pp.personId, { id: pp.personId, name: pp.person.name, assignments: {} });
+          personMap.set(pp.personId, { id: pp.personId, name: pp.person.name, hasOnStreamRole: false, assignments: {} });
         }
         const entry = personMap.get(pp.personId)!;
         if (!entry.assignments[prod.id]) {
           entry.assignments[prod.id] = [];
         }
         entry.assignments[prod.id].push(pp.position.name);
+
+        // Check if this position is an on-stream role
+        if (pp.position.skill?.type === 'on_stream') {
+          entry.hasOnStreamRole = true;
+        }
       }
     }
 
-    const persons = Array.from(personMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    // Sort persons: first by on-stream role (false first, true last), then by name
+    const persons = Array.from(personMap.values()).sort((a, b) => {
+      if (a.hasOnStreamRole !== b.hasOnStreamRole) {
+        return a.hasOnStreamRole ? 1 : -1; // on-stream roles at the bottom
+      }
+      return a.name.localeCompare(b.name);
+    });
 
     return res.json({
       date,
       productions: productions.map(p => ({
         id: p.id,
         time: p.matchSchedule.date,
+        liveTime: p.liveTime, // Include liveTime
         homeTeam: p.matchSchedule.homeTeamName,
         awayTeam: p.matchSchedule.awayTeamName,
       })),
@@ -109,6 +125,7 @@ reportsRouter.get('/interviews', async (req, res, next) => {
       return {
         id: p.id,
         date: p.matchSchedule.date,
+        liveTime: p.liveTime, // Include liveTime
         homeTeam: p.matchSchedule.homeTeamName,
         awayTeam: p.matchSchedule.awayTeamName,
         homeInterviews,
@@ -175,6 +192,7 @@ reportsRouter.get('/crew-roles', async (req, res, next) => {
       return {
         id: p.id,
         date: p.matchSchedule.date,
+        liveTime: p.liveTime, // Include liveTime
         homeTeam: p.matchSchedule.homeTeamName,
         awayTeam: p.matchSchedule.awayTeamName,
         speaker: roles['SPEAKER'],

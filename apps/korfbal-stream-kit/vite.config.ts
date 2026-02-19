@@ -44,7 +44,7 @@ export default defineConfig(() => ({
     },
   },
   optimizeDeps: {
-    include: ['react-calendar', 'html2canvas'],
+    include: ['html2canvas'],
   },
   test: {
     name: '@korfbal-stream-kit/korfbal-stream-kit',
