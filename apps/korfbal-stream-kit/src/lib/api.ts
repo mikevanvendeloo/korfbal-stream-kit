@@ -15,6 +15,14 @@ export function createUrl(path: string): URL {
   if (path.startsWith('/api')) {
     return new URL(path, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
   }
+  // Als path met /uploads begint, gebruik dan de base origin (nginx proxied dit naar backend /storage)
+  if (path.startsWith('/uploads')) {
+    return new URL(path, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+  }
+  // Als path met /storage begint, gebruik dan de base origin (nginx proxied dit naar backend /storage)
+  if (path.startsWith('/storage')) {
+    return new URL(path, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+  }
   return new URL(path, base);
 }
 

@@ -21,7 +21,7 @@ const EnvSchema = z.object({
   MATCH_SCHEDULE_BASE_URL: z.string().url().default('https://api.sportclubvrijwilligersmanagement.nl/v1'),
   MATCH_SCHEDULE_API_TOKEN: z.string().optional().or(z.literal('')).default(''),
   // Root directory where binary assets (logos, player photos, uploads) are stored within the container/app.
-  // Default: "assets". In tests, if not set, falls back to tmp/test-assets under cwd to avoid polluting real data.
+  // Default: "storage". In tests, if not set, falls back to tmp/test-storage under cwd to avoid polluting real data.
   ASSETS_DIR: z.string().optional().default(''),
 });
 
@@ -92,9 +92,9 @@ export function getAssetsRoot(): string {
   let dir = (config.assetsDir || '').trim();
   if (!dir) {
     if (config.nodeEnv === 'test') {
-      dir = pathModule.join(process.cwd(), 'tmp', 'test-assets');
+      dir = pathModule.join(process.cwd(), 'tmp', 'test-storage');
     } else {
-      dir = 'assets';
+      dir = 'storage';
     }
   }
   const abs = pathModule.isAbsolute(dir) ? dir : pathModule.join(process.cwd(), dir);

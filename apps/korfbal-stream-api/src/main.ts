@@ -85,6 +85,7 @@ const upload = multer({ storage });
 // Serve assets statically. Keep backward-compatible /uploads route.
 app.use('/assets', express.static(assetsRoot));
 app.use('/uploads', express.static(assetsRoot));
+app.use('/storage', express.static(assetsRoot)); // New route for storage
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
