@@ -25,7 +25,13 @@ function formatTime(date: string | Date) {
 }
 
 // --- Generic Table Component ---
-function DataTable({ data, columns, stickyFirstColumn = false, id, caption }: { data: any[]; columns: any[]; stickyFirstColumn?: boolean; id?: string; caption?: string }) {
+function DataTable({ data, columns, stickyFirstColumn = false, id, caption }: Readonly<{
+  data: any[];
+  columns: any[];
+  stickyFirstColumn?: boolean;
+  id?: string;
+  caption?: string
+}>) {
   const table = useReactTable({
     data,
     columns,

@@ -252,7 +252,7 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem.single
     if (!buffer) return res.status(400).json({ error: 'No file provided and default template.xlsx not found' });
 
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(buffer);
+    await workbook.xlsx.load(buffer as any);
     const ws = workbook.worksheets[0];
     if (!ws) return res.status(400).json({ error: 'Workbook has no sheets' });
 

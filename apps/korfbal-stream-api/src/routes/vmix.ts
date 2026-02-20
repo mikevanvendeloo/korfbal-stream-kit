@@ -12,7 +12,7 @@ import {
 } from '../schemas/title';
 import {buildVmixApiUrl, getSponsorNamesTypes, getSponsorRowsTypes, getVmixUrl} from '../services/appSettings';
 import {shuffle} from "../utils/array-utils";
-import os from 'os';
+import os from 'node:os';
 
 export const vmixRouter: Router = Router();
 export const adminVmixRouter: Router = Router();
@@ -204,7 +204,9 @@ vmixRouter.post('/sponsor-rows', async (req, res, next) => {
       if (!canGuaranteeNoAdjOverlap) {
         logger.warn('Only < 6 unique sponsors available; cannot fully avoid overlap between consecutive rows. Minimizing overlap.');
       }
-    } catch {}
+    } catch {
+      logger.error("Something is wrong generating the sponsor rows")
+    }
 
     let prevSet: Set<string> | undefined = undefined;
     const rows = players.map((p: any, i: number) => {
@@ -434,8 +436,35 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
       if (hostIp !== 'localhost') break;
     }
 
+    // If running in Docker, try to resolve host.docker.internal via DNS lookup
+    // Note: This is a best-effort attempt and might not work in all Docker configurations.
+    // A more reliable way in production is to set an environment variable like HOST_IP.
+    if (process.env.HOST_IP) {
+      hostIp = process.env.HOST_IP;
+    } else {
+        // Fallback: if we detect we are in a container (e.g. by checking cgroup or env),
+        // we might want to hint the user. But for now, let's just stick to the detected IP
+        // or localhost.
+        // Resolving host.docker.internal from inside the container gives the gateway IP,
+        // which is reachable from the container, but not necessarily the IP the user should use
+        // to access the API from vMix (which might be running on the host or another machine).
+        // The IP detected from network interfaces (e.g. 172.17.0.2) is the container IP,
+        // which is usually NOT reachable from outside the docker network unless ports are mapped.
+        // If ports are mapped (e.g. -p 3333:3333), the user should use the HOST machine's IP.
+        // Since the container doesn't know the host's IP easily without help, we rely on env var
+        // or just return the container IP and let the user figure it out if they are advanced.
+
+        // However, for local dev with Docker Desktop, localhost often works if port forwarding is on.
+        // But vMix running on the same machine needs to access localhost:3333.
+        // If vMix is on another machine, it needs the LAN IP of the host.
+    }
+
     const port = process.env.PORT || 3000; // Assuming default port if not set
-    const baseUrl = `http://${hostIp}:${port}/api/vmix`;
+    // If HOST_IP is set, use it. Otherwise, use the detected IP which might be internal docker IP.
+    // Ideally, the user sets HOST_IP in docker-compose.
+    const displayHost = process.env.HOST_IP || hostIp;
+
+    const baseUrl = `http://${displayHost}:${port}/api/vmix`;
 
     const endpoints = [
       {
@@ -460,7 +489,7 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
       }
     ];
 
-    return res.json({ hostIp, endpoints });
+    return res.json({ hostIp: displayHost, endpoints });
   } catch (err) {
     return next(err);
   }

@@ -220,7 +220,7 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
     if (!buffer) return res.status(400).json({ error: 'No file provided and default Sponsors.xlsx not found' });
 
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(buffer);
+    await workbook.xlsx.load(buffer as any);
     const ws = workbook.worksheets[0];
     if (!ws) return res.status(400).json({ error: 'Workbook has no sheets' });
 
@@ -377,8 +377,7 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
     }
 
 
-    logger.info('Sponsors Excel import summary', { created, updated, total: rows.length, problems: problems.length, names: receivedNames } as never);
-
+    logger.info('Sponsors Excel import summary', { created, updated, total: rows.length, problems: problems.length, names: receivedNames } as any);
 
     return res.json({ ok: true, sheet: ws.name, total: rows.length, created, updated, problems });
   } catch (err) {
