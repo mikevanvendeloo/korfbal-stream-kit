@@ -34,6 +34,7 @@ import {
   MdViewList,
   MdWork,
   MdAssessment,
+  MdInfo,
 } from 'react-icons/md';
 import VmixTemplatesPage from '../pages/VmixTemplatesPage';
 import VmixControlPage from '../pages/VmixControlPage';
@@ -41,7 +42,8 @@ import SegmentAssignmentsPage from '../pages/SegmentAssignmentsPage';
 import VmixDatasourcesPage from '../pages/VmixDatasourcesPage';
 import AppLogo from '../components/AppLogo';
 import AppIcon from "../components/AppIcon";
-import ReportsPage from '../pages/ReportsPage'; // Import the new page
+import ReportsPage from '../pages/ReportsPage';
+import AboutPage from '../pages/AboutPage'; // Import the new page
 
 function Nav() {
   const {theme, toggle} = useTheme();
@@ -276,10 +278,15 @@ function Nav() {
             </div>
           </details>
         </nav>
-        <button onClick={toggle}
-                className="text-sm px-3 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
-          {theme === 'dark' ? 'Light' : 'Dark'} mode
-        </button>
+        <div className="flex items-center gap-2">
+          <Link to="/about" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Over deze app">
+            <MdInfo className="w-5 h-5" />
+          </Link>
+          <button onClick={toggle}
+                  className="text-sm px-3 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
+            {theme === 'dark' ? 'Light' : 'Dark'} mode
+          </button>
+        </div>
       </div>
     </header>
   );
@@ -327,7 +334,8 @@ export function App() {
             <Route path="/admin/vmix/title-templates" element={<VmixTemplatesPage/>}/>
             <Route path="/admin/vmix/control" element={<VmixControlPage/>}/>
             <Route path="/admin/vmix/datasources" element={<VmixDatasourcesPage/>}/>
-            <Route path="/reports" element={<ReportsPage/>}/> {/* New route */}
+            <Route path="/reports" element={<ReportsPage/>}/>
+            <Route path="/about" element={<AboutPage/>}/> {/* New route */}
           </Routes>
         </main>
       </div>

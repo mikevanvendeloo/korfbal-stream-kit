@@ -21,7 +21,7 @@ services:
   # Eénmalige migratie/seed job. Draait bij 'up' en stopt na succes.
   migrate-streamz:
     # Gebruik dezelfde image als de API. In CI/CD vervang door jouw registry:tag
-    image: mvanvendeloo/korfbal-stream-api:2026.02.11
+    image: mvanvendeloo/korfbal-stream-api:2026.02.12
     networks:
       - korfbal-network
     depends_on:
@@ -45,7 +45,7 @@ services:
     restart: "no"
 
   korfbal-streamz-api:
-    image: mvanvendeloo/korfbal-stream-api:2026.02.11
+    image: mvanvendeloo/korfbal-stream-api:2026.02.12
     networks:
       - korfbal-network
     environment:
@@ -73,7 +73,7 @@ services:
       timeout: 5s
       retries: 5
   korfbal-streamz-kit:
-    image: mvanvendeloo/korfbal-stream-kit:2026.02.11
+    image: mvanvendeloo/korfbal-stream-kit:2026.02.12
     networks:
       - korfbal-network
     ports:

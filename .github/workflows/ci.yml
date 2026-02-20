@@ -215,6 +215,7 @@ jobs:
           # FIX 2: Use the 'original' name for the build-arg (if Dockerfile needs it)
           build-args: |
             APP_NAME=${{ matrix.app.original }}
+            APP_VERSION=${{ steps.docker_tag.outputs.tag }}
 
           # Caching also uses the 'sanitized' name in the image reference
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:buildcache
@@ -262,4 +263,3 @@ jobs:
           git push origin "${{ needs.calculate-version.outputs.new_tag }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

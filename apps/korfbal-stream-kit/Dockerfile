@@ -3,6 +3,11 @@ FROM node:22-alpine AS builder
 ENV CI=true
 WORKDIR /app
 
+# Accepteer APP_VERSION als build argument
+ARG APP_VERSION=0.0.0-dev
+# Zet het als environment variabele voor de build (Vite gebruikt dit)
+ENV VITE_APP_VERSION=${APP_VERSION}
+
 # Installeer pnpm in de image
 RUN npm i -g pnpm
 

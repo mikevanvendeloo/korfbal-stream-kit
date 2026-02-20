@@ -41,6 +41,11 @@ RUN npx tsc apps/korfbal-stream-api/prisma/seed.ts \
 # STAGE 2: De Productie-Image
 FROM node:22-alpine
 
+# Accepteer APP_VERSION als build argument
+ARG APP_VERSION=0.0.0-dev
+# Zet het als environment variabele in de runtime container
+ENV APP_VERSION=${APP_VERSION}
+
 WORKDIR /app
 
 # Installeer pnpm ook hier (nodig voor 'pnpm install --prod')
