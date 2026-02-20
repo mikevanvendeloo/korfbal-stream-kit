@@ -31,7 +31,7 @@ export default function ClubLogo({logoUrl, alt, size = 'medium', className = ''}
   // If file is from assets, use /assets/, otherwise assume it's already a full URL
   const resolvedUrl = logoUrl.startsWith('http')
     ? logoUrl
-    : createUrl(`/assets/${logoUrl}`).toString();
+    : createUrl(`/storage/${logoUrl}`).toString();
 
   return (
     <img

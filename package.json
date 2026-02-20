@@ -38,6 +38,7 @@
     "axios": "^1.13.5",
     "baseline-browser-mapping": "^2.9.15",
     "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "html2canvas": "^1.4.1",
     "multer": "^2.0.0",
@@ -50,7 +51,6 @@
     "react-router-dom": "6.29.0",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.18.3",
-    "xlsx": "^0.18.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {

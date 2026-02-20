@@ -2,7 +2,7 @@ import {Router} from 'express';
 import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import {prisma} from '../../services/prisma';
 
 export const productionCallsheetsRouter: Router = Router();
@@ -251,13 +251,38 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem.single
     }
     if (!buffer) return res.status(400).json({ error: 'No file provided and default template.xlsx not found' });
 
-    const wb = XLSX.read(buffer, { type: 'buffer' });
-    const sheetName = wb.SheetNames[0];
-    const ws = wb.Sheets[sheetName];
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+    const ws = workbook.worksheets[0];
     if (!ws) return res.status(400).json({ error: 'Workbook has no sheets' });
 
-    const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
-    if (!Array.isArray(rows) || rows.length === 0) {
+    // Convert sheet to JSON-like array of objects
+    const rows: any[] = [];
+    let headers: string[] = [];
+    ws.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) {
+        // Header row
+        headers = (row.values as any[]).slice(1).map(v => String(v));
+      } else {
+        const rowData: any = {};
+        // exceljs values array is 1-based, but slice(1) makes it 0-based relative to headers
+        // However, row.values might be sparse.
+        headers.forEach((header, index) => {
+          // values[index + 1] because values[0] is undefined in exceljs
+          const cellValue = row.getCell(index + 1).value;
+          // Handle rich text or other complex cell types if necessary, but usually .value is enough
+          // For hyperlinks, .value might be an object { text, hyperlink }
+          if (cellValue && typeof cellValue === 'object' && 'text' in cellValue) {
+             rowData[header] = (cellValue as any).text;
+          } else {
+             rowData[header] = cellValue;
+          }
+        });
+        rows.push(rowData);
+      }
+    });
+
+    if (rows.length === 0) {
       return res.status(400).json({ error: 'No data rows found in sheet' });
     }
 
@@ -306,14 +331,6 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem.single
     const toDateMaybe = (v: any): Date | null => {
       if (v == null || v === '') return null;
       if (v instanceof Date) return v;
-      // XLSX may provide Excel date numbers
-      if (typeof v === 'number') {
-        const d = XLSX.SSF ? XLSX.SSF.parse_date_code?.(v as any) : null;
-        if (d && typeof d === 'object' && 'y' in d) {
-          const dd = new Date(Date.UTC((d as any).y, (d as any).m - 1, (d as any).d, (d as any).H || 0, (d as any).M || 0, (d as any).S || 0));
-          return dd;
-        }
-      }
       const s = String(v);
       const d = new Date(s);
       return isNaN(d.getTime()) ? null : d;
@@ -322,9 +339,9 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem.single
     const genId = () => Math.random().toString(16).slice(2, 10);
 
     rows.forEach((row, idx) => {
-      const headers = Object.keys(row);
+      const rowHeaders = Object.keys(row);
       const map: Record<string, any> = {};
-      for (const hk of headers) map[normKey(hk)] = row[hk];
+      for (const hk of rowHeaders) map[normKey(hk)] = row[hk];
 
       const segName = (map[normKey('segment')] ?? map[normKey('segmentnaam')] ?? map[normKey('segmentname')] ?? '').toString().trim();
       const cue = (map[normKey('cue')] ?? '').toString().trim();

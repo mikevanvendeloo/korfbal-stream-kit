@@ -2,13 +2,15 @@ import {Router} from 'express';
 import axios from 'axios';
 import {config} from '../services/config';
 import {logger} from '../utils/logger';
+import {getScoreboardUrl, getShotclockUrl} from '../services/appSettings';
 
 export const scoreboardRouter: Router = Router();
 
 // GET /api/scoreboard
 scoreboardRouter.get('/', async (_req, res) => {
   try {
-    const url = `${config.scoreBoardBaseUrl.replace(/\/$/, '')}/score-as-array`;
+    const baseUrl = await getScoreboardUrl() || config.scoreBoardBaseUrl;
+    const url = `${baseUrl.replace(/\/$/, '')}/score-as-array`;
     const response = await axios.get(url, { timeout: 2000 });
 
     if (!Array.isArray(response.data)) {
@@ -31,7 +33,8 @@ function colorForShotclock(time: number): 'green' | 'orange' | 'red' {
 // GET /api/scoreboard/shotclock
 scoreboardRouter.get('/shotclock', async (_req, res) => {
   try {
-    const url = `${config.shotClockBaseUrl.replace(/\/$/, '')}/time-as-array`;
+    const baseUrl = await getShotclockUrl() || config.shotClockBaseUrl;
+    const url = `${baseUrl.replace(/\/$/, '')}/time-as-array`;
     const response = await axios.get(url, { timeout: 2000 });
 
     const data = response.data;
@@ -55,7 +58,8 @@ scoreboardRouter.get('/shotclock', async (_req, res) => {
 // GET /api/scoreboard/clock
 scoreboardRouter.get('/clock', async (_req, res) => {
   try {
-    const url = `${config.scoreBoardBaseUrl.replace(/\/$/, '')}/time-as-array`;
+    const baseUrl = await getScoreboardUrl() || config.scoreBoardBaseUrl;
+    const url = `${baseUrl.replace(/\/$/, '')}/time-as-array`;
     const response = await axios.get(url, { timeout: 2000 });
 
     if (!Array.isArray(response.data)) {

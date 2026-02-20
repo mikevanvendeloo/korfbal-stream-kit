@@ -59,7 +59,7 @@ services:
       MATCH_SCHEDULE_BASE_URL: "https://api.sportclubvrijwilligersmanagement.nl/v1"
       MATCH_SCHEDULE_API_TOKEN: "aDvjETZ54R6T3qnhExI5gcbfDceDxqN0"
       PORT: 3333
-      ASSETS_DIR: /app/assets
+      ASSETS_DIR: /app/storage
       UPLOADS_DIR: /app/uploads
     depends_on:
       db:
@@ -69,7 +69,7 @@ services:
     ports:
       - "3333:3333"
     volumes:
-      - ./assets:/app/assets
+      - ./storage:/app/storage
       - ./uploads:/app/uploads
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3333/api/health"]

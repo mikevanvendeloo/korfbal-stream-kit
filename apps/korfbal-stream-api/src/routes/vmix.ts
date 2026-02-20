@@ -10,7 +10,7 @@ import {
   ReorderTitleDefinitionsSchema,
   UpdateTitleDefinitionSchema
 } from '../schemas/title';
-import {buildVmixApiUrl, getVmixUrl} from '../services/appSettings';
+import {buildVmixApiUrl, getSponsorNamesTypes, getSponsorRowsTypes, getVmixUrl} from '../services/appSettings';
 import {shuffle} from "../utils/array-utils";
 import os from 'os';
 
@@ -88,10 +88,16 @@ vmixRouter.post('/sponsor-rows', async (req, res, next) => {
     const rnd = mulberry32(hashSeed(seedStr));
 
     // Load sponsors to use
+    let where: any = {};
+    if (sponsorIds && sponsorIds.length > 0) {
+      where = { id: { in: sponsorIds } };
+    } else {
+      const types = await getSponsorRowsTypes();
+      where = { type: { in: types } };
+    }
+
     const sponsors = await prisma.sponsor.findMany({
-      where: sponsorIds && sponsorIds.length > 0 ? { id: { in: sponsorIds } } : {
-        type: { in: ['premium', 'goud', 'zilver'] as any },
-      },
+      where,
       orderBy: { id: 'asc' },
     });
 
@@ -225,10 +231,11 @@ vmixRouter.post('/sponsor-rows', async (req, res, next) => {
 // three spaces as separator ("   |   ") and includes a trailing separator.
 vmixRouter.get('/sponsor-names', async (_req, res, next) => {
   try {
+    const types = await getSponsorNamesTypes();
     const sponsors = await prisma.sponsor.findMany({
       where: {
         type: {
-          in: ['premium', 'goud', 'zilver']
+          in: types as any
         }
       },
       orderBy: [
@@ -260,10 +267,11 @@ vmixRouter.get('/sponsor-names', async (_req, res, next) => {
 
 vmixRouter.get('/sponsor-carrousel', async (_req, res, next) => {
   try {
+    const types = await getSponsorNamesTypes(); // Reusing names types for carousel for now, or should have its own? Assuming same as ticker/names.
     const sponsors = await prisma.sponsor.findMany({
       where: {
         type: {
-          in: ['premium', 'goud', 'zilver']
+          in: types as any
         }
       },
       orderBy: [

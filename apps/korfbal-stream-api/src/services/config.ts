@@ -73,9 +73,10 @@ export function requireConfig() {
   if (!config.databaseUrl && config.nodeEnv !== 'test') {
     throw new Error('DATABASE_URL must be set');
   }
-  if (!config.matchScheduleApiToken && config.nodeEnv !== 'test') {
-    throw new Error('MATCH_SCHEDULE_API_TOKEN must be set');
-  }
+  // MATCH_SCHEDULE_API_TOKEN is optional for now, or only required for specific features
+  // if (!config.matchScheduleApiToken && config.nodeEnv !== 'test') {
+  //   throw new Error('MATCH_SCHEDULE_API_TOKEN must be set');
+  // }
   return config;
 }
 

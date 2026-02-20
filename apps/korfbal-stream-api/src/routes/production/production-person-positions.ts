@@ -14,7 +14,14 @@ productionPersonPositionsRouter.get('/:id/person-positions', async (req, res, ne
 
     const items = await prisma.productionPersonPosition.findMany({
       where: { productionId: id },
-      include: { person: true, position: true },
+      include: {
+        person: true,
+        position: {
+          include: {
+            skill: true // Include skill to check for 'on_stream' type
+          }
+        }
+      },
       orderBy: [{ person: { name: 'asc' } }, { position: { name: 'asc' } }],
     });
     return res.json(items);

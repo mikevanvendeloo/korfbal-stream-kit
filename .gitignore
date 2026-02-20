@@ -53,7 +53,7 @@ test-output
 /korfbal-stream-kit.iml
 /error.log
 /apps/korfbal-stream-api/.env
-/assets/
+/storage/
 /dbdata
 /migrate.log
 /apps/korfbal-stream-api/Sponsordeals_2025.xlsx

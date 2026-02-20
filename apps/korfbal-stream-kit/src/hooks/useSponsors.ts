@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createSponsor, deleteSponsor, fetchSponsors, Sponsor, SponsorInput, updateSponsor } from '../lib/api';
 
-export function useSponsors(params: { type?: Sponsor['type']; page?: number; limit?: number } = {}) {
+export function useSponsors(params: { type?: Sponsor['type'] | Sponsor['type'][]; page?: number; limit?: number } = {}) {
   const { type, page = 1, limit = 50 } = params;
   return useQuery({
     queryKey: ['sponsors', { type, page, limit }],

@@ -429,3 +429,25 @@ export function useProductionDates() {
     },
   });
 }
+
+export type InterviewSubject = {
+  id: number;
+  productionId: number;
+  side: 'HOME' | 'AWAY' | 'NONE';
+  role: 'PLAYER' | 'COACH';
+  playerId: number;
+  titleDefinitionId?: number | null;
+  player?: { id: number; name: string; function?: string; clubId?: number; photoUrl?: string; shirtNo?: number | null };
+};
+
+export function useProductionInterviews(productionId: number) {
+  return useQuery({
+    queryKey: ['production', productionId, 'interviews'],
+    enabled: !!productionId,
+    queryFn: async (): Promise<InterviewSubject[]> => {
+      const res = await fetch(createUrl(`/api/production/${productionId}/interviews`));
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+  });
+}

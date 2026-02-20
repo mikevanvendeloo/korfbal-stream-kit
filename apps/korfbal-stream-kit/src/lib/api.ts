@@ -87,14 +87,14 @@ export type MatchSchedule = {
 export type VmixSettings = { vmixWebUrl: string | null };
 
 export async function getVmixSettings(): Promise<VmixSettings> {
-  const url = createUrl('/settings/vmix-url');
+  const url = createUrl('/api/settings/vmix-url');
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error(`Failed to load vMix settings: ${res.status}`);
   return res.json();
 }
 
 export async function setVmixSettings(vmixWebUrl: string): Promise<VmixSettings> {
-  const url = createUrl('/settings/vmix-url');
+  const url = createUrl('/api/settings/vmix-url');
   const res = await fetch(url.toString(), {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
@@ -106,7 +106,7 @@ export async function setVmixSettings(vmixWebUrl: string): Promise<VmixSettings>
 
 export async function vmixSetTimer(seconds: number): Promise<{ ok: boolean; seconds: number }> {
 
-  const url = createUrl('/vmix/set-timer');
+  const url = createUrl('/api/vmix/set-timer');
   logger.info(`Setting vMix timer to ${JSON.stringify({seconds: seconds})} seconds`);
   const res = await fetch(url.toString(), {
     method: 'POST',
@@ -122,13 +122,19 @@ export async function vmixSetTimer(seconds: number): Promise<{ ok: boolean; seco
 }
 
 export async function fetchSponsors(params: {
-  type?: Sponsor['type'];
+  type?: Sponsor['type'] | Sponsor['type'][];
   page?: number;
   limit?: number
 } = {}): Promise<Paginated<Sponsor>> {
   const url = createUrl('/api/sponsors');
   logger.info(`Fetching sponsors: ${url}`);
-  if (params.type) url.searchParams.set('type', params.type);
+  if (params.type) {
+    if (Array.isArray(params.type)) {
+      params.type.forEach(t => url.searchParams.append('type', t));
+    } else {
+      url.searchParams.set('type', params.type);
+    }
+  }
   if (params.page) url.searchParams.set('page', String(params.page));
   if (params.limit) url.searchParams.set('limit', String(params.limit));
   const res = await fetch(url.toString());
@@ -281,4 +287,38 @@ export async function extractError(res: Response): Promise<string> {
     logger.error(`Failed to extract error from response: ${JSON.stringify(res)}\n${e}`);
   }
   return `Request failed (${res.status})`;
+}
+
+export async function getSponsorConfig(): Promise<{ namesTypes: string[]; rowsTypes: string[] }> {
+  const url = createUrl('/api/settings/sponsor-config');
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`Failed to load sponsor config: ${res.status}`);
+  return res.json();
+}
+
+export async function setSponsorConfig(config: { namesTypes: string[]; rowsTypes: string[] }): Promise<void> {
+  const url = createUrl('/api/settings/sponsor-config');
+  const res = await fetch(url.toString(), {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) throw new Error(`Failed to save sponsor config: ${res.status}`);
+}
+
+export async function getScoreboardConfig(): Promise<{ scoreboardUrl: string | null; shotclockUrl: string | null }> {
+  const url = createUrl('/api/settings/scoreboard-config');
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`Failed to load scoreboard config: ${res.status}`);
+  return res.json();
+}
+
+export async function setScoreboardConfig(config: { scoreboardUrl: string; shotclockUrl: string }): Promise<void> {
+  const url = createUrl('/api/settings/scoreboard-config');
+  const res = await fetch(url.toString(), {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) throw new Error(`Failed to save scoreboard config: ${res.status}`);
 }

@@ -3,14 +3,10 @@ import {useCrewRolesReport, useDailyOccupancyReport, useInterviewsReport} from '
 import {useNextProductionDate, useProductionDates} from '../hooks/useProductions';
 import SimpleCalendar from '../components/SimpleCalendar';
 import '../styles/calendar.css';
-import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from '@tanstack/react-table';
+import {createColumnHelper, flexRender, getCoreRowModel, useReactTable,} from '@tanstack/react-table';
 import {downloadAsPng} from '../lib/download';
 import {MdDownload} from 'react-icons/md';
+import PlayerCard from '../components/PlayerCard';
 
 function formatDate(date: string | Date) {
   return new Date(date).toLocaleDateString('nl-NL', {
@@ -113,6 +109,7 @@ function DailyOccupancyReport() {
   }, [nextDate, date]);
 
   const {data, isLoading, error} = useDailyOccupancyReport(date);
+  const {data: interviewsData} = useInterviewsReport(); // Fetch all interviews, filter by date locally or ideally API should support date filter
 
   const handleDateChange = (value: Date) => {
     const offset = value.getTimezoneOffset();
@@ -160,8 +157,19 @@ function DailyOccupancyReport() {
     return cols;
   }, [data]);
 
+  // Filter interviews for the selected date
+  const dailyInterviews = React.useMemo(() => {
+    if (!interviewsData || !date) return [];
+    // Assuming interviewsData returns a list of productions with interviews
+    // We need to filter productions that match the selected date
+    return interviewsData.filter((p: any) => {
+      const pDate = new Date(p.date).toISOString().split('T')[0];
+      return pDate === date;
+    });
+  }, [interviewsData, date]);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 relative">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Datum:</label>
@@ -185,7 +193,7 @@ function DailyOccupancyReport() {
           </div>
         </div>
         <button
-          onClick={() => downloadAsPng('daily-occupancy-report', `dagbezetting-${date}`)}
+          onClick={() => downloadAsPng('daily-occupancy-container', `dagbezetting-${date}`)}
           className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2 text-sm"
           disabled={!data}
         >
@@ -198,13 +206,77 @@ function DailyOccupancyReport() {
       {error && <div className="text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800">Fout bij laden: {(error as any).message}</div>}
 
       {data && (
-        <DataTable
-          id="daily-occupancy-report"
-          data={data.persons}
-          columns={columns}
-          stickyFirstColumn={true}
-          caption={`Dagbezetting - ${formatDate(date)}`}
-        />
+        <div id="daily-occupancy-container" className="space-y-8 bg-white dark:bg-gray-950 p-4 rounded-lg">
+          <DataTable
+            data={data.persons}
+            columns={columns}
+            stickyFirstColumn={true}
+            caption={`Dagbezetting - ${formatDate(date)}`}
+          />
+
+          {/* Interviews Section per Production */}
+          {dailyInterviews.length > 0 && (
+            <div className="mt-8">
+              <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">Interviews</h2>
+              <div className="space-y-8">
+                {dailyInterviews.map((prod: any) => (
+                  <div key={prod.id} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200">
+                        {prod.homeTeam} vs {prod.awayTeam}
+                      </h3>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">{formatTime(prod.date)}</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Away Team (First) */}
+                      <div>
+                        <h4 className="font-medium text-red-700 dark:text-red-400 mb-3 uppercase text-sm tracking-wide">Uit: {prod.awayTeam}</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {prod.awayInterviews.length > 0 ? (
+                            prod.awayInterviews.map((i: any, idx: number) => (
+                              <PlayerCard
+                                key={`away-${idx}`}
+                                name={i.name}
+                                // Assuming API returns image URL or we construct it.
+                                // The useInterviewsReport hook might need to ensure image is included.
+                                // If not, we fallback to placeholder.
+                                photoUrl={i.photoUrl}
+                                function={i.role === 'COACH' ? 'Coach' : 'Speler'}
+                                shirtNo={i.shirtNo}
+                              />
+                            ))
+                          ) : (
+                            <span className="text-sm text-gray-400 italic">Geen interviews</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Home Team */}
+                      <div>
+                        <h4 className="font-medium text-green-700 dark:text-green-400 mb-3 uppercase text-sm tracking-wide">Thuis: {prod.homeTeam}</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {prod.homeInterviews.length > 0 ? (
+                            prod.homeInterviews.map((i: any, idx: number) => (
+                              <PlayerCard
+                                key={`home-${idx}`}
+                                name={i.name}
+                                photoUrl={i.photoUrl}
+                                function={i.role === 'COACH' ? 'Coach' : 'Speler'}
+                              />
+                            ))
+                          ) : (
+                            <span className="text-sm text-gray-400 italic">Geen interviews</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

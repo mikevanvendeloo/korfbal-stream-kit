@@ -49,7 +49,7 @@ describe('ClubsPage', () => {
     expect(await screen.findByText('LDODK')).toBeInTheDocument();
     // Logo image should be present with alt
     const img = await screen.findByAltText('LDODK logo');
-    expect((img as HTMLImageElement).getAttribute('src') || '').toContain('/assets/clubs/ldodk.png');
+    expect((img as HTMLImageElement).getAttribute('src') || '').toContain('/storage/clubs/ldodk.png');
   });
 
   it('can delete a club and switch selection to next', async () => {

@@ -13,7 +13,7 @@ export const SponsorInputSchema = z.object({
 export const SponsorUpdateSchema = SponsorInputSchema.partial();
 
 export const SponsorQuerySchema = z.object({
-  type: SponsorTypeEnum.optional(),
+  type: z.union([SponsorTypeEnum, z.array(SponsorTypeEnum)]).optional(),
   page: z
     .preprocess((v) => (typeof v === 'string' ? parseInt(v, 10) : v), z.number().int().min(1))
     .default(1),

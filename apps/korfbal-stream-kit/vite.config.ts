@@ -1,7 +1,7 @@
 /// <reference types='vitest' />
 import {defineConfig} from 'vite';
 import react from '@vitejs/plugin-react';
-import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
+import {nxViteTsPaths} from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 
 export default defineConfig(() => ({
   root: __dirname,
@@ -20,7 +20,7 @@ export default defineConfig(() => ({
         target: 'http://localhost:3333',
         changeOrigin: true,
       },
-      '/assets': {
+      '/storage': {
         target: 'http://localhost:3333',
         changeOrigin: true,
       },

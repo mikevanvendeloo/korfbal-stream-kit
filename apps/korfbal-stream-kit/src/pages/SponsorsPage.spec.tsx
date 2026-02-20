@@ -3,7 +3,6 @@ import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import SponsorsPage from './SponsorsPage';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {ThemeProvider} from '../theme/ThemeProvider';
-import {logger} from "nx/src/utils/logger";
 
 function renderWithProviders(ui: React.ReactNode) {
   const qc = new QueryClient({
@@ -33,14 +32,15 @@ const mockData = {
 
 describe('SponsorsPage', () => {
   beforeEach(() => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+    // Reset fetch mock before each test
+    global.fetch = vi.fn();
+    (global.fetch as any).mockResolvedValue({
       ok: true,
       json: async () => mockData,
-    } as any);
+    });
   });
 
   it('renders sponsors in a table on desktop (md+)', async () => {
-    // force desktop by setting container width; JSDOM lacks layout, but we can rely on table being in DOM
     renderWithProviders(<SponsorsPage />);
 
     // shows loading first
@@ -55,84 +55,90 @@ describe('SponsorsPage', () => {
     expect(screen.getAllByText('Ruitenheer').length).toBeGreaterThan(0);
     expect(screen.getAllByText('M-Sports').length).toBeGreaterThan(0);
 
-    // Verify website links present (may appear in both card and table views)
-    expect(screen.getAllByRole('link', { name: 'https://www.ruitenheer.nl' }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole('link', { name: 'https://www.m-sports.com' }).length).toBeGreaterThan(0);
+    // Verify website links are NOT present anymore (removed from table and cards)
+    expect(screen.queryAllByRole('link', { name: 'https://www.ruitenheer.nl' }).length).toBe(0);
+    expect(screen.queryAllByRole('link', { name: 'https://www.m-sports.com' }).length).toBe(0);
   });
 
-  it('filters by type when selecting from dropdown', async () => {
+  it('filters by type when selecting checkboxes', async () => {
+    // Mock fetch to handle filtering
+    (global.fetch as any).mockImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : (input as URL).toString();
+      if (url.includes('type=zilver')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ ...mockData, items: mockData.items.filter((i) => i.type === 'zilver') }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => mockData,
+      });
+    });
+
     renderWithProviders(<SponsorsPage />);
 
     await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
 
-    const select = screen.getByLabelText('Filter type') as HTMLSelectElement;
-    // Change mock to return only zilver after changing selection
-    (globalThis.fetch as any).mockResolvedValueOnce({ ok: true, json: async () => ({ ...mockData, items: mockData.items.filter((i) => i.type === 'zilver') }) });
+    // Find the checkbox for 'zilver'
+    const checkbox = screen.getByLabelText('zilver') as HTMLInputElement;
 
-    fireEvent.change(select, { target: { value: 'zilver' } });
+    fireEvent.click(checkbox);
 
     await waitFor(() => {
+      // Ruitenheer (premium) should be gone, M-Sports (zilver) should remain
       expect(screen.queryAllByText('Ruitenheer').length).toBe(0);
       expect(screen.getAllByText('M-Sports').length).toBeGreaterThan(0);
     });
   });
-});
 
+  it('has an Upload sponsors button that posts the Excel and refetches', async () => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } }
+    });
 
-it('has an Upload sponsors button that posts the Excel and refetches', async () => {
-  console.log(`BASE API URL: ${import.meta.env.VITE_API_BASE_URL}`)
-  const qc = new QueryClient();
-  const origFetch = global.fetch as any;
-  const calls: Array<{ url: string; method: string }> = [];
-  const mock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = typeof input === 'string' ? input : (input as URL).toString();
-    const method = init?.method || 'GET';
-    calls.push({ url, method });
-    const u = new URL(url, 'http://localhost/api');
-    if (u.pathname.endsWith('/sponsors/upload-excel') && method === 'POST') {
-      return { ok: true, json: async () => ({ ok: true, created: 2, updated: 0 }) } as any;
-    }
-    if (u.pathname.endsWith('/sponsors') && method === 'GET') {
-      return { ok: true, json: async () => mockData } as any;
-    }
-    return { ok: false, status: 404 } as any;
-  }) as any;
-  // @ts-expect-error Test
-  global.fetch = mock;
+    const calls: Array<{ url: string; method: string }> = [];
 
-  render(
-    <ThemeProvider>
-      <QueryClientProvider client={qc}>
-        <SponsorsPage />
-      </QueryClientProvider>
-    </ThemeProvider>
-  );
+    // Custom mock for this test to track calls
+    (global.fetch as any).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : (input as URL).toString();
+      const method = init?.method || 'GET';
+      calls.push({ url, method });
 
-  // Wait for initial load
-  await waitFor(() => expect(mock).toHaveBeenCalled());
+      if (url.includes('/sponsors/upload-excel') && method === 'POST') {
+        return { ok: true, json: async () => ({ ok: true, created: 2, updated: 0 }) };
+      }
+      // Default GET sponsors
+      return { ok: true, json: async () => mockData };
+    });
 
-  // Click upload button -> opens file input; simulate selecting a file
-  const btn = screen.getByLabelText('upload-sponsors');
-  const input = screen.getByLabelText('sponsors-file') as HTMLInputElement;
+    render(
+      <ThemeProvider>
+        <QueryClientProvider client={qc}>
+          <SponsorsPage />
+        </QueryClientProvider>
+      </ThemeProvider>
+    );
 
-  // Fire click (no effect needed in jsdom), then change file
-  fireEvent.click(btn);
+    // Wait for initial load
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
 
-  const file = new File([new Uint8Array([1,2,3])], 'sponsors.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const dt = {
-    target: { files: [file] },
-  } as any;
-  fireEvent.change(input, dt);
+    // The button triggers the hidden file input
+    const input = screen.getByLabelText('sponsors-file') as HTMLInputElement;
 
-  // Expect POST called and then GET refetch called again
-  await waitFor(() => {
-    expect(calls.some((c) => c.url.includes('/sponsors/upload-excel') && c.method === 'POST')).toBe(true);
+    const file = new File([new Uint8Array([1,2,3])], 'sponsors.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    // Simulate file selection
+    fireEvent.change(input, { target: { files: [file] } });
+
+    // Expect POST called
+    await waitFor(() => {
+      const postCall = calls.find((c) => c.url.includes('/sponsors/upload-excel') && c.method === 'POST');
+      expect(postCall).toBeDefined();
+    });
+
+    // After upload, a GET for sponsors should have been made at least twice (initial + refetch)
+    const getCalls = calls.filter((c) => c.url.includes('/sponsors') && c.method === 'GET');
+    expect(getCalls.length).toBeGreaterThanOrEqual(2);
   });
-
-  // After upload, a GET for sponsors should have been made at least twice (initial + refetch)
-  const getCalls = calls.filter((c) => c.url.includes('/sponsors') && c.method === 'GET');
-  logger.info(getCalls);
-  expect(getCalls.length).toBeGreaterThanOrEqual(2);
-
-  global.fetch = origFetch;
 });

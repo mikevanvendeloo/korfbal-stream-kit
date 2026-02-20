@@ -11,7 +11,7 @@ export type InterviewSubject = {
   role: InterviewRole;
   playerId: number;
   titleDefinitionId: number | null;
-  player?: { id: number; name: string; function?: string | null };
+  player?: { id: number; name: string; function?: string | null, photoUrl?: string | null };
 };
 
 export function useInterviewSelections(productionId: number) {

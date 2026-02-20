@@ -7,9 +7,11 @@ import {uploadSponsorsExcel} from '../lib/api';
 import {MdAdd, MdRefresh, MdUploadFile, MdDownload} from 'react-icons/md';
 import SponsorFormModal from '../components/SponsorFormModal';
 
+type SponsorType = 'premium' | 'goud' | 'zilver' | 'brons';
+
 export default function SponsorsPage() {
-  const [type, setType] = useState<undefined | 'premium' | 'goud' | 'zilver' | 'brons'>(undefined);
-  const { data, isLoading, isError, error, refetch } = useSponsors({ type, limit: 100 });
+  const [selectedTypes, setSelectedTypes] = useState<SponsorType[]>([]);
+  const { data, isLoading, isError, error, refetch } = useSponsors({ type: selectedTypes.length > 0 ? selectedTypes : undefined, limit: 100 });
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<null | { created: number; updated: number; total?: number; problems?: Array<{ row: number; reason: string }> }>(null);
@@ -19,7 +21,7 @@ export default function SponsorsPage() {
   const update = useUpdateSponsor();
   const del = useDeleteSponsor();
 
-  const [editing, setEditing] = useState<null | { id?: number; name?: string; type?: 'premium' | 'goud' | 'zilver' | 'brons'; websiteUrl?: string; logoUrl?: string; displayName?: string }>(null);
+  const [editing, setEditing] = useState<null | { id?: number; name?: string; type?: SponsorType; websiteUrl?: string; logoUrl?: string; displayName?: string }>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const onPickFile = () => fileRef.current?.click();
@@ -42,7 +44,7 @@ export default function SponsorsPage() {
     }
   };
 
-  async function handleSubmitSponsor(input: { name: string; type: 'premium' | 'goud' | 'zilver' | 'brons'; websiteUrl: string; logoUrl?: string; displayName?: string }) {
+  async function handleSubmitSponsor(input: { name: string; type: SponsorType; websiteUrl: string; logoUrl?: string; displayName?: string }) {
     try {
       setActionError(null);
       if (editing?.id) {
@@ -67,23 +69,30 @@ export default function SponsorsPage() {
     }
   }
 
+  const toggleType = (t: SponsorType) => {
+    setSelectedTypes(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
+  };
+
   return (
     <div className="container py-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Sponsors</h1>
-        <div className="flex items-center gap-2">
-          <select
-            aria-label="Filter type"
-            className="border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2"
-            value={type || ''}
-            onChange={(e) => setType((e.target.value as any) || undefined)}
-          >
-            <option value="">Alle types</option>
-            <option value="premium">Premium</option>
-            <option value="goud">Goud</option>
-            <option value="zilver">Zilver</option>
-            <option value="brons">Brons</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 mr-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1">
+            <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">Filter:</span>
+            {(['premium', 'goud', 'zilver', 'brons'] as SponsorType[]).map((t) => (
+              <label key={t} className="flex items-center gap-1 cursor-pointer select-none px-1 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
+                <input
+                  type="checkbox"
+                  checked={selectedTypes.includes(t)}
+                  onChange={() => toggleType(t)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm capitalize text-gray-700 dark:text-gray-200">{t}</span>
+              </label>
+            ))}
+          </div>
+
           <button
             aria-label="refresh-sponsors"
             onClick={() => refetch()}

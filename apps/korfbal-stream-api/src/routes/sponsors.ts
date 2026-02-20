@@ -2,7 +2,7 @@ import {Router} from 'express';
 import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import {prisma} from '../services/prisma';
 import {logger} from '../utils/logger';
 import {
@@ -18,19 +18,49 @@ export const sponsorsRouter: Router = Router();
 // Multer memory storage for Excel upload
 const uploadMem = multer({ storage: multer.memoryStorage() });
 
+// Helper to sort sponsors by type priority
+const typePriority: Record<string, number> = {
+  premium: 1,
+  goud: 2,
+  zilver: 3,
+  brons: 4,
+};
+
 // List sponsors with optional filtering and pagination
 sponsorsRouter.get('/', async (req, res, next) => {
   try {
     const { type, page, limit } = SponsorQuerySchema.parse(req.query);
     const where: any = {};
-    if (type) where.type = type;
+
+    if (type) {
+      if (Array.isArray(type)) {
+        where.type = { in: type };
+      } else {
+        where.type = type;
+      }
+    }
 
     const skip = (page - 1) * limit;
 
-    const [items, total] = await Promise.all([
-      prisma.sponsor.findMany({ where, orderBy: { id: 'asc' }, skip, take: limit }),
-      prisma.sponsor.count({ where }),
-    ]);
+    // We fetch all matching items first to sort them in memory because Prisma
+    // cannot easily sort by a custom enum order directly in the query without raw SQL.
+    // Given the number of sponsors is usually small (<1000), in-memory sorting is acceptable.
+    // If pagination is strictly required on DB level, we would need raw SQL or a separate priority column.
+
+    // However, to respect pagination, we must fetch ALL matching records, sort them, and then slice.
+    // This might be inefficient for very large datasets but fine for sponsors.
+
+    const allMatches = await prisma.sponsor.findMany({ where });
+
+    allMatches.sort((a, b) => {
+      const pa = typePriority[a.type] || 99;
+      const pb = typePriority[b.type] || 99;
+      if (pa !== pb) return pa - pb;
+      return a.name.localeCompare(b.name);
+    });
+
+    const total = allMatches.length;
+    const items = allMatches.slice(skip, skip + limit);
 
     return res.json({ items, page, limit, total, pages: Math.ceil(total / limit) || 1 });
   } catch (err) {
@@ -44,27 +74,44 @@ sponsorsRouter.get('/', async (req, res, next) => {
 // IMPORTANT: This route must be BEFORE /:id to avoid "export-excel" being treated as an ID
 sponsorsRouter.get('/export-excel', async (_req, res, next) => {
   try {
-    const sponsors = await prisma.sponsor.findMany({ orderBy: { id: 'asc' } });
+    const sponsors = await prisma.sponsor.findMany({});
+
+    // Sort by type priority then name
+    sponsors.sort((a, b) => {
+      const pa = typePriority[a.type] || 99;
+      const pb = typePriority[b.type] || 99;
+      if (pa !== pb) return pa - pb;
+      return a.name.localeCompare(b.name);
+    });
 
     // Create workbook
-    const wb = XLSX.utils.book_new();
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet('Sponsors');
 
-    // Map sponsors to Excel rows
-    const rows = sponsors.map((s) => ({
-      Name: s.name,
-      Labels: s.type,
-      'Website URL': s.websiteUrl,
-      'Logo file name': s.logoUrl,
-      Sponsorcategorieën: s.categories || '',
-      DisplayName: (s as any).displayName || '',
-    }));
+    // Define columns
+    ws.columns = [
+      { header: 'Name', key: 'name', width: 30 },
+      { header: 'Labels', key: 'type', width: 15 },
+      { header: 'Website URL', key: 'websiteUrl', width: 30 },
+      { header: 'Logo file name', key: 'logoUrl', width: 20 },
+      { header: 'Sponsorcategorieën', key: 'categories', width: 25 },
+      { header: 'DisplayName', key: 'displayName', width: 25 },
+    ];
 
-    // Create sheet
-    const ws = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, 'Sponsors');
+    // Add rows
+    sponsors.forEach((s) => {
+      ws.addRow({
+        name: s.name,
+        type: s.type,
+        websiteUrl: s.websiteUrl,
+        logoUrl: s.logoUrl,
+        categories: s.categories || '',
+        displayName: (s as any).displayName || '',
+      });
+    });
 
     // Generate buffer
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const buffer = await workbook.xlsx.writeBuffer();
 
     // Send file
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -172,11 +219,35 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
 
     if (!buffer) return res.status(400).json({ error: 'No file provided and default Sponsors.xlsx not found' });
 
-    const wb = XLSX.read(buffer, { type: 'buffer' });
-    const sheetName = wb.SheetNames[0];
-    if (!sheetName) return res.status(400).json({ error: 'Workbook has no sheets' });
-    const ws = wb.Sheets[sheetName];
-    const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+    const ws = workbook.worksheets[0];
+    if (!ws) return res.status(400).json({ error: 'Workbook has no sheets' });
+
+    const rows: any[] = [];
+    let headers: string[] = [];
+    ws.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) {
+        // Header row
+        headers = (row.values as any[]).slice(1).map(v => String(v));
+      } else {
+        const rowData: any = {};
+        // exceljs values array is 1-based, but slice(1) makes it 0-based relative to headers
+        headers.forEach((header, index) => {
+          // values[index + 1] because values[0] is undefined in exceljs
+          const cellValue = row.getCell(index + 1).value;
+          // Handle rich text or other complex cell types if necessary
+          if (cellValue && typeof cellValue === 'object' && 'text' in cellValue) {
+             rowData[header] = (cellValue as any).text;
+          } else if (cellValue && typeof cellValue === 'object' && 'hyperlink' in cellValue) {
+             rowData[header] = (cellValue as any).text || (cellValue as any).hyperlink;
+          } else {
+             rowData[header] = cellValue;
+          }
+        });
+        rows.push(rowData);
+      }
+    });
 
     let created = 0;
     let updated = 0;
@@ -199,9 +270,9 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
     }
 
     logger.info('Sponsors Excel received', {
-      sheet: sheetName,
+      sheet: ws.name,
       rows: rows.length,
-      headers: rows[0] ? Object.keys(rows[0]) : [],
+      headers: headers,
     } as any);
 
     for (let i = 0; i < rows.length; i++) {
@@ -305,11 +376,11 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
       await performUpdate();
     }
 
-    try {
-      logger.info('Sponsors Excel import summary', { created, updated, total: rows.length, problems: problems.length, names: receivedNames } as any);
-    } catch (_) {}
 
-    return res.json({ ok: true, sheet: sheetName, total: rows.length, created, updated, problems });
+    logger.info('Sponsors Excel import summary', { created, updated, total: rows.length, problems: problems.length, names: receivedNames } as never);
+
+
+    return res.json({ ok: true, sheet: ws.name, total: rows.length, created, updated, problems });
   } catch (err) {
     logger.error('POST /sponsors/upload-excel failed', err as any);
     return next(err);

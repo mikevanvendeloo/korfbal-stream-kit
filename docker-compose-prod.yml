@@ -21,7 +21,7 @@ services:
   # Eénmalige migratie/seed job. Draait bij 'up' en stopt na succes.
   migrate-streamz:
     # Gebruik dezelfde image als de API. In CI/CD vervang door jouw registry:tag
-    image: mvanvendeloo/korfbal-stream-api:2026.02.12
+    image: mvanvendeloo/korfbal-stream-api:2026.02.13
     networks:
       - korfbal-network
     depends_on:
@@ -45,7 +45,7 @@ services:
     restart: "no"
 
   korfbal-streamz-api:
-    image: mvanvendeloo/korfbal-stream-api:2026.02.12
+    image: mvanvendeloo/korfbal-stream-api:2026.02.13
     networks:
       - korfbal-network
     environment:
@@ -55,7 +55,7 @@ services:
       MATCH_SCHEDULE_BASE_URL: "https://api.sportclubvrijwilligersmanagement.nl/v1"
       MATCH_SCHEDULE_API_TOKEN: "aDvjETZ54R6T3qnhExI5gcbfDceDxqN0"
       PORT: 3333
-      ASSETS_DIR: /app/assets
+      ASSETS_DIR: /app/storage
       UPLOADS_DIR: /app/uploads
     depends_on:
       streamz-db:
@@ -65,7 +65,7 @@ services:
     ports:
       - "3333:3333"
     volumes:
-      - ./assets:/app/assets
+      - ./storage:/app/storage
       - ./uploads:/app/uploads
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3333/api/health"]
@@ -73,7 +73,7 @@ services:
       timeout: 5s
       retries: 5
   korfbal-streamz-kit:
-    image: mvanvendeloo/korfbal-stream-kit:2026.02.12
+    image: mvanvendeloo/korfbal-stream-kit:2026.02.13
     networks:
       - korfbal-network
     ports:

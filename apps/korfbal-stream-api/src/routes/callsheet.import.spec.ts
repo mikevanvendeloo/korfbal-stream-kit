@@ -1,19 +1,25 @@
 import request from 'supertest';
 import app from '../main';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 // Mock prisma client methods used by the routes
 import * as prismaSvc from '../services/prisma';
 
 const prisma = (prismaSvc as any).prisma as any;
 
-function makeWorkbookBuffer(rows: Array<Record<string, any>>, sheetName = 'Callsheet'): Buffer {
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as any as Buffer;
-  return buf;
+async function makeWorkbookBuffer(rows: Array<Record<string, any>>, sheetName = 'Callsheet'): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  const ws = workbook.addWorksheet(sheetName);
+
+  if (rows.length > 0) {
+    const headers = Object.keys(rows[0]);
+    ws.columns = headers.map(h => ({ header: h, key: h }));
+    rows.forEach(r => ws.addRow(r));
+  }
+
+  const buf = await workbook.xlsx.writeBuffer();
+  return buf as Buffer;
 }
 
 describe('Callsheet Excel import API', () => {
@@ -88,7 +94,7 @@ describe('Callsheet Excel import API', () => {
   });
 
   it('imports a callsheet from uploaded Excel and creates items and positions', async () => {
-    const buf = makeWorkbookBuffer([
+    const buf = await makeWorkbookBuffer([
       { Segment: 'Opbouw', Cue: 'CUE1', Title: 'Intro', Duration: '00:30', Positions: 'Director; Shader' },
       { Segment: 'Wedstrijd', Cue: 'CUE2', Title: 'Kickoff', Duration: 90, Positions: 'Commentator' },
     ]);
@@ -109,7 +115,7 @@ describe('Callsheet Excel import API', () => {
   });
 
   it('returns problems for unknown segment and skips invalid rows', async () => {
-    const buf = makeWorkbookBuffer([
+    const buf = await makeWorkbookBuffer([
       { Segment: 'UnknownSeg', Cue: 'C', Title: 'T', Duration: '10' },
       { Segment: 'Opbouw', Cue: '', Title: 'No cue', Duration: '10' }, // missing cue
       { Segment: 'Opbouw', Cue: 'OK', Title: 'Valid', Duration: '15' },

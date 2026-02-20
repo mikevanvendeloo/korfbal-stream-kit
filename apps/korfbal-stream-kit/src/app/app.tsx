@@ -35,6 +35,7 @@ import {
   MdWork,
   MdAssessment,
   MdInfo,
+  MdSettings,
 } from 'react-icons/md';
 import VmixTemplatesPage from '../pages/VmixTemplatesPage';
 import VmixControlPage from '../pages/VmixControlPage';
@@ -43,7 +44,8 @@ import VmixDatasourcesPage from '../pages/VmixDatasourcesPage';
 import AppLogo from '../components/AppLogo';
 import AppIcon from "../components/AppIcon";
 import ReportsPage from '../pages/ReportsPage';
-import AboutPage from '../pages/AboutPage'; // Import the new page
+import AboutPage from '../pages/AboutPage';
+import SettingsPage from '../pages/SettingsPage';
 
 function Nav() {
   const {theme, toggle} = useTheme();
@@ -190,6 +192,13 @@ function Nav() {
               className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
               <ul className="text-sm">
                 <li>
+                  <Link to="/settings"
+                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdSettings/>
+                    <span>Instellingen</span>
+                  </Link>
+                </li>
+                <li>
                   <Link to="/admin/skills"
                         className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
                     <MdBuild/>
@@ -335,7 +344,8 @@ export function App() {
             <Route path="/admin/vmix/control" element={<VmixControlPage/>}/>
             <Route path="/admin/vmix/datasources" element={<VmixDatasourcesPage/>}/>
             <Route path="/reports" element={<ReportsPage/>}/>
-            <Route path="/about" element={<AboutPage/>}/> {/* New route */}
+            <Route path="/about" element={<AboutPage/>}/>
+            <Route path="/settings" element={<SettingsPage/>}/>
           </Routes>
         </main>
       </div>

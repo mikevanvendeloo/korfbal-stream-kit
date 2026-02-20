@@ -117,10 +117,10 @@ reportsRouter.get('/interviews', async (req, res, next) => {
     const report = productions.map(p => {
       const homeInterviews = p.interviewSubjects
         .filter(s => s.side === 'HOME')
-        .map(s => ({ name: s.player.name, role: s.role }));
+        .map(s => ({ name: s.player.name, role: s.role, photoUrl: s.player.photoUrl }));
       const awayInterviews = p.interviewSubjects
         .filter(s => s.side === 'AWAY')
-        .map(s => ({ name: s.player.name, role: s.role }));
+        .map(s => ({ name: s.player.name, role: s.role, photoUrl: s.player.photoUrl }));
 
       return {
         id: p.id,
