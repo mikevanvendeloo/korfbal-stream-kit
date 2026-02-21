@@ -90,6 +90,13 @@ describe('Production interviews API', () => {
       }),
     };
 
+    // Mock titleDefinition
+    prisma.titleDefinition = {
+      findMany: vi.fn(async () => {
+        return [];
+      }),
+    };
+
     // Mock transaction to use the same mocked prisma object as tx
     prisma.$transaction = vi.fn(async (cb: any) => {
       return await cb(prisma);

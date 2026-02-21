@@ -6,7 +6,7 @@ import {
   useProductionTiming
 } from '../hooks/useProductions';
 import ProductionHeader from '../components/ProductionHeader';
-import {MdEdit} from 'react-icons/md';
+import {MdAnchor, MdEdit} from 'react-icons/md';
 import {createUrl} from "../lib/api";
 import React from "react";
 
@@ -107,17 +107,21 @@ export default function ActiveProductionPage() {
               {timing.data?.map((s) => (
                 <div key={s.id} className="p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <div>
-                    <div className="font-medium">{s.volgorde}. {s.naam}</div>
+                    <div className="font-medium flex items-center gap-2">
+                      {s.volgorde}. {s.naam}
+                      {s.isTimeAnchor && (
+                        <span title="De begintijd van dit segment wordt gebruikt als basis voor de planning">
+                          <MdAnchor className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        </span>
+                      )}
+                    </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {s.start ? new Date(s.start).toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit', hour12: false}) : '--:--'} - {s.end ? new Date(s.end).toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit', hour12: false}) : '--:--'}
-                      <span className="ml-2 text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300">{s.duurInMinuten} min</span>
+                      <span className="text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300">{s.duurInMinuten} min</span>
                     </div>
                   </div>
-                  {s.isTimeAnchor && (
-                    <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-1 rounded-full font-medium">
-                      Anchor
-                    </span>
-                  )}
+                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    {s.start ? new Date(s.start).toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit', hour12: false}) : '--:--'}
+                  </div>
                 </div>
               ))}
               {!timing.data?.length && (

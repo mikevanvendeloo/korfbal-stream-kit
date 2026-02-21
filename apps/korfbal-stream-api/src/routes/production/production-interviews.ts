@@ -31,7 +31,48 @@ productionInterviewsRouter.get('/:id/interviews', async (req, res, next) => {
       orderBy: { id: 'asc' },
       include: { player: true, titleDefinition: true },
     });
-    return res.json(items);
+
+    // Sort items based on title definitions order if available
+    // 1. Get all title definitions for this production (or global templates if none)
+    // 2. Map interview items to their corresponding title definition order
+    // 3. Sort items based on that order
+
+    // Fetch title definitions for this production
+    let titleDefs = await (prisma as any).titleDefinition.findMany({
+      where: { productionId: id, enabled: true },
+      orderBy: { order: 'asc' },
+      select: { id: true, order: true }
+    });
+
+    // If no production-specific definitions, fetch global templates
+    if (titleDefs.length === 0) {
+      titleDefs = await (prisma as any).titleDefinition.findMany({
+        where: { productionId: null, enabled: true },
+        orderBy: { order: 'asc' },
+        select: { id: true, order: true }
+      });
+    }
+
+    // Create a map for quick lookup of order by titleDefinitionId
+    const orderMap = new Map<number, number>();
+    titleDefs.forEach((def: any, index: number) => {
+      orderMap.set(def.id, index);
+    });
+
+    // Sort items
+    const sortedItems = items.sort((a: any, b: any) => {
+      // If both have titleDefinitionId, sort by the order of that definition
+      if (a.titleDefinitionId && b.titleDefinitionId) {
+        const orderA = orderMap.get(a.titleDefinitionId) ?? Number.MAX_SAFE_INTEGER;
+        const orderB = orderMap.get(b.titleDefinitionId) ?? Number.MAX_SAFE_INTEGER;
+        if (orderA !== orderB) return orderA - orderB;
+      }
+
+      // Fallback to ID sorting if no title definition or same order (shouldn't happen for different defs)
+      return a.id - b.id;
+    });
+
+    return res.json(sortedItems);
   } catch (err) {
     return next(err);
   }
