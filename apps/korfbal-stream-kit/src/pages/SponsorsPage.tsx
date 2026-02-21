@@ -1,4 +1,11 @@
-import {useCreateSponsor, useDeleteSponsor, useDownloadAllSponsorLogos, useSponsors, useUpdateSponsor, useUploadSponsorLogo} from '../hooks/useSponsors';
+import {
+  useCreateSponsor,
+  useDeleteSponsor,
+  useDownloadAllSponsorLogos,
+  useSponsors,
+  useUpdateSponsor,
+  useUploadSponsorLogo
+} from '../hooks/useSponsors';
 import {SponsorsTable} from '../components/SponsorsTable';
 import React, {useRef, useState} from 'react';
 // Using a plain anchor to avoid Router context requirement in tests
@@ -130,7 +137,7 @@ export default function SponsorsPage() {
             <MdDownload className="w-5 h-5" />
             <span className="sr-only">Download alle logos</span>
           </button>
-          <button aria-label="new-sponsor" onClick={() => setEditing({})} className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center gap-1" title="Nieuwe sponsor">
+          <button aria-label="new-sponsor" onClick={() => setEditing({})} className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center gap-1" title="Toevoegen sponsor">
             <MdAdd className="w-5 h-5" />
             <span>Nieuwe sponsor</span>
           </button>

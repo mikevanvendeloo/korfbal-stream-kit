@@ -1,6 +1,6 @@
 import React from 'react';
-import { Sponsor, SponsorInput } from '../lib/api';
-import { normalizeSponsorName, isValidSponsorUrl } from '../lib/sponsorUtils';
+import {Sponsor, SponsorInput} from '../lib/api';
+import {isValidSponsorUrl, normalizeSponsorName} from '../lib/sponsorUtils';
 
 export type SponsorFormModalProps = {
   initial?: Partial<Sponsor>;
@@ -51,7 +51,7 @@ export default function SponsorFormModal({ initial, onCancel, onSubmit }: Sponso
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
       <div className="bg-white dark:bg-gray-900 p-4 rounded shadow w-[480px] max-w-[95vw]">
-        <h2 className="font-semibold mb-3">{initial?.id ? 'Sponsor wijzigen' : 'Nieuwe sponsor'}</h2>
+        <h2 className="font-semibold mb-3">{initial?.id ? 'Sponsor wijzigen' : 'Sponsor toevoegen'}</h2>
         {error && (
           <div role="alert" className="mb-3 rounded-md border border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300 px-3 py-2">{error}</div>
         )}

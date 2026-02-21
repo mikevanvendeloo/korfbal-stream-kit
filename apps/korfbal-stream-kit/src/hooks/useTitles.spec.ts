@@ -18,7 +18,8 @@ describe('useProductionTitles', () => {
         },
       },
     });
-    vi.clearAllMocks();
+    // Reset mocks before each test
+    vi.mocked(global.fetch).mockClear();
   });
 
   const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -31,15 +32,10 @@ describe('useProductionTitles', () => {
       { id: 2, name: 'Production Title 1', order: 1 },
     ];
 
-    (global.fetch as any).mockImplementation((url: string) => {
-      if (url.includes('/api/production/1/titles')) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockProdTitles),
-        });
-      }
-      return Promise.reject(new Error('Unknown URL'));
-    });
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockProdTitles,
+    } as Response);
 
     const { result } = renderHook(() => useProductionTitles(1), { wrapper });
 
@@ -49,6 +45,7 @@ describe('useProductionTitles', () => {
       { id: 2, name: 'Production Title 1', order: 1 },
       { id: 1, name: 'Production Title 2', order: 2 },
     ]);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   it('should return default titles if production-specific titles are empty, sorted by order', async () => {
@@ -57,21 +54,17 @@ describe('useProductionTitles', () => {
       { id: 100, name: 'Default Title 1', order: 1 },
     ];
 
-    (global.fetch as any).mockImplementation((url: string) => {
-      if (url.includes('/api/production/1/titles')) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve([]), // Empty array
-        });
-      }
-      if (url.includes('/api/admin/vmix/title-templates')) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockDefaultTitles),
-        });
-      }
-      return Promise.reject(new Error('Unknown URL'));
-    });
+    vi.mocked(global.fetch)
+      // 1. Mock for production-specific titles (returns empty)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      } as Response)
+      // 2. Mock for default templates (returns defaults)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockDefaultTitles,
+      } as Response);
 
     const { result } = renderHook(() => useProductionTitles(1), { wrapper });
 
@@ -81,5 +74,6 @@ describe('useProductionTitles', () => {
       { id: 100, name: 'Default Title 1', order: 1 },
       { id: 101, name: 'Default Title 2', order: 2 },
     ]);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 });
