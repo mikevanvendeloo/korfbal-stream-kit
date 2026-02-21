@@ -1,6 +1,6 @@
-import {useCreateSponsor, useDeleteSponsor, useSponsors, useUpdateSponsor} from '../hooks/useSponsors';
+import {useCreateSponsor, useDeleteSponsor, useDownloadAllSponsorLogos, useSponsors, useUpdateSponsor, useUploadSponsorLogo} from '../hooks/useSponsors';
 import {SponsorsTable} from '../components/SponsorsTable';
-import {useRef, useState} from 'react';
+import React, {useRef, useState} from 'react';
 // Using a plain anchor to avoid Router context requirement in tests
 // import { Link } from 'react-router-dom';
 import {uploadSponsorsExcel} from '../lib/api';
@@ -20,6 +20,8 @@ export default function SponsorsPage() {
   const create = useCreateSponsor();
   const update = useUpdateSponsor();
   const del = useDeleteSponsor();
+  const uploadLogo = useUploadSponsorLogo();
+  const downloadLogos = useDownloadAllSponsorLogos();
 
   const [editing, setEditing] = useState<null | { id?: number; name?: string; type?: SponsorType; websiteUrl?: string; logoUrl?: string; displayName?: string }>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -44,14 +46,22 @@ export default function SponsorsPage() {
     }
   };
 
-  async function handleSubmitSponsor(input: { name: string; type: SponsorType; websiteUrl: string; logoUrl?: string; displayName?: string }) {
+  async function handleSubmitSponsor(input: { name: string; type: SponsorType; websiteUrl: string; logoUrl?: string; displayName?: string, logoFile?: File }) {
     try {
       setActionError(null);
+      let sponsorId: number;
       if (editing?.id) {
         await update.mutateAsync({ id: editing.id, input });
+        sponsorId = editing.id;
       } else {
-        await create.mutateAsync(input);
+        const newSponsor = await create.mutateAsync(input);
+        sponsorId = newSponsor.id;
       }
+
+      if (input.logoFile) {
+        await uploadLogo.mutateAsync({ id: sponsorId, file: input.logoFile });
+      }
+
       setEditing(null);
     } catch (e: any) {
       setActionError(e?.message || 'Opslaan mislukt');
@@ -111,6 +121,15 @@ export default function SponsorsPage() {
             <MdDownload className="w-5 h-5" />
             <span className="sr-only">Export Excel</span>
           </a>
+          <button
+            aria-label="download-all-logos"
+            onClick={() => downloadLogos.mutate()}
+            className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center"
+            title="Download alle logos"
+          >
+            <MdDownload className="w-5 h-5" />
+            <span className="sr-only">Download alle logos</span>
+          </button>
           <button aria-label="new-sponsor" onClick={() => setEditing({})} className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center gap-1" title="Nieuwe sponsor">
             <MdAdd className="w-5 h-5" />
             <span>Nieuwe sponsor</span>

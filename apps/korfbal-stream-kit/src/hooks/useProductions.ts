@@ -1,5 +1,6 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {createUrl, extractError} from "../lib/api";
+import {useProductionTitles} from "./useTitles";
 
 export type ProductionPersonPosition = {
   id: number;
@@ -437,17 +438,37 @@ export type InterviewSubject = {
   role: 'PLAYER' | 'COACH';
   playerId: number;
   titleDefinitionId?: number | null;
+  titleOrder?: number | null;
   player?: { id: number; name: string; function?: string; clubId?: number; photoUrl?: string; shirtNo?: number | null };
 };
 
 export function useProductionInterviews(productionId: number) {
+  const titlesQuery = useProductionTitles(productionId);
+
   return useQuery({
-    queryKey: ['production', productionId, 'interviews'],
-    enabled: !!productionId,
+    queryKey: ['production', productionId, 'interviews', titlesQuery.data], // Re-run when titles change
+    enabled: !!productionId && titlesQuery.isSuccess, // Enable when titles are loaded
     queryFn: async (): Promise<InterviewSubject[]> => {
       const res = await fetch(createUrl(`/api/production/${productionId}/interviews`));
       if (!res.ok) throw new Error(await extractError(res));
-      return res.json();
+      const interviews: InterviewSubject[] = await res.json();
+
+      const sortedTitles = titlesQuery.data;
+      if (!sortedTitles) {
+        return interviews; // Should not happen due to `enabled` flag
+      }
+
+      // Create a map for quick lookup of the sort order (index) by titleDefinitionId
+      const titleIndexMap = new Map<number, number>();
+      sortedTitles.forEach((title, index) => {
+        titleIndexMap.set(title.id, index);
+      });
+
+      return interviews.sort((a, b) => {
+        const indexA = a.titleDefinitionId ? titleIndexMap.get(a.titleDefinitionId) ?? 999 : 999;
+        const indexB = b.titleDefinitionId ? titleIndexMap.get(b.titleDefinitionId) ?? 999 : 999;
+        return indexA - indexB;
+      });
     },
   });
 }

@@ -8,7 +8,6 @@ import {
 import ProductionHeader from '../components/ProductionHeader';
 import {MdAnchor, MdEdit} from 'react-icons/md';
 import {createUrl} from "../lib/api";
-import React from "react";
 
 export default function ActiveProductionPage() {
   const { data, isLoading, error } = useProductions();
@@ -18,7 +17,7 @@ export default function ActiveProductionPage() {
   const timing = useProductionTiming(active?.id || 0);
   const positions = useProductionPersonPositions(active?.id || 0);
   const interviews = useProductionInterviews(active?.id || 0);
-
+  console.log("Interviews ", interviews?.data?.map((i) => i.player?.name))
   if (isLoading) return <div className="container py-6 text-gray-800 dark:text-gray-100">Laden…</div>;
   if (error) return <div className="container py-6 text-red-700">{String((error as any)?.message || error)}</div>;
   if (!active) return <div className="container py-6 text-gray-800 dark:text-gray-100">Geen actieve productie. Ga naar <Link className="underline" to="/admin/productions">Productions</Link>.</div>;

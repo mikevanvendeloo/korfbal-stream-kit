@@ -1,5 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createSponsor, deleteSponsor, fetchSponsors, Sponsor, SponsorInput, updateSponsor } from '../lib/api';
+import {
+  createSponsor,
+  deleteSponsor,
+  downloadAllSponsorLogos,
+  fetchSponsors,
+  Sponsor,
+  SponsorInput,
+  updateSponsor,
+  uploadSponsorLogo
+} from '../lib/api';
 
 export function useSponsors(params: { type?: Sponsor['type'] | Sponsor['type'][]; page?: number; limit?: number } = {}) {
   const { type, page = 1, limit = 50 } = params;
@@ -37,5 +46,21 @@ export function useDeleteSponsor() {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['sponsors'] });
     },
+  });
+}
+
+export function useUploadSponsorLogo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { id: number; file: File }) => uploadSponsorLogo(args.id, args.file),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['sponsors'] });
+    },
+  });
+}
+
+export function useDownloadAllSponsorLogos() {
+  return useMutation({
+    mutationFn: () => downloadAllSponsorLogos(),
   });
 }

@@ -5,7 +5,7 @@ import { normalizeSponsorName, isValidSponsorUrl } from '../lib/sponsorUtils';
 export type SponsorFormModalProps = {
   initial?: Partial<Sponsor>;
   onCancel: () => void;
-  onSubmit: (input: SponsorInput) => Promise<void> | void;
+  onSubmit: (input: SponsorInput & { logoFile?: File }) => Promise<void> | void;
 };
 
 export default function SponsorFormModal({ initial, onCancel, onSubmit }: SponsorFormModalProps) {
@@ -14,6 +14,7 @@ export default function SponsorFormModal({ initial, onCancel, onSubmit }: Sponso
   const [websiteUrl, setWebsiteUrl] = React.useState(initial?.websiteUrl || '');
   const [logoUrl, setLogoUrl] = React.useState(initial?.logoUrl || '');
   const [displayName, setDisplayName] = React.useState((initial as any)?.displayName || '');
+  const [logoFile, setLogoFile] = React.useState<File | undefined>();
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const firstRef = React.useRef<HTMLInputElement>(null);
@@ -29,7 +30,14 @@ export default function SponsorFormModal({ initial, onCancel, onSubmit }: Sponso
     if (!cleanedName) return setError('Naam is verplicht');
     if (!websiteUrl || !isValidSponsorUrl(websiteUrl)) return setError('Ongeldige website URL');
 
-    const payload: SponsorInput = { name: cleanedName, type, websiteUrl, logoUrl: logoUrl || undefined, displayName: displayName || undefined };
+    const payload: SponsorInput & { logoFile?: File } = {
+      name: cleanedName,
+      type,
+      websiteUrl,
+      logoUrl: logoUrl || undefined,
+      displayName: displayName || undefined,
+      logoFile,
+    };
     try {
       setBusy(true);
       await onSubmit(payload);
@@ -65,6 +73,16 @@ export default function SponsorFormModal({ initial, onCancel, onSubmit }: Sponso
           <div>
             <label htmlFor="sponsor-website" className="block text-xs mb-1">Website URL</label>
             <input id="sponsor-website" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://example.com" className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-950" />
+          </div>
+          <div>
+            <label htmlFor="sponsor-logo-upload" className="block text-xs mb-1">Logo uploaden (optioneel)</label>
+            <input
+              id="sponsor-logo-upload"
+              type="file"
+              accept="image/png,image/jpeg,image/svg+xml"
+              onChange={(e) => setLogoFile(e.target.files?.[0])}
+              className="w-full text-sm file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
           </div>
           <div>
             <label htmlFor="sponsor-logo" className="block text-xs mb-1">Logo bestandsnaam (optioneel)</label>

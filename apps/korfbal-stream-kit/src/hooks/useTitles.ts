@@ -44,9 +44,25 @@ export function useProductionTitles(productionId: number) {
     queryKey: ['production', productionId, 'titles'],
     enabled: !!productionId,
     queryFn: async (): Promise<TitleDefinition[]> => {
-      const res = await fetch(createUrl(`/api/production/${productionId}/titles`));
-      if (!res.ok) throw new Error(await extractError(res));
-      return res.json();
+      // 1. Fetch production-specific titles
+      const prodTitlesRes = await fetch(createUrl(`/api/production/${productionId}/titles`));
+      if (!prodTitlesRes.ok) throw new Error(await extractError(prodTitlesRes));
+      const prodTitles: TitleDefinition[] = await prodTitlesRes.json();
+
+      let titles: TitleDefinition[];
+
+      // 2. If not empty, use them
+      if (Array.isArray(prodTitles) && prodTitles.length > 0) {
+        titles = prodTitles;
+      } else {
+        // 3. If empty, fetch and return default templates
+        const defaultTitlesRes = await fetch(createUrl(`/api/admin/vmix/title-templates`));
+        if (!defaultTitlesRes.ok) throw new Error(await extractError(defaultTitlesRes));
+        titles = await defaultTitlesRes.json();
+      }
+
+      // 4. Sort and return to guarantee order
+      return titles.sort((a, b) => a.order - b.order);
     },
   });
 }

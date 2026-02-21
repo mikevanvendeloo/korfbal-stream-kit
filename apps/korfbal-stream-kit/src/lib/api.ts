@@ -1,4 +1,5 @@
 import {logger} from "nx/src/utils/logger";
+import {downloadFile} from "./download";
 
 function getApiBaseUrl() {
   // In de browser is window.location.origin de base URL
@@ -181,6 +182,23 @@ export async function uploadSponsorsExcel(file: File): Promise<any> {
   return res.json();
 }
 
+export async function uploadSponsorLogo(id: number, file: File): Promise<Sponsor> {
+  const url = createUrl(`/api/sponsors/${id}/logo`);
+  const form = new FormData();
+  form.append('file', file, file.name);
+  const res = await fetch(url.toString(), { method: 'POST', body: form });
+  if (!res.ok) throw new Error(`Failed to upload logo: ${await extractError(res)}`);
+  return res.json();
+}
+
+export async function downloadAllSponsorLogos(): Promise<void> {
+  const url = createUrl('/api/sponsors/logos/download');
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`Failed to download logos: ${await extractError(res)}`);
+  const blob = await res.blob();
+  downloadFile(blob, 'sponsor-logos.zip');
+}
+
 export async function fetchScoreboard(): Promise<ScoreboardItem[]> {
   const url = createUrl('/api/scoreboard');
   const res = await fetch(url.toString());
@@ -320,5 +338,5 @@ export async function setScoreboardConfig(config: { scoreboardUrl: string; shotc
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(config),
   });
-  if (!res.ok) throw new Error(`Failed to save scoreboard config: ${res.status}`);
+  if (!res.ok) throw new Error(`Failed to save sponsor config: ${res.status}`);
 }

@@ -16,6 +16,7 @@ const InterviewSubjectInputSchema = z.object({
   role: InterviewRoleEnum,
   playerId: z.number().int().positive(),
   titleDefinitionId: z.number().int().positive().optional().nullable(),
+  titleOrder: z.number().int().positive().optional().nullable(),
 });
 
 // List interview subjects for a production

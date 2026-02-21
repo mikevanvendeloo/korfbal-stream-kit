@@ -57,6 +57,7 @@ services:
       PORT: 3333
       ASSETS_DIR: /app/storage
       UPLOADS_DIR: /app/uploads
+      HOST_IP: 192.168.2.160
     depends_on:
       streamz-db:
         condition: service_healthy
