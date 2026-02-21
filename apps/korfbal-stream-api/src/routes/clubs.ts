@@ -58,7 +58,7 @@ function extractIdsFromTeamPage(html: string): { teamId?: string; poolId?: strin
   }
 
   // Try to find the api stream/team URL with encoded context
-  const urlMatch = html.match(/https:\/\/api-saas-site-prod-[^\s"']+\/general\/api\/stream\/team\?context=([^"'\s]+)/i);
+  const urlMatch = html.match(/https:\/\/api-saas-site-prod-[^\s"']+\/general\/api\/stream\/team\?context=([^\"'\s]+)/i);
   if (urlMatch) {
     try {
       const ctxEnc = urlMatch[1];
@@ -75,7 +75,7 @@ function extractIdsFromTeamPage(html: string): { teamId?: string; poolId?: strin
   try {
     const jsonLike = html.match(/\{[^]*?\}/g) || [];
     for (const blob of jsonLike) {
-      if (/team_id"?\s*:\s*"?\d+"?/i.test(blob) && /pool_ids"?\s*:\s*\[[^\]]+\]/i.test(blob)) {
+      if (/team_id\"?\s*:\s*\"?\d+\"?/i.test(blob) && /pool_ids\"?\s*:\s*\[[^\]]+\]/i.test(blob)) {
         try {
           const maybe = JSON.parse(blob);
           const teamId = maybe?.team_id || maybe?.data_entity_id;
