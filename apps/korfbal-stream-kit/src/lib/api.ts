@@ -289,14 +289,14 @@ export async function extractError(res: Response): Promise<string> {
   return `Request failed (${res.status})`;
 }
 
-export async function getSponsorConfig(): Promise<{ namesTypes: string[]; rowsTypes: string[] }> {
+export async function getSponsorConfig(): Promise<{ namesTypes: string[]; rowsTypes: string[]; slidesTypes: string[] }> {
   const url = createUrl('/api/settings/sponsor-config');
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error(`Failed to load sponsor config: ${res.status}`);
   return res.json();
 }
 
-export async function setSponsorConfig(config: { namesTypes: string[]; rowsTypes: string[] }): Promise<void> {
+export async function setSponsorConfig(config: { namesTypes: string[]; rowsTypes: string[]; slidesTypes: string[] }): Promise<void> {
   const url = createUrl('/api/settings/sponsor-config');
   const res = await fetch(url.toString(), {
     method: 'PUT',

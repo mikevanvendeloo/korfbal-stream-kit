@@ -10,7 +10,13 @@ import {
   ReorderTitleDefinitionsSchema,
   UpdateTitleDefinitionSchema
 } from '../schemas/title';
-import {buildVmixApiUrl, getSponsorNamesTypes, getSponsorRowsTypes, getVmixUrl} from '../services/appSettings';
+import {
+  buildVmixApiUrl,
+  getSponsorNamesTypes,
+  getSponsorRowsTypes,
+  getSponsorSlidesTypes,
+  getVmixUrl
+} from '../services/appSettings';
 import {shuffle} from "../utils/array-utils";
 import os from 'node:os';
 
@@ -223,6 +229,182 @@ vmixRouter.post('/sponsor-rows', async (req, res, next) => {
     return res.json(rows);
   } catch (err) {
     logger.error('POST /vmix/sponsor-rows failed', err as any);
+    return next(err);
+  }
+});
+
+// GET /api/vmix/sponsor-slides
+// Returns a JSON object with the sponsor slides
+vmixRouter.get('/sponsor-slides', async (req, res, next) => {
+  try {
+    const seedRaw = (req.query?.seed ?? undefined);
+
+    // Seedable RNG + helpers (mirrors scripts/generate-sponsor-csv.ts)
+    function hashSeed(input: string): number {
+      let h = 1779033703 ^ input.length;
+      for (let i = 0; i < input.length; i++) {
+        h = Math.imul(h ^ input.charCodeAt(i), 3432918353);
+        h = (h << 13) | (h >>> 19);
+      }
+      return (h >>> 0) || 0x9e3779b9; // ensure non-zero
+    }
+    function mulberry32(seed: number) {
+      let t = seed >>> 0;
+      return function () {
+        t += 0x6d2b79f5;
+        let r = Math.imul(t ^ (t >>> 15), 1 | t);
+        r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+        return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function shuffle<T>(arr: T[], rnd: () => number) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(rnd() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+    function rotate<T>(arr: T[], offset: number) {
+      if (arr.length === 0) return arr;
+      const n = ((offset % arr.length) + arr.length) % arr.length;
+      if (n === 0) return arr;
+      return arr.slice(n).concat(arr.slice(0, n));
+    }
+    const seedStr = String(seedRaw ?? Date.now());
+    const rnd = mulberry32(hashSeed(seedStr));
+
+    // Load sponsors to use
+    let where: any = {};
+    const types = await getSponsorSlidesTypes();
+    where = { type: { in: types } };
+
+    const sponsors = await prisma.sponsor.findMany({
+      where,
+      orderBy: { id: 'asc' },
+    });
+
+    // Shuffle sponsors for more variation
+    const sponsorLogos = shuffle(sponsors.map((s) => (s.logoUrl || '').trim()).filter(Boolean), rnd);
+    if (sponsorLogos.length < 3) {
+      return res.status(400).json({ error: 'Need at least 3 sponsors' });
+    }
+    // Ensure uniqueness of filenames (defensive)
+    const uniqueSponsorLogos = Array.from(new Set(sponsorLogos));
+
+    // Load player images (subjects)
+    const playersRaw = await (prisma as any).playerImage.findMany({ orderBy: { id: 'asc' } });
+    if (!playersRaw || playersRaw.length === 0) {
+      return res.status(400).json({ error: 'No player images found. Upload player images first.' });
+    }
+    // Shuffle players
+    const players = shuffle([...playersRaw], rnd);
+
+    // Strategy selection:
+    // - If we have at least 6 unique sponsors, we can guarantee that consecutive rows
+    //   have disjoint sets of sponsors by grouping in steps of 3 over the shuffled list.
+    // - If fewer than 6 are available, it is mathematically impossible to avoid overlap
+    //   between two consecutive rows that both need 3 unique sponsors. In that case we
+    //   fall back to the previous partitioned approach and try to minimize overlap.
+
+    // Partitioned fallback (used only when unique sponsors < 6)
+    function buildPartitionedAssign() {
+      const sponsorsTop: string[] = [];
+      const sponsorsMid: string[] = [];
+      const sponsorsBot: string[] = [];
+      for (let i = 0; i < sponsorLogos.length; i++) {
+        const s = sponsorLogos[i];
+        if (i % 3 === 0) sponsorsTop.push(s);
+        else if (i % 3 === 1) sponsorsMid.push(s);
+        else sponsorsBot.push(s);
+      }
+      const partitions = [sponsorsTop, sponsorsMid, sponsorsBot];
+      if (partitions.some((p) => p.length === 0)) {
+        const arr = [...sponsorLogos];
+        while (sponsorsTop.length === 0 && arr.length) sponsorsTop.push(arr.shift()!);
+        while (sponsorsMid.length === 0 && arr.length) sponsorsMid.push(arr.shift()!);
+        while (sponsorsBot.length === 0 && arr.length) sponsorsBot.push(arr.shift()!);
+        let idx = 0;
+        for (const s of arr) {
+          if (idx % 3 === 0) sponsorsTop.push(s);
+          else if (idx % 3 === 1) sponsorsMid.push(s);
+          else sponsorsBot.push(s);
+          idx++;
+        }
+      }
+      const topRot = Math.floor(rnd() * (sponsorsTop.length || 1));
+      const midRot = Math.floor(rnd() * (sponsorsMid.length || 1));
+      const botRot = Math.floor(rnd() * (sponsorsBot.length || 1));
+      const partTop = rotate(sponsorsTop, topRot);
+      const partMid = rotate(sponsorsMid, midRot);
+      const partBot = rotate(sponsorsBot, botRot);
+
+      return function assignRowPartitioned(i: number, prevSet?: Set<string>) {
+        const image1 = partTop[i % partTop.length];
+        let image2 = partMid[i % partMid.length];
+        let image3 = partBot[i % partBot.length];
+        // Ensure uniqueness within row
+        if (new Set([image1, image2, image3]).size !== 3) {
+          image2 = partMid[(i + 1) % partMid.length];
+        }
+        // Try to minimize overlap with previous row by shifting mid/bot if needed
+        if (prevSet && (prevSet.has(image1) || prevSet.has(image2) || prevSet.has(image3))) {
+          // Try a couple of shifts to reduce overlap
+          for (let step = 1; step < 3; step++) { // Changed loop limit to 3
+            const cand2 = partMid[(i + step) % partMid.length];
+            const cand3 = partBot[(i + step) % partBot.length];
+            const set = new Set([image1, cand2, cand3]);
+            if (set.size === 3) {
+              const inter = [image1, cand2, cand3].filter((x) => prevSet.has(x)).length;
+              const interOrig = [image1, image2, image3].filter((x) => prevSet.has(x)).length;
+              if (inter < interOrig) {
+                image2 = cand2;
+                image3 = cand3;
+                if (inter === 0) break;
+              }
+            }
+          }
+        }
+        return { image1, image2, image3 };
+      };
+    }
+
+    const canGuaranteeNoAdjOverlap = uniqueSponsorLogos.length >= 6;
+    const assignRow = canGuaranteeNoAdjOverlap
+      ? function assignRowByGrouping(i: number) {
+        const n = uniqueSponsorLogos.length;
+        const a = uniqueSponsorLogos[(3 * i) % n];
+        const b = uniqueSponsorLogos[(3 * i + 1) % n];
+        const c = uniqueSponsorLogos[(3 * i + 2) % n];
+        return { image1: a, image2: b, image3: c };
+      }
+      : buildPartitionedAssign();
+
+    // Log seed and sizes for reproducibility/debugging
+    try {
+      const mode = canGuaranteeNoAdjOverlap ? 'group-of-3' : 'partition-fallback';
+      logger.info(`vmix/sponsor-slides seed=${seedStr} mode=${mode} sponsorsUnique=${uniqueSponsorLogos.length} players=${players.length}`);
+      if (!canGuaranteeNoAdjOverlap) {
+        logger.warn('Only < 6 unique sponsors available; cannot fully avoid overlap between consecutive rows. Minimizing overlap.');
+      }
+    } catch {
+      logger.error("Something is wrong generating the sponsor rows")
+    }
+
+    let prevSet: Set<string> | undefined = undefined;
+    const rows = players.map((p: any, i: number) => {
+      const { image1, image2, image3 } = (assignRow as any)(i, prevSet);
+      prevSet = new Set([image1, image2, image3]);
+      return {
+        subject: String(p.subject),
+        image1,
+        image2,
+        image3,
+      };
+    });
+
+    return res.json(rows);
+  } catch (err) {
+    logger.error('POST /vmix/sponsor-slides failed', err as any);
     return next(err);
   }
 });
@@ -486,6 +668,11 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
         name: 'Active Production Titles',
         url: `${baseUrl}/production/active/titles`,
         description: 'Returns titles for the active production.'
+      },
+      {
+        name: 'Sponsor Slides',
+        url: `${baseUrl}/sponsor-slides`,
+        description: 'Returns sponsor slides for pause screen.'
       }
     ];
 

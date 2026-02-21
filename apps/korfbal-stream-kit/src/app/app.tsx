@@ -3,7 +3,7 @@ import {Link, Route, Routes, useLocation} from 'react-router-dom';
 import SponsorsPage from '../pages/SponsorsPage';
 import ScoreboardPage from '../pages/ScoreboardPage';
 import MatchSchedulePage from '../pages/MatchSchedulePage';
-import SponsorRowsPage from '../pages/SponsorRowsPage';
+import SponsorSlidesPage from '../pages/SponsorSlidesPage';
 import PersonsAdminPage from '../pages/PersonsAdminPage';
 import SkillsAdminPage from '../pages/SkillsAdminPage';
 import PositionsAdminPage from '../pages/PositionsAdminPage';
@@ -151,6 +151,13 @@ function Nav() {
                         className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
                     <MdPeople/>
                     <span>Sponsors</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/admin/sponsor-slides"
+                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdPeople/>
+                    <span>Sponsor Slides</span>
                   </Link>
                 </li>
 
@@ -339,7 +346,7 @@ export function App() {
             <Route path="/admin/productions/:id/segment-assignments"
                    element={<SegmentAssignmentsPage/>}/>
             <Route path="/active" element={<ActiveProductionPage/>}/>
-            <Route path="/vmix/sponsor-rows" element={<SponsorRowsPage/>}/>
+            <Route path="/admin/sponsor-slides" element={<SponsorSlidesPage/>}/>
             <Route path="/admin/vmix/title-templates" element={<VmixTemplatesPage/>}/>
             <Route path="/admin/vmix/control" element={<VmixControlPage/>}/>
             <Route path="/admin/vmix/datasources" element={<VmixDatasourcesPage/>}/>

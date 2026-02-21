@@ -4,11 +4,13 @@ import {
   getShotclockUrl,
   getSponsorNamesTypes,
   getSponsorRowsTypes,
+  getSponsorSlidesTypes,
   getVmixUrl,
   setScoreboardUrl,
   setShotclockUrl,
   setSponsorNamesTypes,
   setSponsorRowsTypes,
+  setSponsorSlidesTypes,
   setVmixUrl
 } from '../services/appSettings';
 import {config} from '../services/config';
@@ -49,11 +51,12 @@ settingsRouter.put('/vmix-url', async (req, res, next) => {
 // GET /api/settings/sponsor-config
 settingsRouter.get('/sponsor-config', async (_req, res, next) => {
   try {
-    const [namesTypes, rowsTypes] = await Promise.all([
+    const [namesTypes, rowsTypes, slidesTypes] = await Promise.all([
       getSponsorNamesTypes(),
       getSponsorRowsTypes(),
+      getSponsorSlidesTypes(),
     ]);
-    return res.json({ namesTypes, rowsTypes });
+    return res.json({ namesTypes, rowsTypes, slidesTypes });
   } catch (err) {
     return next(err);
   }
@@ -63,6 +66,7 @@ settingsRouter.get('/sponsor-config', async (_req, res, next) => {
 const SponsorConfigSchema = z.object({
   namesTypes: z.array(z.string()),
   rowsTypes: z.array(z.string()),
+  slidesTypes: z.array(z.string()).optional(),
 });
 
 settingsRouter.put('/sponsor-config', async (req, res, next) => {
@@ -71,6 +75,7 @@ settingsRouter.put('/sponsor-config', async (req, res, next) => {
     await Promise.all([
       setSponsorNamesTypes(parsed.namesTypes),
       setSponsorRowsTypes(parsed.rowsTypes),
+      setSponsorSlidesTypes(parsed.slidesTypes || []),
     ]);
     return res.json(parsed);
   } catch (err: any) {

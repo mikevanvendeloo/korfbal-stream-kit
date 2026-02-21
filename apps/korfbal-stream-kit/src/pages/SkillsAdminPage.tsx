@@ -2,7 +2,7 @@ import React from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {ColumnDef, flexRender, getCoreRowModel, useReactTable} from '@tanstack/react-table';
 import IconButton from '../components/IconButton';
-import {MdAdd, MdDelete, MdEdit, MdDownload, MdUploadFile} from 'react-icons/md';
+import {MdAdd, MdDelete, MdDownload, MdEdit, MdUploadFile} from 'react-icons/md';
 import {createUrl, extractError} from "../lib/api";
 
 export type SkillType = 'crew' | 'on_stream';
@@ -77,8 +77,6 @@ export default function SkillsAdminPage() {
   const columns = React.useMemo<ColumnDef<Skill>[]>(() => [
     { header: 'Code', accessorKey: 'code' },
     { header: 'Naam', accessorKey: 'name' },
-    { header: 'Male', accessorKey: 'nameMale' },
-    { header: 'Female', accessorKey: 'nameFemale' },
     {
       header: 'Type',
       accessorKey: 'type',

@@ -18,6 +18,7 @@ export default function SettingsPage() {
 
   const [namesTypes, setNamesTypes] = useState<SponsorType[]>([]);
   const [rowsTypes, setRowsTypes] = useState<SponsorType[]>([]);
+  const [slidesTypes, setSlidesTypes] = useState<SponsorType[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -39,6 +40,7 @@ export default function SettingsPage() {
       setVmixUrl(vmix.vmixWebUrl || '');
       setNamesTypes(sponsor.namesTypes as SponsorType[]);
       setRowsTypes(sponsor.rowsTypes as SponsorType[]);
+      setSlidesTypes(sponsor.slidesTypes as SponsorType[] || []);
       setScoreboardUrl(scoreboard.scoreboardUrl || '');
       setShotclockUrl(scoreboard.shotclockUrl || '');
     } catch (err: any) {
@@ -57,7 +59,7 @@ export default function SettingsPage() {
 
       await Promise.all([
         setVmixSettings(vmixUrl),
-        setSponsorConfig({ namesTypes, rowsTypes }),
+        setSponsorConfig({ namesTypes, rowsTypes, slidesTypes }),
         setScoreboardConfig({ scoreboardUrl, shotclockUrl }),
       ]);
 
@@ -192,6 +194,27 @@ export default function SettingsPage() {
               </div>
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 Selecteer welke types worden gebruikt voor de sponsor rows (onder spelerfoto's).
+              </p>
+            </div>
+
+            {/* Sponsor Slides */}
+            <div>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Sponsor Slides (Pauze)</h3>
+              <div className="space-y-2">
+                {ALL_TYPES.map(type => (
+                  <label key={`slides-${type}`} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      checked={slidesTypes.includes(type)}
+                      onChange={() => toggleType(slidesTypes, setSlidesTypes, type)}
+                    />
+                    <span className="capitalize text-gray-700 dark:text-gray-300">{type}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Selecteer welke types worden gebruikt voor de sponsor slides (tijdens pauzes).
               </p>
             </div>
           </div>

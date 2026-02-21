@@ -7,6 +7,12 @@ import axios from 'axios';
 vi.mock('axios');
 const mockedAxios = axios as unknown as { get: ReturnType<typeof vi.fn> } as any;
 
+// Mock appSettings to avoid DB calls
+vi.mock('../services/appSettings', () => ({
+  getScoreboardUrl: vi.fn().mockResolvedValue('http://mock-scoreboard'),
+  getShotclockUrl: vi.fn().mockResolvedValue('http://mock-shotclock'),
+}));
+
 afterEach(() => {
   vi.resetAllMocks();
 });

@@ -26,6 +26,7 @@ export const VmixUrlSchema = z.string().url();
 export const VMIX_URL_KEY = 'vmixWebUrl';
 export const SPONSOR_NAMES_TYPES_KEY = 'sponsorNamesTypes';
 export const SPONSOR_ROWS_TYPES_KEY = 'sponsorRowsTypes';
+export const SPONSOR_SLIDES_TYPES_KEY = 'sponsorSlidesTypes';
 export const SCOREBOARD_URL_KEY = 'scoreboardUrl';
 export const SHOTCLOCK_URL_KEY = 'shotclockUrl';
 
@@ -76,6 +77,20 @@ export async function getSponsorRowsTypes(): Promise<string[]> {
 
 export async function setSponsorRowsTypes(types: string[]): Promise<void> {
   await setSetting(SPONSOR_ROWS_TYPES_KEY, JSON.stringify(types));
+}
+
+export async function getSponsorSlidesTypes(): Promise<string[]> {
+  const val = await getSetting(SPONSOR_SLIDES_TYPES_KEY);
+  if (!val) return ['premium', 'goud', 'zilver']; // default
+  try {
+    return JSON.parse(val);
+  } catch {
+    return ['premium', 'goud', 'zilver'];
+  }
+}
+
+export async function setSponsorSlidesTypes(types: string[]): Promise<void> {
+  await setSetting(SPONSOR_SLIDES_TYPES_KEY, JSON.stringify(types));
 }
 
 export async function getScoreboardUrl(): Promise<string | null> {
