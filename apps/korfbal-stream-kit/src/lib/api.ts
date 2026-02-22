@@ -186,7 +186,7 @@ export async function uploadSponsorLogo(id: number, file: File): Promise<Sponsor
   const url = createUrl(`/api/sponsors/${id}/logo`);
   const form = new FormData();
   form.append('file', file, file.name);
-  const res = await fetch(url.toString(), { method: 'POST', body: form });
+  const res = await fetch(url.toString(), { method: 'POST', body: form as any });
   if (!res.ok) throw new Error(`Failed to upload logo: ${await extractError(res)}`);
   return res.json();
 }

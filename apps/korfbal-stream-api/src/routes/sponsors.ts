@@ -15,7 +15,24 @@ import {
 
 export const sponsorsRouter: Router = Router();
 
-// Multer memory storage for Excel upload
+const storagePath = path.join(process.cwd(), 'storage', 'sponsors');
+if (!fs.existsSync(storagePath)) {
+  fs.mkdirSync(storagePath, { recursive: true });
+}
+
+const diskStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, storagePath);
+  },
+  filename: function (req, file, cb) {
+    const sponsorName = (req as any).sponsor?.name || 'unknown-sponsor';
+    const safeName = normalizeLogoFilename(sponsorName);
+    const extension = path.extname(file.originalname) || '.png';
+    cb(null, `${safeName}${extension}`);
+  }
+});
+
+const uploadDisk = multer({ storage: diskStorage });
 const uploadMem = multer({ storage: multer.memoryStorage() });
 
 // Helper to sort sponsors by type priority
@@ -42,14 +59,6 @@ sponsorsRouter.get('/', async (req, res, next) => {
 
     const skip = (page - 1) * limit;
 
-    // We fetch all matching items first to sort them in memory because Prisma
-    // cannot easily sort by a custom enum order directly in the query without raw SQL.
-    // Given the number of sponsors is usually small (<1000), in-memory sorting is acceptable.
-    // If pagination is strictly required on DB level, we would need raw SQL or a separate priority column.
-
-    // However, to respect pagination, we must fetch ALL matching records, sort them, and then slice.
-    // This might be inefficient for very large datasets but fine for sponsors.
-
     const allMatches = await prisma.sponsor.findMany({ where });
 
     allMatches.sort((a, b) => {
@@ -69,14 +78,10 @@ sponsorsRouter.get('/', async (req, res, next) => {
   }
 });
 
-// GET /api/sponsors/export-excel
-// Exports all sponsors to Excel with the same format as import
-// IMPORTANT: This route must be BEFORE /:id to avoid "export-excel" being treated as an ID
 sponsorsRouter.get('/export-excel', async (_req, res, next) => {
   try {
     const sponsors = await prisma.sponsor.findMany({});
 
-    // Sort by type priority then name
     sponsors.sort((a, b) => {
       const pa = typePriority[a.type] || 99;
       const pb = typePriority[b.type] || 99;
@@ -84,11 +89,9 @@ sponsorsRouter.get('/export-excel', async (_req, res, next) => {
       return a.name.localeCompare(b.name);
     });
 
-    // Create workbook
     const workbook = new ExcelJS.Workbook();
     const ws = workbook.addWorksheet('Sponsors');
 
-    // Define columns
     ws.columns = [
       { header: 'Name', key: 'name', width: 30 },
       { header: 'Labels', key: 'type', width: 15 },
@@ -98,7 +101,6 @@ sponsorsRouter.get('/export-excel', async (_req, res, next) => {
       { header: 'DisplayName', key: 'displayName', width: 25 },
     ];
 
-    // Add rows
     sponsors.forEach((s) => {
       ws.addRow({
         name: s.name,
@@ -110,10 +112,8 @@ sponsorsRouter.get('/export-excel', async (_req, res, next) => {
       });
     });
 
-    // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer();
 
-    // Send file
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=Sponsors.xlsx');
     return res.send(buffer);
@@ -123,7 +123,6 @@ sponsorsRouter.get('/export-excel', async (_req, res, next) => {
   }
 });
 
-// Get sponsor by id
 sponsorsRouter.get('/:id', async (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'invalid id' });
@@ -137,7 +136,6 @@ sponsorsRouter.get('/:id', async (req, res, next) => {
   }
 });
 
-// Create sponsor
 sponsorsRouter.post('/', async (req, res, next) => {
   try {
     const { name, type, websiteUrl, logoUrl, displayName } = SponsorInputSchema.parse(req.body);
@@ -157,7 +155,37 @@ sponsorsRouter.post('/', async (req, res, next) => {
   }
 });
 
-// Update sponsor
+sponsorsRouter.post('/:id/logo',
+  async (req, res, next) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'invalid id' });
+    const sponsor = await prisma.sponsor.findUnique({ where: { id } });
+    if (!sponsor) return res.status(404).json({ error: 'Sponsor not found' });
+    (req as any).sponsor = sponsor;
+    next();
+  },
+  uploadDisk.single('file'),
+  async (req, res, next) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+      const id = Number(req.params.id);
+      const logoUrl = req.file.filename;
+
+      const updatedSponsor = await prisma.sponsor.update({
+        where: { id },
+        data: { logoUrl },
+      });
+
+      res.json(updatedSponsor);
+    } catch (err) {
+      logger.error(`POST /sponsors/${req.params.id}/logo failed`, err as any);
+      return next(err);
+    }
+  }
+);
+
 sponsorsRouter.put('/:id', async (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ongeldig id' });
@@ -186,7 +214,6 @@ sponsorsRouter.put('/:id', async (req, res, next) => {
   }
 });
 
-// Delete sponsor
 sponsorsRouter.delete('/:id', async (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ongeldig id' });
@@ -201,16 +228,12 @@ sponsorsRouter.delete('/:id', async (req, res, next) => {
   }
 });
 
-// POST /api/sponsors/upload-excel
-// Accepts multipart/form-data with field name "file" containing an .xlsx file.
-// If no file uploaded, attempts to read a default Sponsors.xlsx from the API app root.
 sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, next) => {
   try {
     let buffer: Buffer | null = null;
     if (req.file && req.file.buffer) {
       buffer = req.file.buffer as Buffer;
     } else {
-      // fallback to default file in the API app root
       const fallbackPath = path.join(process.cwd(), 'apps', 'korfbal-stream-api', 'Sponsors.xlsx');
       if (fs.existsSync(fallbackPath)) {
         buffer = fs.readFileSync(fallbackPath);
@@ -228,15 +251,11 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
     let headers: string[] = [];
     ws.eachRow((row, rowNumber) => {
       if (rowNumber === 1) {
-        // Header row
         headers = (row.values as any[]).slice(1).map(v => String(v));
       } else {
         const rowData: any = {};
-        // exceljs values array is 1-based, but slice(1) makes it 0-based relative to headers
         headers.forEach((header, index) => {
-          // values[index + 1] because values[0] is undefined in exceljs
           const cellValue = row.getCell(index + 1).value;
-          // Handle rich text or other complex cell types if necessary
           if (cellValue && typeof cellValue === 'object' && 'text' in cellValue) {
              rowData[header] = (cellValue as any).text;
           } else if (cellValue && typeof cellValue === 'object' && 'hyperlink' in cellValue) {
@@ -256,12 +275,8 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
     const receivedNames: string[] = [];
 
     function normalizeHeaderKey(k: string): string {
-      // Lowercase, trim, strip diacritics, and strip all non-alphanumeric characters so that
-      // headers like "Sponsor package", "Website URL", and "Sponsorcategorieën" normalize to
-      // "sponsorpackage", "websiteurl", and "sponsorcategorieen" respectively.
       const base = String(k || '')
         .normalize('NFD')
-        // Remove diacritic marks
         .replace(/\p{Diacritic}/gu, '')
         .toLowerCase()
         .trim()
@@ -282,15 +297,12 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
         obj[normalizeHeaderKey(key)] = r[key];
       }
       const name = String(obj['name'] || obj['naam'] || '').trim().replace(" B.V.","") || undefined;
-      // In the provided Excel, the "Labels" column actually represents the sponsor type
-      // Prioritize labels; fall back to Type/Pakket/Sponsor package
       const typeRaw = String(obj['labels'] || obj['type'] || obj['pakket'] || obj['sponsorpackage'] || '').trim().toLowerCase();
       const website = String(obj['website'] || obj['websiteurl'] || obj['site'] || obj['url'] || '').trim();
       const logo = String(obj['logo'] || obj['logourl'] || obj['logofilename'] || '').trim();
       const categories = String(obj['sponsorcategorieen'] || obj['categories'] || '').trim();
       const displayName = String(obj['displayname'] || obj['weergavenaam'] || '').trim();
 
-      // map type to enum or handle missing: default to 'brons' when not provided
       const allowed = ['premium', 'goud', 'zilver', 'brons'];
       let type: any = undefined;
       if (!typeRaw) {
@@ -298,7 +310,6 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
       } else if (allowed.includes(typeRaw)) {
         type = typeRaw as any;
       } else {
-        // explicit but invalid type -> skip row to remain strict with provided values
         type = undefined;
       }
 
@@ -312,14 +323,12 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
 
       const data: any = {
         name,
-        type, // the label
+        type,
         websiteUrl: website,
-        // On Excel import, always normalize to lowercase-safe filename; if no logo provided, derive from name in lowercase
         logoUrl: logo ? normalizeLogoFilename(logo) : normalizeLogoFilename(name),
         categories: categories || undefined,
       };
 
-      // Only update displayName if the column is present in the Excel (even if empty)
       const hasDisplayNameColumn = 'displayname' in obj || 'weergavenaam' in obj;
       if (hasDisplayNameColumn) {
         data.displayName = displayName || null;
@@ -329,7 +338,6 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
       const performUpdate = async () => {
         try {
           if (existing) {
-            // Build update data with only fields we want to change
             const updateData: any = {
               name: existing.name || data.name,
               logoUrl: existing.logoUrl || data.logoUrl,
@@ -338,11 +346,9 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
               categories: data.categories,
             };
 
-            // Only include displayName if the column was present in the Excel
             if (hasDisplayNameColumn) {
               updateData.displayName = data.displayName;
             } else { updateData.displayName = existing.displayName; }
-            // If column was NOT present, don't touch displayName at all (keep existing value)
 
             await prisma.sponsor.update({ where: { id: existing.id }, data: updateData });
             updated++;
@@ -354,8 +360,6 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
           }
         } catch (err: any) {
           const msg = String(err?.message || '');
-          // Backward compatibility: if Prisma client/schema doesn't have `categories` or `displayName` column yet,
-          // retry without that field so uploads continue to work without immediate migration.
           if (/Unknown argument `(categories|displayName)`/i.test(msg)) {
             const { categories: _omitCat, displayName: _omitDN, ...dataFallback } = data;
             if (existing) {
