@@ -157,12 +157,16 @@ sponsorsRouter.post('/', async (req, res, next) => {
 
 sponsorsRouter.post('/:id/logo',
   async (req, res, next) => {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'invalid id' });
-    const sponsor = await prisma.sponsor.findUnique({ where: { id } });
-    if (!sponsor) return res.status(404).json({ error: 'Sponsor not found' });
-    (req as any).sponsor = sponsor;
-    next();
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'invalid id' });
+      const sponsor = await prisma.sponsor.findUnique({ where: { id } });
+      if (!sponsor) return res.status(404).json({ error: 'Sponsor not found' });
+      (req as any).sponsor = sponsor;
+      return next();
+    } catch (err) {
+      return next(err);
+    }
   },
   uploadDisk.single('file'),
   async (req, res, next) => {
