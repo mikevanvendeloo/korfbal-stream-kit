@@ -1,24 +1,27 @@
 import { prisma } from './prisma';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 
 // Simple in-memory cache for settings to reduce DB hits during a process lifetime
-const cache = new Map<string, string>();
+const cache = new Map<string, any>();
 
-export async function getSetting(key: string): Promise<string | null> {
+export async function getSetting<T>(key: string): Promise<T | null> {
   if (cache.has(key)) return cache.get(key)!;
-  const row = await prisma.appSetting.findUnique({ where: { key } });
-  if (!row) return null;
+  const row = await prisma.setting.findUnique({ where: { key } });
+  if (!row || !row.value) return null;
   cache.set(key, row.value);
-  return row.value;
+  return row.value as T;
 }
 
-export async function setSetting(key: string, value: string): Promise<void> {
-  await prisma.appSetting.upsert({
+export async function setSetting(key: string, value: Prisma.JsonValue): Promise<void> {
+  // Prisma requires the explicit `Prisma.JsonNull` enum to set a JSON field to null.
+  const valueForDb = value === null ? Prisma.JsonNull : value;
+  await prisma.setting.upsert({
     where: { key },
-    create: { key, value },
-    update: { value },
+    create: { key, value: valueForDb },
+    update: { value: valueForDb },
   });
-  cache.set(key, value);
+  cache.set(key, value); // Cache the original value (e.g., JavaScript null)
 }
 
 export const VmixUrlSchema = z.string().url();
@@ -29,9 +32,11 @@ export const SPONSOR_ROWS_TYPES_KEY = 'sponsorRowsTypes';
 export const SPONSOR_SLIDES_TYPES_KEY = 'sponsorSlidesTypes';
 export const SCOREBOARD_URL_KEY = 'scoreboardUrl';
 export const SHOTCLOCK_URL_KEY = 'shotclockUrl';
+export const OWN_CLUB_ID_KEY = 'ownClubId';
+export const PRODUCTION_TEAM_NAMES_KEY = 'productionTeamNames';
 
 export async function getVmixUrl(): Promise<string | null> {
-  return getSetting(VMIX_URL_KEY);
+  return getSetting<string>(VMIX_URL_KEY);
 }
 
 export async function setVmixUrl(input: string): Promise<void> {
@@ -52,49 +57,34 @@ export function buildVmixApiUrl(base: string, query: string): string {
 }
 
 export async function getSponsorNamesTypes(): Promise<string[]> {
-  const val = await getSetting(SPONSOR_NAMES_TYPES_KEY);
-  if (!val) return ['premium', 'goud', 'zilver']; // default
-  try {
-    return JSON.parse(val);
-  } catch {
-    return ['premium', 'goud', 'zilver'];
-  }
+  const val = await getSetting<string[]>(SPONSOR_NAMES_TYPES_KEY);
+  return val || ['premium', 'goud', 'zilver']; // default
 }
 
 export async function setSponsorNamesTypes(types: string[]): Promise<void> {
-  await setSetting(SPONSOR_NAMES_TYPES_KEY, JSON.stringify(types));
+  await setSetting(SPONSOR_NAMES_TYPES_KEY, types);
 }
 
 export async function getSponsorRowsTypes(): Promise<string[]> {
-  const val = await getSetting(SPONSOR_ROWS_TYPES_KEY);
-  if (!val) return ['premium', 'goud', 'zilver']; // default
-  try {
-    return JSON.parse(val);
-  } catch {
-    return ['premium', 'goud', 'zilver'];
-  }
+  const val = await getSetting<string[]>(SPONSOR_ROWS_TYPES_KEY);
+  return val || ['premium', 'goud', 'zilver']; // default
 }
 
 export async function setSponsorRowsTypes(types: string[]): Promise<void> {
-  await setSetting(SPONSOR_ROWS_TYPES_KEY, JSON.stringify(types));
+  await setSetting(SPONSOR_ROWS_TYPES_KEY, types);
 }
 
 export async function getSponsorSlidesTypes(): Promise<string[]> {
-  const val = await getSetting(SPONSOR_SLIDES_TYPES_KEY);
-  if (!val) return ['premium', 'goud', 'zilver']; // default
-  try {
-    return JSON.parse(val);
-  } catch {
-    return ['premium', 'goud', 'zilver'];
-  }
+  const val = await getSetting<string[]>(SPONSOR_SLIDES_TYPES_KEY);
+  return val || ['premium', 'goud', 'zilver']; // default
 }
 
 export async function setSponsorSlidesTypes(types: string[]): Promise<void> {
-  await setSetting(SPONSOR_SLIDES_TYPES_KEY, JSON.stringify(types));
+  await setSetting(SPONSOR_SLIDES_TYPES_KEY, types);
 }
 
 export async function getScoreboardUrl(): Promise<string | null> {
-  return getSetting(SCOREBOARD_URL_KEY);
+  return getSetting<string>(SCOREBOARD_URL_KEY);
 }
 
 export async function setScoreboardUrl(input: string): Promise<void> {
@@ -102,7 +92,7 @@ export async function setScoreboardUrl(input: string): Promise<void> {
 }
 
 export async function getShotclockUrl(): Promise<string | null> {
-  return getSetting(SHOTCLOCK_URL_KEY);
+  return getSetting<string>(SHOTCLOCK_URL_KEY);
 }
 
 export async function setShotclockUrl(input: string): Promise<void> {

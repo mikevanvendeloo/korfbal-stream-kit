@@ -7,14 +7,34 @@ import {
   setSponsorConfig,
   setVmixSettings
 } from '../lib/api';
+import {useQuery} from "@tanstack/react-query";
+import {useClubs} from "../hooks/useClubs";
 
 type SponsorType = 'premium' | 'goud' | 'zilver' | 'brons';
 const ALL_TYPES: SponsorType[] = ['premium', 'goud', 'zilver', 'brons'];
+
+// API functions for club config
+async function getClubConfig() {
+  const res = await fetch('/api/settings/club-config');
+  if (!res.ok) throw new Error('Failed to fetch club config');
+  return res.json();
+}
+
+async function setClubConfig(config: { ownClubId: number | null; productionTeamNames: string[] }) {
+  const res = await fetch('/api/settings/club-config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) throw new Error('Failed to save club config');
+}
 
 export default function SettingsPage() {
   const [vmixUrl, setVmixUrl] = useState('');
   const [scoreboardUrl, setScoreboardUrl] = useState('');
   const [shotclockUrl, setShotclockUrl] = useState('');
+  const [ownClubId, setOwnClubId] = useState<number | null>(null);
+  const [productionTeamNames, setProductionTeamNames] = useState<string[]>([]);
 
   const [namesTypes, setNamesTypes] = useState<SponsorType[]>([]);
   const [rowsTypes, setRowsTypes] = useState<SponsorType[]>([]);
@@ -25,6 +45,18 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const { data: clubsData } = useClubs();
+  const { data: teamsData } = useQuery({
+    queryKey: ['teams', ownClubId],
+    queryFn: async () => {
+      if (!ownClubId) return [];
+      const res = await fetch(`/api/clubs/${ownClubId}/teams`);
+      if (!res.ok) throw new Error('Failed to fetch teams');
+      return res.json();
+    },
+    enabled: !!ownClubId,
+  });
+
   useEffect(() => {
     loadSettings();
   }, []);
@@ -32,10 +64,11 @@ export default function SettingsPage() {
   async function loadSettings() {
     try {
       setLoading(true);
-      const [vmix, sponsor, scoreboard] = await Promise.all([
+      const [vmix, sponsor, scoreboard, club] = await Promise.all([
         getVmixSettings(),
         getSponsorConfig(),
         getScoreboardConfig(),
+        getClubConfig(),
       ]);
       setVmixUrl(vmix.vmixWebUrl || '');
       setNamesTypes(sponsor.namesTypes as SponsorType[]);
@@ -43,6 +76,8 @@ export default function SettingsPage() {
       setSlidesTypes(sponsor.slidesTypes as SponsorType[] || []);
       setScoreboardUrl(scoreboard.scoreboardUrl || '');
       setShotclockUrl(scoreboard.shotclockUrl || '');
+      setOwnClubId(club.ownClubId);
+      setProductionTeamNames(club.productionTeamNames);
     } catch (err: any) {
       setError(err.message || 'Failed to load settings');
     } finally {
@@ -61,6 +96,7 @@ export default function SettingsPage() {
         setVmixSettings(vmixUrl),
         setSponsorConfig({ namesTypes, rowsTypes, slidesTypes }),
         setScoreboardConfig({ scoreboardUrl, shotclockUrl }),
+        setClubConfig({ ownClubId, productionTeamNames }),
       ]);
 
       setSuccess('Instellingen opgeslagen');
@@ -77,6 +113,12 @@ export default function SettingsPage() {
     } else {
       setList([...list, type]);
     }
+  };
+
+  const toggleTeam = (teamName: string) => {
+    setProductionTeamNames(prev =>
+      prev.includes(teamName) ? prev.filter(t => t !== teamName) : [...prev, teamName]
+    );
   };
 
   if (loading) return <div className="p-6 text-gray-600 dark:text-gray-300">Laden...</div>;
@@ -97,6 +139,51 @@ export default function SettingsPage() {
       )}
 
       <form onSubmit={handleSave} className="space-y-8">
+
+        {/* Club Settings */}
+        <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-100 dark:border-gray-700 pb-2">Club & Teams</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Eigen Club
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                value={ownClubId || ''}
+                onChange={(e) => setOwnClubId(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Geen (voor generieke evenementen)</option>
+                {clubsData?.map(club => (
+                  <option key={club.id} value={club.id}>{club.name}</option>
+                ))}
+              </select>
+            </div>
+            {ownClubId && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Productie Teams
+                </label>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {(teamsData || []).map((team: {name: string}) => (
+                    <label key={team.name} className="flex items-center gap-2 cursor-pointer p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        checked={productionTeamNames.includes(team.name)}
+                        onChange={() => toggleTeam(team.name)}
+                      />
+                      <span className="text-gray-700 dark:text-gray-300">{team.name}</span>
+                    </label>
+                  ))}
+                </div>
+                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Selecteer welke teams zichtbaar zijn bij het aanmaken van een productie.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
 
         {/* vMix Settings */}
         <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">

@@ -1,12 +1,14 @@
 import {Router} from 'express';
 import {
   getScoreboardUrl,
+  getSetting,
   getShotclockUrl,
   getSponsorNamesTypes,
   getSponsorRowsTypes,
   getSponsorSlidesTypes,
-  getVmixUrl,
+  getVmixUrl, OWN_CLUB_ID_KEY, PRODUCTION_TEAM_NAMES_KEY,
   setScoreboardUrl,
+  setSetting,
   setShotclockUrl,
   setSponsorNamesTypes,
   setSponsorRowsTypes,
@@ -113,6 +115,42 @@ settingsRouter.put('/scoreboard-config', async (req, res, next) => {
     await Promise.all([
       setScoreboardUrl(parsed.scoreboardUrl || ''),
       setShotclockUrl(parsed.shotclockUrl || ''),
+    ]);
+    return res.json(parsed);
+  } catch (err: any) {
+    if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid payload' });
+    return next(err);
+  }
+});
+
+// GET /api/settings/club-config
+settingsRouter.get('/club-config', async (_req, res, next) => {
+  try {
+    const [ownClubId, productionTeamNames] = await Promise.all([
+      getSetting<number>(OWN_CLUB_ID_KEY),
+      getSetting<string[]>(PRODUCTION_TEAM_NAMES_KEY),
+    ]);
+    return res.json({
+      ownClubId: ownClubId || null,
+      productionTeamNames: productionTeamNames || [],
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// PUT /api/settings/club-config
+const ClubConfigSchema = z.object({
+  ownClubId: z.number().int().positive().nullable(),
+  productionTeamNames: z.array(z.string()),
+});
+
+settingsRouter.put('/club-config', async (req, res, next) => {
+  try {
+    const parsed = ClubConfigSchema.parse(req.body);
+    await Promise.all([
+      setSetting(OWN_CLUB_ID_KEY, parsed.ownClubId),
+      setSetting(PRODUCTION_TEAM_NAMES_KEY, parsed.productionTeamNames),
     ]);
     return res.json(parsed);
   } catch (err: any) {

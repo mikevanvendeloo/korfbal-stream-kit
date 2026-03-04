@@ -15,6 +15,7 @@ import {productionRouter} from './routes/production';
 import {clubsRouter} from './routes/clubs';
 import {playersRouter} from './routes/players';
 import {reportsRouter} from './routes/reports'; // Import reports router
+import {manualMatchesRouter} from "./routes/manual-matches";
 import {prisma} from './services/prisma';
 import {config, getAssetsRoot, logConfig, requireConfig} from './services/config';
 import {errorHandler} from './middleware/error';
@@ -118,6 +119,7 @@ app.use('/api/settings', settingsRouter);
 
 // Match endpoints
 app.use('/api/match', matchRouter);
+app.use('/api/manual-matches', manualMatchesRouter);
 
 // Scoreboard endpoints
 app.use('/api/scoreboard', scoreboardRouter);

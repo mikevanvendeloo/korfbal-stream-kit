@@ -58,6 +58,25 @@ async function resetDb() {
     expect(del.status).toBe(204);
   });
 
+  it('creates a position with category and sort order and respects sort order', async () => {
+    const create1 = await request(app)
+      .post('/api/production/positions')
+      .send({ name: 'Camera', category: 'TECHNICAL', sortOrder: 20 });
+    expect(create1.status).toBe(201);
+    expect(create1.body.name).toBe('Camera');
+    expect(create1.body.category).toBe('TECHNICAL');
+    expect(create1.body.sortOrder).toBe(20);
+
+    const create2 = await request(app)
+      .post('/api/production/positions')
+      .send({ name: 'Regie', category: 'GENERAL', sortOrder: 10 });
+    expect(create2.status).toBe(201);
+
+    const list = await request(app).get('/api/production/positions');
+    expect(list.status).toBe(200);
+    expect(list.body.map((p: any) => p.name)).toEqual(['Regie', 'Camera']);
+  });
+
   it('configures segment default positions and reads them via segment endpoint', async () => {
     // Create positions
     const posA = await prisma.position.create({ data: { name: 'Camera links' } });

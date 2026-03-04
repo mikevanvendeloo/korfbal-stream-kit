@@ -262,11 +262,24 @@ matchRouter.get('/matches/schedule', async (req, res) => {
     const dayStart = new Date(dateStr + 'T00:00:00.000Z');
     const dayEnd = new Date(dateStr + 'T23:59:59.999Z');
 
-    const where: any = { date: { gte: dayStart, lte: dayEnd } };
-    if (location === 'HOME') where.isHomeMatch = true;
-    else if (location === 'AWAY') where.isHomeMatch = false;
+    const locationWhere: any = {};
+    if (location === 'HOME') {
+      locationWhere.isHomeMatch = true;
+    } else if (location === 'AWAY') {
+      locationWhere.isHomeMatch = false;
+    }
 
-    const matches = await prisma.matchSchedule.findMany({ where, orderBy: { date: 'asc' } });
+    const matches = await prisma.matchSchedule.findMany({
+      where: {
+        date: { gte: dayStart, lte: dayEnd },
+        OR: [
+          { isManual: true },
+          locationWhere
+        ]
+      },
+      orderBy: { date: 'asc' }
+    });
+
     logger.info('Program list', { date: dateStr, location, count: matches.length } as any);
     return res.json({ items: matches, count: matches.length, date: dateStr });
   } catch (err: any) {
@@ -274,10 +287,5 @@ matchRouter.get('/matches/schedule', async (req, res) => {
     return res.status(500).json({ error: 'Failed to list program' });
   }
 });
-
-
-
-
-
 
 export default matchRouter;

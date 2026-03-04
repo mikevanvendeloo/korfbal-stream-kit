@@ -1,15 +1,15 @@
 import * as React from 'react';
-import { useMemo, useState } from 'react';
+import {useMemo, useState} from 'react';
 import {
-  useMatchSchedule,
   formatDate,
-  nextDayStr,
-  prevDayStr,
-  nextWeekStr,
-  prevWeekStr,
   LocationFilter,
+  nextDayStr,
+  nextWeekStr,
+  prevDayStr,
+  prevWeekStr,
+  useMatchSchedule,
 } from '../hooks/useMatchSchedule';
-import { MatchSchedule, importMatchSchedule } from '../lib/api';
+import {importMatchSchedule, MatchSchedule} from '../lib/api';
 import {
   ColumnDef,
   flexRender,
@@ -207,18 +207,12 @@ export default function MatchSchedulePage() {
           <button
             aria-label="import-default"
             onClick={async () => {
-              await importMatchSchedule();
+              await importMatchSchedule({date: '08-02-2026'});
               await refetch();
             }}
             className="px-3 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100"
           >
             Import (default)
-          </button>
-          <button
-            onClick={() => refetch()}
-            className="px-3 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100"
-          >
-            Refresh
           </button>
         </div>
       </div>

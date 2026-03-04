@@ -62,6 +62,46 @@ productionPersonPositionsRouter.post('/:id/person-positions', async (req, res, n
   }
 });
 
+// Update all production-wide positions for a specific person
+productionPersonPositionsRouter.put('/:id/person-positions', async (req, res, next) => {
+  try {
+    const productionId = Number(req.params.id);
+    if (!Number.isInteger(productionId) || productionId <= 0) return res.status(400).json({ error: 'Invalid production id' });
+
+    const { personId, positionIds } = req.body;
+    if (!Number.isInteger(personId) || personId <= 0 || !Array.isArray(positionIds)) {
+      return res.status(400).json({ error: 'Invalid personId or positionIds' });
+    }
+
+    // Transaction to ensure atomicity
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete all existing assignments for this person in this production
+      await tx.productionPersonPosition.deleteMany({
+        where: {
+          productionId: productionId,
+          personId: personId,
+        },
+      });
+
+      // 2. Create new assignments from the provided list
+      if (positionIds.length > 0) {
+        await tx.productionPersonPosition.createMany({
+          data: positionIds.map((posId: number) => ({
+            productionId: productionId,
+            personId: personId,
+            positionId: posId,
+          })),
+        });
+      }
+    });
+
+    return res.status(204).send();
+  } catch (err) {
+    return next(err);
+  }
+});
+
+
 // Delete a production-wide person-position assignment
 productionPersonPositionsRouter.delete('/:id/person-positions/:personPositionId', async (req, res, next) => {
   try {

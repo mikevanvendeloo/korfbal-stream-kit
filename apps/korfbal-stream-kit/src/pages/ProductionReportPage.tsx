@@ -13,14 +13,12 @@ import PlayerCard from '../components/PlayerCard';
 import {Club, useClubs} from '../hooks/useClubs';
 import ClubLogo from '../components/ClubLogo';
 import {useProductionTiming} from '../hooks/useProductions';
+import {PositionCategory} from "../hooks/usePositions";
 
-const SECTION_LABELS: Record<string, string> = {
-  OPLOPEN: 'Oplopen',
-  WEDSTRIJD: 'Wedstrijd',
-  STUDIO: 'Studio',
-  COMMENTAAR: 'Commentaar',
-  SPEAKER: 'Speaker',
-  OVERIG: 'Overig',
+const categoryLabels: Record<PositionCategory, string> = {
+  [PositionCategory.ENTERTAINMENT]: 'Entertainment',
+  [PositionCategory.GENERAL]: 'Algemeen',
+  [PositionCategory.TECHNICAL]: 'Techniek',
 };
 
 function normalizeTeamForLookup(name?: string): string | undefined {
@@ -64,7 +62,6 @@ export default function ProductionReportPage() {
   const [remarks, setRemarks] = useState('');
   const [whatsappCopied, setWhatsappCopied] = useState(false);
 
-  // Initialiseer form data wanneer data is geladen
   useEffect(() => {
     if (data?.report) {
       setMatchSponsor(data.report.matchSponsor || '');
@@ -110,13 +107,18 @@ export default function ProductionReportPage() {
   const homeClub = matchClub(data.production.homeTeam, clubs);
   const awayClub = matchClub(data.production.awayTeam, clubs);
 
+  console.log(JSON.stringify(data, null,2));
+  const entertainmentRoles = data.enriched?.crewByCategory[PositionCategory.ENTERTAINMENT] || [];
+  const technicalRoles = data?.enriched?.crewByCategory[PositionCategory.TECHNICAL] || [];
+  const generalRoles = data?.enriched?.crewByCategory[PositionCategory.GENERAL] || [];
+
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold">Livestream Productie Positie Overzicht</h1>
         <div className="flex items-center gap-2">
           <a
-            href={getProductionReportPdfUrl(productionId)}
+            href={getProductionReportPdfUrl(productionId).toString()}
             target="_blank"
             rel="noopener noreferrer"
             className="px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2"
@@ -125,7 +127,7 @@ export default function ProductionReportPage() {
             <span>PDF</span>
           </a>
           <a
-            href={getProductionReportMarkdownUrl(productionId)}
+            href={getProductionReportMarkdownUrl(productionId).toString()}
             target="_blank"
             rel="noopener noreferrer"
             className="px-3 py-2 bg-gray-700 text-white rounded hover:bg-gray-800 flex items-center gap-2"
@@ -173,17 +175,15 @@ export default function ProductionReportPage() {
       </div>
 
       <div className="space-y-6">
-        {/* Aanwezigen (read-only, vanuit productie) */}
-        {/* Aanwezigen (read-only, vanuit productie) */}
         <div className="border rounded p-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
           <h2 className="text-lg font-semibold mb-2">Aanwezig</h2>
           <div className="text-sm">
             {data.enriched.attendees.length > 0 ? (
               data.enriched.attendees.map((person, index) => (
                 <span key={person.name} className={person.isAssigned ? '' : 'italic'}>
-          {person.name}
+                  {person.name}
                   {index < data.enriched.attendees.length - 1 ? ', ' : ''}
-        </span>
+                </span>
               ))
             ) : (
               'Geen aanwezigen'
@@ -191,7 +191,6 @@ export default function ProductionReportPage() {
           </div>
         </div>
 
-        {/* Tijdschema */}
         <div className="border rounded p-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
           <h2 className="text-lg font-semibold mb-2">Tijdschema</h2>
           {timing.isLoading && <div className="text-sm text-gray-500">Laden…</div>}
@@ -206,7 +205,6 @@ export default function ProductionReportPage() {
                 </tr>
               </thead>
               <tbody>
-                {/* Show Livestream Start if set */}
                 {data.production.liveTime && (
                   <tr className="border-b dark:border-gray-700 bg-green-50 dark:bg-green-900/20">
                     <td className="py-2 pr-4 font-medium">LIVESTREAM START</td>
@@ -218,8 +216,8 @@ export default function ProductionReportPage() {
                 {timing.data.map((segment) => (
                   <tr key={segment.id} className="border-b dark:border-gray-700">
                     <td className="py-2 pr-4">{segment.naam}</td>
-                    <td className="py-2 pr-4">{timeLocal(segment.start)}</td>
-                    <td className="py-2 pr-4">{timeLocal(segment.end)}</td>
+                    <td className="py-2 pr-4">{timeLocal(segment.start!)}</td>
+                    <td className="py-2 pr-4">{timeLocal(segment.end!)}</td>
                     <td className="py-2">{segment.duurInMinuten} min</td>
                   </tr>
                 ))}
@@ -230,176 +228,119 @@ export default function ProductionReportPage() {
           )}
         </div>
 
-        {/* Positie bezetting (read-only, vanuit productie) */}
         <div className="border rounded p-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
           <h2 className="text-lg font-semibold mb-2">Positie bezetting</h2>
-
-          {(() => {
-            // Verzamel alle posities uit alle secties
-            const allRoles: Array<{ positionName: string; personNames: string[]; isStudio: boolean }> = [];
-            Object.values(data.enriched.rolesBySection).forEach((roles) => {
-              roles.forEach((role) => {
-                const existing = allRoles.find((r) => r.positionName === role.positionName);
-                if (existing) {
-                  role.personNames.forEach((name) => {
-                    if (!existing.personNames.includes(name)) {
-                      existing.personNames.push(name);
-                    }
-                  });
-                } else {
-                  allRoles.push({ ...role });
-                }
-              });
-            });
-
-            // Splits in Studio en Productie posities op basis van isStudio veld
-            const studioRoles = allRoles.filter((r) => r.isStudio);
-            const productieRoles = allRoles.filter((r) => !r.isStudio);
-
-            return (
-              <div className="grid grid-cols-2 gap-6">
-                {/* Studio posities */}
-                <div>
-                  <h3 className="font-medium text-md mb-3">Studio posities</h3>
-                  <table className="w-full text-sm border-collapse">
-                    <thead>
-                      <tr className="border-b dark:border-gray-600">
-                        <th className="text-left py-2 pr-4 font-medium">Positie</th>
-                        <th className="text-left py-2 font-medium">Naam</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {studioRoles.length === 0 ? (
-                        <tr>
-                          <td colSpan={2} className="py-2 text-gray-500 italic">Geen posities toegewezen</td>
-                        </tr>
-                      ) : (
-                        studioRoles.map((role, idx) => (
-                          <tr key={idx} className="border-b dark:border-gray-700">
-                            <td className="py-2 pr-4">{role.positionName}</td>
-                            <td className="py-2">{role.personNames.join(', ')}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Productie posities */}
-                <div>
-                  <h3 className="font-medium text-md mb-3">Productie posities</h3>
-                  <table className="w-full text-sm border-collapse">
-                    <thead>
-                      <tr className="border-b dark:border-gray-600">
-                        <th className="text-left py-2 pr-4 font-medium">Positie</th>
-                        <th className="text-left py-2 font-medium">Naam</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {productieRoles.length === 0 ? (
-                        <tr>
-                          <td colSpan={2} className="py-2 text-gray-500 italic">Geen posities toegewezen</td>
-                        </tr>
-                      ) : (
-                        productieRoles.map((role, idx) => (
-                          <tr key={idx} className="border-b dark:border-gray-700">
-                            <td className="py-2 pr-4">{role.positionName}</td>
-                            <td className="py-2">{role.personNames.join(', ')}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+            <div>
+              <h3 className="font-medium text-md mb-2">{categoryLabels.ENTERTAINMENT}</h3>
+              {entertainmentRoles.length > 0 ? (
+                <ul className="space-y-1 text-sm">
+                  {entertainmentRoles.map(role => (
+                    <li key={role.positionName} className="flex justify-between">
+                      <span>{role.positionName}</span>
+                      <span className="font-semibold">{role.personNames.join(', ')}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-500 italic">Geen posities</p>
+              )}
+            </div>
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-medium text-md mb-2">{categoryLabels.TECHNICAL}</h3>
+                {technicalRoles.length > 0 ? (
+                  <ul className="space-y-1 text-sm">
+                    {technicalRoles.map(role => (
+                      <li key={role.positionName} className="flex justify-between">
+                        <span>{role.positionName}</span>
+                        <span className="font-semibold">{role.personNames.join(', ')}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">Geen posities</p>
+                )}
               </div>
-            );
-          })()}
+              <div>
+                <h3 className="font-medium text-md mb-2">{categoryLabels.GENERAL}</h3>
+                {generalRoles.length > 0 ? (
+                  <ul className="space-y-1 text-sm">
+                    {generalRoles.map(role => (
+                      <li key={role.positionName} className="flex justify-between">
+                        <span>{role.positionName}</span>
+                        <span className="font-semibold">{role.personNames.join(', ')}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">Geen posities</p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Interview personen (read-only, vanuit productie) - 2 kolommen */}
         <div className="border rounded p-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
           <h2 className="text-lg font-semibold mb-2">Spelers voor interviews</h2>
-
-          {/* Away team - 2 kolommen */}
           {(data.enriched.interviews.away.players.length > 0 || data.enriched.interviews.away.coaches.length > 0) && (
             <div className="mb-4">
               <h3 className="font-medium text-md mb-3">{data.production.awayTeam}:</h3>
               <div className="grid grid-cols-2 gap-6">
-                {/* Coach kolom */}
                 <div>
-                  {data.enriched.interviews.away.coaches.length > 0 && (
+                  {data.enriched.interviews.away.coaches.map((player) => (
                     <PlayerCard
-                      name={data.enriched.interviews.away.coaches[0].name}
-                      photoUrl={data.enriched.interviews.away.coaches[0].photoUrl}
-                      function={data.enriched.interviews.away.coaches[0].function}
+                      key={player.id}
+                      name={player.name}
+                      photoUrl={player.photoUrl}
+                      function={player.function}
                     />
-                  )}
+                  ))}
                 </div>
-
-                {/* Spelers kolom */}
                 <div className="space-y-4">
-                  {data.enriched.interviews.away.players.length > 0 && (
-                    <>
-                      {data.enriched.interviews.away.players.map((player) => (
-                        <PlayerCard
-                          key={player.id}
-                          name={player.name}
-                          photoUrl={player.photoUrl}
-                          shirtNo={player.shirtNo}
-                          function={player.function}
-                        />
-                      ))}
-                    </>
-                  )}
+                  {data.enriched.interviews.away.players.map((player) => (
+                    <PlayerCard
+                      key={player.id}
+                      name={player.name}
+                      photoUrl={player.photoUrl}
+                      shirtNo={player.shirtNo}
+                      function={player.function}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
           )}
-
-          {/* Home team - 2 kolommen */}
           {(data.enriched.interviews.home.players.length > 0 || data.enriched.interviews.home.coaches.length > 0) && (
             <div className="mb-6">
               <h3 className="font-medium text-md mb-3">{data.production.homeTeam}:</h3>
               <div className="grid grid-cols-2 gap-6">
-                {/* Coach kolom */}
                 <div>
-                  {data.enriched.interviews.home.coaches.length > 0 && (
+                  {data.enriched.interviews.home.coaches.map((player) => (
                     <PlayerCard
-                      name={data.enriched.interviews.home.coaches[0].name}
-                      photoUrl={data.enriched.interviews.home.coaches[0].photoUrl}
-                      function={data.enriched.interviews.home.coaches[0].function}
+                      key={player.id}
+                      name={player.name}
+                      photoUrl={player.photoUrl}
+                      function={player.function}
                     />
-                  )}
+                  ))}
                 </div>
-
-                {/* Spelers kolom */}
                 <div className="space-y-4">
-                  {data.enriched.interviews.home.players.length > 0 && (
-                    <>
-                      {data.enriched.interviews.home.players.map((player) => (
-                        <PlayerCard
-                          key={player.id}
-                          name={player.name}
-                          photoUrl={player.photoUrl}
-                          shirtNo={player.shirtNo}
-                          function={player.function}
-                        />
-                      ))}
-                    </>
-                  )}
+                  {data.enriched.interviews.home.players.map((player) => (
+                    <PlayerCard
+                      key={player.id}
+                      name={player.name}
+                      photoUrl={player.photoUrl}
+                      shirtNo={player.shirtNo}
+                      function={player.function}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
           )}
-          {data.enriched.interviews.home.players.length === 0 &&
-            data.enriched.interviews.home.coaches.length === 0 &&
-            data.enriched.interviews.away.players.length === 0 &&
-            data.enriched.interviews.away.coaches.length === 0 && (
-              <p className="text-sm text-gray-500">Geen interview personen geselecteerd</p>
-            )}
         </div>
 
-        {/* Wedstrijdsponsor (editable, met dropdown) */}
         <div className="border rounded p-4 dark:border-gray-700">
           <label className="block text-sm font-medium mb-2">Wedstrijdsponsor:</label>
           <div className="flex gap-2">
@@ -425,7 +366,6 @@ export default function ProductionReportPage() {
           />
         </div>
 
-        {/* Interview rationale (editable) */}
         <div className="border rounded p-4 dark:border-gray-700">
           <label className="block text-sm font-medium mb-2">Argumentatie voor spelerkeuze:</label>
           <textarea
@@ -437,7 +377,6 @@ export default function ProductionReportPage() {
           />
         </div>
 
-        {/* Remarks (editable) */}
         <div className="border rounded p-4 dark:border-gray-700">
           <label className="block text-sm font-medium mb-2">Opmerkingen:</label>
           <textarea
@@ -449,7 +388,6 @@ export default function ProductionReportPage() {
           />
         </div>
 
-        {/* Save button */}
         <div className="flex justify-end gap-2">
           <button
             onClick={handleSave}

@@ -32,6 +32,11 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
       include: {
         matchSchedule: true,
         productionPositions: {
+          orderBy: {
+            position: {
+              sortOrder: 'asc',
+            },
+          },
           include: {
             person: true,
             position: {

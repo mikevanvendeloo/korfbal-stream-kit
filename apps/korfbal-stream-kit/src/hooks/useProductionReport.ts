@@ -1,31 +1,6 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {createUrl, extractError} from "../lib/api";
-
-export type ProductionReport = {
-  id: number;
-  productionId: number;
-  matchSponsor?: string | null;
-  interviewRationale?: string | null;
-  remarks?: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type Sponsor = {
-  id: number;
-  name: string;
-  type: string;
-  logoUrl: string;
-  websiteUrl: string;
-};
-
-export type InterviewPerson = {
-  id: number;
-  name: string;
-  shirtNo?: number | null;
-  function?: string | null;
-  photoUrl?: string | null;
-};
+import {createUrl, extractError} from '../lib/api';
+import {PositionCategory} from './usePositions';
 
 export type ProductionReportData = {
   production: {
@@ -36,29 +11,27 @@ export type ProductionReportData = {
     date: string;
     liveTime?: string | null;
   };
-  report: ProductionReport | null;
+  report: {
+    matchSponsor?: string | null;
+    interviewRationale?: string | null;
+    remarks?: string | null;
+  } | null;
   enriched: {
-    attendees: Array<{ name: string; isAssigned: boolean }>; // Aangepast type
-    rolesBySection: Record<string, Array<{ positionName: string; personNames: string[]; isStudio: boolean }>>;
+    attendees: { name: string; isAssigned: boolean }[];
+    crewByCategory: Record<PositionCategory, { positionName: string; personNames: string[] }[]>;
     interviews: {
-      home: {
-        players: InterviewPerson[];
-        coaches: InterviewPerson[];
-      };
-      away: {
-        players: InterviewPerson[];
-        coaches: InterviewPerson[];
-      };
+      home: { players: any[]; coaches: any[] };
+      away: { players: any[]; coaches: any[] };
     };
   };
-  sponsors: Sponsor[];
+  sponsors: { id: number; name: string }[];
 };
 
 export function useProductionReport(productionId: number) {
-  return useQuery({
+  return useQuery<ProductionReportData>({
     queryKey: ['production', productionId, 'report'],
     enabled: !!productionId,
-    queryFn: async (): Promise<ProductionReportData> => {
+    queryFn: async () => {
       const res = await fetch(createUrl(`/api/production/${productionId}/report`));
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
@@ -67,44 +40,23 @@ export function useProductionReport(productionId: number) {
 }
 
 export function useSaveProductionReport(productionId: number) {
-  const qc = useQueryClient();
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: {
-      matchSponsor?: string | null;
-      interviewRationale?: string | null;
-      remarks?: string | null;
-    }): Promise<ProductionReport> => {
+    mutationFn: async (data: { matchSponsor: string | null; interviewRationale: string | null; remarks: string | null }) => {
       const res = await fetch(createUrl(`/api/production/${productionId}/report`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
+        body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['production', productionId, 'report'] }),
-  });
-}
-
-export function useDeleteProductionReport(productionId: number) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async () => {
-      const res = await fetch(createUrl(`/api/production/${productionId}/report`), { method: 'DELETE' });
-      if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['production', productionId, 'report'] });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['production', productionId, 'report'] }),
   });
 }
 
-export function getProductionReportPdfUrl(productionId: number): string {
-  return `/api/production/${productionId}/report/pdf`;
-}
-
-export function getProductionReportMarkdownUrl(productionId: number): string {
-  return `/api/production/${productionId}/report/markdown`;
-}
-
-export function getProductionReportWhatsappUrl(productionId: number): string {
-  return `/api/production/${productionId}/report/whatsapp`;
-}
+export const getProductionReportPdfUrl = (productionId: number) => createUrl(`/api/production/${productionId}/report/pdf`);
+export const getProductionReportMarkdownUrl = (productionId: number) => createUrl(`/api/production/${productionId}/report/markdown`);
+export const getProductionReportWhatsappUrl = (productionId: number) => createUrl(`/api/production/${productionId}/report/whatsapp`);

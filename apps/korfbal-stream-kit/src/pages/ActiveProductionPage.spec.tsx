@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ActiveProductionPage from './ActiveProductionPage';
-import { useProductions, useProductionInterviews, useProductionTiming, useProductionPersonPositions } from '../hooks/useProductions';
+import { useProductions, useProductionInterviews, useProductionTiming, useProductionCrew } from '../hooks/useProductions';
 import { vi } from 'vitest';
 
 // Mock the hooks
@@ -15,7 +15,7 @@ vi.mock('../components/ProductionHeader', () => ({
 const mockUseProductions = useProductions as any;
 const mockUseProductionInterviews = useProductionInterviews as any;
 const mockUseProductionTiming = useProductionTiming as any;
-const mockUseProductionPersonPositions = useProductionPersonPositions as any;
+const mockUseProductionCrew = useProductionCrew as any;
 
 describe('ActiveProductionPage', () => {
   const queryClient = new QueryClient({
@@ -45,8 +45,8 @@ describe('ActiveProductionPage', () => {
       isLoading: false
     });
 
-    mockUseProductionPersonPositions.mockReturnValue({
-      data: [],
+    mockUseProductionCrew.mockReturnValue({
+      data: {},
       isLoading: false
     });
 

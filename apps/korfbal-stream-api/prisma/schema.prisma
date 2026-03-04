@@ -27,16 +27,18 @@ model Sponsor {
 
 model MatchSchedule {
   id                 Int       @id @default(autoincrement())
-  externalId         String    @unique
+  externalId         String?   @unique
   date               DateTime
   homeTeamName       String
   awayTeamName       String
+  description        String?
   accommodationName  String?
   accommodationRoute String?
   attendanceTime     DateTime?
   isPracticeMatch    Boolean   @default(false)
   isHomeMatch        Boolean   @default(false)
   isCompetitiveMatch Boolean   @default(false)
+  isManual           Boolean   @default(false)
   fieldName          String?
   refereeName        String?
   reserveRefereeName String?
@@ -81,16 +83,24 @@ model Skill {
   @@map("Capability")
 }
 
+enum PositionCategory {
+  GENERAL
+  TECHNICAL
+  ENTERTAINMENT
+}
+
 /// Catalog of production positions (distinct from skills)
 model Position {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
+  id        Int              @id @default(autoincrement())
+  name      String           @unique
   /// Optional link to a skill that is required for this position
   skillId   Int?
-  skill     Skill?   @relation(fields: [skillId], references: [id])
+  skill     Skill?           @relation(fields: [skillId], references: [id])
   /// Indicates if this is a studio position (true) or production position (false)
-  isStudio  Boolean  @default(false)
-  createdAt DateTime @default(now())
+  isStudio  Boolean          @default(false)
+  category  PositionCategory @default(GENERAL)
+  sortOrder Int              @default(99)
+  createdAt DateTime         @default(now())
 
   // Relations
   segmentAssignments     SegmentRoleAssignment[]
@@ -435,9 +445,9 @@ model CallSheetItemPosition {
 }
 
 /// Application-level settings (simple key/value store)
-model AppSetting {
+model Setting {
   key       String   @id
-  value     String
+  value     Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

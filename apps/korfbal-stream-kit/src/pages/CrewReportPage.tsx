@@ -74,7 +74,13 @@ export default function CrewReportPage() {
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800">
                 <th className="p-2 text-left sticky left-0 bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">Segment</th>
-                {data.positions.map((pos) => (
+                {data.groupedPositions.map(group => (
+                  <th key={group.category} colSpan={group.positions.length} className="p-2 text-center whitespace-nowrap border-b dark:border-gray-700 border-x">{group.category}</th>
+                ))}
+              </tr>
+              <tr className="bg-gray-50 dark:bg-gray-800">
+                <th className="p-2 text-left sticky left-0 bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700"></th>
+                {data.groupedPositions.flatMap(g => g.positions).map((pos) => (
                   <th key={pos.id} className="p-2 text-left whitespace-nowrap border-b dark:border-gray-700">{pos.name}</th>
                 ))}
               </tr>
@@ -83,7 +89,7 @@ export default function CrewReportPage() {
               {data.segments.map((seg) => (
                 <tr key={seg.id} className="border-b dark:border-gray-700">
                   <th className="p-2 text-left sticky left-0 bg-white dark:bg-gray-900 border-r dark:border-gray-700">{seg.volgorde}. {seg.naam}</th>
-                  {data.positions.map((pos) => {
+                  {data.groupedPositions.flatMap(g => g.positions).map((pos) => {
                     const names = data.cells
                       .filter((c) => c.segmentId === seg.id && c.positionId === pos.id)
                       .map((c) => c.personName);

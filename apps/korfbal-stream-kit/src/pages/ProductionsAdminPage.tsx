@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 import {
   useActivateProduction,
@@ -13,6 +13,16 @@ import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdEdit, MdGroups, MdInfo, MdPlayCircle, MdDownload, MdUpload} from 'react-icons/md';
 import {createUrl} from '../lib/api';
 
+function formatMatchDate(date: string): string {
+  const d = new Date(date);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${day}-${month}-${year} ${hours}:${minutes}`;
+}
+
 export default function ProductionsAdminPage() {
   const { data: prods, isLoading, error } = useProductions();
   const matches = useProductionMatches();
@@ -25,6 +35,21 @@ export default function ProductionsAdminPage() {
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<{ id?: number; matchScheduleId: number } | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing && !editing.id && matches.data?.items) {
+      const now = new Date();
+      const upcomingMatches = matches.data.items
+        .filter(m => new Date(m.date) > now)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      if (upcomingMatches.length > 0) {
+        setEditing(e => e ? ({ ...e, matchScheduleId: upcomingMatches[0].id }) : null);
+      } else if (matches.data.items.length > 0) {
+        setEditing(e => e ? ({ ...e, matchScheduleId: matches.data.items[0].id }) : null);
+      }
+    }
+  }, [editing?.id, matches.data]);
 
   async function onSaveProduction() {
     if (!editing) return;
@@ -181,7 +206,7 @@ export default function ProductionsAdminPage() {
                 <select autoFocus aria-label="Select match" className="px-2 py-1 border rounded w-full bg-white dark:bg-gray-950" value={editing.matchScheduleId} onChange={(e) => setEditing({ ...editing, matchScheduleId: Number(e.target.value) })}>
                   <option value={0}>Selecteer…</option>
                   {(matches.data?.items || []).map((m) => (
-                    <option key={m.id} value={m.id}>{new Date(m.date).toLocaleString()} — {m.homeTeamName} vs {m.awayTeamName}</option>
+                    <option key={m.id} value={m.id}>{formatMatchDate(m.date)} — {m.homeTeamName} vs {m.awayTeamName}</option>
                   ))}
                 </select>
               </div>

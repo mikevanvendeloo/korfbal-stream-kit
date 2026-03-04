@@ -1,18 +1,23 @@
 import {Router} from 'express';
 import {z} from 'zod';
 import {prisma} from '../../services/prisma';
+import { PositionCategory } from '@prisma/client';
 
 export const positionsRouter: Router = Router();
 
-// -------- Positions catalog (place before dynamic /:id routes to avoid conflicts) --------
 const PositionSchema = z.object({
   name: z.string().min(2).max(100),
   skillId: z.number().int().positive().nullable().optional(),
+  category: z.nativeEnum(PositionCategory).optional(),
+  sortOrder: z.number().int().optional(),
 });
 
 positionsRouter.get('/positions', async (_req, res, next) => {
   try {
-    const items = await prisma.position.findMany({ orderBy: { name: 'asc' }, include: { skill: true } });
+    const items = await prisma.position.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      include: { skill: true },
+    });
     return res.json(items);
   } catch (err) {
     return next(err);
@@ -22,14 +27,18 @@ positionsRouter.get('/positions', async (_req, res, next) => {
 positionsRouter.post('/positions', async (req, res, next) => {
   try {
     const parsed = PositionSchema.parse(req.body || {});
-    // Validate skillId if provided
     const skillId: number | null = parsed.skillId == null ? null : Number(parsed.skillId);
     if (skillId != null) {
       const cap = await prisma.skill.findUnique({ where: { id: skillId } });
       if (!cap) return res.status(422).json({ error: 'Skill not found' });
     }
     const created = await prisma.position.create({
-      data: { name: parsed.name, skillId: skillId ?? undefined },
+      data: {
+        name: parsed.name,
+        skillId: skillId ?? undefined,
+        category: parsed.category,
+        sortOrder: parsed.sortOrder,
+      },
       include: { skill: true },
     });
     return res.status(201).json(created);
@@ -47,7 +56,6 @@ positionsRouter.put('/positions/:id', async (req, res, next) => {
     const existing = await prisma.position.findUnique({ where: { id } });
     if (!existing) return res.status(404).json({ error: 'Not found' });
     const parsed = PositionSchema.partial().required({}).parse(req.body || {});
-    // skillId may be null (to unset)
     const skillId: number | null | undefined = parsed.skillId as any;
     if (skillId !== undefined && skillId !== null) {
       const cap = await prisma.skill.findUnique({ where: { id: Number(skillId) } });
@@ -58,6 +66,8 @@ positionsRouter.put('/positions/:id', async (req, res, next) => {
       data: {
         name: parsed.name ?? undefined,
         skillId: skillId === undefined ? undefined : skillId,
+        category: parsed.category,
+        sortOrder: parsed.sortOrder,
       },
       include: { skill: true },
     });

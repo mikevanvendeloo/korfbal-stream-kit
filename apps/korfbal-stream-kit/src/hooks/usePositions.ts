@@ -1,7 +1,19 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {createUrl, extractError} from "../lib/api";
 
-export type Position = { id: number; name: string; skill?: { id: number; code: string; name: string } | null };
+export enum PositionCategory {
+  GENERAL = 'GENERAL',
+  TECHNICAL = 'TECHNICAL',
+  ENTERTAINMENT = 'ENTERTAINMENT',
+}
+
+export type Position = {
+  id: number;
+  name: string;
+  skill?: { id: number; code: string; name: string } | null;
+  category: PositionCategory;
+  sortOrder: number;
+};
 
 export function usePositionsCatalog() {
   return useQuery({
@@ -17,7 +29,7 @@ export function usePositionsCatalog() {
 export function useCreatePosition() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { name: string; skillId?: number | null }): Promise<Position> => {
+    mutationFn: async (input: { name: string; skillId?: number | null; category?: PositionCategory; sortOrder?: number }): Promise<Position> => {
       const res = await fetch(createUrl('/api/production/positions'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -33,11 +45,11 @@ export function useCreatePosition() {
 export function useUpdatePosition() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: number; name?: string; skillId?: number | null }): Promise<Position> => {
+    mutationFn: async (input: { id: number; name?: string; skillId?: number | null; category?: PositionCategory; sortOrder?: number }): Promise<Position> => {
       const res = await fetch(createUrl(`/api/production/positions/${input.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: input.name, skillId: input.skillId }),
+        body: JSON.stringify({ name: input.name, skillId: input.skillId, category: input.category, sortOrder: input.sortOrder }),
       });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
@@ -88,7 +100,7 @@ export function useSegmentDefaultPositions(segmentName: string) {
 export function useSaveSegmentDefaultPositions() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { segmentName: string; positions: Array<{ positionId: number; order: number }> }): Promise<SegmentDefaultPosition[]> => {
+    mutationFn: async (input: { segmentName:string; positions: Array<{ positionId: number; order: number }> }): Promise<SegmentDefaultPosition[]> => {
       const res = await fetch(createUrl('/api/production/segment-default-positions'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

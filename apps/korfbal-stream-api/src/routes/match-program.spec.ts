@@ -33,15 +33,27 @@ function resetPrismaMocks() {
     }),
     findMany: vi.fn(async ({ where, orderBy }: any) => {
       let res = [...store];
-      if (where?.date?.gte) {
-        res = res.filter((m) => new Date(m.date) >= new Date(where.date.gte));
+
+      const filterByClause = (clause: any) => (item: any) => {
+        if (clause.date?.gte && new Date(item.date) < new Date(clause.date.gte)) return false;
+        if (clause.date?.lte && new Date(item.date) > new Date(clause.date.lte)) return false;
+        if (typeof clause.isHomeMatch === 'boolean' && !!item.isHomeMatch !== clause.isHomeMatch) return false;
+        if (typeof clause.isManual === 'boolean' && !!item.isManual !== clause.isManual) return false;
+        return true;
+      };
+
+      if (where) {
+        if (where.OR) {
+          res = res.filter(item => where.OR.some((orClause: any) => filterByClause(orClause)(item)));
+          // Apply top-level filters that are not part of the OR clauses
+          const topLevelWhere = { ...where };
+          delete topLevelWhere.OR;
+          res = res.filter(filterByClause(topLevelWhere));
+        } else {
+          res = res.filter(filterByClause(where));
+        }
       }
-      if (where?.date?.lte) {
-        res = res.filter((m) => new Date(m.date) <= new Date(where.date.lte));
-      }
-      if (typeof where?.isHomeMatch === 'boolean') {
-        res = res.filter((m) => !!m.isHomeMatch === where.isHomeMatch);
-      }
+
       if (orderBy?.date === 'asc') {
         res.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       }

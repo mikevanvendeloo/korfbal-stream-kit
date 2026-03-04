@@ -1,6 +1,8 @@
 import {Router} from 'express';
 import {skillsRouter} from './skills';
 import {prisma} from '../services/prisma';
+import { getSetting } from '../services/appSettings';
+import { PRODUCTION_TEAM_NAMES_KEY } from '../services/appSettings';
 
 // Import all production sub-routers
 import {productionPersonsRouter} from './production/production-persons';
@@ -17,13 +19,6 @@ import {segmentAssignmentsRouter} from './production/segment-assignments';
 import {productionReportsRouter} from './production/production-reports';
 import {productionCrewRouter} from './production/production-crew';
 import {productionExportImportRouter} from './production/production-export-import';
-
-// Easily expandable default team filters
-const DEFAULT_TEAM_FILTERS = [
-  'Fortuna/Ruitenheer 1',
-  'Fortuna/Ruitenheer 2',
-  'Fortuna/Ruitenheer U19-1',
-];
 
 export const productionRouter: Router = Router();
 
@@ -73,20 +68,22 @@ productionRouter.post('/:id/activate', async (req, res, next) => {
 // GET /api/production/matches -> list candidate matches for production with filters
 productionRouter.get('/matches', async (req, res, next) => {
   try {
-    // allow override via query team[]=A&team[]=B
-    const teams = ([] as string[]).concat(
-      ...(Array.isArray(req.query.team) ? (req.query.team as string[]) : req.query.team ? [String(req.query.team)] : [])
-    );
-    const filters = teams.length > 0 ? teams : DEFAULT_TEAM_FILTERS;
+    const productionTeamNames = await getSetting<string[]>(PRODUCTION_TEAM_NAMES_KEY);
+    const filters = productionTeamNames || [];
 
-    // Only home matches and homeTeamName matches any of the filters (contains)
     const items = await prisma.matchSchedule.findMany({
       where: {
-        isHomeMatch: true,
-        OR: filters.map((f) => ({ homeTeamName: { contains: f, mode: 'insensitive' as const } })),
+        OR: [
+          { isManual: true },
+          {
+            isHomeMatch: true,
+            OR: filters.map((f) => ({ homeTeamName: { contains: f, mode: 'insensitive' as const } })),
+          }
+        ]
       },
-      orderBy: [{ date: 'asc' }],
+      orderBy: { date: 'asc' },
     });
+
     return res.json({ items, filters });
   } catch (err) {
     return next(err);

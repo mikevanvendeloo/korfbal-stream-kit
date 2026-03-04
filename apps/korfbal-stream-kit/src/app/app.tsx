@@ -3,6 +3,7 @@ import {Link, Route, Routes, useLocation} from 'react-router-dom';
 import SponsorsPage from '../pages/SponsorsPage';
 import ScoreboardPage from '../pages/ScoreboardPage';
 import MatchSchedulePage from '../pages/MatchSchedulePage';
+import ManualMatchesAdminPage from '../pages/ManualMatchesAdminPage';
 import SponsorSlidesPage from '../pages/SponsorSlidesPage';
 import PersonsAdminPage from '../pages/PersonsAdminPage';
 import SkillsAdminPage from '../pages/SkillsAdminPage';
@@ -36,6 +37,7 @@ import {
   MdAssessment,
   MdInfo,
   MdSettings,
+  MdEditCalendar,
 } from 'react-icons/md';
 import VmixTemplatesPage from '../pages/VmixTemplatesPage';
 import VmixControlPage from '../pages/VmixControlPage';
@@ -178,6 +180,13 @@ function Nav() {
                         className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
                     <MdSchedule/>
                     <span>Wedstrijd programma</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/admin/manual-matches"
+                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdEditCalendar/>
+                    <span>Handmatige wedstrijden</span>
                   </Link>
                 </li>
                 <li>
@@ -329,6 +338,7 @@ export function App() {
             <Route path="/sponsors" element={<SponsorsPage/>}/>
             <Route path="/scoreboard" element={<ScoreboardPage/>}/>
             <Route path="/matches/schedule" element={<MatchSchedulePage/>}/>
+            <Route path="/admin/manual-matches" element={<ManualMatchesAdminPage />} />
             <Route path="/admin/persons" element={<PersonsAdminPage/>}/>
             <Route path="/admin/skills" element={<SkillsAdminPage/>}/>
             <Route path="/admin/positions" element={<PositionsAdminPage/>}/>

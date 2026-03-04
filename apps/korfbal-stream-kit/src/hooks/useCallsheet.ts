@@ -1,9 +1,10 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {createUrl, extractError} from "../lib/api";
+import {Position, PositionCategory} from "./usePositions";
 
 export type CrewReport = {
   segments: Array<{ id: number; naam: string; volgorde: number }>;
-  positions: Array<{ id: number; name: string }>;
+  groupedPositions: Array<{ category: PositionCategory, positions: Position[] }>;
   cells: Array<{ segmentId: number; positionId: number; personName: string }>;
 }
 

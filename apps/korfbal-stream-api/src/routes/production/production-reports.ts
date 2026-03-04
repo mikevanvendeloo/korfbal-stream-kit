@@ -1,10 +1,12 @@
 import {Router} from 'express';
-import path from 'node:path';
-import fs from 'node:fs';
 import PDFDocument from 'pdfkit';
+import path from 'node:path';
 import {z} from 'zod';
 import {prisma} from '../../services/prisma';
-import {logger} from '../../utils/logger';
+import {PositionCategory} from '@prisma/client';
+import {getProductionReportData} from "../../services/production";
+import {logger} from "../../utils/logger";
+import fs from "node:fs";
 
 export const productionReportsRouter: Router = Router();
 
@@ -27,6 +29,12 @@ function mapSegmentToSection(segmentName: string): string {
   if (lower.includes('speaker')) return 'SPEAKER';
   return 'OVERIG';
 }
+
+const categoryLabels: Record<PositionCategory, string> = {
+  [PositionCategory.ENTERTAINMENT]: 'Entertainment',
+  [PositionCategory.TECHNICAL]: 'Techniek',
+  [PositionCategory.GENERAL]: 'Algemeen',
+};
 
 // Helper functie om timing te berekenen
 function calculateTiming(segments: any[], matchDate: Date, liveTime?: Date | null) {
@@ -79,191 +87,24 @@ productionReportsRouter.get('/:id/report', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
-
-    const production = await prisma.production.findUnique({
-      where: { id },
-      include: {
-        matchSchedule: true,
-        productionReport: true,
-        productionPersons: { // Add this include
-          include: {
-            person: true,
-          },
-        },
-        productionPositions: { // Production-wide position assignments
-          include: {
-            person: true,
-            position: true,
-          },
-        },
-        segments: {
-          include: {
-            bezetting: {
-              include: {
-                person: true,
-                position: true,
-              },
-            },
-          },
-          orderBy: { volgorde: 'asc' },
-        },
-        interviewSubjects: {
-          include: {
-            player: {
-              include: {
-                club: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!production) return res.status(404).json({ error: 'Production not found' });
-
-    // --- NEW ATTENDEES LOGIC ---
-    const assignedPersonIds = new Set<number>();
-    production.segments.forEach((seg) => {
-      seg.bezetting.forEach((b) => assignedPersonIds.add(b.person.id));
-    });
-    // Also consider production-wide assignments as "assigned"
-    production.productionPositions.forEach((pp) => assignedPersonIds.add(pp.personId));
-
-    const attendees: { name: string; isAssigned: boolean }[] = production.productionPersons
-      .map((pp) => ({
-        name: pp.person.name,
-        isAssigned: assignedPersonIds.has(pp.person.id),
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    // --- END NEW ATTENDEES LOGIC ---
-
-    // Groepeer rollen per sectie (met isStudio info)
-    const rolesBySection: Record<string, Array<{ positionName: string; personNames: string[]; isStudio: boolean }>> = {};
-
-    // First, add production-wide assignments (these apply to all segments)
-    const productionWidePositionMap = new Map<string, { names: Set<string>; isStudio: boolean }>();
-    production.productionPositions.forEach((pp) => {
-      if (!productionWidePositionMap.has(pp.position.name)) {
-        productionWidePositionMap.set(pp.position.name, { names: new Set(), isStudio: pp.position.isStudio });
-      }
-      productionWidePositionMap.get(pp.position.name)!.names.add(pp.person.name);
-    });
-
-    // Then, add segment-specific assignments
-    production.segments.forEach((segment) => {
-      const section = mapSegmentToSection(segment.naam);
-      if (!rolesBySection[section]) rolesBySection[section] = [];
-
-      const positionMap = new Map<string, { names: Set<string>; isStudio: boolean }>();
-      segment.bezetting.forEach((b) => {
-        if (!positionMap.has(b.position.name)) {
-          positionMap.set(b.position.name, { names: new Set(), isStudio: b.position.isStudio });
-        }
-        positionMap.get(b.position.name)!.names.add(b.person.name);
-      });
-
-      positionMap.forEach((data, posName) => {
-        const existing = rolesBySection[section].find((r) => r.positionName === posName);
-        if (existing) {
-          data.names.forEach((n) => {
-            if (!existing.personNames.includes(n)) existing.personNames.push(n);
-          });
-        } else {
-          rolesBySection[section].push({
-            positionName: posName,
-            personNames: Array.from(data.names),
-            isStudio: data.isStudio,
-          });
-        }
-      });
-    });
-
-    // Add production-wide assignments to all sections (they apply globally)
-    productionWidePositionMap.forEach((data, posName) => {
-      Object.keys(rolesBySection).forEach((section) => {
-        const existing = rolesBySection[section].find((r) => r.positionName === posName);
-        if (existing) {
-          data.names.forEach((n) => {
-            if (!existing.personNames.includes(n)) existing.personNames.push(n);
-          });
-        } else {
-          rolesBySection[section].push({
-            positionName: posName,
-            personNames: Array.from(data.names),
-            isStudio: data.isStudio,
-          });
-        }
-      });
-    });
-
-    // Sorteer en maak leesbaar
-    Object.keys(rolesBySection).forEach((section) => {
-      rolesBySection[section].sort((a, b) => a.positionName.localeCompare(b.positionName));
-    });
-
-    // Interview subjects (met foto's en rugnummer)
-    const interviews = {
-      home: {
-        players: production.interviewSubjects
-          .filter((s) => s.side === 'HOME' && s.role === 'PLAYER')
-          .map((s) => ({
-            id: s.player.id,
-            name: s.player.name,
-            shirtNo: s.player.shirtNo,
-            function: s.player.function,
-            photoUrl: s.player.photoUrl,
-          })),
-        coaches: production.interviewSubjects
-          .filter((s) => s.side === 'HOME' && s.role === 'COACH')
-          .map((s) => ({
-            id: s.player.id,
-            name: s.player.name,
-            shirtNo: s.player.shirtNo,
-            function: s.player.function,
-            photoUrl: s.player.photoUrl,
-          })),
-      },
-      away: {
-        players: production.interviewSubjects
-          .filter((s) => s.side === 'AWAY' && s.role === 'PLAYER')
-          .map((s) => ({
-            id: s.player.id,
-            name: s.player.name,
-            shirtNo: s.player.shirtNo,
-            function: s.player.function,
-            photoUrl: s.player.photoUrl,
-          })),
-        coaches: production.interviewSubjects
-          .filter((s) => s.side === 'AWAY' && s.role === 'COACH')
-          .map((s) => ({
-            id: s.player.id,
-            name: s.player.name,
-            shirtNo: s.player.shirtNo,
-            function: s.player.function,
-            photoUrl: s.player.photoUrl,
-          })),
-      },
-    };
-
-    // Haal alle sponsors op voor de dropdown
-    const sponsors = await prisma.sponsor.findMany({ orderBy: { name: 'asc' } });
+    const reportData = await getProductionReportData(id);
 
     return res.json({
       production: {
-        id: production.id,
-        matchScheduleId: production.matchScheduleId,
-        homeTeam: production.matchSchedule.homeTeamName,
-        awayTeam: production.matchSchedule.awayTeamName,
-        date: production.matchSchedule.date,
-        liveTime: production.liveTime,
+        id: reportData.production.id,
+        matchScheduleId: reportData.production.matchScheduleId,
+        homeTeam: reportData.production.matchSchedule.homeTeamName,
+        awayTeam: reportData.production.matchSchedule.awayTeamName,
+        date: reportData.production.matchSchedule.date,
+        liveTime: reportData.production.liveTime,
       },
-      report: production.productionReport || null,
+      report: reportData.production.productionReport,
       enriched: {
-        attendees, // This will now be an array of { name: string, isAssigned: boolean }
-        rolesBySection,
-        interviews,
+        attendees: reportData.attendees,
+        crewByCategory: reportData.crewByCategory,
+        interviews: reportData.interviews,
       },
-      sponsors,
+      sponsors: reportData.sponsors,
     });
   } catch (err) {
     return next(err);
@@ -283,24 +124,10 @@ productionReportsRouter.post('/:id/report', async (req, res, next) => {
 
     const { matchSponsor, interviewRationale, remarks } = parsed.data;
 
-    // Check if production exists
-    const production = await prisma.production.findUnique({ where: { id } });
-    if (!production) return res.status(404).json({ error: 'Production not found' });
-
-    // Upsert het rapport
     const report = await prisma.productionReport.upsert({
       where: { productionId: id },
-      create: {
-        productionId: id,
-        matchSponsor,
-        interviewRationale,
-        remarks,
-      },
-      update: {
-        matchSponsor,
-        interviewRationale,
-        remarks,
-      },
+      create: { productionId: id, matchSponsor, interviewRationale, remarks },
+      update: { matchSponsor, interviewRationale, remarks },
     });
 
     return res.json(report);
@@ -333,174 +160,18 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
 
-    const production = await prisma.production.findUnique({
-      where: { id },
-      include: {
-        matchSchedule: true,
-        productionReport: true,
-        productionPersons: { // Add this include
-          include: {
-            person: true,
-          },
-        },
-        productionPositions: { // Production-wide position assignments
-          include: {
-            person: true,
-            position: true,
-          },
-        },
-        segments: {
-          include: {
-            bezetting: {
-              include: {
-                person: true,
-                position: true,
-              },
-            },
-          },
-          orderBy: { volgorde: 'asc' },
-        },
-        interviewSubjects: {
-          include: {
-            player: {
-              include: {
-                club: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const { production, attendees, crewByCategory, interviews } = await getProductionReportData(id);
+    const { matchSchedule, productionReport } = production;
 
-    if (!production) return res.status(404).json({ error: 'Production not found' });
+    let doc = new PDFDocument({ margin: 50, size: 'A4' });
 
-    const report = production.productionReport;
-    const match = production.matchSchedule;
-
-    // Debug: log segment names
-    logger.info('Production segments:', production.segments.map(s => ({ name: s.naam, bezettingCount: s.bezetting.length })));
-
-    // --- NEW ATTENDEES LOGIC ---
-    const assignedPersonIds = new Set<number>();
-    production.segments.forEach((seg) => {
-      seg.bezetting.forEach((b) => assignedPersonIds.add(b.person.id));
-    });
-    // Also consider production-wide assignments as "assigned"
-    production.productionPositions.forEach((pp) => assignedPersonIds.add(pp.personId));
-
-    const attendees: { name: string; isAssigned: boolean }[] = production.productionPersons
-      .map((pp) => ({
-        name: pp.person.name,
-        isAssigned: assignedPersonIds.has(pp.person.id),
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    // --- END NEW ATTENDEES LOGIC ---
-
-    // Groepeer rollen per sectie (met isStudio info)
-    const rolesBySection: Record<string, Array<{ positionName: string; personNames: string[]; isStudio: boolean }>> = {};
-
-    // First, add production-wide assignments (these apply to all segments)
-    const productionWidePositionMap = new Map<string, { names: Set<string>; isStudio: boolean }>();
-    production.productionPositions.forEach((pp) => {
-      if (!productionWidePositionMap.has(pp.position.name)) {
-        productionWidePositionMap.set(pp.position.name, { names: new Set(), isStudio: pp.position.isStudio });
-      }
-      productionWidePositionMap.get(pp.position.name)!.names.add(pp.person.name);
-    });
-
-    // Then, add segment-specific assignments
-    production.segments.forEach((segment) => {
-      const section = mapSegmentToSection(segment.naam);
-      if (!rolesBySection[section]) rolesBySection[section] = [];
-
-      const positionMap = new Map<string, { names: Set<string>; isStudio: boolean }>();
-      segment.bezetting.forEach((b) => {
-        if (!positionMap.has(b.position.name)) {
-          positionMap.set(b.position.name, { names: new Set(), isStudio: b.position.isStudio });
-        }
-        positionMap.get(b.position.name)!.names.add(b.person.name);
-      });
-
-      positionMap.forEach((data, posName) => {
-        const existing = rolesBySection[section].find((r) => r.positionName === posName);
-        if (existing) {
-          data.names.forEach((n) => {
-            if (!existing.personNames.includes(n)) existing.personNames.push(n);
-          });
-        } else {
-          rolesBySection[section].push({
-            positionName: posName,
-            personNames: Array.from(data.names),
-            isStudio: data.isStudio,
-          });
-        }
-      });
-    });
-
-    // Add production-wide assignments to all sections (they apply globally)
-    productionWidePositionMap.forEach((data, posName) => {
-      Object.keys(rolesBySection).forEach((section) => {
-        const existing = rolesBySection[section].find((r) => r.positionName === posName);
-        if (existing) {
-          data.names.forEach((n) => {
-            if (!existing.personNames.includes(n)) existing.personNames.push(n);
-          });
-        } else {
-          rolesBySection[section].push({
-            positionName: posName,
-            personNames: Array.from(data.names),
-            isStudio: data.isStudio,
-          });
-        }
-      });
-    });
-
-    // Sorteer
-    Object.keys(rolesBySection).forEach((section) => {
-      rolesBySection[section].sort((a, b) => a.positionName.localeCompare(b.positionName));
-    });
-
-    // Debug: log final rolesBySection
-    logger.info('Final rolesBySection after processing:', JSON.stringify(rolesBySection, null, 2));
-
-    // Interview subjects
-    const interviews = {
-      home: {
-        players: production.interviewSubjects.filter((s) => s.side === 'HOME' && s.role === 'PLAYER').map((s) => s.player),
-        coaches: production.interviewSubjects.filter((s) => s.side === 'HOME' && s.role === 'COACH').map((s) => s.player),
-      },
-      away: {
-        players: production.interviewSubjects.filter((s) => s.side === 'AWAY' && s.role === 'PLAYER').map((s) => s.player),
-        coaches: production.interviewSubjects.filter((s) => s.side === 'AWAY' && s.role === 'COACH').map((s) => s.player),
-      },
-    };
-
-    // Format datum en tijd
-    const matchDate = new Date(match.date);
-    const timeStr = matchDate.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
-    const matchTitle = `${match.homeTeamName} - ${match.awayTeamName}: ${timeStr} uur`;
-
-    // Maak PDF document
-    const doc = new PDFDocument({ margin: 50, size: 'A4' });
-
-    // Set response headers
-    const filename = `Productie_Positie_Overzicht_${match.homeTeamName.replace(/[^a-z0-9]/gi, '_')}_${matchDate.toISOString().split('T')[0]}.pdf`;
+    const filename = `Productie_Rapport_${matchSchedule.homeTeamName.replace(/[^a-z0-9]/gi, '_')}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
-    // Pipe PDF naar response
     doc.pipe(res);
 
-    // Titel
-    doc.fontSize(18).font('Helvetica-Bold').text('Livestream bezetting', { align: 'center' });
-    doc.moveDown(0.5);
-
-    // Match titel met club logos
-    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-    const logoSize = 40;
-
     // Helper functie om club logo te vinden en renderen
-    const renderClubLogo = async (teamName: string, xPos: number, yPos: number) => {
+    const renderClubLogo = async ( teamName: string, xPos: number, yPos: number, logoSize: number) => {
       try {
         // Vind club door team naam
         const normalized = teamName.trim().replace(/\s+\d+$/g, '').split('/')[0]?.trim().toLowerCase();
@@ -514,17 +185,30 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
         });
 
         if (club?.logoUrl) {
-          const logoPath = path.join(process.cwd(), 'assets', club.logoUrl);
+          const logoPath = path.join(process.cwd(), 'storage', club.logoUrl);
           if (fs.existsSync(logoPath)) {
             // renderClubLogo verwacht xPos als het midden van het logo, dus trek logoSize / 2 af voor de linkerrand
             doc.image(logoPath, xPos - logoSize / 2, yPos, { width: logoSize, height: logoSize, fit: [logoSize, logoSize] });
+          } else {
+            logger.warn(`Logo not found for team ${teamName} at ${logoPath}`)
           }
+        } else {
+          logger.warn("No logo defined for team %s", teamName)
         }
       } catch (e) {
         logger.warn(`Could not add logo for team ${teamName}: ${e}`);
       }
+      return doc;
     };
 
+    doc.fontSize(18).font('Helvetica-Bold').text('Livestream Productie Rapport', { align: 'center' });
+    doc.moveDown(0.5);
+    // Format datum en tijd
+    const matchDate = new Date(matchSchedule.date);
+    const timeStr = matchDate.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+    const matchTitle = `${matchSchedule.homeTeamName} - ${matchSchedule.awayTeamName}: ${timeStr} uur`;
+    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const logoSize = 40;
     // Render home logo, match title, away logo in één lijn
     const titleY = doc.y;
     // Voor het thuislogo: de linkerrand van het logo moet op doc.page.margins.left liggen.
@@ -533,10 +217,8 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
     // Voor het uitlogo: de rechterrand van het logo moet op doc.page.width - doc.page.margins.right liggen.
     // Aangezien renderClubLogo xPos als het midden van het logo ziet, is de xPos:
     const awayLogoCenterX = (doc.page.width - doc.page.margins.right) - logoSize / 2;
-
-    await renderClubLogo(match.homeTeamName, homeLogoCenterX, titleY);
-    await renderClubLogo(match.awayTeamName, awayLogoCenterX, titleY);
-
+    doc = await renderClubLogo(matchSchedule.homeTeamName, homeLogoCenterX, titleY, logoSize);
+    doc = await renderClubLogo(matchSchedule.awayTeamName, awayLogoCenterX, titleY, logoSize);
     // Match titel in het midden
     doc.fontSize(14).font('Helvetica').text(matchTitle, doc.page.margins.left, titleY + (logoSize / 2) - 7, {
       width: pageWidth,
@@ -546,105 +228,15 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
     // Move down na logos en titel
     doc.y = titleY + logoSize + 10;
     doc.moveDown(0.5);
+    doc.fontSize(12).font('Helvetica-Bold').text('Aanwezige Crew');
+    doc.font('Helvetica').fontSize(10).text(attendees.map(a => a.name).join(', ') || 'Geen');
+    doc.moveDown(1.5);
 
-    // Aanwezigen
-    doc.fontSize(12).font('Helvetica-Bold').text('Aanwezig:', { continued: false });
-    doc.moveDown(0.3); // Voeg wat ruimte toe na het label "Aanwezig:"
-
-    if (attendees.length === 0) {
-      doc.font('Helvetica').text('Geen aanwezigen');
-    } else {
-      doc.fontSize(11); // Stel de basis lettergrootte in voor namen
-      attendees.forEach((p, index) => {
-        if (!p.isAssigned) {
-          doc.font('Helvetica-Oblique').text(p.name, { continued: true }); // Cursief
-        } else {
-          doc.font('Helvetica').text(p.name, { continued: true }); // Normaal
-        }
-
-        // Voeg een komma en spatie toe, behalve na de laatste naam
-        if (index < attendees.length - 1) {
-          doc.font('Helvetica').text(', ', { continued: true });
-        }
-      });
-      doc.text('', { continued: false }); // Beëindig de doorlopende tekstregel
-    }
-    doc.moveDown(2);
-    doc.x = doc.page.margins.left;
-
-
-    // Tijdschema - bereken timing inline
-    const segments = await prisma.productionSegment.findMany({ where: { productionId: id }, orderBy: { volgorde: 'asc' } });
-    const timing = calculateTiming(segments, new Date(match.date), production.liveTime);
-
-    if (timing.length > 0) {
-      doc.fontSize(12).font('Helvetica-Bold').text('Tijdschema:', { continued: false });
-      doc.moveDown(0.3);
-
-      // Tabel headers
-      const tableStartX = doc.page.margins.left;
-      const col1Width = 200;
-      const col2Width = 80;
-      const col3Width = 80;
-      const col4Width = 80;
-
-      let tableY = doc.y;
-      doc.fontSize(10).font('Helvetica-Bold');
-      doc.text('Segment', tableStartX, tableY, { width: col1Width, continued: false });
-      doc.text('Start', tableStartX + col1Width, tableY, { width: col2Width, continued: false });
-      doc.text('Einde', tableStartX + col1Width + col2Width, tableY, { width: col3Width, continued: false });
-      doc.text('Duur', tableStartX + col1Width + col2Width + col3Width, tableY, { width: col4Width, continued: false });
-      tableY += 15;
-
-      // Tabel rijen
-      doc.fontSize(9).font('Helvetica');
-      timing.forEach((segment) => {
-        const startTime = new Date(segment.start).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
-        const endTime = new Date(segment.end).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
-
-        doc.text(segment.naam, tableStartX, tableY, { width: col1Width, continued: false });
-        doc.text(startTime, tableStartX + col1Width, tableY, { width: col2Width, continued: false });
-        doc.text(endTime, tableStartX + col1Width + col2Width, tableY, { width: col3Width, continued: false });
-        doc.text(`${segment.duurInMinuten} min`, tableStartX + col1Width + col2Width + col3Width, tableY, { width: col4Width, continued: false });
-        tableY += 12;
-      });
-
-      doc.y = tableY;
-      doc.moveDown(0.5);
-    }
-
-    doc.moveDown(1);
-    doc.x = doc.page.margins.left;
-    // Positie bezetting header
-    doc.fontSize(14).font('Helvetica-Bold').text('Positie bezetting', { underline: true });
-    doc.moveDown(0.5);
-
-    // Debug: log rolesBySection
-    logger.info('rolesBySection keys:', Object.keys(rolesBySection));
-    Object.keys(rolesBySection).forEach(key => {
-      logger.info(`Section ${key}:`, rolesBySection[key]);
-    });
-
-    // Verzamel alle posities uit alle secties
-    const allRoles: Array<{ positionName: string; personNames: string[]; isStudio: boolean }> = [];
-    Object.values(rolesBySection).forEach((roles) => {
-      roles.forEach((role) => {
-        const existing = allRoles.find((r) => r.positionName === role.positionName);
-        if (existing) {
-          role.personNames.forEach((n) => {
-            if (!existing.personNames.includes(n)) {
-              existing.personNames.push(n);
-            }
-          });
-        } else {
-          allRoles.push({ positionName: role.positionName, personNames: [...role.personNames], isStudio: role.isStudio });
-        }
-      });
-    });
-
+    doc.fontSize(12).font('Helvetica-Bold').text('Positie Bezetting');
+    doc.moveDown(1.5);
     // Splits in Studio en Productie posities op basis van isStudio veld
-    const studioRoles = allRoles.filter((r) => r.isStudio);
-    const productieRoles = allRoles.filter((r) => !r.isStudio);
+    const studioRoles = crewByCategory.ENTERTAINMENT;
+    const productieRoles = crewByCategory.TECHNICAL.concat(crewByCategory.GENERAL);
 
     // Render twee kolommen met tabellen
     const columnWidth = pageWidth / 2 - 10;
@@ -654,7 +246,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
     const positionColumnY = doc.y;
 
     // Linker kolom: Studio posities
-    doc.fontSize(12).font('Helvetica-Bold').text('Studio posities', leftColumnX, currentY);
+    doc.fontSize(12).font('Helvetica-Bold').text(categoryLabels.ENTERTAINMENT + ' posities', leftColumnX, currentY);
     currentY += 20;
 
     // Tabel headers
@@ -710,19 +302,18 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
     doc.moveDown(1);
     doc.x = doc.page.margins.left;
 
-    // Wedstrijdsponsor
-    if (report?.matchSponsor) {
-      doc.fontSize(12).font('Helvetica-Bold').text('Wedstrijdsponsor:', { continued: false });
-      doc.font('Helvetica').text(report.matchSponsor);
-      doc.moveDown(1);
-    } else {
-      doc.moveDown(0.5);
+    if (productionReport?.matchSponsor) {
+      doc.fontSize(12).font('Helvetica-Bold').text('Wedstrijdsponsor');
+      doc.font('Helvetica').fontSize(10).text(productionReport.matchSponsor);
+      doc.moveDown(1.5);
     }
-    doc.moveDown(1);
 
-    // Interview sectie met foto's in 2 kolommen (coach links, speler rechts)
-    const allInterviewees = [...interviews.home.players, ...interviews.home.coaches, ...interviews.away.players, ...interviews.away.coaches];
-    if (allInterviewees.length > 0) {
+    if (productionReport?.remarks) {
+      doc.fontSize(12).font('Helvetica-Bold').text('Opmerkingen');
+      doc.font('Helvetica').fontSize(10).text(productionReport.remarks);
+    }
+
+    if (interviews.home.players.length || interviews.home.coaches.length || interviews.away.players.length || interviews.away.coaches.length) {
       // Page break voor interviews sectie
       doc.addPage();
 
@@ -787,7 +378,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
 
       // Away team - 2 kolommen layout
       if (interviews.away.players.length > 0 || interviews.away.coaches.length > 0) {
-        doc.fontSize(12).font('Helvetica-Bold').text(`${match.awayTeamName}:`);
+        doc.fontSize(12).font('Helvetica-Bold').text(`${matchSchedule.awayTeamName}:`);
         doc.moveDown(0.3);
 
         const rowStartY = doc.y;
@@ -815,7 +406,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
 
       // Home team - 2 kolommen layout
       if (interviews.home.players.length > 0 || interviews.home.coaches.length > 0) {
-        doc.fontSize(12).font('Helvetica-Bold').text(`${match.homeTeamName}:`);
+        doc.fontSize(12).font('Helvetica-Bold').text(`${matchSchedule.homeTeamName}:`);
         doc.moveDown(0.3);
 
         const rowStartY = doc.y;
@@ -842,30 +433,16 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
       }
       doc.moveDown(0.5);
     }
-
-    // Interview rationale
-    if (report?.interviewRationale) {
-      doc.fontSize(13).font('Helvetica-Bold').text('Argumentatie voor spelerkeuze:', { underline: true });
-      doc.moveDown(0.3);
-      doc.fontSize(11).font('Helvetica').text(report.interviewRationale);
-      doc.moveDown(0.5);
+    if (productionReport?.interviewRationale) {
+      doc.fontSize(12).font('Helvetica-Bold').text('Argumentatie Interviews');
+      doc.font('Helvetica').fontSize(10).text(productionReport.interviewRationale);
+      doc.moveDown(1.5);
     }
-
-    // Opmerkingen
-    if (report?.remarks) {
-      doc.fontSize(13).font('Helvetica-Bold').text('Opmerkingen:', { underline: true });
-      doc.moveDown(0.3);
-      doc.fontSize(11).font('Helvetica').text(report.remarks);
-      doc.moveDown(0.5);
-    }
-
-    // Finalize PDF
     doc.end();
   } catch (err) {
     return next(err);
   }
 });
-
 // GET /api/production/:id/report/markdown - Download het productie rapport als Markdown
 productionReportsRouter.get('/:id/report/markdown', async (req, res, next) => {
   try {
