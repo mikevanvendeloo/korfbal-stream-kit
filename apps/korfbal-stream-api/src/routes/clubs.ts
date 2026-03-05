@@ -609,6 +609,52 @@ clubsRouter.get('/', async (_req, res, next) => {
   }
 });
 
+/**
+ * GET /api/clubs/:id/teams
+ * Returns a list of unique team names associated with a club,
+ * derived from the match schedule.
+ */
+clubsRouter.get('/:id/teams', async (req, res, next) => {
+  try {
+    const clubId = Number(req.params.id);
+    if (isNaN(clubId)) {
+      return res.status(400).json({ error: 'Invalid club ID' });
+    }
+
+    const club = await prisma.club.findUnique({
+      where: { id: clubId },
+      select: { name: true },
+    });
+
+    if (!club) {
+      // Return an empty array if club not found, which is fine for the frontend.
+      return res.json([]);
+    }
+
+    // Find all unique team names from matches where the team name starts with the club name.
+    const homeTeams = await prisma.matchSchedule.findMany({
+      where: { homeTeamName: { startsWith: club.name, mode: 'insensitive' } },
+      select: { homeTeamName: true },
+      distinct: ['homeTeamName'],
+    });
+
+    const awayTeams = await prisma.matchSchedule.findMany({
+      where: { awayTeamName: { startsWith: club.name, mode: 'insensitive' } },
+      select: { awayTeamName: true },
+      distinct: ['awayTeamName'],
+    });
+
+    const teamNames = [
+      ...new Set([...homeTeams.map((t) => t.homeTeamName), ...awayTeams.map((t) => t.awayTeamName)]),
+    ].sort();
+
+    // The frontend expects an array of objects with a 'name' property.
+    return res.json(teamNames.map((name) => ({ name })));
+  } catch (error) {
+    return next(error);
+  }
+});
+
 // Delete club by slug (also removes its players)
 clubsRouter.delete('/:slug', async (req, res, next) => {
   try {

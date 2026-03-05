@@ -10,8 +10,7 @@ import {
 import {useQuery} from "@tanstack/react-query";
 import {useClubs} from "../hooks/useClubs";
 
-type SponsorType = 'premium' | 'goud' | 'zilver' | 'brons';
-const ALL_TYPES: SponsorType[] = ['premium', 'goud', 'zilver', 'brons'];
+import {ALL_SPONSOR_TYPES, SponsorType} from "./SponsorsPage";
 
 // API functions for club config
 async function getClubConfig() {
@@ -246,7 +245,7 @@ export default function SettingsPage() {
             <div>
               <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Sponsor Namen (Ticker & Carrousel)</h3>
               <div className="space-y-2">
-                {ALL_TYPES.map(type => (
+                {ALL_SPONSOR_TYPES.map(type => (
                   <label key={`names-${type}`} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -259,7 +258,7 @@ export default function SettingsPage() {
                 ))}
               </div>
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Selecteer welke types worden getoond in de ticker en carrousel.
+                Selecteer welke types worden getoond in de ticker.
               </p>
             </div>
 
@@ -267,7 +266,7 @@ export default function SettingsPage() {
             <div>
               <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Sponsor Rows (Spelerfoto's)</h3>
               <div className="space-y-2">
-                {ALL_TYPES.map(type => (
+                {ALL_SPONSOR_TYPES.map(type => (
                   <label key={`rows-${type}`} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -288,7 +287,7 @@ export default function SettingsPage() {
             <div>
               <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Sponsor Slides (Pauze)</h3>
               <div className="space-y-2">
-                {ALL_TYPES.map(type => (
+                {ALL_SPONSOR_TYPES.map(type => (
                   <label key={`slides-${type}`} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"

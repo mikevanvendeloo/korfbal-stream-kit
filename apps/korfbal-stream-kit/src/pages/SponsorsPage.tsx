@@ -14,7 +14,9 @@ import {uploadSponsorsExcel} from '../lib/api';
 import {MdAdd, MdDownload, MdRefresh, MdUploadFile} from 'react-icons/md';
 import SponsorFormModal from '../components/SponsorFormModal';
 
-type SponsorType = 'premium' | 'goud' | 'zilver' | 'brons';
+export type SponsorType = 'premium' | 'goud' | 'zilver' | 'brons' | 'evenement';
+
+export const ALL_SPONSOR_TYPES: SponsorType[] = ['premium', 'goud', 'zilver', 'brons', 'evenement'];
 
 export default function SponsorsPage() {
   const [selectedTypes, setSelectedTypes] = useState<SponsorType[]>([]);
@@ -97,7 +99,7 @@ export default function SponsorsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1 mr-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1">
             <span className="text-sm text-gray-500 dark:text-gray-400 mr-1">Filter:</span>
-            {(['premium', 'goud', 'zilver', 'brons'] as SponsorType[]).map((t) => (
+            {(ALL_SPONSOR_TYPES).map((t) => (
               <label key={t} className="flex items-center gap-1 cursor-pointer select-none px-1 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
                 <input
                   type="checkbox"

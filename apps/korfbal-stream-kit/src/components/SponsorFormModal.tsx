@@ -68,6 +68,7 @@ export default function SponsorFormModal({ initial, onCancel, onSubmit }: Sponso
               <option value="goud">Goud</option>
               <option value="zilver">Zilver</option>
               <option value="brons">Brons</option>
+              <option value="evenement">Evenement</option>
             </select>
           </div>
           <div>
