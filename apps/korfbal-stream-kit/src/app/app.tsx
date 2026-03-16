@@ -22,22 +22,22 @@ import CallSheetEditPage from '../pages/CallSheetEditPage';
 import ActiveProductionPage from '../pages/ActiveProductionPage';
 import {ThemeProvider, useTheme} from '../theme/ThemeProvider';
 import {
+  MdAssessment,
   MdBuild,
+  MdEditCalendar,
   MdGroups,
+  MdInfo,
   MdList,
   MdPeople,
   MdPlayCircleFilled,
   MdQrCode,
   MdSchedule,
+  MdSettings,
   MdTableChart,
   MdTextFields,
   MdVideocam,
   MdViewList,
   MdWork,
-  MdAssessment,
-  MdInfo,
-  MdSettings,
-  MdEditCalendar,
 } from 'react-icons/md';
 import VmixTemplatesPage from '../pages/VmixTemplatesPage';
 import VmixControlPage from '../pages/VmixControlPage';
@@ -57,10 +57,10 @@ function Nav() {
   const configRef = React.useRef<HTMLDetailsElement>(null);
   const toolsRef = React.useRef<HTMLDetailsElement>(null);
   const vMixRef = React.useRef<HTMLDetailsElement>(null);
-  const reportsRef = React.useRef<HTMLDetailsElement>(null);
+  const productiesRef = React.useRef<HTMLDetailsElement>(null);
 
   function closeAll() {
-    for (const ref of [liveRef, beheerRef, configRef, toolsRef, vMixRef, reportsRef]) {
+    for (const ref of [liveRef, beheerRef, configRef, toolsRef, vMixRef, productiesRef]) {
       if (ref.current) ref.current.open = false;
     }
   }
@@ -76,7 +76,7 @@ function Nav() {
     if (!el) return;
     // When this menu opens, close others
     if (el.open) {
-      for (const other of [liveRef, beheerRef, configRef, toolsRef, vMixRef, reportsRef]) {
+      for (const other of [liveRef, beheerRef, configRef, toolsRef, vMixRef, productiesRef]) {
         if (other !== ref && other.current) other.current.open = false;
       }
     }
@@ -116,10 +116,9 @@ function Nav() {
             </div>
           </details>
 
-          {/* BEHEER */}
-          <details ref={beheerRef} onToggle={() => onToggle(beheerRef)} className="relative group">
+          <details ref={productiesRef} onToggle={() => onToggle(productiesRef)} className="relative group">
             <summary className="list-none cursor-pointer text-gray-800 dark:text-gray-200 hover:underline">
-              Beheer
+              Producties
             </summary>
             <div
               className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
@@ -135,19 +134,38 @@ function Nav() {
                     <span>Productie overzicht</span>
                   </Link>
                 </li>
+                <li>
+                  <Link to="/admin/persons"
+                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdPeople/>
+                    <span>Personen</span>
+                  </Link>
+                </li>
 
+                <li>
+                  <Link to="/reports"
+                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdAssessment/>
+                    <span>Rapportages</span>
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </details>
+          {/* BEHEER */}
+          <details ref={beheerRef} onToggle={() => onToggle(beheerRef)} className="relative group">
+            <summary className="list-none cursor-pointer text-gray-800 dark:text-gray-200 hover:underline">
+              Beheer
+            </summary>
+            <div
+              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
+              <ul className="text-sm">
 
                 <li
                   className="mt-3 px-3 py-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Basis
                   data
                 </li>
-                <li>
-                  <Link to="/admin/vmix/control"
-                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
-                    <MdVideocam/>
-                    <span>vMix control</span>
-                  </Link>
-                </li>
+
                 <li>
                   <Link to="/sponsors"
                         className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
@@ -164,13 +182,7 @@ function Nav() {
                 </li>
 
 
-                <li>
-                  <Link to="/admin/persons"
-                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
-                    <MdPeople/>
-                    <span>Personen</span>
-                  </Link>
-                </li>
+
                 <li
                   className="mt-3 px-3 py-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Competition
                   data
@@ -235,13 +247,7 @@ function Nav() {
                     <span>Segment posities</span>
                   </Link>
                 </li>
-                <li>
-                  <Link to="/admin/vmix/title-templates"
-                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
-                    <MdTextFields/>
-                    <span>vMix titel templates</span>
-                  </Link>
-                </li>
+
               </ul>
             </div>
           </details>
@@ -272,6 +278,13 @@ function Nav() {
             <div
               className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
               <ul className="text-sm">
+                <li>
+                  <Link to="/admin/vmix/title-templates"
+                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdTextFields/>
+                    <span>vMix titel templates</span>
+                  </Link>
+                </li>
                 <li
                   className="mt-3 px-3 py-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Tools
                 </li>
@@ -281,22 +294,11 @@ function Nav() {
                     <span>Datasources</span>
                   </Link>
                 </li>
-              </ul>
-            </div>
-          </details>
-          {/* REPORTS */}
-          <details ref={reportsRef} onToggle={() => onToggle(reportsRef)} className="relative group">
-            <summary className="list-none cursor-pointer text-gray-800 dark:text-gray-200 hover:underline">
-              Reports
-            </summary>
-            <div
-              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
-              <ul className="text-sm">
                 <li>
-                  <Link to="/reports"
+                  <Link to="/admin/vmix/control"
                         className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
-                    <MdAssessment/>
-                    <span>Rapportages</span>
+                    <MdVideocam/>
+                    <span>vMix control</span>
                   </Link>
                 </li>
               </ul>

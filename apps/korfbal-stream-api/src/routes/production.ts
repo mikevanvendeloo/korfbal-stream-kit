@@ -19,6 +19,7 @@ import {segmentAssignmentsRouter} from './production/segment-assignments';
 import {productionReportsRouter} from './production/production-reports';
 import {productionCrewRouter} from './production/production-crew';
 import {productionExportImportRouter} from './production/production-export-import';
+import {productionEventsRouter} from './production/production-events';
 
 export const productionRouter: Router = Router();
 
@@ -40,6 +41,7 @@ productionRouter.use(segmentAssignmentsRouter);
 productionRouter.use(productionReportsRouter);
 productionRouter.use(productionCrewRouter);
 productionRouter.use(productionExportImportRouter);
+productionRouter.use(productionEventsRouter);
 
 // Nest skills router under production namespace for backward compatibility
 // Note: /persons router is NOT nested here - persons are available at /api/persons

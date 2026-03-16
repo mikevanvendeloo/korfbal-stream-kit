@@ -172,6 +172,7 @@ model Production {
   productionReport    ProductionReport?
   productionPersons   ProductionPerson[]
   productionPositions ProductionPersonPosition[] // NIEUW: Productie-brede positie toewijzingen
+  events              ProductionEvent[]
 }
 
 /// People marked as present for a production
@@ -473,4 +474,31 @@ model ProductionReport {
   updatedAt DateTime @updatedAt
 
   @@index([productionId])
+}
+
+/// ================= Production Events =================
+
+/// Types of events that can occur during a production
+enum ProductionEventType {
+  STREAM_START
+  STREAM_STOP
+  AD_START
+  INTRO_VIDEO_START
+}
+
+/// Events that occur during a production with actual timestamps from vMix
+model ProductionEvent {
+  id           Int        @id @default(autoincrement())
+  productionId Int
+  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+
+  eventType ProductionEventType
+  timestamp DateTime // Actuele tijd waarop het event plaatsvond
+  metadata  Json? // Optionele extra data (bijvoorbeeld reclameblok nummer, video naam, etc.)
+
+  createdAt DateTime @default(now())
+
+  @@index([productionId])
+  @@index([productionId, timestamp])
+  @@index([eventType])
 }

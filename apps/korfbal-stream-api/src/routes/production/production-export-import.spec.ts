@@ -60,6 +60,7 @@ describe('Production Export/Import API', () => {
 
     // Mock upserts/creates/finds
     prisma.matchSchedule.upsert = vi.fn().mockResolvedValue({ id: 100 });
+    prisma.production.updateMany = vi.fn();
     prisma.production.findUnique = vi.fn().mockResolvedValue(null); // Not found initially
     prisma.production.create = vi.fn().mockResolvedValue({ id: 200 });
     prisma.production.update = vi.fn().mockResolvedValue({ id: 200 });

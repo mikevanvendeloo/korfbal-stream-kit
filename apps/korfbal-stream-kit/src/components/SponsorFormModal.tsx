@@ -8,7 +8,7 @@ export type SponsorFormModalProps = {
   onSubmit: (input: SponsorInput & { logoFile?: File }) => Promise<void> | void;
 };
 
-export default function SponsorFormModal({ initial, onCancel, onSubmit }: SponsorFormModalProps) {
+export default function SponsorFormModal({ initial, onCancel, onSubmit }: Readonly<SponsorFormModalProps>) {
   const [name, setName] = React.useState(initial?.name || '');
   const [type, setType] = React.useState<Exclude<Sponsor['type'], undefined>>(initial?.type || 'brons');
   const [websiteUrl, setWebsiteUrl] = React.useState(initial?.websiteUrl || '');
