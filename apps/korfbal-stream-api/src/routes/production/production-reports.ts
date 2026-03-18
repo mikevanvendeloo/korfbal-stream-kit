@@ -232,6 +232,32 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
     doc.font('Helvetica').fontSize(10).text(attendees.map(a => a.name).join(', ') || 'Geen');
     doc.moveDown(1.5);
 
+    // Tijdschema
+    const timing = calculateTiming(production.segments, matchDate, production.liveTime);
+    if (timing.length > 0) {
+      doc.fontSize(12).font('Helvetica-Bold').text('Tijdschema');
+      doc.moveDown(0.5);
+
+      // Tabel headers
+      doc.fontSize(10).font('Helvetica-Bold');
+      doc.text('Tijd', doc.page.margins.left, doc.y, { width: 50, continued: true });
+      doc.text('Onderwerp', doc.page.margins.left + 60, doc.y);
+      doc.moveDown(0.2);
+      doc.moveTo(doc.page.margins.left, doc.y).lineTo(doc.page.width - doc.page.margins.right, doc.y).stroke();
+      doc.moveDown(0.3);
+
+      // Tabel rijen
+      doc.fontSize(9).font('Helvetica');
+      timing.forEach((segment) => {
+        const startTime = new Date(segment.start).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+        const currentY = doc.y;
+        doc.text(startTime, doc.page.margins.left, currentY, { width: 50 });
+        doc.text(segment.naam, doc.page.margins.left + 60, currentY, { width: pageWidth - 60 });
+        doc.moveDown(0.2);
+      });
+      doc.moveDown(1.5);
+    }
+
     doc.fontSize(12).font('Helvetica-Bold').text('Positie Bezetting');
     doc.moveDown(1.5);
     // Splits in Studio en Productie posities op basis van isStudio veld

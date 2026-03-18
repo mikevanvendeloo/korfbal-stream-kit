@@ -1,8 +1,7 @@
 import {Router} from 'express';
 import {skillsRouter} from './skills';
 import {prisma} from '../services/prisma';
-import { getSetting } from '../services/appSettings';
-import { PRODUCTION_TEAM_NAMES_KEY } from '../services/appSettings';
+import {getSetting, PRODUCTION_TEAM_NAMES_KEY} from '../services/appSettings';
 
 // Import all production sub-routers
 import {productionPersonsRouter} from './production/production-persons';
@@ -141,7 +140,11 @@ productionRouter.post('/', async (req, res, next) => {
 productionRouter.get('/', async (_req, res, next) => {
   try {
     const items = await prisma.production.findMany({
-      orderBy: { id: 'asc' },
+      orderBy: {
+        matchSchedule: {
+          date: 'desc'
+        }
+      },
       include: { matchSchedule: true },
     });
     return res.json({ items, total: items.length });

@@ -16,6 +16,24 @@ export type DailyOccupancyReport = {
   }>;
 };
 
+export type DailyOccupancyByPositionReport = {
+  date: string;
+  productions: Array<{
+    id: number;
+    time: string;
+    liveTime?: string;
+    homeTeam: string;
+    awayTeam: string;
+  }>;
+  positions: Array<{
+    id: number;
+    name: string;
+    category: string;
+    sortOrder: number;
+    assignments: Record<number, string[]>;
+  }>;
+};
+
 export type InterviewsReport = Array<{
   id: number;
   date: string;
@@ -42,6 +60,18 @@ export function useDailyOccupancyReport(date: string) {
     enabled: !!date,
     queryFn: async (): Promise<DailyOccupancyReport> => {
       const res = await fetch(createUrl(`/api/reports/daily-occupancy?date=${date}`));
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+  });
+}
+
+export function useDailyOccupancyByPositionReport(date: string) {
+  return useQuery({
+    queryKey: ['reports', 'daily-occupancy-by-position', date],
+    enabled: !!date,
+    queryFn: async (): Promise<DailyOccupancyByPositionReport> => {
+      const res = await fetch(createUrl(`/api/reports/daily-occupancy-by-position?date=${date}`));
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },

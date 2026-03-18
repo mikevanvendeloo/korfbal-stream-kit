@@ -12,12 +12,24 @@ productionCrewReportRouter.get('/:id/crew-report', async (req, res, next) => {
     const prod = await prisma.production.findUnique({ where: { id } });
     if (!prod) return res.status(404).json({ error: 'Not found' });
 
-    const [segments, positions, assignments] = await Promise.all([
+    const [segments, positions, assignments, callsheets] = await Promise.all([
       prisma.productionSegment.findMany({ where: { productionId: id }, orderBy: { volgorde: 'asc' } }),
       prisma.position.findMany({ orderBy: { name: 'asc' } }),
       prisma.segmentRoleAssignment.findMany({
         where: { productionSegment: { productionId: id } },
         include: { person: true, position: true },
+      }),
+      prisma.callSheet.findMany({
+        where: { productionId: id },
+        include: {
+          items: {
+            orderBy: { orderIndex: 'asc' },
+            include: {
+              productionSegment: true,
+            }
+          }
+        },
+        orderBy: { id: 'asc' }
       }),
     ]);
 
@@ -27,7 +39,7 @@ productionCrewReportRouter.get('/:id/crew-report', async (req, res, next) => {
       personName: a.person.name,
     }));
 
-    return res.json({ segments, positions, cells });
+    return res.json({ segments, positions, cells, callsheets });
   } catch (err) {
     return next(err);
   }

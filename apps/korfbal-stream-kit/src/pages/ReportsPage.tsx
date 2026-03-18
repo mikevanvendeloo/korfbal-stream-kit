@@ -1,11 +1,16 @@
 import React from 'react';
-import {useCrewRolesReport, useDailyOccupancyReport, useInterviewsReport} from '../hooks/useReports';
+import {
+  useCrewRolesReport,
+  useDailyOccupancyByPositionReport,
+  useDailyOccupancyReport,
+  useInterviewsReport
+} from '../hooks/useReports';
 import {useNextProductionDate, useProductionDates} from '../hooks/useProductions';
 import SimpleCalendar from '../components/SimpleCalendar';
 import '../styles/calendar.css';
 import {createColumnHelper, flexRender, getCoreRowModel, useReactTable,} from '@tanstack/react-table';
 import {downloadAsPng} from '../lib/download';
-import {MdDownload} from 'react-icons/md';
+import {MdClose, MdDownload} from 'react-icons/md';
 import PlayerCard from '../components/PlayerCard';
 
 function formatDate(date: string | Date) {
@@ -150,10 +155,22 @@ function DailyOccupancyReport() {
           ),
           cell: info => {
             const roles = info.getValue();
-            return roles && roles.length > 0 ? (
-              <div className="text-center">{roles.join(', ')}</div>
-            ) : (
-              <div className="text-center text-gray-400">-</div>
+            const person = info.row.original;
+            const prodId = prod.id;
+            const isPresent = person.presence && person.presence[prodId];
+
+            if (roles && roles.length > 0) {
+              return <div className="text-center">{roles.join(', ')}</div>;
+            }
+
+            if (isPresent) {
+              return <div className="text-center text-gray-400 font-italic text-xs">Geen positie</div>;
+            }
+
+            return (
+              <div className="flex justify-center">
+                <MdClose className="text-red-500 text-lg" />
+              </div>
             );
           },
         })
@@ -219,6 +236,8 @@ function DailyOccupancyReport() {
             stickyFirstColumn={true}
             caption={`Dagbezetting - ${formatDate(date)}`}
           />
+
+          <OccupancyByPositionTable date={date} />
 
           {/* Interviews Section per Production */}
           {dailyInterviews.length > 0 && (
@@ -360,6 +379,76 @@ function InterviewsReport() {
     </div>
   );
 }
+
+
+function OccupancyByPositionTable({ date }: { date: string }) {
+  const { data, isLoading, error } = useDailyOccupancyByPositionReport(date);
+
+  const columns = React.useMemo(() => {
+    if (!data) return [];
+    const helper = createColumnHelper<any>();
+
+    const cols = [
+      helper.accessor('name', {
+        header: 'Positie',
+        cell: info => {
+          const row = (info.row.original as any);
+          return (
+            <div>
+              <div className="font-medium text-gray-900 dark:text-gray-100">{row.name}</div>
+              <div className="text-[10px] text-gray-400 uppercase tracking-tighter">{row.category}</div>
+            </div>
+          );
+        },
+      }),
+    ];
+
+    data.productions.forEach(prod => {
+      cols.push(
+        helper.accessor((row: any) => row.assignments[prod.id], {
+          id: `prod-${prod.id}`,
+          header: () => (
+            <div className="text-center">
+              <div className="font-bold text-gray-900 dark:text-gray-100 text-sm">{prod.homeTeam}</div>
+              <div className="text-xs font-normal text-gray-500 dark:text-gray-400">
+                {formatTime(prod.time)}
+                {prod.liveTime && ` (${formatTime(prod.liveTime)})`}
+              </div>
+            </div>
+          ),
+          cell: info => {
+            const persons = info.getValue() as string[];
+            return persons && persons.length > 0 ? (
+              <div className="text-center font-medium text-gray-800 dark:text-gray-200">{persons.join(', ')}</div>
+            ) : (
+              <div className="flex justify-center">
+                <MdClose className="text-red-500 text-lg" />
+              </div>
+            );
+          },
+        })
+      );
+    });
+
+    return cols;
+  }, [data]);
+
+  if (isLoading) return <div className="text-gray-400 animate-pulse text-sm py-4">Positiebezetting laden...</div>;
+  if (error) return null;
+  if (!data || data.positions.length === 0) return null;
+
+  return (
+    <div className="mt-8 border-t border-gray-100 dark:border-gray-800 pt-8">
+      <DataTable
+        data={data.positions}
+        columns={columns}
+        stickyFirstColumn={true}
+        caption={`Bezetting per Positie - ${formatDate(date)}`}
+      />
+    </div>
+  );
+}
+
 
 function CrewRolesReport() {
   const {data, isLoading, error} = useCrewRolesReport();

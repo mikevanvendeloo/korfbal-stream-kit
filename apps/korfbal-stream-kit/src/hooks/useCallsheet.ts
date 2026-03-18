@@ -6,6 +6,7 @@ export type CrewReport = {
   segments: Array<{ id: number; naam: string; volgorde: number }>;
   groupedPositions: Array<{ category: PositionCategory, positions: Position[] }>;
   cells: Array<{ segmentId: number; positionId: number; personName: string }>;
+  callsheets: Array<CallSheet & { items: Array<CallSheetItem & { productionSegment: { naam: string } }> }>;
 }
 
 export function useCrewReport(productionId: number) {

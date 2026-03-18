@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, {useEffect} from 'react';
 
 import {
   useActivateProduction,
@@ -10,7 +10,7 @@ import {
   useUpdateProduction,
 } from '../hooks/useProductions';
 import IconButton from '../components/IconButton';
-import {MdAdd, MdDelete, MdEdit, MdGroups, MdInfo, MdPlayCircle, MdDownload, MdUpload} from 'react-icons/md';
+import {MdAdd, MdDelete, MdDownload, MdEdit, MdGroups, MdInfo, MdPlayCircle, MdUpload} from 'react-icons/md';
 import {createUrl} from '../lib/api';
 
 function formatMatchDate(date: string): string {
@@ -21,6 +21,15 @@ function formatMatchDate(date: string): string {
   const hours = String(d.getHours()).padStart(2, '0');
   const minutes = String(d.getMinutes()).padStart(2, '0');
   return `${day}-${month}-${year} ${hours}:${minutes}`;
+}
+
+function formatProductionTime(matchDate: string, liveTime?: string): string {
+  const dateObj = liveTime ? new Date(liveTime) : new Date(matchDate);
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const hours = String(dateObj.getHours()).padStart(2, '0');
+  const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+  return `${day}-${month} ${hours}:${minutes}`;
 }
 
 export default function ProductionsAdminPage() {
@@ -127,6 +136,7 @@ export default function ProductionsAdminPage() {
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
                 <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">ID</th>
+                <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Datum/Tijd</th>
                 <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Match</th>
                 <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Acties</th>
               </tr>
@@ -135,6 +145,9 @@ export default function ProductionsAdminPage() {
               {(prods?.items || []).map((p) => (
                 <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-900">
                   <td className="p-2 border-b border-gray-200 dark:border-gray-800">{p.id}</td>
+                  <td className="p-2 border-b border-gray-200 dark:border-gray-800 whitespace-nowrap">
+                    {formatProductionTime(p.matchSchedule.date, p.liveTime)}
+                  </td>
                   <td className="p-2 border-b border-gray-200 dark:border-gray-800">
                     <div className="flex items-center gap-2">
                       {p.isActive ? (

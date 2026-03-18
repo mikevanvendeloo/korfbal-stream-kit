@@ -11,6 +11,9 @@ export async function downloadAsPng(elementId: string, filename: string) {
     const canvas = await html2canvas(element, {
       backgroundColor: null, // Transparent background if possible, or use '#ffffff'
       scale: 2, // Higher resolution
+      useCORS: true, // Allow cross-origin images
+      allowTaint: true, // Allow tainted canvas for local development
+      logging: false,
     });
 
     const link = document.createElement('a');

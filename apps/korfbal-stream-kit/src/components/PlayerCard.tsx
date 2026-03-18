@@ -17,14 +17,19 @@ type PhotoCardProps = {
   name: string;
 }
 export function PhotoCard({ photoUrl, name}: Readonly<PhotoCardProps>) {
+  const imageUrl = photoUrl ? createUrl(`/uploads/${photoUrl}`).toString() : null;
   return (
     <div className="w-48 h-48 overflow-hidden rounded-lg mb-3 bg-gray-100 dark:bg-gray-800 relative">
-      {photoUrl ? (
-        <img
-          src={createUrl(`/uploads/${photoUrl}`).toString()}
-          alt={name}
-          className="w-full h-full object-cover scale-125 origin-top"
-          style={{objectPosition: 'center top', aspectRatio: '1'}}
+      {imageUrl ? (
+        <div
+          className="w-full h-full bg-cover"
+          style={{
+            backgroundImage: `url("${imageUrl}")`,
+            backgroundPosition: 'center 0%', // Zoom in slightly on the upper part
+            backgroundSize: '130%', // Equivalent to scale-125
+            aspectRatio: '1',
+          }}
+          aria-label={name}
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center text-gray-400">

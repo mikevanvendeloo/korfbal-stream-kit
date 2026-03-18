@@ -1,7 +1,7 @@
 import React from 'react';
 import {Link, useParams} from 'react-router-dom';
 import {useCrewReport} from '../hooks/useCallsheet';
-import {useProductionInterviews, useProduction} from '../hooks/useProductions';
+import {useProduction, useProductionInterviews} from '../hooks/useProductions';
 import PlayerCard from '../components/PlayerCard';
 import html2canvas from 'html2canvas';
 import {MdDownload} from 'react-icons/md';
@@ -50,6 +50,11 @@ export default function CrewReportPage() {
   const homeTeamName = production.data?.matchSchedule?.homeTeamName || 'Thuis';
   const awayTeamName = production.data?.matchSchedule?.awayTeamName || 'Uit';
 
+  const formatTime = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
+
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
       <div className="flex items-center justify-between mb-4">
@@ -68,6 +73,44 @@ export default function CrewReportPage() {
 
       <div ref={reportRef} className="bg-white dark:bg-gray-900 p-4 rounded-md border border-gray-200 dark:border-gray-800">
         <h2 className="text-lg font-bold mb-4 text-center">Dagbezetting</h2>
+
+        {/* Tijdschema Section */}
+        {data.callsheets && data.callsheets.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-md font-bold mb-3 border-b pb-1 dark:border-gray-700">Tijdschema</h3>
+            {data.callsheets.map(cs => (
+              <div key={cs.id} className="mb-4">
+                {data.callsheets.length > 1 && <div className="font-semibold text-sm mb-1">{cs.name}</div>}
+                <div className="overflow-auto border rounded-md">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
+                        <th className="p-2 text-left w-16">Tijd</th>
+                        <th className="p-2 text-left w-16">Cue</th>
+                        <th className="p-2 text-left">Onderwerp</th>
+                        <th className="p-2 text-left">Segment</th>
+                        <th className="p-2 text-left">Duur</th>
+                        <th className="p-2 text-left">Opmerking</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cs.items.map(item => (
+                        <tr key={item.id} className="border-b last:border-0 dark:border-gray-700">
+                          <td className="p-2 whitespace-nowrap font-mono">{formatTime(item.timeStart)}</td>
+                          <td className="p-2 whitespace-nowrap font-medium">{item.cue}</td>
+                          <td className="p-2">{item.title}</td>
+                          <td className="p-2 text-gray-500">{item.productionSegment.naam}</td>
+                          <td className="p-2 whitespace-nowrap">{item.durationSec > 0 ? `${Math.floor(item.durationSec / 60)}:${(item.durationSec % 60).toString().padStart(2, '0')}` : '-'}</td>
+                          <td className="p-2 text-gray-500 italic text-xs">{item.note}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="overflow-auto border rounded-md mb-8">
           <table className="min-w-full text-sm">

@@ -169,34 +169,33 @@ async function main() {
     // ignore if PF does not exist in current client
   }
 
-  // Seed Positions catalog with isStudio flag
-  const positions: Array<{ name: string; isStudio: boolean }> = [
-    {name: 'Camera overzicht', isStudio: false},
-    {name: 'Camera links', isStudio: false},
-    {name: 'Camera rechts', isStudio: false},
-    {name: 'Camera studio', isStudio: true},
-    {name: 'Regie livestream', isStudio: false},
-    {name: 'Regie LEDscherm', isStudio: false},
-    {name: 'Muziek', isStudio: false},
-    {name: 'Oplopen geluid', isStudio: false},
-    {name: 'Oplopen volgspot', isStudio: false},
-    {name: 'Interview coordinator', isStudio: true},
-    {name: 'Camera studio', isStudio: true},
-    {name: 'Herhalingen', isStudio: false},
-    {name: 'Show caller', isStudio: false},
-    {name: 'Presentatie', isStudio: true},
-    {name: 'Commentaar', isStudio: true},
-    {name: 'Analist', isStudio: true},
-    {name: 'PTZ operator', isStudio: true},
-    {name: 'Runner', isStudio: false},
-    {name: 'Speaker', isStudio: true}
+  // Seed Positions catalog with isStudio flag and Category
+  const positions: Array<{ name: string; isStudio: boolean; category: 'GENERAL' | 'TECHNICAL' | 'ENTERTAINMENT'; sortOrder: number }> = [
+    {name: 'Camera overzicht', isStudio: false, category: 'TECHNICAL', sortOrder: 10},
+    {name: 'Camera links', isStudio: false, category: 'TECHNICAL', sortOrder: 11},
+    {name: 'Camera rechts', isStudio: false, category: 'TECHNICAL', sortOrder: 12},
+    {name: 'Camera studio', isStudio: true, category: 'TECHNICAL', sortOrder: 13},
+    {name: 'PTZ operator', isStudio: true, category: 'TECHNICAL', sortOrder: 14},
+    {name: 'Regie livestream', isStudio: false, category: 'TECHNICAL', sortOrder: 1},
+    {name: 'Regie LEDscherm', isStudio: false, category: 'TECHNICAL', sortOrder: 2},
+    {name: 'Herhalingen', isStudio: false, category: 'TECHNICAL', sortOrder: 3},
+    {name: 'Muziek', isStudio: false, category: 'ENTERTAINMENT', sortOrder: 1},
+    {name: 'Oplopen geluid', isStudio: false, category: 'ENTERTAINMENT', sortOrder: 2},
+    {name: 'Oplopen volgspot', isStudio: false, category: 'ENTERTAINMENT', sortOrder: 3},
+    {name: 'Interview coordinator', isStudio: true, category: 'GENERAL', sortOrder: 5},
+    {name: 'Show caller', isStudio: false, category: 'GENERAL', sortOrder: 1},
+    {name: 'Presentatie', isStudio: true, category: 'ENTERTAINMENT', sortOrder: 10},
+    {name: 'Commentaar', isStudio: true, category: 'ENTERTAINMENT', sortOrder: 11},
+    {name: 'Analist', isStudio: true, category: 'ENTERTAINMENT', sortOrder: 12},
+    {name: 'Runner', isStudio: false, category: 'GENERAL', sortOrder: 10},
+    {name: 'Speaker', isStudio: true, category: 'ENTERTAINMENT', sortOrder: 20}
   ];
   console.log('Seeding positions catalog...');
   for (const pos of positions) {
     await prisma.position.upsert({
       where: {name: pos.name},
-      update: {isStudio: pos.isStudio},
-      create: {name: pos.name, isStudio: pos.isStudio},
+      update: {isStudio: pos.isStudio, category: pos.category, sortOrder: pos.sortOrder},
+      create: {name: pos.name, isStudio: pos.isStudio, category: pos.category, sortOrder: pos.sortOrder},
     });
   }
 
