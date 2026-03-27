@@ -407,6 +407,9 @@ model CallSheetItem {
   durationSec         Int
   orderIndex          Int       @default(0)
   isInVenue           Boolean   @default(false)
+  isInLivestream      Boolean   @default(true)
+  isTimeAnchor        Boolean   @default(false)
+  anchorType          String? // 'MATCH_START', 'LIVESTREAM_START', etc.
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
@@ -465,19 +468,21 @@ enum TriggerSource {
 }
 
 model ProductionEvent {
-  id              String                    @id @default(cuid())
-  productionId    Int
-  order           Int
-  title           String
-  note            String?
-  durationSec     Int?
-  triggerSource   TriggerSource             @default(MANUAL)
-  vMixInputName   String?
-  status          EventStatus               @default(WAITING)
-  actualStartTime DateTime?
-  production      Production                @relation(fields: [productionId], references: [id], onDelete: Cascade)
-  metadata        Json?
-  positions       ProductionEventPosition[] // Relatie naar de koppeltabel
+  id               String                    @id @default(cuid())
+  productionId     Int
+  order            Int
+  title            String
+  note             String?
+  durationSec      Int?
+  triggerSource    TriggerSource             @default(MANUAL)
+  vMixInputName    String?
+  status           EventStatus               @default(WAITING)
+  actualStartTime  DateTime?
+  plannedStartTime DateTime?
+  plannedEndTime   DateTime?
+  production       Production                @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  metadata         Json?
+  positions        ProductionEventPosition[] // Relatie naar de koppeltabel
 
   createdAt DateTime @default(now())
 

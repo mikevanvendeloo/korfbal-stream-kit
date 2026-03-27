@@ -1,9 +1,11 @@
 import React from 'react';
 import {Link, useParams} from 'react-router-dom';
 import {
+  useCalculateCallSheetTimes,
   useCallSheet,
   useCreateCallSheetItem,
   useDeleteCallSheetItem,
+  useSyncCallSheetToEvents,
   useUpdateCallSheet,
   useUpdateCallSheetItem
 } from '../hooks/useCallsheet';
@@ -27,6 +29,8 @@ export default function CallSheetEditPage() {
   const createItem = useCreateCallSheetItem(callSheetId);
   const updateItem = useUpdateCallSheetItem(callSheetId);
   const deleteItem = useDeleteCallSheetItem(callSheetId);
+  const calculateTimes = useCalculateCallSheetTimes(callSheetId);
+  const syncToEvents = useSyncCallSheetToEvents(callSheetId);
 
   const [err, setErr] = React.useState<string | null>(null);
 
@@ -42,6 +46,9 @@ export default function CallSheetEditPage() {
     timeEnd: '',
     orderIndex: 0,
     isInVenue: false,
+    isInLivestream: true,
+    isTimeAnchor: false,
+    anchorType: '',
     positionIds: [] as number[],
   });
 
@@ -75,7 +82,7 @@ export default function CallSheetEditPage() {
       payload.timeStart = payload.timeStart ? new Date(payload.timeStart).toISOString() : undefined;
       payload.timeEnd = payload.timeEnd ? new Date(payload.timeEnd).toISOString() : undefined;
       await createItem.mutateAsync(payload as any);
-      setForm({ id: uuid8(), productionSegmentId: segments.data?.[0]?.id || 0, cue: '', title: '', note: '', color: '', durationSec: 0, timeStart: '', timeEnd: '', orderIndex: 0, isInVenue: false, positionIds: []});
+      setForm({ id: uuid8(), productionSegmentId: segments.data?.[0]?.id || 0, cue: '', title: '', note: '', color: '', durationSec: 0, timeStart: '', timeEnd: '', orderIndex: 0, isInVenue: false, isInLivestream: true, isTimeAnchor: false, anchorType: '', positionIds: []});
     } catch (e: any) {
       setErr(e?.message || 'Toevoegen mislukt');
     }
@@ -118,13 +125,31 @@ export default function CallSheetEditPage() {
       <form onSubmit={handleHeaderUpdate} className="mb-6 flex gap-2 items-end">
         <label className="text-sm">
           <div className="mb-1">Naam</div>
-          <input name="name" defaultValue={data.name} className="border rounded px-2 py-1" />
+          <input name="name" defaultValue={data.name} className="border rounded px-2 py-1 bg-white dark:bg-gray-800" />
         </label>
         <label className="text-sm">
           <div className="mb-1">Kleur</div>
-          <input name="color" defaultValue={(data as any).color || ''} className="border rounded px-2 py-1" />
+          <input name="color" defaultValue={(data as any).color || ''} className="border rounded px-2 py-1 bg-white dark:bg-gray-800" />
         </label>
         <button type="submit" className="px-3 py-2 rounded bg-blue-600 text-white" disabled={updateCS.isPending}>Opslaan</button>
+        <button
+          type="button"
+          onClick={() => calculateTimes.mutateAsync()}
+          className="px-3 py-2 rounded bg-orange-600 text-white ml-auto"
+          disabled={calculateTimes.isPending}
+          title="Berekent alle tijden opnieuw op basis van het ankerpunt"
+        >
+          {calculateTimes.isPending ? 'Berekenen...' : 'Bereken tijden'}
+        </button>
+        <button
+          type="button"
+          onClick={() => syncToEvents.mutateAsync()}
+          className="px-3 py-2 rounded bg-green-600 text-white"
+          disabled={syncToEvents.isPending}
+          title="Pas deze callsheet toe op de live view (overschrijft bestaande events)"
+        >
+          {syncToEvents.isPending ? 'Toepassen...' : 'Toepassen op Live'}
+        </button>
       </form>
 
       {err && <div className="mb-4 text-red-700">{err}</div>}
@@ -179,6 +204,32 @@ export default function CallSheetEditPage() {
               <input type="checkbox" defaultChecked={it.isInVenue} onChange={(e) => handleItemChange(it.id, { isInVenue: e.target.checked })} />
               <div className="text-gray-500">In de zaal?</div>
             </label>
+            <label className="text-sm flex items-center gap-2 mt-4">
+              <input type="checkbox" defaultChecked={(it as any).isInLivestream !== false} onChange={(e) => handleItemChange(it.id, { isInLivestream: e.target.checked })} />
+              <div className="text-gray-500">Livestream?</div>
+            </label>
+            <div className="md:col-span-2 flex flex-col gap-2 mt-4 border-l pl-4 border-gray-700">
+               <label className="text-sm flex items-center gap-2">
+                 <input type="checkbox" defaultChecked={it.isTimeAnchor} onChange={(e) => handleItemChange(it.id, { isTimeAnchor: e.target.checked })} />
+                 <div className="text-gray-500 font-bold">Tijd anker?</div>
+               </label>
+               {it.isTimeAnchor && (
+                 <select
+                    defaultValue={it.anchorType || ''}
+                    onChange={(e) => handleItemChange(it.id, { anchorType: e.target.value })}
+                    className="border rounded px-2 py-1 w-full text-xs bg-white dark:bg-gray-800"
+                 >
+                   <option value="">Kies type...</option>
+                   <option value="MATCH_START">Start wedstrijd</option>
+                   <option value="LIVESTREAM_START">Start livestream</option>
+                 </select>
+               )}
+            </div>
+            <div className="text-xs text-gray-500 md:col-span-4 mt-1 italic">
+              {it.timeStart ? new Date(it.timeStart).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
+              {' -> '}
+              {it.timeEnd ? new Date(it.timeEnd).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
+            </div>
           </div>
         ))}
         {!data.items?.length && (
@@ -243,6 +294,27 @@ export default function CallSheetEditPage() {
           <input type="checkbox" checked={form.isInVenue} onChange={(e) => setForm((f) => ({ ...f, isInVenue: e.target.checked }))} />
           <div>In de zaal?</div>
         </label>
+        <label className="text-sm flex items-center gap-2 mb-2">
+          <input type="checkbox" checked={form.isInLivestream} onChange={(e) => setForm((f) => ({ ...f, isInLivestream: e.target.checked }))} />
+          <div>Livestream?</div>
+        </label>
+        <div className="md:col-span-2 flex flex-col gap-2 mb-2 border-l pl-4 border-gray-700">
+           <label className="text-sm flex items-center gap-2">
+             <input type="checkbox" checked={form.isTimeAnchor} onChange={(e) => setForm((f) => ({ ...f, isTimeAnchor: e.target.checked }))} />
+             <div className="font-bold">Tijd anker?</div>
+           </label>
+           {form.isTimeAnchor && (
+             <select
+                value={form.anchorType}
+                onChange={(e) => setForm((f) => ({ ...f, anchorType: e.target.value }))}
+                className="border rounded px-2 py-1 w-full text-xs bg-white dark:bg-gray-800"
+             >
+               <option value="">Kies type...</option>
+               <option value="MATCH_START">Start wedstrijd</option>
+               <option value="LIVESTREAM_START">Start livestream</option>
+             </select>
+           )}
+        </div>
         <div className="md:col-span-6">
           <button type="submit" className="px-3 py-2 rounded bg-green-600 text-white" disabled={createItem.isPending}>Toevoegen</button>
         </div>

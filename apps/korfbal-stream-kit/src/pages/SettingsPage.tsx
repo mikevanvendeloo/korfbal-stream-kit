@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import ClubSettingsTab from './settings/ClubSettingsTab';
 import ConnectionSettingsTab from './settings/ConnectionSettingsTab';
 import SponsorSettingsTab from './settings/SponsorSettingsTab';
+import BackupSettingsTab from './settings/BackupSettingsTab';
 
-type Tab = 'club' | 'connections' | 'sponsors';
+type Tab = 'club' | 'connections' | 'sponsors' | 'backup';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'club', label: 'Club & Teams' },
   { id: 'connections', label: 'Koppelingen' },
   { id: 'sponsors', label: 'Sponsors' },
+  { id: 'backup', label: 'Backup' },
 ];
 
 export default function SettingsPage() {
@@ -22,6 +24,8 @@ export default function SettingsPage() {
         return <ConnectionSettingsTab />;
       case 'sponsors':
         return <SponsorSettingsTab />;
+      case 'backup':
+        return <BackupSettingsTab />;
       default:
         return null;
     }

@@ -48,8 +48,8 @@ import AppIcon from "../components/AppIcon";
 import ReportsPage from '../pages/ReportsPage';
 import AboutPage from '../pages/AboutPage';
 import SettingsPage from '../pages/SettingsPage';
-import { PositionSelector } from '../components/PositionSelector';
-import { CallSheetView } from '../components/CallSheetView';
+import {PositionSelector} from '../components/PositionSelector';
+import {CallSheetView} from '../components/CallSheetView';
 
 function Nav() {
   const {theme, toggle} = useTheme();
@@ -97,7 +97,7 @@ function Nav() {
               🎬 LIVE
             </summary>
             <div
-              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
+              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-50">
               <ul className="text-sm">
                 <li>
                   <Link to="/active"
@@ -129,7 +129,7 @@ function Nav() {
               Producties
             </summary>
             <div
-              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
+              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-50">
               <ul className="text-sm">
 
                 <li
@@ -166,7 +166,7 @@ function Nav() {
               Beheer
             </summary>
             <div
-              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
+              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-50">
               <ul className="text-sm">
 
                 <li
@@ -225,7 +225,7 @@ function Nav() {
               Configuration
             </summary>
             <div
-              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
+              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-50">
               <ul className="text-sm">
                 <li>
                   <Link to="/settings"
@@ -264,7 +264,7 @@ function Nav() {
               Tools
             </summary>
             <div
-              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
+              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-50">
               <ul className="text-sm">
                 <li
                   className="mt-3 px-3 py-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">Tools
@@ -284,7 +284,7 @@ function Nav() {
               vMix
             </summary>
             <div
-              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-20">
+              className="absolute left-0 mt-2 min-w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg p-2 z-50">
               <ul className="text-sm">
                 <li>
                   <Link to="/admin/vmix/title-templates"

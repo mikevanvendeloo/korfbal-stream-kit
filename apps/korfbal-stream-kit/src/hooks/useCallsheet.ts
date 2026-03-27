@@ -40,7 +40,35 @@ export type CallSheetItem = {
   durationSec: number;
   orderIndex: number;
   isInVenue?: boolean;
+  isTimeAnchor?: boolean;
+  anchorType?: string | null;
   positionIds?: number[];
+}
+
+export function useCalculateCallSheetTimes(callSheetId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<{ success: boolean }> => {
+      const res = await fetch(createUrl(`/api/production/callsheets/${callSheetId}/calculate-times`), { method: 'POST' });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['production', 'callsheets', callSheetId] })
+  });
+}
+
+export function useSyncCallSheetToEvents(callSheetId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<{ success: boolean }> => {
+      const res = await fetch(createUrl(`/api/production/callsheets/${callSheetId}/sync-to-events`), { method: 'POST' });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['production'] });
+    }
+  });
 }
 
 export function useCallSheets(productionId: number) {

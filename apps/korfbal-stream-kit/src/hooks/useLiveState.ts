@@ -2,6 +2,7 @@ import {useEffect, useRef, useState} from 'react';
 import {io, Socket} from 'socket.io-client';
 import {useParams} from 'react-router-dom';
 import {EventStatus, TriggerSource} from '@prisma/client';
+import {createUrl} from "../lib/api";
 
 const API_URL = 'http://localhost:3333';
 
@@ -31,6 +32,8 @@ export interface ProductionEvent {
   vMixInputName: string | null;
   status: EventStatus;
   actualStartTime: Date | null;
+  plannedStartTime: string | null;
+  plannedEndTime: string | null;
   metadata: any;
   createdAt: Date;
   positions: { position: Position }[];
@@ -44,7 +47,7 @@ interface DisplayTime {
 }
 
 // --- Helper Functies ---
-function formatTime(totalSeconds: number): DisplayTime {
+export function formatTime(totalSeconds: number): DisplayTime {
   const isNegative = totalSeconds < 0;
   const absSeconds = Math.abs(totalSeconds);
   const minutes = Math.floor(absSeconds / 60).toString().padStart(2, '0');
@@ -71,6 +74,7 @@ export const useLiveState = () => {
   const [venueClock, setVenueClock] = useState('00:00');
   const [systemTime, setSystemTime] = useState(formatSystemTime(new Date()));
   const [activeEventElapsedTime, setActiveEventElapsedTime] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   const timeStateRef = useRef<TimeState | null>(null);
   const eventStartTimeRef = useRef<number | null>(null);
@@ -81,8 +85,9 @@ export const useLiveState = () => {
       if (!productionId) return;
 
       try {
+        setIsLoading(true);
         // Haal alle events op
-        const eventsResponse = await fetch(`/api/production/${productionId}/events`);
+        const eventsResponse = await fetch(createUrl(`/api/production/${productionId}/events`));
         if (eventsResponse.ok) {
           const eventsData = await eventsResponse.json();
           setAllItems(eventsData.items);
@@ -91,7 +96,7 @@ export const useLiveState = () => {
         }
 
         // Haal alle unieke posities op
-        const positionsResponse = await fetch(`/api/production/${productionId}/events/positions`);
+        const positionsResponse = await fetch(createUrl(`/api/production/${productionId}/events/positions`));
         if (positionsResponse.ok) {
           const positionsData: Position[] = await positionsResponse.json();
           setAllPositions(positionsData);
@@ -101,6 +106,8 @@ export const useLiveState = () => {
 
       } catch (error) {
         console.error("Failed to fetch initial data:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -174,5 +181,6 @@ export const useLiveState = () => {
     venueClock,
     systemTime,
     activeEventElapsedTime,
+    isLoading,
   };
 };

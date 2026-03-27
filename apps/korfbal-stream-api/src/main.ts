@@ -17,12 +17,13 @@ import {clubsRouter} from './routes/clubs';
 import {playersRouter} from './routes/players';
 import {reportsRouter} from './routes/reports'; // Import reports router
 import {manualMatchesRouter} from "./routes/manual-matches";
+import {backupRouter} from './routes/backup';
 import {prisma} from './services/prisma';
 import {config, getAssetsRoot, logConfig, requireConfig} from './services/config';
 import {errorHandler} from './middleware/error';
 import {initSocket} from './services/socket';
 import {showControlRouter} from "./routes/show-control";
-import { timeRouter } from './routes/time';
+import {timeRouter} from './routes/time';
 
 const app: Express = express();
 const httpServer = createServer(app);
@@ -108,6 +109,9 @@ app.use('/api/sponsors', sponsorsRouter);
 
 // Clubs endpoints
 app.use('/api/clubs', clubsRouter);
+
+// Backup endpoints
+app.use('/api/backup', backupRouter);
 
 // Persons endpoints
 app.use('/api/persons', personsRouter);

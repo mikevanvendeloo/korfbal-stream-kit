@@ -80,6 +80,152 @@ productionCallsheetsRouter.get('/callsheets/:callSheetId', async (req, res, next
   }
 });
 
+// Calculate and update times for all items in a callsheet based on anchors
+productionCallsheetsRouter.post('/callsheets/:callSheetId/calculate-times', async (req, res, next) => {
+  try {
+    const callSheetId = Number(req.params.callSheetId);
+    if (!Number.isInteger(callSheetId) || callSheetId <= 0) return res.status(400).json({ error: 'Invalid callsheet id' });
+
+    const cs = await prisma.callSheet.findUnique({
+      where: { id: callSheetId },
+      include: {
+        production: {
+          include: {
+            matchSchedule: true
+          }
+        },
+        items: {
+          orderBy: [{ productionSegmentId: 'asc' }, { orderIndex: 'asc' }],
+        }
+      }
+    });
+
+    if (!cs) return res.status(404).json({ error: 'Not found' });
+
+    const matchStartTime = cs.production.matchSchedule.date;
+    const liveStartTime = cs.production.liveTime || new Date(matchStartTime.getTime() - 30 * 60 * 1000); // Default 30 min before
+
+    // Find anchor item
+    const anchorItem = cs.items.find(it => it.isTimeAnchor);
+    if (!anchorItem) {
+      return res.status(400).json({ error: 'No time anchor found in callsheet' });
+    }
+
+    let anchorTime: Date;
+    if (anchorItem.anchorType === 'MATCH_START') {
+      anchorTime = matchStartTime;
+    } else if (anchorItem.anchorType === 'LIVESTREAM_START') {
+      anchorTime = liveStartTime;
+    } else {
+      anchorTime = matchStartTime; // Default to match start
+    }
+
+    // Calculate times relative to anchor
+    // We assume items are in order.
+    // The anchor item starts at anchorTime.
+    // Items before the anchor are calculated backwards.
+    // Items after the anchor are calculated forwards.
+
+    const anchorIndex = cs.items.findIndex(it => it.id === anchorItem.id);
+
+    const updates = [];
+
+    // Current item time
+    let currentTime = new Date(anchorTime);
+
+    // Anchor and forwards
+    for (let i = anchorIndex; i < cs.items.length; i++) {
+      const it = cs.items[i];
+      const timeStart = new Date(currentTime);
+      const timeEnd = new Date(timeStart.getTime() + (it.durationSec || 0) * 1000);
+
+      updates.push(prisma.callSheetItem.update({
+        where: { id: it.id },
+        data: { timeStart, timeEnd }
+      }));
+
+      currentTime = new Date(timeEnd);
+    }
+
+    // Backwards from anchor
+    currentTime = new Date(anchorTime);
+    for (let i = anchorIndex - 1; i >= 0; i--) {
+      const it = cs.items[i];
+      const timeEnd = new Date(currentTime);
+      const timeStart = new Date(timeEnd.getTime() - (it.durationSec || 0) * 1000);
+
+      updates.push(prisma.callSheetItem.update({
+        where: { id: it.id },
+        data: { timeStart, timeEnd }
+      }));
+
+      currentTime = new Date(timeStart);
+    }
+
+    await prisma.$transaction(updates);
+
+    return res.json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async (req, res, next) => {
+  try {
+    const callSheetId = Number(req.params.callSheetId);
+    if (!Number.isInteger(callSheetId) || callSheetId <= 0) return res.status(400).json({ error: 'Invalid callsheet id' });
+
+    const cs = await prisma.callSheet.findUnique({
+      where: { id: callSheetId },
+      include: {
+        items: {
+          include: {
+            positions: true
+          },
+          orderBy: [{ productionSegmentId: 'asc' }, { orderIndex: 'asc' }],
+        }
+      }
+    });
+
+    if (!cs) return res.status(404).json({ error: 'Not found' });
+
+    // 1. Verwijder bestaande events voor deze productie
+    await prisma.$transaction(async (tx) => {
+      await tx.productionEventPosition.deleteMany({
+        where: { event: { productionId: cs.productionId } }
+      });
+      await tx.productionEvent.deleteMany({
+        where: { productionId: cs.productionId }
+      });
+
+      // 2. Maak nieuwe events aan op basis van callsheet items
+      for (const item of cs.items) {
+        const event = await tx.productionEvent.create({
+          data: {
+            productionId: cs.productionId,
+            title: item.title,
+            note: item.note,
+            order: item.orderIndex, // We kunnen hier ook iets anders voor gebruiken
+            durationSec: item.durationSec,
+            plannedStartTime: item.timeStart,
+            plannedEndTime: item.timeEnd,
+            triggerSource: 'MANUAL',
+            positions: {
+              create: item.positions.map(p => ({
+                positionId: p.positionId
+              }))
+            }
+          }
+        });
+      }
+    });
+
+    return res.json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // Update a callsheet (name/color)
 productionCallsheetsRouter.put('/callsheets/:callSheetId', async (req, res, next) => {
   try {
@@ -131,6 +277,9 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
     const timeEnd = req.body?.timeEnd ? new Date(req.body.timeEnd) : null;
     const orderIndex = req.body?.orderIndex != null ? Number(req.body.orderIndex) : 0;
     const isInVenue = req.body?.isInVenue === true;
+    const isInLivestream = req.body?.isInLivestream !== false; // Default true
+    const isTimeAnchor = req.body?.isTimeAnchor === true;
+    const anchorType = req.body?.anchorType != null ? String(req.body.anchorType) : null;
     const positionIds: number[] = Array.isArray(req.body?.positionIds) ? req.body.positionIds.map((x: any) => Number(x)).filter((x: number) => Number.isInteger(x) && x > 0) : [];
 
     if (!id || !productionSegmentId || !cue || !title || !Number.isInteger(durationSec) || durationSec < 0) {
@@ -156,6 +305,9 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
           durationSec,
           orderIndex,
           isInVenue,
+          isInLivestream,
+          isTimeAnchor,
+          anchorType: anchorType || undefined,
         },
       });
 
@@ -194,6 +346,9 @@ productionCallsheetsRouter.put('/callsheet-items/:itemId', async (req, res, next
     if (req.body?.durationSec != null) data.durationSec = Number(req.body.durationSec);
     if (req.body?.orderIndex != null) data.orderIndex = Number(req.body.orderIndex);
     if (req.body?.isInVenue != null) data.isInVenue = req.body.isInVenue === true;
+    if (req.body?.isInLivestream != null) data.isInLivestream = req.body.isInLivestream === true;
+    if (req.body?.isTimeAnchor != null) data.isTimeAnchor = req.body.isTimeAnchor === true;
+    if (req.body?.anchorType !== undefined) data.anchorType = req.body.anchorType ? String(req.body.anchorType) : null;
 
     const positionIds: number[] | undefined = Array.isArray(req.body?.positionIds)
       ? req.body.positionIds.map((x: any) => Number(x)).filter((x: number) => Number.isInteger(x) && x > 0)
