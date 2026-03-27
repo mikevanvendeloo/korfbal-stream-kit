@@ -4,19 +4,19 @@ import {
   ProductionSegment,
   useCreateSegment,
   useDeleteSegment,
+  usePositions,
   useProduction,
   useProductionPersonPositions,
   useProductionPersons,
   useProductionSegments,
   useProductionTiming,
-  usePositions,
+  useUpdateProduction,
   useUpdateProductionPersonPositions,
   useUpdateSegment,
-  useUpdateProduction,
 } from '../hooks/useProductions';
 import SegmentFormModal, {SegmentFormValues} from '../components/SegmentFormModal';
 import IconButton from '../components/IconButton';
-import {MdAdd, MdAnchor, MdArrowDownward, MdArrowUpward, MdDelete, MdEdit, MdGroups, MdDownload} from 'react-icons/md';
+import {MdAdd, MdAnchor, MdArrowDownward, MdArrowUpward, MdDelete, MdDownload, MdEdit, MdGroups, MdLiveTv} from 'react-icons/md';
 import SegmentOverridesManager from '../components/SegmentOverridesManager';
 import ProductionHeader from '../components/ProductionHeader';
 import MultiSelect from '../components/MultiSelect';
@@ -97,9 +97,9 @@ function ProductionWideAssignmentsCard({ productionId }: { productionId: number 
             const personSkillIds = personSkills[pp.person.id] || [];
             const availablePositions = allPositions.filter(pos => {
               // If position has no skill requirement, include it
-              if (!pos.skillId) return true;
+              if (!pos.skill) return true;
               // Otherwise, check if person has the required skill
-              return personSkillIds.includes(pos.skillId);
+              return personSkillIds.includes(pos.skill.id);
             });
 
             const positionOptions = availablePositions.map(pos => ({ label: pos.name, value: pos.id }));
@@ -123,7 +123,6 @@ function ProductionWideAssignmentsCard({ productionId }: { productionId: number 
     </div>
   );
 }
-
 
 export default function ProductionDetailPage() {
   const params = useParams<{ id: string }>();
@@ -235,10 +234,14 @@ export default function ProductionDetailPage() {
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
-      <ProductionHeader productionId={id} showLogos={false} />
+      <ProductionHeader productionId={id} showLogos={true} />
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-lg font-semibold">Productiedetails</h1>
+        <h1 className="text-xl font-semibold">Production #{id}</h1>
         <div className="flex items-center gap-2">
+          <Link to={`/live/${id}/positions`} className="px-3 py-1 border rounded inline-flex items-center gap-2 bg-green-600 text-white">
+            <MdLiveTv className="w-5 h-5" />
+            <span>Open Live View</span>
+          </Link>
           <Link to={`/admin/productions/${id}/attendance`} className="px-3 py-1 border rounded inline-flex items-center gap-2">
             <MdGroups className="w-5 h-5" />
             <span>Aanwezigheid</span>
@@ -247,12 +250,11 @@ export default function ProductionDetailPage() {
         </div>
       </div>
       <div className="flex items-center justify-between mb-3">
-        <h1 className="text-xl font-semibold">Production #{id}</h1>
+
         <div className="flex items-center gap-2">
-          <Link to={`/admin/productions/${id}/crew-report`} className="px-3 py-1 border rounded">Crew report</Link>
           <Link to={`/admin/productions/${id}/production-report`} className="px-3 py-1 border rounded">Productie rapport</Link>
           <Link to={`/admin/productions/${id}/callsheets`} className="px-3 py-1 border rounded">Callsheets</Link>
-          <Link to={`/admin/productions/${id}/segment-assignments`} className="px-3 py-1 border rounded">Segment Toewijzingen</Link>
+          {/*<Link to={`/admin/productions/${id}/segment-assignments`} className="px-3 py-1 border rounded">Segment Toewijzingen</Link>*/}
           <button onClick={handleExport} className="px-3 py-1 border rounded flex items-center gap-1" title="Exporteer productie">
             <MdDownload /> Exporteer
           </button>
@@ -268,17 +270,19 @@ export default function ProductionDetailPage() {
       {/* Match header */}
       {prod && (
         <div className="mb-4 p-3 border rounded border-gray-200 dark:border-gray-800 flex justify-between items-center">
-          <div>
-            <div className="font-medium">{prod.matchSchedule?.homeTeamName} vs {prod.matchSchedule?.awayTeamName}</div>
-            <div className="text-sm text-gray-500">{new Date(prod.matchSchedule?.date).toLocaleString()}</div>
-          </div>
           <div className="flex items-center gap-2">
             <label htmlFor="liveTime" className="text-sm font-medium">Livestream start:</label>
             <input
               type="time"
               id="liveTime"
               className="px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-700"
-              value={prod.liveTime ? new Date(prod.liveTime).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : ''}
+              value={
+                prod.liveTime
+                  ? new Date(prod.liveTime).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+                  : (prod.matchSchedule?.date
+                      ? new Date(new Date(prod.matchSchedule.date).getTime() - 5 * 60 * 1000).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+                      : '')
+              }
               onChange={handleLiveTimeChange}
             />
           </div>

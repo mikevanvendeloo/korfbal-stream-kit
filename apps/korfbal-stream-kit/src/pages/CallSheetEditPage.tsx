@@ -1,6 +1,12 @@
 import React from 'react';
 import {Link, useParams} from 'react-router-dom';
-import {useCallSheet, useCreateCallSheetItem, useDeleteCallSheetItem, useUpdateCallSheet, useUpdateCallSheetItem} from '../hooks/useCallsheet';
+import {
+  useCallSheet,
+  useCreateCallSheetItem,
+  useDeleteCallSheetItem,
+  useUpdateCallSheet,
+  useUpdateCallSheetItem
+} from '../hooks/useCallsheet';
 import {useProductionSegments} from '../hooks/useProductions';
 import {usePositionsCatalog} from '../hooks/usePositions';
 
@@ -35,6 +41,7 @@ export default function CallSheetEditPage() {
     timeStart: '',
     timeEnd: '',
     orderIndex: 0,
+    isInVenue: false,
     positionIds: [] as number[],
   });
 
@@ -68,7 +75,7 @@ export default function CallSheetEditPage() {
       payload.timeStart = payload.timeStart ? new Date(payload.timeStart).toISOString() : undefined;
       payload.timeEnd = payload.timeEnd ? new Date(payload.timeEnd).toISOString() : undefined;
       await createItem.mutateAsync(payload as any);
-      setForm({ id: uuid8(), productionSegmentId: segments.data?.[0]?.id || 0, cue: '', title: '', note: '', color: '', durationSec: 0, timeStart: '', timeEnd: '', orderIndex: 0, positionIds: []});
+      setForm({ id: uuid8(), productionSegmentId: segments.data?.[0]?.id || 0, cue: '', title: '', note: '', color: '', durationSec: 0, timeStart: '', timeEnd: '', orderIndex: 0, isInVenue: false, positionIds: []});
     } catch (e: any) {
       setErr(e?.message || 'Toevoegen mislukt');
     }
@@ -168,6 +175,10 @@ export default function CallSheetEditPage() {
                 {positions.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </label>
+            <label className="text-sm flex items-center gap-2 mt-4">
+              <input type="checkbox" defaultChecked={it.isInVenue} onChange={(e) => handleItemChange(it.id, { isInVenue: e.target.checked })} />
+              <div className="text-gray-500">In de zaal?</div>
+            </label>
           </div>
         ))}
         {!data.items?.length && (
@@ -227,6 +238,10 @@ export default function CallSheetEditPage() {
           }} className="border rounded px-2 py-1 min-h-[2.5rem]">
             {positions.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
+        </label>
+        <label className="text-sm flex items-center gap-2 mb-2">
+          <input type="checkbox" checked={form.isInVenue} onChange={(e) => setForm((f) => ({ ...f, isInVenue: e.target.checked }))} />
+          <div>In de zaal?</div>
         </label>
         <div className="md:col-span-6">
           <button type="submit" className="px-3 py-2 rounded bg-green-600 text-white" disabled={createItem.isPending}>Toevoegen</button>

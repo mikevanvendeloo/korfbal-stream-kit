@@ -7,6 +7,11 @@ export type CrewReport = {
   groupedPositions: Array<{ category: PositionCategory, positions: Position[] }>;
   cells: Array<{ segmentId: number; positionId: number; personName: string }>;
   callsheets: Array<CallSheet & { items: Array<CallSheetItem & { productionSegment: { naam: string } }> }>;
+  productionReport?: {
+    remarks?: string | null;
+    interviewRationale?: string | null;
+    matchSponsor?: string | null;
+  } | null;
 }
 
 export function useCrewReport(productionId: number) {
@@ -34,6 +39,7 @@ export type CallSheetItem = {
   timeEnd?: string | null;
   durationSec: number;
   orderIndex: number;
+  isInVenue?: boolean;
   positionIds?: number[];
 }
 

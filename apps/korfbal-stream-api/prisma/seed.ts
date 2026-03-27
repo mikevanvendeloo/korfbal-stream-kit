@@ -190,13 +190,45 @@ async function main() {
     {name: 'Runner', isStudio: false, category: 'GENERAL', sortOrder: 10},
     {name: 'Speaker', isStudio: true, category: 'ENTERTAINMENT', sortOrder: 20}
   ];
+
   console.log('Seeding positions catalog...');
+  const positionModels: Record<string, any> = {};
   for (const pos of positions) {
-    await prisma.position.upsert({
+    const model = await prisma.position.upsert({
       where: {name: pos.name},
       update: {isStudio: pos.isStudio, category: pos.category, sortOrder: pos.sortOrder},
       create: {name: pos.name, isStudio: pos.isStudio, category: pos.category, sortOrder: pos.sortOrder},
     });
+    positionModels[pos.name] = model;
+  }
+
+  // Seed PositionLinks for synchronization (Regie livestream -> others)
+  const regieLivestream = positionModels['Regie livestream'];
+  if (regieLivestream) {
+    const targets = [
+      'Regie LEDscherm',
+      'Muziek',
+      'Oplopen geluid',
+      'Speaker'
+    ];
+    for (const targetName of targets) {
+      const targetPos = positionModels[targetName];
+      if (targetPos) {
+        await (prisma as any).positionLink.upsert({
+          where: {
+            sourcePositionId_targetPositionId: {
+              sourcePositionId: regieLivestream.id,
+              targetPositionId: targetPos.id
+            }
+          },
+          update: {},
+          create: {
+            sourcePositionId: regieLivestream.id,
+            targetPositionId: targetPos.id
+          }
+        });
+      }
+    }
   }
 
   // Link common positions to capabilities by convention

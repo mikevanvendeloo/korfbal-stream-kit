@@ -13,6 +13,8 @@ export type Position = {
   skill?: { id: number; code: string; name: string } | null;
   category: PositionCategory;
   sortOrder: number;
+  linkedPositions?: Array<{ targetPosition: Position }>;
+  linkedToPositions?: Array<{ sourcePosition: Position }>;
 };
 
 export function usePositionsCatalog() {

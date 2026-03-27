@@ -1,7 +1,7 @@
 import {Router} from 'express';
 import {z} from 'zod';
 import {prisma} from '../../services/prisma';
-import { PositionCategory } from '@prisma/client';
+import {PositionCategory} from '@prisma/client';
 
 export const positionsRouter: Router = Router();
 
@@ -16,7 +16,11 @@ positionsRouter.get('/positions', async (_req, res, next) => {
   try {
     const items = await prisma.position.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      include: { skill: true },
+      include: {
+        skill: true,
+        linkedPositions: { include: { targetPosition: true } },
+        linkedToPositions: { include: { sourcePosition: true } }
+      },
     });
     return res.json(items);
   } catch (err) {

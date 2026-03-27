@@ -106,7 +106,22 @@ model Position {
   segmentAssignments     SegmentRoleAssignment[]
   callSheetItemPositions CallSheetItemPosition[]
   SegmentDefaultPosition SegmentDefaultPosition[]
-  productionPositions    ProductionPersonPosition[] // NIEUW: Productie-brede positie toewijzingen
+  productionPositions    ProductionPersonPosition[]
+  linkedPositions        PositionLink[]             @relation("SourcePosition")
+  linkedToPositions      PositionLink[]             @relation("TargetPosition")
+  productionEvents       ProductionEventPosition[] // Relatie naar de koppeltabel
+}
+
+/// NIEUW: Koppeling tussen posities voor synchronisatie van de callsheet
+model PositionLink {
+  id               Int @id @default(autoincrement())
+  sourcePositionId Int
+  targetPositionId Int
+
+  sourcePosition Position @relation("SourcePosition", fields: [sourcePositionId], references: [id], onDelete: Cascade)
+  targetPosition Position @relation("TargetPosition", fields: [targetPositionId], references: [id], onDelete: Cascade)
+
+  @@unique([sourcePositionId, targetPositionId])
 }
 
 /// People who can be assigned roles in livestream productions
@@ -121,7 +136,7 @@ model Person {
   assignments         MatchRoleAssignment[]
   segmentAssignments  SegmentRoleAssignment[]
   productionPresences ProductionPerson[]
-  productionPositions ProductionPersonPosition[] // NIEUW: Productie-brede positie toewijzingen
+  productionPositions ProductionPersonPosition[]
 }
 
 /// Link table: which skills a person has
@@ -149,7 +164,6 @@ model MatchRoleAssignment {
   person        Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
   skill         Skill         @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
-  // Prevent exact duplicate assignment of same person to same role in same match
   @@unique([matchScheduleId, skillId, personId])
   @@index([matchScheduleId])
   @@index([personId])
@@ -161,7 +175,7 @@ model Production {
   id              Int       @id @default(autoincrement())
   matchScheduleId Int       @unique
   isActive        Boolean   @default(false)
-  liveTime        DateTime? // NIEUW: Tijdstip waarop de stream live gaat
+  liveTime        DateTime?
   createdAt       DateTime  @default(now())
 
   matchSchedule       MatchSchedule              @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
@@ -171,7 +185,7 @@ model Production {
   interviewSubjects   InterviewSubject[]
   productionReport    ProductionReport?
   productionPersons   ProductionPerson[]
-  productionPositions ProductionPersonPosition[] // NIEUW: Productie-brede positie toewijzingen
+  productionPositions ProductionPersonPosition[]
   events              ProductionEvent[]
 }
 
@@ -190,7 +204,6 @@ model ProductionPerson {
   @@index([personId])
 }
 
-/// NIEUW: Toewijzing van een persoon aan een positie voor de hele productie (standaard)
 model ProductionPersonPosition {
   id           Int      @id @default(autoincrement())
   productionId Int
@@ -202,13 +215,12 @@ model ProductionPersonPosition {
   person     Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
   position   Position   @relation(fields: [positionId], references: [id], onDelete: Cascade)
 
-  @@unique([productionId, personId, positionId]) // Een persoon kan een specifieke positie maar één keer hebben per productie
+  @@unique([productionId, personId, positionId])
   @@index([productionId])
   @@index([personId])
   @@index([positionId])
 }
 
-/// Segments within a production (oplopen, wedstrijd, rust, etc.)
 model ProductionSegment {
   id           Int        @id @default(autoincrement())
   productionId Int
@@ -217,21 +229,16 @@ model ProductionSegment {
   naam     String
   volgorde Int
 
-  // timing
   duurInMinuten Int
   isTimeAnchor  Boolean @default(false)
 
-  // Bezetting (assignments) for this segment
-  bezetting SegmentRoleAssignment[]
-
-  // Callsheet items associated with this segment
+  bezetting      SegmentRoleAssignment[]
   callSheetItems CallSheetItem[]
 
   @@unique([productionId, volgorde])
   @@index([productionId])
 }
 
-/// Configured default positions for a logical segment name (template)
 model SegmentDefaultPosition {
   id          Int    @id @default(autoincrement())
   segmentName String
@@ -245,7 +252,6 @@ model SegmentDefaultPosition {
   @@index([positionId])
 }
 
-/// Assignment of a person to a position for a specific production segment
 model SegmentRoleAssignment {
   id                  Int      @id @default(autoincrement())
   productionSegmentId Int
@@ -263,7 +269,6 @@ model SegmentRoleAssignment {
   @@index([positionId])
 }
 
-/// Clubs participating whose players can be interviewed
 model Club {
   id        Int      @id @default(autoincrement())
   name      String
@@ -275,7 +280,6 @@ model Club {
   players Player[]
 }
 
-/// Players belonging to a club (team roster)
 model Player {
   id         Int      @id @default(autoincrement())
   clubId     Int
@@ -284,9 +288,7 @@ model Player {
   gender     Gender?
   photoUrl   String?
   externalId String?  @unique
-  /// Type van persoon binnen teamcontext, zoals 'player' of 'coach'
   personType String?
-  /// Functie-omschrijving (bij spelers op basis van gender: Speler/Speelster; bij coaches vanuit API: bijv. Hoofd coach)
   function   String?
   createdAt  DateTime @default(now())
 
@@ -297,9 +299,6 @@ model Player {
   @@index([name])
 }
 
-/// ================= vMix Title Configuration =================
-
-/// Source of data for a title definition
 enum TitleSourceType {
   COMMENTARY
   PRESENTATION
@@ -309,20 +308,17 @@ enum TitleSourceType {
   FREE_TEXT
 }
 
-/// Team side selector for parts that need a club context
 enum TeamSide {
   HOME
   AWAY
   NONE
 }
 
-/// Interview role for explicit selection per team
 enum InterviewRole {
   PLAYER
   COACH
 }
 
-/// A configurable title definition for a production (or a reusable template when productionId is null)
 model TitleDefinition {
   id           Int      @id @default(autoincrement())
   productionId Int?
@@ -332,7 +328,6 @@ model TitleDefinition {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // Relations
   production        Production?        @relation(fields: [productionId], references: [id], onDelete: Cascade)
   parts             TitlePart[]
   interviewSubjects InterviewSubject[]
@@ -340,7 +335,6 @@ model TitleDefinition {
   @@index([productionId, order])
 }
 
-/// A part describes how to assemble a definition from various sources
 model TitlePart {
   id                Int             @id @default(autoincrement())
   titleDefinitionId Int
@@ -348,17 +342,14 @@ model TitlePart {
   teamSide          TeamSide        @default(NONE)
   limit             Int?
   filters           Json?
-  /// For FREE_TEXT parts only
   customFunction    String?
   customName        String?
 
-  // Relations
   definition TitleDefinition @relation(fields: [titleDefinitionId], references: [id], onDelete: Cascade)
 
   @@index([titleDefinitionId])
 }
 
-/// Explicit interview subject selection per production & team side (optionally per title)
 model InterviewSubject {
   id                Int           @id @default(autoincrement())
   productionId      Int
@@ -369,30 +360,25 @@ model InterviewSubject {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  // Relations
   production      Production       @relation(fields: [productionId], references: [id], onDelete: Cascade)
   player          Player           @relation(fields: [playerId], references: [id], onDelete: Cascade)
   titleDefinition TitleDefinition? @relation(fields: [titleDefinitionId], references: [id])
 
-  // Allow only one selection per production/side/role per specific title. Generic (null titleDefinitionId)
-  // duplicates are prevented at API level (partial unique is not supported in Prisma).
   @@unique([productionId, side, role, titleDefinitionId])
   @@index([productionId])
   @@index([playerId])
   @@index([titleDefinitionId])
 }
 
-/// Player images to be used in vMix sponsor rows
 model PlayerImage {
   id        Int      @id @default(autoincrement())
-  subject   String // e.g., Jumbo-099 or beer-geluk
-  filename  String // stored file name under uploads/players
+  subject   String
+  filename  String
   createdAt DateTime @default(now())
 
   @@index([subject])
 }
 
-/// Call sheet for a production
 model CallSheet {
   id           Int      @id @default(autoincrement())
   productionId Int
@@ -408,9 +394,8 @@ model CallSheet {
   @@index([productionId])
 }
 
-/// Items within a call sheet, linked to a production segment and zero or more positions
 model CallSheetItem {
-  id                  String    @id // external short id like 0ba22378
+  id                  String    @id
   callSheetId         Int
   productionSegmentId Int
   cue                 String
@@ -421,6 +406,7 @@ model CallSheetItem {
   timeEnd             DateTime?
   durationSec         Int
   orderIndex          Int       @default(0)
+  isInVenue           Boolean   @default(false)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
@@ -432,7 +418,6 @@ model CallSheetItem {
   @@index([productionSegmentId])
 }
 
-/// Join table assigning positions to a call sheet item
 model CallSheetItemPosition {
   callSheetItemId String
   positionId      Int
@@ -445,7 +430,6 @@ model CallSheetItemPosition {
   @@index([positionId])
 }
 
-/// Application-level settings (simple key/value store)
 model Setting {
   key       String   @id
   value     Json
@@ -453,22 +437,14 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
-/// ================= Production Report (Livestream Productie Rapport) =================
-
-/// Production report - alleen metadata die niet automatisch te herleiden is
 model ProductionReport {
   id           Int        @id @default(autoincrement())
   productionId Int        @unique
   production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
 
-  /// Wedstrijdsponsor (vrij text of sponsor naam)
-  matchSponsor String?
-
-  /// Interview spelers argumentatie
+  matchSponsor       String?
   interviewRationale String?
-
-  /// Opmerkingen (vrij tekstveld, meerdere regels)
-  remarks String?
+  remarks            String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -476,29 +452,46 @@ model ProductionReport {
   @@index([productionId])
 }
 
-/// ================= Production Events =================
-
-/// Types of events that can occur during a production
-enum ProductionEventType {
-  STREAM_START
-  STREAM_STOP
-  AD_START
-  INTRO_VIDEO_START
+enum EventStatus {
+  WAITING
+  ACTIVE
+  COMPLETED
 }
 
-/// Events that occur during a production with actual timestamps from vMix
-model ProductionEvent {
-  id           Int        @id @default(autoincrement())
-  productionId Int
-  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+enum TriggerSource {
+  VMIX
+  MANUAL
+  AUTO
+}
 
-  eventType ProductionEventType
-  timestamp DateTime // Actuele tijd waarop het event plaatsvond
-  metadata  Json? // Optionele extra data (bijvoorbeeld reclameblok nummer, video naam, etc.)
+model ProductionEvent {
+  id              String                    @id @default(cuid())
+  productionId    Int
+  order           Int
+  title           String
+  note            String?
+  durationSec     Int?
+  triggerSource   TriggerSource             @default(MANUAL)
+  vMixInputName   String?
+  status          EventStatus               @default(WAITING)
+  actualStartTime DateTime?
+  production      Production                @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  metadata        Json?
+  positions       ProductionEventPosition[] // Relatie naar de koppeltabel
 
   createdAt DateTime @default(now())
 
   @@index([productionId])
-  @@index([productionId, timestamp])
-  @@index([eventType])
+  @@index([productionId, createdAt])
+}
+
+// Koppeltabel tussen ProductionEvent en Position
+model ProductionEventPosition {
+  eventId    String
+  positionId Int
+
+  event    ProductionEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  position Position        @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, positionId])
 }

@@ -48,6 +48,8 @@ import AppIcon from "../components/AppIcon";
 import ReportsPage from '../pages/ReportsPage';
 import AboutPage from '../pages/AboutPage';
 import SettingsPage from '../pages/SettingsPage';
+import { PositionSelector } from '../components/PositionSelector';
+import { CallSheetView } from '../components/CallSheetView';
 
 function Nav() {
   const {theme, toggle} = useTheme();
@@ -111,7 +113,13 @@ function Nav() {
                     <span>Scoreboard</span>
                   </Link>
                 </li>
-
+                <li>
+                  <Link to="/live/1/positions" // Example link to position selector for production 1
+                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdViewList/>
+                    <span>Callsheet</span>
+                  </Link>
+                </li>
               </ul>
             </div>
           </details>
@@ -365,6 +373,10 @@ export function App() {
             <Route path="/reports" element={<ReportsPage/>}/>
             <Route path="/about" element={<AboutPage/>}/>
             <Route path="/settings" element={<SettingsPage/>}/>
+
+            {/* Nieuwe Live Routes */}
+            <Route path="/live/:productionId/positions" element={<PositionSelector />} />
+            <Route path="/live/:productionId/view/:positionSlug" element={<CallSheetView />} />
           </Routes>
         </main>
       </div>

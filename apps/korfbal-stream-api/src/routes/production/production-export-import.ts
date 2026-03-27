@@ -186,11 +186,16 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
       // 2. Create Production
       let production = await tx.production.findUnique({ where: { matchScheduleId: match.id } });
       if (!production) {
+        // Default liveTime to 5 minutes before match if not provided in export
+        const liveTime = data.production.liveTime
+          ? new Date(data.production.liveTime)
+          : new Date(new Date(match.date).getTime() - 5 * 60 * 1000);
+
         production = await tx.production.create({
           data: {
             matchScheduleId: match.id,
             isActive: data.production.isActive,
-            liveTime: data.production.liveTime ? new Date(data.production.liveTime) : null
+            liveTime
           }
         });
       } else {

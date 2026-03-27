@@ -41,6 +41,8 @@ export type InterviewsReport = Array<{
   awayTeam: string;
   homeInterviews: Array<{ name: string; role: string; photoUrl?: string }>;
   awayInterviews: Array<{ name: string; role: string; photoUrl?: string }>;
+  remarks?: string | null;
+  matchSponsor?: string | null;
 }>;
 
 export type CrewRolesReport = Array<{

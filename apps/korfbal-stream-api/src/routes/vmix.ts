@@ -3,6 +3,7 @@ import axios from 'axios';
 import {prisma} from '../services/prisma';
 import {findClubByTeamName} from '../utils/clubs';
 import {logger} from '../utils/logger';
+import {getIO} from '../services/socket';
 // ================= Admin vMix templates API =================
 import {z} from 'zod';
 import {
@@ -22,6 +23,76 @@ import os from 'node:os';
 
 export const vmixRouter: Router = Router();
 export const adminVmixRouter: Router = Router();
+
+vmixRouter.get('/sync/activate-event', async (req, res) => {
+  const { inputName } = req.query;
+  const io = getIO();
+
+  // 1. Zoek het ProductionEvent dat gekoppeld is aan deze vMix input
+  const event = await prisma.productionEvent.findFirst({
+    where: { vMixInputName: inputName as string }
+  });
+
+  if (event) {
+    // 2. Zet dit event op 'ACTIVE' en anderen op 'COMPLETED'
+    const [_, activeEvent] = await prisma.$transaction([
+      prisma.productionEvent.updateMany({
+        where: {
+          productionId: event.productionId,
+          status: 'ACTIVE'
+        },
+        data: { status: 'COMPLETED' }
+      }),
+      prisma.productionEvent.update({
+        where: { id: event.id },
+        data: { status: 'ACTIVE', actualStartTime: new Date() }
+      })
+    ]);
+
+    // 3. Stuur een signaal naar alle verbonden browsers
+    io.emit('event_updated', activeEvent);
+
+    return res.status(200).json({ message: "Call sheet gesynchroniseerd" });
+  }
+
+  return res.status(404).send("Event niet gevonden");
+});
+
+vmixRouter.post('/production/trigger-manual', async (req, res, next) => {
+  try {
+    const { eventId } = req.body;
+    const io = getIO();
+
+    const event = await prisma.productionEvent.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const [_, activeEvent] = await prisma.$transaction([
+      prisma.productionEvent.updateMany({
+        where: {
+          productionId: event.productionId,
+          status: 'ACTIVE',
+        },
+        data: { status: 'COMPLETED' },
+      }),
+      prisma.productionEvent.update({
+        where: { id: event.id },
+        data: { status: 'ACTIVE', actualStartTime: new Date() },
+      }),
+    ]);
+
+    io.emit('event_updated', activeEvent);
+
+    return res.json(activeEvent);
+  } catch (err) {
+    return next(err);
+  }
+});
+
 
 // ---------------- vMix control endpoints ----------------
 // POST /api/vmix/set-timer  { seconds: number }

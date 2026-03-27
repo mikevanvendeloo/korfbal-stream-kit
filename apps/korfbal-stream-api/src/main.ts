@@ -1,4 +1,5 @@
 import express, {Express} from 'express';
+import {createServer} from 'http';
 import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -19,8 +20,15 @@ import {manualMatchesRouter} from "./routes/manual-matches";
 import {prisma} from './services/prisma';
 import {config, getAssetsRoot, logConfig, requireConfig} from './services/config';
 import {errorHandler} from './middleware/error';
+import {initSocket} from './services/socket';
+import {showControlRouter} from "./routes/show-control";
+import { timeRouter } from './routes/time';
 
 const app: Express = express();
+const httpServer = createServer(app);
+
+// Initialize Socket.io
+initSocket(httpServer);
 
 // Middlewares
 app.use(express.json());
@@ -131,6 +139,10 @@ app.use('/api/admin/vmix', adminVmixRouter);
 
 // Reports endpoints
 app.use('/api/reports', reportsRouter);
+
+app.use('/api/show',  showControlRouter);
+
+app.use('/api/time', timeRouter);
 
 // OpenAPI JSON
 const openapi = {
@@ -281,7 +293,7 @@ if (process.env.NODE_ENV !== 'test') {
 
   requireConfig();
 
-  const server = app.listen(port, () => {
+  httpServer.listen(port, () => {
     logger.info(`🚀 API Server running on http://localhost:${port}`);
     logger.info(`📊 Health check: http://localhost:${port}/api/health`);
     logger.info(`📚 Sponsors API: http://localhost:${port}/api/sponsors`);
@@ -291,7 +303,7 @@ if (process.env.NODE_ENV !== 'test') {
     logConfig();
   });
 
-  server.on('error', (err) => {
+  httpServer.on('error', (err) => {
     logger.error('Server listen error', err as any);
     process.exitCode = 1;
   });

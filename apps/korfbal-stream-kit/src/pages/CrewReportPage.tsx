@@ -1,10 +1,11 @@
 import React from 'react';
 import {Link, useParams} from 'react-router-dom';
 import {useCrewReport} from '../hooks/useCallsheet';
-import {useProduction, useProductionInterviews} from '../hooks/useProductions';
+import {useProduction, useProductionInterviews, useProductionPersonPositions} from '../hooks/useProductions';
+import {usePositionsCatalog} from '../hooks/usePositions';
 import PlayerCard from '../components/PlayerCard';
 import html2canvas from 'html2canvas';
-import {MdDownload} from 'react-icons/md';
+import {MdDownload, MdLiveTv, MdLocationOn, MdSync} from 'react-icons/md';
 
 export default function CrewReportPage() {
   const params = useParams<{ id: string }>();
@@ -12,6 +13,10 @@ export default function CrewReportPage() {
   const { data, isLoading, error } = useCrewReport(productionId);
   const interviews = useProductionInterviews(productionId);
   const production = useProduction(productionId);
+  const personPositions = useProductionPersonPositions(productionId);
+  const positionsCatalog = usePositionsCatalog();
+
+  const [selectedPositionId, setSelectedPositionId] = React.useState<number | null>(null);
 
   const reportRef = React.useRef<HTMLDivElement>(null);
 
@@ -50,6 +55,19 @@ export default function CrewReportPage() {
   const homeTeamName = production.data?.matchSchedule?.homeTeamName || 'Thuis';
   const awayTeamName = production.data?.matchSchedule?.awayTeamName || 'Uit';
 
+  const selectedPosition = selectedPositionId ? positionsCatalog.data?.find(p => p.id === selectedPositionId) : null;
+  const linkedTargetIds = selectedPosition?.linkedPositions?.map(lp => lp.targetPosition.id) || [];
+  const linkedSourceIds = selectedPosition?.linkedToPositions?.map(lp => lp.sourcePosition.id) || [];
+  const allLinkedIds = [...linkedTargetIds, ...linkedSourceIds];
+
+  const filterItems = (items: any[]) => {
+    if (!selectedPositionId) return items;
+    return items.filter(it =>
+      it.positionIds?.includes(selectedPositionId) ||
+      it.positionIds?.some((pid: number) => allLinkedIds.includes(pid))
+    );
+  };
+
   const formatTime = (dateStr: string | null | undefined) => {
     if (!dateStr) return '';
     return new Date(dateStr).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -59,7 +77,17 @@ export default function CrewReportPage() {
     <div className="container py-6 text-gray-800 dark:text-gray-100">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold">Crew report</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <select
+            className="border rounded px-2 py-1 bg-white dark:bg-gray-800 text-sm"
+            value={selectedPositionId || ''}
+            onChange={(e) => setSelectedPositionId(e.target.value ? Number(e.target.value) : null)}
+          >
+            <option value="">Alle posities (Overzicht)</option>
+            {positionsCatalog.data?.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
           <button
             onClick={handleDownloadPng}
             className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
@@ -72,7 +100,18 @@ export default function CrewReportPage() {
       </div>
 
       <div ref={reportRef} className="bg-white dark:bg-gray-900 p-4 rounded-md border border-gray-200 dark:border-gray-800">
-        <h2 className="text-lg font-bold mb-4 text-center">Dagbezetting</h2>
+        <h2 className="text-lg font-bold mb-4 text-center">
+          {selectedPosition ? `Call sheet: ${selectedPosition.name}` : 'Dagbezetting'}
+        </h2>
+
+        {selectedPosition && allLinkedIds.length > 0 && (
+          <div className="mb-4 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs flex items-center gap-2">
+            <MdSync className="text-blue-500" />
+            <span>
+              Gesynchroniseerd met: {allLinkedIds.map(id => positionsCatalog.data?.find(p => p.id === id)?.name).join(', ')}
+            </span>
+          </div>
+        )}
 
         {/* Tijdschema Section */}
         {data.callsheets && data.callsheets.length > 0 && (
@@ -94,14 +133,24 @@ export default function CrewReportPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {cs.items.map(item => (
+                      {filterItems(cs.items).map(item => (
                         <tr key={item.id} className="border-b last:border-0 dark:border-gray-700">
                           <td className="p-2 whitespace-nowrap font-mono">{formatTime(item.timeStart)}</td>
-                          <td className="p-2 whitespace-nowrap font-medium">{item.cue}</td>
+                          <td className="p-2 whitespace-nowrap font-medium flex items-center gap-1">
+                            {item.cue}
+                            {item.isInVenue ? <MdLocationOn className="text-orange-500" title="Zaal" /> : <MdLiveTv className="text-blue-500" title="Livestream" />}
+                          </td>
                           <td className="p-2">{item.title}</td>
                           <td className="p-2 text-gray-500">{item.productionSegment.naam}</td>
                           <td className="p-2 whitespace-nowrap">{item.durationSec > 0 ? `${Math.floor(item.durationSec / 60)}:${(item.durationSec % 60).toString().padStart(2, '0')}` : '-'}</td>
-                          <td className="p-2 text-gray-500 italic text-xs">{item.note}</td>
+                          <td className="p-2 text-gray-500 italic text-xs">
+                            {item.note}
+                            {selectedPositionId && item.positionIds?.some((pid: number) => allLinkedIds.includes(pid) && pid !== selectedPositionId) && (
+                              <div className="text-blue-400 flex items-center gap-1 mt-0.5">
+                                <MdSync /> Gesynchroniseerd
+                              </div>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -217,6 +266,16 @@ export default function CrewReportPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Production Report Remarks */}
+        {data.productionReport?.remarks && (
+          <div className="mt-8">
+            <h2 className="text-lg font-bold mb-4 border-b pb-2 dark:border-gray-700">Opmerkingen</h2>
+            <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-md">
+              <div className="text-sm whitespace-pre-wrap">{data.productionReport.remarks}</div>
             </div>
           </div>
         )}

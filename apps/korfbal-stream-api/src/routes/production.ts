@@ -19,6 +19,7 @@ import {productionReportsRouter} from './production/production-reports';
 import {productionCrewRouter} from './production/production-crew';
 import {productionExportImportRouter} from './production/production-export-import';
 import {productionEventsRouter} from './production/production-events';
+import { callsheetControlsRouter } from './production/callsheet-controls';
 
 export const productionRouter: Router = Router();
 
@@ -41,6 +42,7 @@ productionRouter.use(productionReportsRouter);
 productionRouter.use(productionCrewRouter);
 productionRouter.use(productionExportImportRouter);
 productionRouter.use(productionEventsRouter);
+productionRouter.use(callsheetControlsRouter);
 
 // Nest skills router under production namespace for backward compatibility
 // Note: /persons router is NOT nested here - persons are available at /api/persons
@@ -103,7 +105,15 @@ productionRouter.post('/', async (req, res, next) => {
     if (!match) return res.status(404).json({ error: 'Match not found' });
 
     const created = await prisma.$transaction(async (tx) => {
-      const p = await tx.production.create({ data: { matchScheduleId } });
+      // Default livestream start time is 5 minutes before match start
+      const liveTime = new Date(new Date(match.date).getTime() - 5 * 60 * 1000);
+
+      const p = await tx.production.create({
+        data: {
+          matchScheduleId,
+          liveTime
+        }
+      });
       // Auto-create default segments in correct order if none exist yet
       const count = await tx.productionSegment.count({ where: { productionId: p.id } });
       if (count === 0) {

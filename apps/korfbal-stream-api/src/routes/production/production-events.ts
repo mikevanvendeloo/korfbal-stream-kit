@@ -11,14 +11,14 @@ productionEventsRouter.post('/:id/events', async (req, res, next) => {
   }
 
   try {
-    const { eventType, timestamp, metadata } = req.body;
+    const { title, vMixInputName, metadata, order, triggerSource, note, durationSec, positionIds } = req.body;
 
-    if (!eventType) {
-      return res.status(400).json({ error: 'eventType is required' });
+    if (!title) {
+      return res.status(400).json({ error: 'title is required' });
     }
 
-    if (!timestamp) {
-      return res.status(400).json({ error: 'timestamp is required' });
+    if (order === undefined) {
+      return res.status(400).json({ error: 'order is required' });
     }
 
     // Verify production exists
@@ -34,20 +34,32 @@ productionEventsRouter.post('/:id/events', async (req, res, next) => {
     const event = await prisma.productionEvent.create({
       data: {
         productionId,
-        eventType,
-        timestamp: new Date(timestamp),
+        title,
+        vMixInputName,
         metadata: metadata || null,
+        order,
+        triggerSource,
+        note,
+        durationSec,
+        positions: {
+          create: positionIds.map((positionId: number) => ({
+            position: {
+              connect: { id: positionId },
+            },
+          })),
+        },
+      },
+      include: {
+        positions: {
+          include: {
+            position: true,
+          },
+        },
       },
     });
 
     return res.status(201).json(event);
   } catch (err: any) {
-    // Handle invalid enum value
-    if (err?.code === 'P2000' || err?.message?.includes('Invalid value')) {
-      return res.status(400).json({
-        error: 'Invalid eventType. Valid values are: STREAM_START, STREAM_STOP, AD_START, INTRO_VIDEO_START'
-      });
-    }
     return next(err);
   }
 });
@@ -71,7 +83,14 @@ productionEventsRouter.get('/:id/events', async (req, res, next) => {
 
     const events = await prisma.productionEvent.findMany({
       where: { productionId },
-      orderBy: { timestamp: 'asc' },
+      orderBy: { order: 'asc' },
+      include: {
+        positions: {
+          include: {
+            position: true,
+          },
+        },
+      },
     });
 
     return res.json({ items: events, total: events.length });
@@ -80,17 +99,44 @@ productionEventsRouter.get('/:id/events', async (req, res, next) => {
   }
 });
 
-// GET /api/production/:id/events/:eventId - Get a specific event
-productionEventsRouter.get('/:id/events/:eventId', async (req, res, next) => {
+// GET /api/production/:id/events/positions - Get all unique positions used in events for a production
+productionEventsRouter.get('/:id/events/positions', async (req, res, next) => {
   const productionId = Number(req.params.id);
-  const eventId = Number(req.params.eventId);
-
   if (!Number.isInteger(productionId) || productionId <= 0) {
     return res.status(400).json({ error: 'Invalid production id' });
   }
 
-  if (!Number.isInteger(eventId) || eventId <= 0) {
-    return res.status(400).json({ error: 'Invalid event id' });
+  try {
+    // Haal alle ProductionEventPosition records op voor deze productie
+    const eventPositions = await prisma.productionEventPosition.findMany({
+      where: {
+        event: {
+          productionId: productionId,
+        },
+      },
+      include: {
+        position: true, // Includeer de details van de positie
+      },
+      distinct: ['positionId'], // Zorg ervoor dat elke positie maar één keer voorkomt
+    });
+
+    // Extraheer de unieke posities
+    const uniquePositions = eventPositions.map((ep) => ep.position);
+
+    return res.json(uniquePositions);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+
+// GET /api/production/:id/events/:eventId - Get a specific event
+productionEventsRouter.get('/:id/events/:eventId', async (req, res, next) => {
+  const productionId = Number(req.params.id);
+  const eventId = req.params.eventId;
+
+  if (!Number.isInteger(productionId) || productionId <= 0) {
+    return res.status(400).json({ error: 'Invalid production id' });
   }
 
   try {
@@ -98,6 +144,13 @@ productionEventsRouter.get('/:id/events/:eventId', async (req, res, next) => {
       where: {
         id: eventId,
         productionId,
+      },
+      include: {
+        positions: {
+          include: {
+            position: true,
+          },
+        },
       },
     });
 
@@ -114,14 +167,10 @@ productionEventsRouter.get('/:id/events/:eventId', async (req, res, next) => {
 // DELETE /api/production/:id/events/:eventId - Delete a specific event
 productionEventsRouter.delete('/:id/events/:eventId', async (req, res, next) => {
   const productionId = Number(req.params.id);
-  const eventId = Number(req.params.eventId);
+  const eventId = req.params.eventId;
 
   if (!Number.isInteger(productionId) || productionId <= 0) {
     return res.status(400).json({ error: 'Invalid production id' });
-  }
-
-  if (!Number.isInteger(eventId) || eventId <= 0) {
-    return res.status(400).json({ error: 'Invalid event id' });
   }
 
   try {

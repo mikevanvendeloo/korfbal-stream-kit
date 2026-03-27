@@ -183,11 +183,13 @@ function DailyOccupancyReport() {
   // Filter interviews for the selected date
   const dailyInterviews = React.useMemo(() => {
     if (!interviewsData || !date) return [];
-    // Assuming interviewsData returns a list of productions with interviews
-    // We need to filter productions that match the selected date
+    // Filter productions that match the selected date AND (have interviews OR have remarks OR have matchSponsor)
     return interviewsData.filter((p: any) => {
       const pDate = new Date(p.date).toISOString().split('T')[0];
-      return pDate === date;
+      const hasInterviews = p.homeInterviews.length > 0 || p.awayInterviews.length > 0;
+      const hasRemarks = !!p.remarks;
+      const hasSponsor = !!p.matchSponsor;
+      return pDate === date && (hasInterviews || hasRemarks || hasSponsor);
     });
   }, [interviewsData, date]);
 
@@ -237,12 +239,10 @@ function DailyOccupancyReport() {
             caption={`Dagbezetting - ${formatDate(date)}`}
           />
 
-          <OccupancyByPositionTable date={date} />
-
           {/* Interviews Section per Production */}
           {dailyInterviews.length > 0 && (
             <div className="mt-8">
-              <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">Interviews</h2>
+              <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2 text-center bg-gray-50 dark:bg-gray-800 py-2">Productie Details & Interviews</h2>
               <div className="space-y-8">
                 {dailyInterviews.map((prod: any) => (
                   <div key={prod.id} className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
@@ -250,52 +250,65 @@ function DailyOccupancyReport() {
                       <h3 className="font-semibold text-lg text-gray-800 dark:text-gray-200">
                         {prod.homeTeam} vs {prod.awayTeam}
                       </h3>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">{formatTime(prod.date)}</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Away Team (First) */}
-                      <div>
-                        <h4 className="font-medium text-red-700 dark:text-red-400 mb-3 uppercase text-sm tracking-wide">Uit: {prod.awayTeam}</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {prod.awayInterviews.length > 0 ? (
-                            prod.awayInterviews.map((i: any, idx: number) => (
-                              <PlayerCard
-                                key={`away-${idx}`}
-                                name={i.name}
-                                // Assuming API returns image URL or we construct it.
-                                // The useInterviewsReport hook might need to ensure image is included.
-                                // If not, we fallback to placeholder.
-                                photoUrl={i.photoUrl}
-                                function={i.role === 'COACH' ? 'Coach' : 'Speler'}
-                                shirtNo={i.shirtNo}
-                              />
-                            ))
-                          ) : (
-                            <span className="text-sm text-gray-400 italic">Geen interviews</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Home Team */}
-                      <div>
-                        <h4 className="font-medium text-green-700 dark:text-green-400 mb-3 uppercase text-sm tracking-wide">Thuis: {prod.homeTeam}</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {prod.homeInterviews.length > 0 ? (
-                            prod.homeInterviews.map((i: any, idx: number) => (
-                              <PlayerCard
-                                key={`home-${idx}`}
-                                name={i.name}
-                                photoUrl={i.photoUrl}
-                                function={i.role === 'COACH' ? 'Coach' : 'Speler'}
-                              />
-                            ))
-                          ) : (
-                            <span className="text-sm text-gray-400 italic">Geen interviews</span>
-                          )}
-                        </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">{formatTime(prod.date)}</span>
+                        {prod.matchSponsor && (
+                          <span className="text-xs text-blue-600 dark:text-blue-400 italic">Sponsor: {prod.matchSponsor}</span>
+                        )}
                       </div>
                     </div>
+
+                    {(prod.homeInterviews.length > 0 || prod.awayInterviews.length > 0) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Away Team (First) */}
+                        <div>
+                          <h4 className="font-medium text-red-700 dark:text-red-400 mb-3 uppercase text-sm tracking-wide">Uit: {prod.awayTeam}</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {prod.awayInterviews.length > 0 ? (
+                              prod.awayInterviews.map((i: any, idx: number) => (
+                                <PlayerCard
+                                  key={`away-${idx}`}
+                                  name={i.name}
+                                  photoUrl={i.photoUrl}
+                                  function={i.role === 'COACH' ? 'Coach' : 'Speler'}
+                                  shirtNo={i.shirtNo}
+                                />
+                              ))
+                            ) : (
+                              <span className="text-sm text-gray-400 italic">Geen interviews</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Home Team */}
+                        <div>
+                          <h4 className="font-medium text-green-700 dark:text-green-400 mb-3 uppercase text-sm tracking-wide">Thuis: {prod.homeTeam}</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {prod.homeInterviews.length > 0 ? (
+                              prod.homeInterviews.map((i: any, idx: number) => (
+                                <PlayerCard
+                                  key={`home-${idx}`}
+                                  name={i.name}
+                                  photoUrl={i.photoUrl}
+                                  function={i.role === 'COACH' ? 'Coach' : 'Speler'}
+                                />
+                              ))
+                            ) : (
+                              <span className="text-sm text-gray-400 italic">Geen interviews</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {prod.remarks && (
+                      <div className={`${(prod.homeInterviews.length > 0 || prod.awayInterviews.length > 0) ? 'mt-6 pt-6 border-t border-gray-200 dark:border-gray-700' : ''}`}>
+                        <h4 className="font-bold text-sm mb-2 uppercase tracking-wide text-gray-500">Opmerkingen uit productierapport:</h4>
+                        <div className="text-sm whitespace-pre-wrap text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 p-3 rounded border border-gray-100 dark:border-gray-700 shadow-sm">
+                          {prod.remarks}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -357,6 +370,14 @@ function InterviewsReport() {
           </div>
         ),
       }),
+      helper.accessor('remarks', {
+        header: 'Opmerkingen',
+        cell: info => <span className="text-sm italic">{info.getValue() || '-'}</span>,
+      }),
+      helper.accessor('matchSponsor', {
+        header: 'Sponsor',
+        cell: info => <span className="text-sm font-medium">{info.getValue() || '-'}</span>,
+      }),
     ];
   }, []);
 
@@ -380,6 +401,67 @@ function InterviewsReport() {
   );
 }
 
+
+function OccupancyByPositionReport() {
+  const {data: nextDate} = useNextProductionDate();
+  const {data: productionDates} = useProductionDates();
+  const [date, setDate] = React.useState('');
+  const [showCalendar, setShowCalendar] = React.useState(false);
+
+  React.useEffect(() => {
+    if (nextDate && !date) {
+      setDate(nextDate);
+    } else if (!date) {
+      setDate(new Date().toISOString().split('T')[0]);
+    }
+  }, [nextDate, date]);
+
+  const handleDateChange = (value: Date) => {
+    const offset = value.getTimezoneOffset();
+    const adjustedDate = new Date(value.getTime() - (offset * 60 * 1000));
+    setDate(adjustedDate.toISOString().split('T')[0]);
+    setShowCalendar(false);
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 relative">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Datum:</label>
+          <div className="relative">
+            <input
+              type="text"
+              value={date ? formatDate(date) : ''}
+              readOnly
+              onClick={() => setShowCalendar(!showCalendar)}
+              className="border rounded-md px-3 py-2 bg-white dark:bg-gray-900 dark:border-gray-700 cursor-pointer w-48 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            />
+            {showCalendar && (
+              <div className="absolute top-full left-0 mt-2 z-50 shadow-xl rounded-lg overflow-hidden">
+                <SimpleCalendar
+                  onChange={handleDateChange}
+                  value={date ? new Date(date) : new Date()}
+                  markedDates={productionDates}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={() => downloadAsPng('daily-occupancy-by-position-container', `positiebezetting-${date}`)}
+          className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2 text-sm"
+        >
+          <MdDownload className="text-lg" />
+          <span>Download PNG</span>
+        </button>
+      </div>
+
+      <div id="daily-occupancy-by-position-container" className="bg-white dark:bg-gray-950 p-4 rounded-lg">
+        <OccupancyByPositionTable date={date} />
+      </div>
+    </div>
+  );
+}
 
 function OccupancyByPositionTable({ date }: { date: string }) {
   const { data, isLoading, error } = useDailyOccupancyByPositionReport(date);
@@ -514,7 +596,7 @@ function CrewRolesReport() {
 }
 
 export default function ReportsPage() {
-  const [activeTab, setActiveTab] = React.useState<'occupancy' | 'interviews' | 'crew'>('occupancy');
+  const [activeTab, setActiveTab] = React.useState<'occupancy' | 'positions' | 'interviews' | 'crew'>('occupancy');
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
@@ -526,6 +608,12 @@ export default function ReportsPage() {
           onClick={() => setActiveTab('occupancy')}
         >
           Dagbezetting
+        </button>
+        <button
+          className={`px-6 py-3 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === 'positions' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+          onClick={() => setActiveTab('positions')}
+        >
+          Positieoverzicht
         </button>
         <button
           className={`px-6 py-3 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === 'interviews' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
@@ -543,6 +631,7 @@ export default function ReportsPage() {
 
       <div className="print:block">
         {activeTab === 'occupancy' && <DailyOccupancyReport />}
+        {activeTab === 'positions' && <OccupancyByPositionReport />}
         {activeTab === 'interviews' && <InterviewsReport />}
         {activeTab === 'crew' && <CrewRolesReport />}
       </div>

@@ -25,7 +25,7 @@ export async function getProductionReportData(productionId: number) {
         },
       },
       segments: {
-        orderBy: { sortOrder: 'asc' }
+        orderBy: { volgorde: 'asc' }
       }
     },
   });

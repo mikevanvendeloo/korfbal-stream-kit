@@ -130,6 +130,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
     const timeStart = req.body?.timeStart ? new Date(req.body.timeStart) : null;
     const timeEnd = req.body?.timeEnd ? new Date(req.body.timeEnd) : null;
     const orderIndex = req.body?.orderIndex != null ? Number(req.body.orderIndex) : 0;
+    const isInVenue = req.body?.isInVenue === true;
     const positionIds: number[] = Array.isArray(req.body?.positionIds) ? req.body.positionIds.map((x: any) => Number(x)).filter((x: number) => Number.isInteger(x) && x > 0) : [];
 
     if (!id || !productionSegmentId || !cue || !title || !Number.isInteger(durationSec) || durationSec < 0) {
@@ -154,6 +155,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
           timeEnd: timeEnd || undefined,
           durationSec,
           orderIndex,
+          isInVenue,
         },
       });
 
@@ -191,6 +193,7 @@ productionCallsheetsRouter.put('/callsheet-items/:itemId', async (req, res, next
     if (req.body?.timeEnd != null) data.timeEnd = req.body.timeEnd ? new Date(req.body.timeEnd) : null;
     if (req.body?.durationSec != null) data.durationSec = Number(req.body.durationSec);
     if (req.body?.orderIndex != null) data.orderIndex = Number(req.body.orderIndex);
+    if (req.body?.isInVenue != null) data.isInVenue = req.body.isInVenue === true;
 
     const positionIds: number[] | undefined = Array.isArray(req.body?.positionIds)
       ? req.body.positionIds.map((x: any) => Number(x)).filter((x: number) => Number.isInteger(x) && x > 0)

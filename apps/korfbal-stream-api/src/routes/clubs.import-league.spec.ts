@@ -99,7 +99,9 @@ describe('Clubs import from league teams index', () => {
       if (url.startsWith('https://api-saas-site-prod-236.dotlab.net/general/api/get-template-data')) {
         // Distinguish by data_key
         let body: any = {};
-        try { body = init?.body ? JSON.parse(init.body) : {}; } catch {}
+        try { body = init?.body ? JSON.parse(init.body) : {}; } catch {
+          console.log('Failed to parse request body');
+        }
         const dataKey = body?.data_key;
         if (dataKey === 'sportsuite_get_person_cards') {
           const ctx = body?.context || {};
@@ -129,7 +131,9 @@ describe('Clubs import from league teams index', () => {
         const u = new URL(url);
         const ctxParam = u.searchParams.get('context') || '';
         let teamId = '9';
-        try { const ctx = JSON.parse(decodeURIComponent(ctxParam)); teamId = String(ctx.team_id || ctx.data_entity_id || '9'); } catch {}
+        try { const ctx = JSON.parse(decodeURIComponent(ctxParam)); teamId = String(ctx.team_id || ctx.data_entity_id || '9'); } catch {
+          console.log('Failed to parse context');
+        }
         const isLdodk = teamId === '9';
         const teamName = isLdodk ? 'LDODK/Rinsma Modeplein 1' : 'Fortuna/Ruitenheer 1';
         const teamShort = isLdodk ? 'LDODK' : 'Fortuna';

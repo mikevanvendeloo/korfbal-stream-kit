@@ -235,6 +235,7 @@ reportsRouter.get('/interviews', async (req, res, next) => {
             player: true,
           },
         },
+        productionReport: true,
       },
       orderBy: {
         matchSchedule: {
@@ -259,6 +260,8 @@ reportsRouter.get('/interviews', async (req, res, next) => {
         awayTeam: p.matchSchedule.awayTeamName,
         homeInterviews,
         awayInterviews,
+        remarks: p.productionReport?.remarks,
+        matchSponsor: p.productionReport?.matchSponsor,
       };
     });
 
