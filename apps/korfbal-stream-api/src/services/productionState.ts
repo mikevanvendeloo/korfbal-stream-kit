@@ -108,6 +108,25 @@ export async function getNextEvent(): Promise<ProductionEvent | null> {
     });
 }
 
+export async function getPreviousEvent(): Promise<ProductionEvent | null> {
+    if (!currentState.productionId || !currentState.activeEventId) return null;
+
+    const currentEvent = await prisma.productionEvent.findUnique({ where: { id: currentState.activeEventId }});
+    if (!currentEvent) return null;
+
+    return prisma.productionEvent.findFirst({
+        where: {
+            productionId: currentState.productionId,
+            order: {
+                lt: currentEvent.order,
+            },
+        },
+        orderBy: {
+            order: 'desc',
+        },
+    });
+}
+
 export function getActiveProductionId() {
   return currentState.productionId;
 }
