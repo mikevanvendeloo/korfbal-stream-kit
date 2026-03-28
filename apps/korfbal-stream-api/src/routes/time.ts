@@ -1,18 +1,18 @@
-import { Router } from 'express';
-import { timeSyncService } from '../services/timeSyncService';
+import {Router} from 'express';
+import {timeSyncService} from '../services/timeSyncService';
 
-export const timeRouter = Router();
+export const timeRouter: Router = Router();
 
 // POST /api/time/start - Start de productietijd
 timeRouter.post('/start', (req, res) => {
   timeSyncService.start();
-  res.status(200).json({ message: 'Production clock started.' });
+  return res.status(200).json({ message: 'Production clock started.' });
 });
 
 // POST /api/time/stop - Stop de productietijd
 timeRouter.post('/stop', (req, res) => {
   timeSyncService.stop();
-  res.status(200).json({ message: 'Production clock stopped.' });
+  return res.status(200).json({ message: 'Production clock stopped.' });
 });
 
 // POST /api/time/countdown - Start een countdown
@@ -22,7 +22,7 @@ timeRouter.post('/countdown', (req, res) => {
     return res.status(400).json({ error: 'A positive number of seconds is required.' });
   }
   timeSyncService.setCountdown(seconds);
-  res.status(200).json({ message: `Countdown started from ${seconds} seconds.` });
+  return res.status(200).json({ message: `Countdown started from ${seconds} seconds.` });
 });
 
 // POST /api/time/venue-clock - Update de zaalklok
@@ -32,5 +32,5 @@ timeRouter.post('/venue-clock', (req, res) => {
         return res.status(400).json({ error: 'Invalid time format.'});
     }
     timeSyncService.updateVenueClock(time);
-    res.status(200).json({ message: 'Venue clock updated.' });
+    return res.status(200).json({ message: 'Venue clock updated.' });
 });

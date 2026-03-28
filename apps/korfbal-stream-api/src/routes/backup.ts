@@ -511,7 +511,7 @@ backupRouter.post('/sponsors/import', async (req, res, next) => {
     for (const item of data) {
       try {
         const input = SponsorInputSchema.parse(item);
-        const existing = await prisma.sponsor.findUnique({ where: { name: input.name } });
+        const existing = await prisma.sponsor.findFirst({ where: { name: input.name } });
         if (existing) {
           await prisma.sponsor.update({ where: { id: existing.id }, data: input as any });
           updated++;

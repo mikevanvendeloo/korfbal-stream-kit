@@ -4,7 +4,7 @@ import path from 'node:path';
 import {z} from 'zod';
 import {prisma} from '../../services/prisma';
 import {PositionCategory} from '@prisma/client';
-import {getProductionReportData} from "../../services/production";
+import {getProductionReportData, ProductionWithData} from "../../services/production";
 import {logger} from "../../utils/logger";
 import fs from "node:fs";
 
@@ -37,7 +37,7 @@ const categoryLabels: Record<PositionCategory, string> = {
 };
 
 // Helper functie om timing te berekenen
-function calculateTiming(segments: any[], matchDate: Date, liveTime?: Date | null) {
+function calculateTiming(segments: ProductionWithData['segments'], matchDate: Date, liveTime?: Date | null) {
   let timing: Array<{ id: number; naam: string; start: string; end: string; duurInMinuten: number }> = [];
 
   if (segments.length > 0) {
@@ -88,23 +88,24 @@ productionReportsRouter.get('/:id/report', async (req, res, next) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
     const reportData = await getProductionReportData(id);
+    const { production, attendees, crewByCategory, interviews, sponsors } = reportData;
 
     return res.json({
       production: {
-        id: reportData.production.id,
-        matchScheduleId: reportData.production.matchScheduleId,
-        homeTeam: reportData.production.matchSchedule.homeTeamName,
-        awayTeam: reportData.production.matchSchedule.awayTeamName,
-        date: reportData.production.matchSchedule.date,
-        liveTime: reportData.production.liveTime,
+        id: production.id,
+        matchScheduleId: production.matchScheduleId,
+        homeTeam: production.matchSchedule.homeTeamName,
+        awayTeam: production.matchSchedule.awayTeamName,
+        date: production.matchSchedule.date,
+        liveTime: production.liveTime,
       },
-      report: reportData.production.productionReport,
+      report: production.productionReport,
       enriched: {
-        attendees: reportData.attendees,
-        crewByCategory: reportData.crewByCategory,
-        interviews: reportData.interviews,
+        attendees,
+        crewByCategory,
+        interviews,
       },
-      sponsors: reportData.sponsors,
+      sponsors,
     });
   } catch (err) {
     return next(err);
@@ -475,65 +476,9 @@ productionReportsRouter.get('/:id/report/markdown', async (req, res, next) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
 
-    const production = await prisma.production.findUnique({
-      where: { id },
-      include: {
-        matchSchedule: true,
-        productionReport: true,
-        productionPersons: {
-          include: {
-            person: true,
-          },
-        },
-        productionPositions: { // Production-wide position assignments
-          include: {
-            person: true,
-            position: true,
-          },
-        },
-        segments: {
-          include: {
-            bezetting: {
-              include: {
-                person: true,
-                position: true,
-              },
-            },
-          },
-          orderBy: { volgorde: 'asc' },
-        },
-        interviewSubjects: {
-          include: {
-            player: {
-              include: {
-                club: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!production) return res.status(404).json({ error: 'Production not found' });
-
+    const { production, attendees } = await getProductionReportData(id);
     const report = production.productionReport;
     const match = production.matchSchedule;
-
-    // --- NEW ATTENDEES LOGIC ---
-    const assignedPersonIds = new Set<number>();
-    production.segments.forEach((seg) => {
-      seg.bezetting.forEach((b) => assignedPersonIds.add(b.person.id));
-    });
-    // Also consider production-wide assignments as "assigned"
-    production.productionPositions.forEach((pp) => assignedPersonIds.add(pp.personId));
-
-    const attendees: { name: string; isAssigned: boolean }[] = production.productionPersons
-      .map((pp) => ({
-        name: pp.person.name,
-        isAssigned: assignedPersonIds.has(pp.person.id),
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    // --- END NEW ATTENDEES LOGIC ---
 
     // Groepeer rollen per sectie (met isStudio info)
     const rolesBySection: Record<string, Array<{ positionName: string; personNames: string[]; isStudio: boolean }>> = {};
@@ -773,65 +718,9 @@ productionReportsRouter.get('/:id/report/whatsapp', async (req, res, next) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
 
-    const production = await prisma.production.findUnique({
-      where: { id },
-      include: {
-        matchSchedule: true,
-        productionReport: true,
-        productionPersons: {
-          include: {
-            person: true,
-          },
-        },
-        productionPositions: { // Production-wide position assignments
-          include: {
-            person: true,
-            position: true,
-          },
-        },
-        segments: {
-          include: {
-            bezetting: {
-              include: {
-                person: true,
-                position: true,
-              },
-            },
-          },
-          orderBy: { volgorde: 'asc' },
-        },
-        interviewSubjects: {
-          include: {
-            player: {
-              include: {
-                club: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!production) return res.status(404).json({ error: 'Production not found' });
-
+    const { production, attendees } = await getProductionReportData(id);
     const report = production.productionReport;
     const match = production.matchSchedule;
-
-    // --- NEW ATTENDEES LOGIC ---
-    const assignedPersonIds = new Set<number>();
-    production.segments.forEach((seg) => {
-      seg.bezetting.forEach((b) => assignedPersonIds.add(b.person.id));
-    });
-    // Also consider production-wide assignments as "assigned"
-    production.productionPositions.forEach((pp) => assignedPersonIds.add(pp.personId));
-
-    const attendees: { name: string; isAssigned: boolean }[] = production.productionPersons
-      .map((pp) => ({
-        name: pp.person.name,
-        isAssigned: assignedPersonIds.has(pp.person.id),
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    // --- END NEW ATTENDEES LOGIC ---
 
     // Groepeer rollen per sectie (met isStudio info)
     const rolesBySection: Record<string, Array<{ positionName: string; personNames: string[]; isStudio: boolean }>> = {};

@@ -200,7 +200,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async
 
       // 2. Maak nieuwe events aan op basis van callsheet items
       for (const item of cs.items) {
-        const event = await tx.productionEvent.create({
+         await tx.productionEvent.create({
           data: {
             productionId: cs.productionId,
             title: item.title,

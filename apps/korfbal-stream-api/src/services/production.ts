@@ -1,33 +1,48 @@
 import {prisma} from './prisma';
-import {PositionCategory} from '@prisma/client';
+import {PositionCategory, Prisma} from '@prisma/client';
 
-export async function getProductionReportData(productionId: number) {
-  const production = await prisma.production.findUnique({
-    where: { id: productionId },
+const productionInclude = Prisma.validator<Prisma.ProductionInclude>()({
+  matchSchedule: true,
+  productionReport: true,
+  productionPersons: { include: { person: true } },
+  productionPositions: {
     include: {
-      matchSchedule: true,
-      productionReport: true,
-      productionPersons: { include: { person: true } },
-      // Fetch all production-wide assignments, and critically, order them here.
-      productionPositions: {
+      person: true,
+      position: true,
+    },
+    orderBy: [
+      { position: { sortOrder: 'asc' } },
+      { position: { name: 'asc' } }
+    ],
+  },
+  interviewSubjects: {
+    include: {
+      player: {
+        include: {
+          club: true,
+        },
+      },
+    },
+  },
+  segments: {
+    include: {
+      bezetting: {
         include: {
           person: true,
           position: true,
         },
-        orderBy: [
-          { position: { sortOrder: 'asc' } },
-          { position: { name: 'asc' } }
-        ],
       },
-      interviewSubjects: {
-        include: {
-          player: true,
-        },
-      },
-      segments: {
-        orderBy: { volgorde: 'asc' }
-      }
     },
+    orderBy: { volgorde: 'asc' }
+  }
+});
+
+export type ProductionWithData = Prisma.ProductionGetPayload<{ include: typeof productionInclude }>;
+
+export async function getProductionReportData(productionId: number) {
+  const production = await prisma.production.findUnique({
+    where: { id: productionId },
+    include: productionInclude,
   });
 
   if (!production) {

@@ -1,7 +1,7 @@
 // apps/korfbal-stream-api/src/routes/show-control.ts
 import {Router} from 'express';
 import {prisma} from '../services/prisma';
-import {showStateService} from '../services/socket';
+import * as productionStateService from '../services/productionState';
 
 export const showControlRouter: Router = Router();
 
@@ -18,7 +18,7 @@ showControlRouter.post('/start/:productionId', async (req, res, next) => {
             return res.status(404).json({error: 'No events found for this production.'});
         }
 
-        showStateService.startProduction(productionId, firstEvent);
+        productionStateService.startProduction(productionId, firstEvent);
         return res.status(200).json({message: 'Show started!', activeEvent: firstEvent});
     } catch (err) {
         return next(err);
@@ -28,7 +28,7 @@ showControlRouter.post('/start/:productionId', async (req, res, next) => {
 // POST /api/show/next - Ga naar het volgende item
 showControlRouter.post('/next', async (req, res, next) => {
     try {
-        const activeProductionId = showStateService.getActiveProductionId();
+        const activeProductionId = productionStateService.getActiveProductionId();
         if (!activeProductionId) {
             return res.status(400).json({error: 'No active production.'});
         }
@@ -49,7 +49,7 @@ showControlRouter.post('/next', async (req, res, next) => {
             return res.status(404).json({error: 'End of show reached.'});
         }
 
-        showStateService.setActiveEvent(nextEvent);
+        await productionStateService.setActiveEvent(nextEvent.id, activeProductionId);
         return res.status(200).json(nextEvent);
     } catch (err) {
         return next(err);
@@ -62,6 +62,6 @@ showControlRouter.post('/clock', (req, res) => {
     if (typeof time !== 'string') {
         return res.status(400).json({error: 'Invalid time format.'});
     }
-    showStateService.updateVenueClock(time);
+    productionStateService.updateVenueClock(time);
     return res.status(200).send();
 });

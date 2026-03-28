@@ -108,21 +108,30 @@ export async function getNextEvent(): Promise<ProductionEvent | null> {
     });
 }
 
-export async function getPreviousEvent(): Promise<ProductionEvent | null> {
-    if (!currentState.productionId || !currentState.activeEventId) return null;
+export function getActiveProductionId() {
+  return currentState.productionId;
+}
 
-    const currentEvent = await prisma.productionEvent.findUnique({ where: { id: currentState.activeEventId }});
-    if (!currentEvent) return null;
+export function startProduction(productionId: number, firstEvent: ProductionEvent) {
+  currentState.productionId = productionId;
+  currentState.activeEventId = firstEvent.id;
+  if (!currentState.isClockRunning) {
+    startProductionClock(productionId);
+  }
+  // No need to await here, it's just updating status
+  prisma.productionEvent.update({
+    where: { id: firstEvent.id },
+    data: { status: 'ACTIVE', actualStartTime: new Date() }
+  }).catch(err => logger.error(`Error updating first event: ${err}`));
 
-    return prisma.productionEvent.findFirst({
-        where: {
-            productionId: currentState.productionId,
-            order: {
-                lt: currentEvent.order,
-            },
-        },
-        orderBy: {
-            order: 'desc',
-        },
-    });
+  broadcastState();
+}
+
+export function updateVenueClock(time: string) {
+  // Parse time "MM:SS" to seconds
+  const [minutes, seconds] = time.split(':').map(Number);
+  if (!isNaN(minutes) && !isNaN(seconds)) {
+    currentState.clocks.scoreboardTime = minutes * 60 + seconds;
+    broadcastState();
+  }
 }
