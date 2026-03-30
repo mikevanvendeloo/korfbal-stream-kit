@@ -32,6 +32,11 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
       include: {
         matchSchedule: true,
         productionPersons: true, // NIEUW: Aanwezigheidsregistratie ophalen
+        segments: {
+          select: {
+            duurInMinuten: true
+          }
+        },
         productionPositions: {
           orderBy: {
             position: {
@@ -56,7 +61,7 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
     });
 
     // Collect all unique persons involved in these productions OR marked as present
-    const personMap = new Map<number, { id: number; name: string; hasOnStreamRole: boolean; assignments: Record<number, string[]>; presence: Record<number, boolean> }>();
+    const personMap = new Map<number, { id: number; name: string; hasEntertainmentRole: boolean; assignments: Record<number, string[]>; presence: Record<number, boolean> }>();
 
     for (const prod of productions) {
       // Mark presence
@@ -64,7 +69,7 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
         if (!personMap.has(pp.personId)) {
           const p = await prisma.person.findUnique({ where: { id: pp.personId } });
           if (p) {
-             personMap.set(pp.personId, { id: pp.personId, name: p.name, hasOnStreamRole: false, assignments: {}, presence: {} });
+             personMap.set(pp.personId, { id: pp.personId, name: p.name, hasEntertainmentRole: false, assignments: {}, presence: {} });
           }
         }
         const entry = personMap.get(pp.personId);
@@ -76,7 +81,7 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
       // Mark assignments
       for (const pp of prod.productionPositions) {
         if (!personMap.has(pp.personId)) {
-          personMap.set(pp.personId, { id: pp.personId, name: pp.person.name, hasOnStreamRole: false, assignments: {}, presence: {} });
+          personMap.set(pp.personId, { id: pp.personId, name: pp.person.name, hasEntertainmentRole: false, assignments: {}, presence: {} });
         }
         const entry = personMap.get(pp.personId)!;
         if (!entry.assignments[prod.id]) {
@@ -84,30 +89,35 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
         }
         entry.assignments[prod.id].push(pp.position.name);
 
-        // Check if this position is an on-stream role
-        if (pp.position.skill?.type === 'on_stream') {
-          entry.hasOnStreamRole = true;
+        // Check if this position is an entertainment role
+        if (pp.position.skill?.type === 'entertainment') {
+          entry.hasEntertainmentRole = true;
         }
       }
     }
 
-    // Sort persons: first by on-stream role (false first, true last), then by name
+    // Sort persons: first by entertainment role (false first, true last), then by name
     const persons = Array.from(personMap.values()).sort((a, b) => {
-      if (a.hasOnStreamRole !== b.hasOnStreamRole) {
-        return a.hasOnStreamRole ? 1 : -1; // on-stream roles at the bottom
+      if (a.hasEntertainmentRole !== b.hasEntertainmentRole) {
+        return a.hasEntertainmentRole ? 1 : -1; // entertainment roles at the bottom
       }
       return a.name.localeCompare(b.name);
     });
 
     return res.json({
       date,
-      productions: productions.map(p => ({
-        id: p.id,
-        time: p.matchSchedule.date,
-        liveTime: p.liveTime, // Include liveTime
-        homeTeam: p.matchSchedule.homeTeamName,
-        awayTeam: p.matchSchedule.awayTeamName,
-      })),
+      productions: productions.map(p => {
+        const totalDuration = p.segments.reduce((sum, s) => sum + s.duurInMinuten, 0);
+        const endLiveTime = p.liveTime ? new Date(new Date(p.liveTime).getTime() + totalDuration * 60000) : null;
+        return {
+          id: p.id,
+          time: p.matchSchedule.date,
+          liveTime: p.liveTime, // Include liveTime
+          endLiveTime: endLiveTime,
+          homeTeam: p.matchSchedule.homeTeamName,
+          awayTeam: p.matchSchedule.awayTeamName,
+        };
+      }),
       persons,
     });
   } catch (err) {
@@ -137,6 +147,11 @@ reportsRouter.get('/daily-occupancy-by-position', async (req, res, next) => {
       },
       include: {
         matchSchedule: true,
+        segments: {
+          select: {
+            duurInMinuten: true
+          }
+        },
         productionPositions: {
           include: {
             person: true,
@@ -209,13 +224,18 @@ reportsRouter.get('/daily-occupancy-by-position', async (req, res, next) => {
 
     return res.json({
       date,
-      productions: productions.map(p => ({
-        id: p.id,
-        time: p.matchSchedule.date,
-        liveTime: p.liveTime,
-        homeTeam: p.matchSchedule.homeTeamName,
-        awayTeam: p.matchSchedule.awayTeamName,
-      })),
+      productions: productions.map(p => {
+        const totalDuration = p.segments.reduce((sum, s) => sum + s.duurInMinuten, 0);
+        const endLiveTime = p.liveTime ? new Date(new Date(p.liveTime).getTime() + totalDuration * 60000) : null;
+        return {
+          id: p.id,
+          time: p.matchSchedule.date,
+          liveTime: p.liveTime,
+          endLiveTime: endLiveTime,
+          homeTeam: p.matchSchedule.homeTeamName,
+          awayTeam: p.matchSchedule.awayTeamName,
+        };
+      }),
       positions,
     });
   } catch (err) {
@@ -230,6 +250,11 @@ reportsRouter.get('/interviews', async (req, res, next) => {
     const productions = await prisma.production.findMany({
       include: {
         matchSchedule: true,
+        segments: {
+          select: {
+            duurInMinuten: true
+          }
+        },
         interviewSubjects: {
           include: {
             player: true,
@@ -252,10 +277,14 @@ reportsRouter.get('/interviews', async (req, res, next) => {
         .filter(s => s.side === 'AWAY')
         .map(s => ({ name: s.player.name, role: s.role, photoUrl: s.player.photoUrl }));
 
+      const totalDuration = p.segments.reduce((sum, s) => sum + s.duurInMinuten, 0);
+      const endLiveTime = p.liveTime ? new Date(new Date(p.liveTime).getTime() + totalDuration * 60000) : null;
+
       return {
         id: p.id,
         date: p.matchSchedule.date,
         liveTime: p.liveTime, // Include liveTime
+        endLiveTime: endLiveTime,
         homeTeam: p.matchSchedule.homeTeamName,
         awayTeam: p.matchSchedule.awayTeamName,
         homeInterviews,
@@ -281,6 +310,11 @@ reportsRouter.get('/crew-roles', async (req, res, next) => {
     const productions = await prisma.production.findMany({
       include: {
         matchSchedule: true,
+        segments: {
+          select: {
+            duurInMinuten: true
+          }
+        },
         productionPositions: {
           where: {
             position: {
@@ -321,10 +355,14 @@ reportsRouter.get('/crew-roles', async (req, res, next) => {
         }
       }
 
+      const totalDuration = p.segments.reduce((sum, s) => sum + s.duurInMinuten, 0);
+      const endLiveTime = p.liveTime ? new Date(new Date(p.liveTime).getTime() + totalDuration * 60000) : null;
+
       return {
         id: p.id,
         date: p.matchSchedule.date,
         liveTime: p.liveTime, // Include liveTime
+        endLiveTime: endLiveTime,
         homeTeam: p.matchSchedule.homeTeamName,
         awayTeam: p.matchSchedule.awayTeamName,
         speaker: roles['SPEAKER'],

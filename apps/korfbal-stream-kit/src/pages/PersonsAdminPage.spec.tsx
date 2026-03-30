@@ -47,7 +47,7 @@ describe('PersonsAdminPage', () => {
       if (u.pathname.endsWith('/api/production/skills') && (!init || init.method === 'GET')) {
         return { ok: true, json: async () => ({ items: [
           { id: 10, code: 'COACH', name: 'Coach', type: 'crew' },
-          { id: 11, code: 'COMMENTATOR', name: 'Commentaar', type: 'on_stream' },
+          { id: 11, code: 'COMMENTATOR', name: 'Commentaar', type: 'entertainment' },
         ], page: 1, limit: 100, total: 2, pages: 1 }) } as any;
       }
       // Skills list for person 1
@@ -202,7 +202,7 @@ describe('PersonsAdminPage (create with inline skills)', () => {
       if (u.pathname.endsWith('/api/production/skills') && (!init || init.method === 'GET')) {
         return { ok: true, json: async () => ({ items: [
           { id: 10, code: 'COACH', name: 'Coach', type: 'crew' },
-          { id: 11, code: 'COMMENTATOR', name: 'Commentaar', type: 'on_stream' },
+          { id: 11, code: 'COMMENTATOR', name: 'Commentaar', type: 'entertainment' },
         ], page: 1, limit: 100, total: 2, pages: 1 }) } as any;
       }
       // Add skill for person 3 after create

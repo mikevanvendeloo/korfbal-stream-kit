@@ -18,7 +18,7 @@ productionPersonPositionsRouter.get('/:id/person-positions', async (req, res, ne
         person: true,
         position: {
           include: {
-            skill: true // Include skill to check for 'on_stream' type
+            skill: true // Include skill to check for 'entertainment' type
           }
         }
       },

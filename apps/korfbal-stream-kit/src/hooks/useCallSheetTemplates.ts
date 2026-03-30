@@ -175,12 +175,14 @@ export function useCallSheetTemplates() {
     }
   }, []);
 
-  const applyTemplate = useCallback(async (templateId: number, productionId: number) => {
+  const applyTemplate = useCallback(async (templateId: number, productionId: number, options?: { segmentId?: number, replace?: boolean }) => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(createUrl(`/api/callsheets/templates/${templateId}/apply/${productionId}`), {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(options || {}),
       });
       if (!res.ok) throw new Error('Failed to apply template');
       return await res.json();

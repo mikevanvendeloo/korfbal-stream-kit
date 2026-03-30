@@ -256,6 +256,20 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
         doc.text(segment.naam, doc.page.margins.left + 60, currentY, { width: pageWidth - 60 });
         doc.moveDown(0.2);
       });
+
+      if (production.liveTime) {
+        const totalDuration = timing.reduce((sum, s) => sum + s.duurInMinuten, 0);
+        const endLiveTime = new Date(new Date(production.liveTime).getTime() + totalDuration * 60000);
+        const endTimeStr = endLiveTime.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+
+        const currentY = doc.y;
+        doc.font('Helvetica-Bold');
+        doc.text(endTimeStr, doc.page.margins.left, currentY, { width: 50 });
+        doc.text('LIVESTREAM EINDE', doc.page.margins.left + 60, currentY, { width: pageWidth - 60 });
+        doc.font('Helvetica');
+        doc.moveDown(0.2);
+      }
+
       doc.moveDown(1.5);
     }
 
@@ -586,6 +600,14 @@ productionReportsRouter.get('/:id/report/markdown', async (req, res, next) => {
         const endTime = new Date(segment.end).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
         markdown += `| ${segment.naam} | ${startTime} | ${endTime} | ${segment.duurInMinuten} min |\n`;
       });
+
+      if (production.liveTime) {
+        const totalDuration = timing.reduce((sum, s) => sum + s.duurInMinuten, 0);
+        const endLiveTime = new Date(new Date(production.liveTime).getTime() + totalDuration * 60000);
+        const endTimeStr = endLiveTime.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+        markdown += `| **LIVESTREAM EINDE** | - | **${endTimeStr}** | **${totalDuration} min** |\n`;
+      }
+
       markdown += `\n`;
     }
 
@@ -825,6 +847,14 @@ productionReportsRouter.get('/:id/report/whatsapp', async (req, res, next) => {
         const startTime = new Date(segment.start).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
         text += `• ${startTime} - ${segment.naam}\n`;
       });
+
+      if (production.liveTime) {
+        const totalDuration = timing.reduce((sum, s) => sum + s.duurInMinuten, 0);
+        const endLiveTime = new Date(new Date(production.liveTime).getTime() + totalDuration * 60000);
+        const endTimeStr = endLiveTime.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+        text += `• ${endTimeStr} - *LIVESTREAM EINDE*\n`;
+      }
+
       text += `\n`;
     }
 

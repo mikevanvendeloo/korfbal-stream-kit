@@ -241,15 +241,14 @@ export function useUpdateSegment() {
   });
 }
 
-export function useDeleteSegment() {
+export function useDeleteSegment(productionId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => {
       const res = await fetch(createUrl(`/api/production/segments/${id}`), { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
-    onSuccess: (_data, id, context) => {
-      const productionId = (context as any).productionId;
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['production', productionId, 'segments'] });
       qc.invalidateQueries({ queryKey: ['production', productionId, 'timing'] });
     },

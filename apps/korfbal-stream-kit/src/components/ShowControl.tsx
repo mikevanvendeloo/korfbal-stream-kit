@@ -28,7 +28,7 @@ export const ShowControl = () => {
 
   const handleStart = () => handleApiCall(`start/${productionId}`);
   const handleNext = () => handleApiCall('next');
-  const handlePrevious = () => handleApiCall('previous'); // Let op: de backend voor 'previous' moet nog worden geïmplementeerd.
+  const handlePrevious = () => handleApiCall('previous');
 
   return (
     <div className="bg-gray-900/80 backdrop-blur-sm p-3 rounded-lg border border-gray-700 shadow-2xl flex items-center gap-3">

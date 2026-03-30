@@ -206,4 +206,84 @@ describe('CallSheetTemplate Excel Export/Import', () => {
 
     expect(checkTemplate.body.items.find((i: any) => i.id === itemId)).toBeUndefined();
   });
+
+  it('should apply a template to a production in replace and append mode', async () => {
+    // 1. Setup template and production
+    const timestamp = Date.now() + Math.random();
+    const match = await prisma.matchSchedule.create({
+      data: {
+        date: new Date(),
+        homeTeamName: 'Home',
+        awayTeamName: 'Away'
+      }
+    });
+
+    const production = await prisma.production.create({
+      data: {
+        matchScheduleId: match.id,
+        segments: {
+          create: [
+            { naam: 'Bestaand Segment 1', volgorde: 1, duurInMinuten: 10 },
+            { naam: 'Bestaand Segment 2', volgorde: 2, duurInMinuten: 20 }
+          ]
+        }
+      },
+      include: { segments: true }
+    });
+
+    const template = await prisma.callSheetTemplate.create({
+      data: {
+        name: `Test Apply Template ${timestamp}`,
+        items: {
+          create: [
+            { title: 'Template Item 1', durationSec: 30, orderIndex: 1 },
+            { title: 'Template Item 2', durationSec: 60, orderIndex: 2 }
+          ]
+        }
+      }
+    });
+
+    // 2. Apply in APPEND mode to Segment 2
+    const seg2 = production.segments.find(s => s.naam === 'Bestaand Segment 2');
+    expect(seg2).toBeDefined();
+
+    await request(app)
+      .post(`/api/callsheets/templates/${template.id}/apply/${production.id}`)
+      .send({ replace: false, segmentId: seg2?.id })
+      .expect(200);
+
+    // Verify append results
+    const prodAppend = await prisma.production.findUnique({
+      where: { id: production.id },
+      include: { segments: true, callSheets: { include: { items: true } } }
+    });
+
+    expect(prodAppend?.segments).toHaveLength(2);
+    expect(prodAppend?.segments.map(s => s.naam)).toContain('Bestaand Segment 1');
+    expect(prodAppend?.segments.map(s => s.naam)).toContain('Bestaand Segment 2');
+
+    // There should be a callsheet now
+    expect(prodAppend?.callSheets.length).toBeGreaterThan(0);
+    const cs = prodAppend?.callSheets[0];
+    expect(cs?.items).toHaveLength(2);
+    expect(cs?.items.every(i => i.productionSegmentId === seg2?.id)).toBe(true);
+
+    // 3. Apply in REPLACE mode
+    await request(app)
+      .post(`/api/callsheets/templates/${template.id}/apply/${production.id}`)
+      .send({ replace: true })
+      .expect(200);
+
+    // Verify replace results
+    const prodReplace = await prisma.production.findUnique({
+      where: { id: production.id },
+      include: { segments: true, callSheets: { include: { items: true } } }
+    });
+
+    expect(prodReplace?.segments).toHaveLength(1);
+    expect(prodReplace?.segments[0].naam).toBe('Algemeen');
+    expect(prodReplace?.callSheets).toHaveLength(1);
+    expect(prodReplace?.callSheets[0].items).toHaveLength(2);
+    expect(prodReplace?.callSheets[0].items.every(i => i.productionSegmentId === prodReplace?.segments[0].id)).toBe(true);
+  });
 });

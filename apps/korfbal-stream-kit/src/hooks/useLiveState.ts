@@ -80,11 +80,14 @@ export const useLiveState = () => {
   const [venueClock, setVenueClock] = useState('00:00');
   const [systemTime, setSystemTime] = useState(formatSystemTime(new Date()));
   const [activeEventElapsedTime, setActiveEventElapsedTime] = useState(0);
+  const [activeEventRemainingTime, setActiveEventRemainingTime] = useState<DisplayTime | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const timeStateRef = useRef<TimeState | null>(null);
   const eventStartTimeRef = useRef<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const activeEventRef = useRef<ProductionEvent | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -103,6 +106,7 @@ export const useLiveState = () => {
           const active = items.find(item => item.status === 'ACTIVE');
           if (active) {
             setActiveEvent(active);
+            activeEventRef.current = active;
             // We schatten de starttijd in op basis van actualStartTime als die er is
             if (active.actualStartTime) {
               eventStartTimeRef.current = new Date(active.actualStartTime).getTime();
@@ -159,9 +163,19 @@ export const useLiveState = () => {
 
       if (eventStartTimeRef.current) {
         const eventElapsedMs = Date.now() - eventStartTimeRef.current;
-        setActiveEventElapsedTime(eventElapsedMs / 1000);
+        const eventElapsedSec = eventElapsedMs / 1000;
+        setActiveEventElapsedTime(eventElapsedSec);
+
+        // Bereken resterende tijd voor actief event
+        const active = activeEventRef.current;
+        if (active && active.durationSec) {
+          setActiveEventRemainingTime(formatTime(active.durationSec - eventElapsedSec));
+        } else {
+          setActiveEventRemainingTime(null);
+        }
       } else {
         setActiveEventElapsedTime(0);
+        setActiveEventRemainingTime(null);
       }
     };
 
@@ -176,12 +190,14 @@ export const useLiveState = () => {
 
     socket.on('active_event_update', (event: ProductionEvent) => {
       setActiveEvent(event);
+      activeEventRef.current = event;
       if (event.actualStartTime) {
         eventStartTimeRef.current = new Date(event.actualStartTime).getTime();
       } else {
         eventStartTimeRef.current = Date.now();
       }
       setActiveEventElapsedTime(0);
+      setActiveEventRemainingTime(null);
     });
 
     socket.on('production_events_update', (data: { items: ProductionEvent[] }) => {
@@ -212,6 +228,7 @@ export const useLiveState = () => {
     venueClock,
     systemTime,
     activeEventElapsedTime,
+    activeEventRemainingTime,
     isLoading,
   };
 };

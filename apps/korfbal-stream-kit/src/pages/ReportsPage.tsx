@@ -149,7 +149,13 @@ function DailyOccupancyReport() {
               <div className="font-bold text-gray-900 dark:text-gray-100 text-sm">{prod.homeTeam}</div>
               <div className="text-xs font-normal text-gray-500 dark:text-gray-400">
                 {formatTime(prod.time)}
-                {prod.liveTime && ` (${formatTime(prod.liveTime)})`}
+                {prod.liveTime && (
+                  <>
+                    <br />
+                    LIVE: {formatTime(prod.liveTime)}
+                    {prod.endLiveTime && ` - ${formatTime(prod.endLiveTime)}`}
+                  </>
+                )}
               </div>
             </div>
           ),
@@ -251,7 +257,13 @@ function DailyOccupancyReport() {
                         {prod.homeTeam} vs {prod.awayTeam}
                       </h3>
                       <div className="flex flex-col items-end">
-                        <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">{formatTime(prod.date)}</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">WEDSTRIJD: {formatTime(prod.date)}</span>
+                        {prod.liveTime && (
+                          <span className="text-sm text-blue-600 dark:text-blue-400 font-bold">
+                            LIVE: {formatTime(prod.liveTime)}
+                            {prod.endLiveTime && ` - ${formatTime(prod.endLiveTime)}`}
+                          </span>
+                        )}
                         {prod.matchSponsor && (
                           <span className="text-xs text-blue-600 dark:text-blue-400 italic">Sponsor: {prod.matchSponsor}</span>
                         )}
@@ -335,8 +347,16 @@ function InterviewsReport() {
         header: 'Tijd',
         cell: info => {
           const time = formatTime(info.getValue());
-          const liveTime = info.row.original.liveTime ? ` (${formatTime(info.row.original.liveTime)})` : '';
-          return `${time}${liveTime}`;
+          const row = info.row.original;
+          let liveStr = '';
+          if (row.liveTime) {
+            liveStr = ` (LIVE: ${formatTime(row.liveTime)}`;
+            if (row.endLiveTime) {
+              liveStr += ` - ${formatTime(row.endLiveTime)}`;
+            }
+            liveStr += `)`;
+          }
+          return `${time}${liveStr}`;
         },
       }),
       helper.accessor(row => `${row.homeTeam} vs ${row.awayTeam}`, {
@@ -494,7 +514,13 @@ function OccupancyByPositionTable({ date }: { date: string }) {
               <div className="font-bold text-gray-900 dark:text-gray-100 text-sm">{prod.homeTeam}</div>
               <div className="text-xs font-normal text-gray-500 dark:text-gray-400">
                 {formatTime(prod.time)}
-                {prod.liveTime && ` (${formatTime(prod.liveTime)})`}
+                {prod.liveTime && (
+                  <>
+                    <br />
+                    LIVE: {formatTime(prod.liveTime)}
+                    {prod.endLiveTime && ` - ${formatTime(prod.endLiveTime)}`}
+                  </>
+                )}
               </div>
             </div>
           ),
@@ -504,7 +530,7 @@ function OccupancyByPositionTable({ date }: { date: string }) {
               <div className="text-center font-medium text-gray-800 dark:text-gray-200">{persons.join(', ')}</div>
             ) : (
               <div className="flex justify-center">
-                <MdClose className="text-red-500 text-lg" />
+                <MdClose className="text-red-500 text-lg opacity-20" />
               </div>
             );
           },
@@ -547,8 +573,16 @@ function CrewRolesReport() {
         header: 'Tijd',
         cell: info => {
           const time = formatTime(info.getValue());
-          const liveTime = info.row.original.liveTime ? ` (${formatTime(info.row.original.liveTime)})` : '';
-          return `${time}${liveTime}`;
+          const row = info.row.original;
+          let liveStr = '';
+          if (row.liveTime) {
+            liveStr = ` (LIVE: ${formatTime(row.liveTime)}`;
+            if (row.endLiveTime) {
+              liveStr += ` - ${formatTime(row.endLiveTime)}`;
+            }
+            liveStr += `)`;
+          }
+          return `${time}${liveStr}`;
         },
       }),
       helper.accessor(row => `${row.homeTeam} vs ${row.awayTeam}`, {

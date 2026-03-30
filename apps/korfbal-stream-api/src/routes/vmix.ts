@@ -796,13 +796,13 @@ vmixRouter.get('/production/:id/titles', async (req, res, next) => {
 
     // Helper: load crew by capability codes (uses new production crew endpoint logic)
     async function loadCrew() {
-      // Fetch production-wide person-position assignments with on-stream skills
+      // Fetch production-wide person-position assignments with entertainment skills
       const productionPositions = await prisma.productionPersonPosition.findMany({
         where: {
           productionId: id,
           position: {
             skill: {
-              type: 'on_stream',
+              type: 'entertainment',
             },
           },
         },

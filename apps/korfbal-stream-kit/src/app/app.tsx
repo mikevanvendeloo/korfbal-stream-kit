@@ -52,6 +52,7 @@ import AboutPage from '../pages/AboutPage';
 import SettingsPage from '../pages/SettingsPage';
 import {PositionSelector} from '../components/PositionSelector';
 import {CallSheetView} from '../components/CallSheetView';
+import {ErrorBoundary} from "../components/ErrorBoundary";
 
 function Nav() {
   const {theme, toggle} = useTheme();
@@ -342,7 +343,8 @@ export function App() {
       <div className="min-h-screen bg-white dark:bg-gray-950">
         <Nav/>
         <main>
-          <Routes>
+          <ErrorBoundary>
+            <Routes>
             <Route path="/"
                    element={
                      <div className="container py-6 text-gray-800 dark:text-gray-100 flex flex-col items-center">
@@ -389,6 +391,7 @@ export function App() {
             <Route path="/live/:productionId/positions" element={<PositionSelector />} />
             <Route path="/live/:productionId/view/:positionSlug" element={<CallSheetView />} />
           </Routes>
+          </ErrorBoundary>
         </main>
       </div>
     </ThemeProvider>

@@ -96,3 +96,73 @@ positionsRouter.delete('/positions/:id', async (req, res, next) => {
     return next(err);
   }
 });
+
+// GET /api/production/positions/export
+positionsRouter.get('/export/positions', async (_req, res, next) => {
+  try {
+    const items = await prisma.position.findMany({
+      orderBy: { sortOrder: 'asc' },
+      include: { skill: true }
+    });
+
+    const exportData = items.map(p => ({
+      name: p.name,
+      category: p.category,
+      sortOrder: p.sortOrder,
+      isStudio: p.isStudio,
+      skillCode: p.skill?.code || null
+    }));
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename=positions.json');
+    return res.json(exportData);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// POST /api/production/positions/import
+positionsRouter.post('/import/positions', async (req, res, next) => {
+  try {
+    const data = req.body;
+    if (!Array.isArray(data)) return res.status(400).json({ error: 'Array expected' });
+
+    let created = 0, updated = 0;
+
+    // Get all skills once for matching
+    const allSkills = await prisma.skill.findMany();
+    const skillMap = new Map(allSkills.map(s => [s.code, s.id]));
+
+    for (const item of data) {
+      if (!item.name) continue;
+
+      const skillId = item.skillCode ? (skillMap.get(item.skillCode) || null) : null;
+
+      const input = {
+        name: item.name,
+        category: item.category,
+        sortOrder: item.sortOrder,
+        isStudio: !!item.isStudio,
+        skillId: skillId
+      };
+
+      const existing = await prisma.position.findFirst({ where: { name: item.name } });
+      if (existing) {
+        await prisma.position.update({
+          where: { id: existing.id },
+          data: input
+        });
+        updated++;
+      } else {
+        await prisma.position.create({
+          data: input
+        });
+        created++;
+      }
+    }
+
+    return res.json({ ok: true, created, updated });
+  } catch (err) {
+    return next(err);
+  }
+});

@@ -37,8 +37,8 @@ describe('vMix Titles - templates, copy-to-production and resolver', () => {
     // Mock productionPersonPosition for resolver
     prisma.productionPersonPosition = {
       findMany: vi.fn(async ({ where }: any) => {
-        // Check if we are looking for on_stream skills
-        if (where?.position?.skill?.type === 'on_stream') {
+        // Check if we are looking for entertainment skills
+        if (where?.position?.skill?.type === 'entertainment') {
           return [
             {
               id: 1,

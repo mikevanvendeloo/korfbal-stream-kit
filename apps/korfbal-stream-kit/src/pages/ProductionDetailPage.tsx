@@ -145,7 +145,7 @@ export default function ProductionDetailPage() {
   const segments = useProductionSegments(id);
   const createSeg = useCreateSegment(id);
   const updateSeg = useUpdateSegment();
-  const deleteSeg = useDeleteSegment();
+  const deleteSeg = useDeleteSegment(id);
   const timing = useProductionTiming(id);
   const updateProduction = useUpdateProduction();
   const { data: callSheets } = useCallSheets(id);

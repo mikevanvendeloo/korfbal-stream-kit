@@ -9,11 +9,12 @@ interface Props {
   isConnected: boolean;
   timeSinceLastSync: number | null;
   productionClock: DisplayTime;
+  activeEventRemainingTime: DisplayTime | null;
   venueClock: string;
   systemTime: string;
 }
 
-export const TimeDisplay = ({ isConnected, timeSinceLastSync, productionClock, venueClock, systemTime }: Props) => {
+export const TimeDisplay = ({ isConnected, timeSinceLastSync, productionClock, activeEventRemainingTime, venueClock, systemTime }: Props) => {
 
   const getStatusIndicator = () => {
     if (!isConnected) return <span className="text-red-500 animate-pulse">● Verbinding verbroken</span>;
@@ -23,7 +24,8 @@ export const TimeDisplay = ({ isConnected, timeSinceLastSync, productionClock, v
   };
 
   const getProductionClockStyle = () => {
-    const { rawSeconds } = productionClock;
+    const clock = activeEventRemainingTime || productionClock;
+    const { rawSeconds } = clock;
     if (rawSeconds <= 0) {
       return 'bg-red-600 text-white';
     }
@@ -32,6 +34,8 @@ export const TimeDisplay = ({ isConnected, timeSinceLastSync, productionClock, v
     }
     return 'bg-gray-700 text-gray-100';
   };
+
+  const displayClock = activeEventRemainingTime || productionClock;
 
   return (
     <div className="flex items-center gap-4 text-lg font-mono">
@@ -52,12 +56,12 @@ export const TimeDisplay = ({ isConnected, timeSinceLastSync, productionClock, v
 
       {/* Productie Klok */}
       <div className={`flex flex-col items-center p-2 rounded-lg transition-colors ${getProductionClockStyle()}`}>
-        <span className="text-xs uppercase opacity-80">Productie</span>
+        <span className="text-xs uppercase opacity-80">{activeEventRemainingTime ? 'Item Countdown' : 'Productie'}</span>
         <div className="font-bold">
-          <span>{productionClock.isNegative && '-'}</span>
-          <span>{productionClock.minutes}</span>
+          <span>{displayClock.isNegative && '-'}</span>
+          <span>{displayClock.minutes}</span>
           <span>:</span>
-          <span>{productionClock.seconds}</span>
+          <span>{displayClock.seconds}</span>
         </div>
       </div>
     </div>

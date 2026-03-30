@@ -478,7 +478,7 @@ enum Gender {
 
 enum SkillType {
   crew
-  on_stream
+  entertainment
 }
 
 enum PositionCategory {

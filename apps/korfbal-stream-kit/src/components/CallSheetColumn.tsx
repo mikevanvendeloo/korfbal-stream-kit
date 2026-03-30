@@ -48,10 +48,11 @@ export const CallSheetColumn = ({
   });
 
   return (
-    <div className={`bg-black/20 rounded-xl overflow-hidden border border-white/5 shadow-xl transition-all`}>
+    <div className={`bg-black/20 rounded-xl border border-white/5 shadow-xl transition-all`}>
       {/* Kolom Header met Positie Selectie */}
       {!isCompact && (
-        <div className={`p-4 bg-gray-900/80 backdrop-blur-md sticky top-0 z-10 border-b border-white/5`}>
+          <header
+            className="sticky top-[88px] z-10 bg-gray-900/95 backdrop-blur-md p-3 rounded-t-xl border-b border-white/10 mb-4">
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-black tracking-tight flex items-center gap-3">
@@ -92,11 +93,12 @@ export const CallSheetColumn = ({
               })}
             </div>
           </div>
-        </div>
+          </header>
       )}
 
       {isCompact && (
-         <div className={`p-2 bg-gray-900/40 backdrop-blur-sm sticky top-0 z-10 border-b border-white/5`}>
+           <header
+             className="sticky top-[88px] z-10 bg-gray-900/95 backdrop-blur-sm p-2 rounded-t-xl border-b border-white/10 mb-4">
             <div className="flex items-center gap-2">
                 <span className={`w-1 h-3 rounded-full ${
                     isBlue ? 'bg-blue-500' :
@@ -105,7 +107,7 @@ export const CallSheetColumn = ({
                 }`}></span>
                 <span className="text-[10px] font-black uppercase tracking-widest text-white/70">{title}</span>
             </div>
-         </div>
+         </header>
       )}
 
       <div className="p-4 space-y-4">

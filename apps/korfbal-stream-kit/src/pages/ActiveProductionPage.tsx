@@ -1,14 +1,9 @@
 import {Link} from 'react-router-dom';
-import {
-  useProductionCrew,
-  useProductionInterviews,
-  useProductions,
-  useProductionTiming
-} from '../hooks/useProductions';
+import {useProductionCrew, useProductionInterviews, useProductions, useProductionTiming} from '../hooks/useProductions';
 import ProductionHeader from '../components/ProductionHeader';
 import {MdAnchor, MdEdit} from 'react-icons/md';
-import {createUrl} from "../lib/api";
 import {PositionCategory} from "../hooks/usePositions";
+import PlayerCard from "../components/PlayerCard";
 
 const categoryLabels: Record<PositionCategory, string> = {
   [PositionCategory.GENERAL]: 'Algemeen',
@@ -29,6 +24,8 @@ export default function ActiveProductionPage() {
   if (!active) return <div className="container py-6 text-gray-800 dark:text-gray-100">Geen actieve productie. Ga naar <Link className="underline" to="/admin/productions">Productions</Link>.</div>;
 
   const gatheringTime = active.liveTime ? new Date(new Date(active.liveTime).getTime() - 30 * 60000) : null;
+  const totalDuration = (timing.data || []).reduce((sum, s) => sum + s.duurInMinuten, 0);
+  const endLiveTime = active.liveTime ? new Date(new Date(active.liveTime).getTime() + totalDuration * 60000) : null;
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
@@ -78,6 +75,14 @@ export default function ActiveProductionPage() {
                   </div>
                 </div>
               ))}
+              {endLiveTime && (
+                <div className="p-3 flex items-center justify-between bg-blue-50 dark:bg-blue-900/10 border-t border-blue-100 dark:border-blue-900/30">
+                  <div className="font-bold text-blue-800 dark:text-blue-200 uppercase text-xs tracking-wider">Einde Livestream</div>
+                  <div className="text-sm font-black text-blue-800 dark:text-blue-200">
+                    {endLiveTime.toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit', hour12: false})}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -114,23 +119,16 @@ export default function ActiveProductionPage() {
             </div>
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {interviews.data?.map((interview) => (
-                <div key={interview.id} className="p-2 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                  <div className="w-24 h-24 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700 flex-shrink-0">
-                    {interview.player?.photoUrl && (
-                      <img
-                        src={createUrl(`/uploads/${interview.player.photoUrl}`).toString()}
-                        alt={interview.player.name}
-                        className="w-full h-full object-cover"
-                      />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-lg truncate">{interview.player?.name || 'Onbekend'}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">{interview.role === 'PLAYER' ? 'Speler' : 'Coach'}</div>
-                  </div>
-                </div>
+                <PlayerCard
+                  key={interview.id}
+                  name={interview.player?.name || 'Onbekend'}
+                  photoUrl={interview.player?.photoUrl}
+                  shirtNo={interview.player?.shirtNo}
+                  function={interview.role === 'PLAYER' ? 'Speler' : 'Coach'}
+                  horizontal
+                />
               ))}
-              {!interviews.data?.length && <div className="p-4 text-gray-500 text-center italic">Geen interviews gepland</div>}
+              {!interviews.data?.length && <div className="p-8 text-gray-500 text-center italic">Geen interviews gepland</div>}
             </div>
           </div>
         </div>

@@ -209,18 +209,30 @@ export default function ProductionReportPage() {
                   <tr className="border-b dark:border-gray-700 bg-green-50 dark:bg-green-900/20">
                     <td className="py-2 pr-4 font-medium">LIVESTREAM START</td>
                     <td className="py-2 pr-4 font-mono">{timeLocal(data.production.liveTime)}</td>
-                    <td className="py-2 pr-4 font-mono">{timeLocal(data.production.liveTime)}</td>
-                    <td className="py-2">-</td>
+                    <td className="py-2 pr-4 font-mono">-</td>
+                    <td className="py-2 text-gray-400">-</td>
                   </tr>
                 )}
                 {timing.data.map((segment) => (
                   <tr key={segment.id} className="border-b dark:border-gray-700">
                     <td className="py-2 pr-4">{segment.naam}</td>
-                    <td className="py-2 pr-4">{timeLocal(segment.start!)}</td>
-                    <td className="py-2 pr-4">{timeLocal(segment.end!)}</td>
+                    <td className="py-2 pr-4 font-mono">{timeLocal(segment.start!)}</td>
+                    <td className="py-2 pr-4 font-mono">{timeLocal(segment.end!)}</td>
                     <td className="py-2">{segment.duurInMinuten} min</td>
                   </tr>
                 ))}
+                {data.production.liveTime && (
+                  <tr className="border-t-2 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
+                    <td className="py-2 pr-4 font-medium uppercase text-green-700 dark:text-green-400">Livestream Einde</td>
+                    <td className="py-2 pr-4 font-mono text-gray-400">-</td>
+                    <td className="py-2 pr-4 font-mono font-bold text-green-700 dark:text-green-400">
+                      {timeLocal(new Date(new Date(data.production.liveTime).getTime() + timing.data.reduce((acc, s) => acc + s.duurInMinuten, 0) * 60000).toISOString())}
+                    </td>
+                    <td className="py-2 font-medium text-green-700 dark:text-green-400">
+                      {timing.data.reduce((acc, s) => acc + s.duurInMinuten, 0)} min
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           ) : (

@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '../theme/ThemeProvider';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {ThemeProvider} from '../theme/ThemeProvider';
 import SkillsAdminPage from './SkillsAdminPage';
 
 function renderWithProviders(ui: React.ReactNode) {
@@ -23,17 +23,17 @@ describe('SkillsAdminPage', () => {
       // List skills
       if (u.pathname.endsWith('/api/skills') && (!init || init.method === 'GET')) {
         return { ok: true, json: async () => ({ items: [
-          { id: 1, code: 'COACH', name: 'Coach', nameMale: 'Coach', nameFemale: 'Coach', type: 'on_stream' },
-          { id: 2, code: 'SPELER', name: 'Speler', nameMale: 'Speler', nameFemale: 'Speelster', type: 'on_stream' },
+          { id: 1, code: 'COACH', name: 'Coach', nameMale: 'Coach', nameFemale: 'Coach', type: 'entertainment' },
+          { id: 2, code: 'SPELER', name: 'Speler', nameMale: 'Speler', nameFemale: 'Speelster', type: 'entertainment' },
         ], page: 1, limit: 100, total: 2, pages: 1 }) } as any;
       }
       // Create
       if (u.pathname.endsWith('/api/skills') && init?.method === 'POST') {
-        return { ok: true, json: async () => ({ id: 3, code: 'ANALIST', name: 'Analist', nameMale: 'Analist', nameFemale: 'Analist', type: 'on_stream' }) } as any;
+        return { ok: true, json: async () => ({ id: 3, code: 'ANALIST', name: 'Analist', nameMale: 'Analist', nameFemale: 'Analist', type: 'entertainment' }) } as any;
       }
       // Update
       if (u.pathname.match(/\/api\/skills\/(\d+)/) && init?.method === 'PUT') {
-        return { ok: true, json: async () => ({ id: 1, code: 'COACH', name: 'Coach', nameMale: 'Coach NL', nameFemale: 'Coach NL', type: 'on_stream' }) } as any;
+        return { ok: true, json: async () => ({ id: 1, code: 'COACH', name: 'Coach', nameMale: 'Coach NL', nameFemale: 'Coach NL', type: 'entertainment' }) } as any;
       }
       // Delete
       if (u.pathname.match(/\/api\/skills\/(\d+)/) && init?.method === 'DELETE') {

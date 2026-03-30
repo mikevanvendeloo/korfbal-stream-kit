@@ -9,9 +9,9 @@ import {
 } from '../hooks/usePositions';
 import {useQuery} from '@tanstack/react-query';
 import IconButton from '../components/IconButton';
-import {MdAdd, MdDelete, MdDragIndicator, MdEdit} from 'react-icons/md';
+import {MdAdd, MdDelete, MdDownload, MdDragIndicator, MdEdit, MdUploadFile} from 'react-icons/md';
 import {createUrl, extractError} from '../lib/api';
-import {DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent} from '@dnd-kit/core';
+import {closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors} from '@dnd-kit/core';
 import {arrayMove, SortableContext, useSortable, verticalListSortingStrategy} from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
 
@@ -139,6 +139,51 @@ export default function PositionsAdminPage() {
     });
   };
 
+  const handleExport = async () => {
+    try {
+      const res = await fetch('/api/production/export/positions');
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `positions-export-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setErr('Export mislukt: ' + e.message);
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setErr(null);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        const res = await fetch('/api/production/import/positions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(json)
+        });
+        const result = await res.json();
+        if (result.ok) {
+          alert(`Import geslaagd: ${result.created} nieuw, ${result.updated} bijgewerkt`);
+          window.location.reload();
+        } else {
+          setErr('Import mislukt: ' + (result.error || 'Onbekende fout'));
+        }
+      } catch (err: any) {
+        setErr('Ongeldig bestand: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset input
+  };
+
   const handleDelete = async (id: number) => {
     setErr(null);
     try {
@@ -152,15 +197,29 @@ export default function PositionsAdminPage() {
     <div className="container py-6 text-gray-800 dark:text-gray-100">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-lg font-semibold">Posities & taken</h1>
-        <button className="px-3 py-1 border rounded inline-flex items-center gap-1"
-                onClick={() => setEditing({
-                  name: '',
-                  skillId: null,
-                  category: PositionCategory.GENERAL,
-                  sortOrder: (positions?.length || 0) * 10 + 10
-                })}>
-          <MdAdd/> Nieuwe positie
-        </button>
+        <div className="flex items-center gap-2">
+          <button className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center"
+                  title="Export JSON"
+                  onClick={handleExport}>
+            <MdDownload className="w-5 h-5" />
+            <span className="sr-only">Export</span>
+          </button>
+          <label className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center"
+                 title="Import JSON">
+            <MdUploadFile className="w-5 h-5" />
+            <span className="sr-only">Import</span>
+            <input type="file" className="hidden" accept=".json" onChange={handleImport}/>
+          </label>
+          <button className="px-3 py-1 border rounded inline-flex items-center gap-1"
+                  onClick={() => setEditing({
+                    name: '',
+                    skillId: null,
+                    category: PositionCategory.GENERAL,
+                    sortOrder: (positions?.length || 0) * 10 + 10
+                  })}>
+            <MdAdd/> Nieuwe positie
+          </button>
+        </div>
       </div>
 
       {err && <div role="alert"

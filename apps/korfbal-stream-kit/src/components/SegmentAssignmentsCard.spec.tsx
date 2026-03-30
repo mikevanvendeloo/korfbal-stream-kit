@@ -39,7 +39,7 @@ vi.mock('../hooks/usePersons', () => {
   return {
     useSkillsCatalog: () => ({
       data: [
-        { id: 100, code: 'COMMENTAAR', name: 'Commentaar', type: 'on_stream' },
+        { id: 100, code: 'COMMENTAAR', name: 'Commentaar', type: 'entertainment' },
         { id: 200, code: 'REGISSEUR', name: 'Regisseur', type: 'crew' },
       ],
     }),

@@ -5,7 +5,7 @@ import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdDownload, MdEdit, MdUploadFile} from 'react-icons/md';
 import {createUrl, extractError} from "../lib/api";
 
-export type SkillType = 'crew' | 'on_stream';
+export type SkillType = 'crew' | 'entertainment';
 export type Skill = { id: number; code: string; name: string; nameMale: string; nameFemale: string; type: SkillType; createdAt?: string };
 
 function useSkills(q?: string, type?: SkillType) {
@@ -82,7 +82,7 @@ export default function SkillsAdminPage() {
       accessorKey: 'type',
       cell: ({ row }) => (
         <span className={`px-2 py-1 rounded text-xs ${row.original.type === 'crew' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'}`}>
-          {row.original.type === 'crew' ? 'Crew' : 'On-stream'}
+          {row.original.type === 'crew' ? 'Crew' : 'Entertainment'}
         </span>
       ),
     },
@@ -175,7 +175,7 @@ export default function SkillsAdminPage() {
         <select aria-label="Filter by type" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as SkillType | '')} className="px-2 py-1 border rounded bg-white dark:bg-gray-950">
           <option value="">Alle types</option>
           <option value="crew">Crew</option>
-          <option value="on_stream">On-stream</option>
+          <option value="entertainment">Entertainment</option>
         </select>
       </div>
 
@@ -242,7 +242,7 @@ export default function SkillsAdminPage() {
                 <label className="block text-xs mb-1">Type</label>
                 <select aria-label="Skill type" value={editing.type} onChange={(e) => setEditing({ ...editing, type: e.target.value as SkillType })} className="px-2 py-1 border rounded w-full bg-white dark:bg-gray-950">
                   <option value="crew">Crew</option>
-                  <option value="on_stream">On-stream</option>
+                  <option value="entertainment">Entertainment</option>
                 </select>
               </div>
             </div>

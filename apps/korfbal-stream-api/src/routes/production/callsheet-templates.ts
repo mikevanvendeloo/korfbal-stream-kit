@@ -211,6 +211,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
   try {
     const templateId = Number(req.params.id);
     const productionId = Number(req.params.productionId);
+    const { segmentId: requestedSegmentId, replace = true } = req.body || {};
 
     const template = await prisma.callSheetTemplate.findUnique({
       where: { id: templateId },
@@ -226,113 +227,162 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
 
     if (!production) return res.status(404).json({ error: 'Production not found' });
 
-    // Clean up old CallSheets, Items, ProductionEvents and Segments for this production
-    // Find all items in existing callsheets to delete their positions first (Prisma doesn't cascade all relations automatically sometimes depending on schema)
-    const oldCallSheets = await prisma.callSheet.findMany({
-      where: { productionId }
-    });
+    let segmentId: number;
 
-    for (const cs of oldCallSheets) {
-       const items = await prisma.callSheetItem.findMany({ where: { callSheetId: cs.id }, select: { id: true } });
-       const itemIds = items.map(i => i.id);
-       if (itemIds.length > 0) {
-           await prisma.callSheetItemPosition.deleteMany({ where: { callSheetItemId: { in: itemIds } } });
-       }
-    }
-
-    // Delete ALL events for this production (even those not linked to a callsheet item)
-    // First delete their positions
-    await prisma.productionEventPosition.deleteMany({
-      where: { event: { productionId } }
-    });
-    await prisma.productionEvent.deleteMany({
-      where: { productionId }
-    });
-
-    for (const cs of oldCallSheets) {
-      // Delete the items
-      await prisma.callSheetItem.deleteMany({
-        where: { callSheetId: cs.id }
+    if (replace) {
+      // Clean up old CallSheets, Items, ProductionEvents and Segments for this production
+      // Find all items in existing callsheets to delete their positions first (Prisma doesn't cascade all relations automatically sometimes depending on schema)
+      const oldCallSheets = await prisma.callSheet.findMany({
+        where: { productionId }
       });
 
-      // Delete the callsheet itself
-      await prisma.callSheet.delete({
-        where: { id: cs.id }
-      });
-    }
-
-    // Delete all segments for this production
-    await prisma.productionSegment.deleteMany({
-      where: { productionId }
-    });
-
-    // Ensure at least one segment exists (create a fresh one after cleanup)
-    const newSegment = await prisma.productionSegment.create({
-      data: {
-        productionId,
-        naam: 'Algemeen',
-        volgorde: 1,
-        duurInMinuten: 60,
-        isTimeAnchor: true
+      for (const cs of oldCallSheets) {
+         const items = await prisma.callSheetItem.findMany({ where: { callSheetId: cs.id }, select: { id: true } });
+         const itemIds = items.map(i => i.id);
+         if (itemIds.length > 0) {
+             await prisma.callSheetItemPosition.deleteMany({ where: { callSheetItemId: { in: itemIds } } });
+         }
       }
-    });
-    const segmentId = newSegment.id;
+
+      // Delete ALL events for this production (even those not linked to a callsheet item)
+      // First delete their positions
+      await prisma.productionEventPosition.deleteMany({
+        where: { event: { productionId } }
+      });
+      await prisma.productionEvent.deleteMany({
+        where: { productionId }
+      });
+
+      for (const cs of oldCallSheets) {
+        // Delete the items
+        await prisma.callSheetItem.deleteMany({
+          where: { callSheetId: cs.id }
+        });
+
+        // Delete the callsheet itself
+        await prisma.callSheet.delete({
+          where: { id: cs.id }
+        });
+      }
+
+      // Delete all segments for this production
+      await prisma.productionSegment.deleteMany({
+        where: { productionId }
+      });
+
+      // Ensure at least one segment exists (create a fresh one after cleanup)
+      const newSegment = await prisma.productionSegment.create({
+        data: {
+          productionId,
+          naam: 'Algemeen',
+          volgorde: 1,
+          duurInMinuten: 60,
+          isTimeAnchor: true
+        }
+      });
+      segmentId = newSegment.id;
+    } else {
+      // Append mode
+      if (requestedSegmentId) {
+        segmentId = Number(requestedSegmentId);
+        // Verify segment exists and belongs to this production
+        const seg = await prisma.productionSegment.findFirst({
+          where: { id: segmentId, productionId }
+        });
+        if (!seg) return res.status(400).json({ error: 'Invalid segment for this production' });
+      } else {
+        // Use first segment or create one if none exists
+        if (production.segments.length > 0) {
+          segmentId = production.segments[0].id;
+        } else {
+          const newSegment = await prisma.productionSegment.create({
+            data: {
+              productionId,
+              naam: 'Algemeen',
+              volgorde: 1,
+              duurInMinuten: 60,
+              isTimeAnchor: true
+            }
+          });
+          segmentId = newSegment.id;
+        }
+      }
+    }
 
     // Create a new CallSheet for this production
     const callSheet = await prisma.callSheet.create({
       data: { productionId, name: template.name }
     });
 
+    const itemsToCreate = [];
+    const eventsToCreate = [];
+
     // Copieer items
-    const createdItems = [];
     for (const tItem of template.items) {
-      const newItem = await prisma.callSheetItem.create({
-        data: {
-          id: `t-${tItem.id}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-          callSheetId: callSheet.id,
-          productionSegmentId: segmentId,
-          cue: '',
-          title: tItem.title,
-          note: tItem.note,
-          durationSec: tItem.durationSec,
-          orderIndex: tItem.orderIndex,
-          isInVenue: tItem.isInVenue,
-          isInLivestream: tItem.isInLivestream,
-          isTimeAnchor: tItem.isTimeAnchor,
-          anchorType: tItem.anchorType,
-          autoAdvance: tItem.autoAdvance,
-          positions: {
-            create: tItem.positions.map(p => ({
-              positionId: p.positionId
-            }))
-          }
-        }
+      const itemId = `t-${tItem.id}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+
+      itemsToCreate.push({
+        id: itemId,
+        callSheetId: callSheet.id,
+        productionSegmentId: segmentId,
+        cue: '',
+        title: tItem.title,
+        note: tItem.note,
+        durationSec: tItem.durationSec,
+        orderIndex: tItem.orderIndex,
+        isInVenue: tItem.isInVenue,
+        isInLivestream: tItem.isInLivestream,
+        isTimeAnchor: tItem.isTimeAnchor,
+        anchorType: tItem.anchorType,
+        autoAdvance: tItem.autoAdvance,
       });
 
-      // Maak ook direct een ProductionEvent aan voor de live view
-      await prisma.productionEvent.create({
-        data: {
-          id: `ev-${newItem.id}`,
-          productionId: productionId,
-          callSheetItemId: newItem.id,
-          title: newItem.title,
-          order: newItem.orderIndex,
-          status: 'WAITING',
-          durationSec: newItem.durationSec,
-          autoAdvance: newItem.autoAdvance,
-          isTimeAnchor: newItem.isTimeAnchor,
-          anchorType: newItem.anchorType,
-          isInVenue: newItem.isInVenue,
-          isInLivestream: newItem.isInLivestream,
-          positions: {
-            create: tItem.positions.map(p => ({
-              positionId: p.positionId
-            }))
-          }
-        }
+      eventsToCreate.push({
+        id: `ev-${itemId}`,
+        productionId: productionId,
+        callSheetItemId: itemId,
+        title: tItem.title,
+        order: tItem.orderIndex,
+        status: 'WAITING' as const,
+        durationSec: tItem.durationSec,
+        autoAdvance: tItem.autoAdvance,
+        isTimeAnchor: tItem.isTimeAnchor,
+        anchorType: tItem.anchorType,
+        isInVenue: tItem.isInVenue,
+        isInLivestream: tItem.isInLivestream,
       });
+    }
 
-      createdItems.push(newItem);
+    // Bulk create items and events
+    await prisma.callSheetItem.createMany({ data: itemsToCreate });
+    await prisma.productionEvent.createMany({ data: eventsToCreate });
+
+    // Handle positions (Prisma createMany doesn't support nested writes, so we do this in a loop or another createMany)
+    const itemPositions = [];
+    const eventPositions = [];
+
+    for (let i = 0; i < template.items.length; i++) {
+        const tItem = template.items[i];
+        const itemId = itemsToCreate[i].id;
+        const eventId = eventsToCreate[i].id;
+
+        for (const p of tItem.positions) {
+            itemPositions.push({
+                callSheetItemId: itemId,
+                positionId: p.positionId
+            });
+            eventPositions.push({
+                eventId: eventId,
+                positionId: p.positionId
+            });
+        }
+    }
+
+    if (itemPositions.length > 0) {
+        await prisma.callSheetItemPosition.createMany({ data: itemPositions });
+    }
+    if (eventPositions.length > 0) {
+        await prisma.productionEventPosition.createMany({ data: eventPositions });
     }
 
     // Update production with template link
@@ -342,7 +392,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
     });
 
     return res.json({
-      message: `Template applied. Created ${createdItems.length} items.`,
+      message: `Template applied. Created ${itemsToCreate.length} items.`,
       callSheetId: callSheet.id
     });
   } catch (err) {

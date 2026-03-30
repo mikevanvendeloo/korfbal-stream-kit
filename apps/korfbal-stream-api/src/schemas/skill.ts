@@ -1,6 +1,6 @@
-import { z } from 'zod';
+import {z} from 'zod';
 
-export const SkillTypeEnum = z.enum(['crew', 'on_stream']);
+export const SkillTypeEnum = z.enum(['crew', 'entertainment']);
 
 export const SkillInputSchema = z.object({
   code: z.string().min(2).max(50).toUpperCase().regex(/^[A-Z0-9_]+$/),
