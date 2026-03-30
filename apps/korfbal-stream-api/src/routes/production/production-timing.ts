@@ -13,8 +13,11 @@ productionTimingRouter.get('/:id/timing', async (req, res, next) => {
     const segments = await prisma.productionSegment.findMany({ where: { productionId: id }, orderBy: { volgorde: 'asc' } });
     if (segments.length === 0) return res.json([]);
 
-    const anchorIdx = segments.findIndex((s) => s.isTimeAnchor);
-    if (anchorIdx === -1) return res.status(400).json({ error: 'No anchor segment defined' });
+    let anchorIdx = segments.findIndex((s) => s.isTimeAnchor);
+    if (anchorIdx === -1) {
+      // Fallback: use the first segment as anchor if none defined
+      anchorIdx = 0;
+    }
 
     const anchorStart = new Date(prod.matchSchedule.date).getTime();
 

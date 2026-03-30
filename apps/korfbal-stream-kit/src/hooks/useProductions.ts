@@ -9,6 +9,7 @@ export type Production = {
   matchScheduleId: number;
   isActive: boolean;
   liveTime?: string;
+  callSheetTemplateId?: number | null;
   matchSchedule?: {
     id: number;
     homeTeamName: string;

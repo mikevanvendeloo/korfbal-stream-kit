@@ -7,146 +7,114 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum SponsorType {
-  premium
-  goud
-  zilver
-  brons
-}
-
 model Sponsor {
   id          Int         @id @default(autoincrement())
   name        String
   type        SponsorType
   logoUrl     String
   websiteUrl  String
+  createdAt   DateTime    @default(now())
   categories  String?
   displayName String?
-  createdAt   DateTime    @default(now())
 }
 
 model MatchSchedule {
-  id                 Int       @id @default(autoincrement())
-  externalId         String?   @unique
+  id                 Int                   @id @default(autoincrement())
+  externalId         String?               @unique
   date               DateTime
   homeTeamName       String
   awayTeamName       String
-  description        String?
   accommodationName  String?
   accommodationRoute String?
   attendanceTime     DateTime?
-  isPracticeMatch    Boolean   @default(false)
-  isHomeMatch        Boolean   @default(false)
-  isCompetitiveMatch Boolean   @default(false)
-  isManual           Boolean   @default(false)
+  isPracticeMatch    Boolean               @default(false)
+  isHomeMatch        Boolean               @default(false)
+  isCompetitiveMatch Boolean               @default(false)
   fieldName          String?
   refereeName        String?
   reserveRefereeName String?
   homeScore          Int?
   awayScore          Int?
   color              String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-
-  // Relations
-  roleAssignments MatchRoleAssignment[]
-  Production      Production?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  description        String?
+  isManual           Boolean               @default(false)
+  roleAssignments    MatchRoleAssignment[]
+  Production         Production?
 
   @@index([date])
 }
 
-enum Gender {
-  male
-  female
-}
-
-enum SkillType {
-  crew
-  on_stream
-}
-
 /// Catalog of skills (roles) with code and gendered display names
 model Skill {
-  id         Int       @id @default(autoincrement())
-  code       String    @unique // UPPERCASE short code
-  name       String
-  nameMale   String
-  nameFemale String
-  type       SkillType @default(crew)
-  createdAt  DateTime  @default(now())
-
-  // Relations
-  skills      PersonSkill[]
+  id          Int                   @id @default(autoincrement())
+  code        String                @unique
+  nameMale    String
+  nameFemale  String
+  createdAt   DateTime              @default(now())
+  name        String
+  type        SkillType             @default(crew)
   assignments MatchRoleAssignment[]
+  skills      PersonSkill[]
   Position    Position[]
 
   @@map("Capability")
 }
 
-enum PositionCategory {
-  GENERAL
-  TECHNICAL
-  ENTERTAINMENT
-}
-
 /// Catalog of production positions (distinct from skills)
 model Position {
-  id        Int              @id @default(autoincrement())
-  name      String           @unique
+  id                     Int                         @id @default(autoincrement())
+  name                   String                      @unique
+  createdAt              DateTime                    @default(now())
   /// Optional link to a skill that is required for this position
-  skillId   Int?
-  skill     Skill?           @relation(fields: [skillId], references: [id])
+  skillId                Int?
   /// Indicates if this is a studio position (true) or production position (false)
-  isStudio  Boolean          @default(false)
-  category  PositionCategory @default(GENERAL)
-  sortOrder Int              @default(99)
-  createdAt DateTime         @default(now())
-
-  // Relations
-  segmentAssignments     SegmentRoleAssignment[]
+  isStudio               Boolean                     @default(false)
+  category               PositionCategory            @default(GENERAL)
+  sortOrder              Int                         @default(99)
   callSheetItemPositions CallSheetItemPosition[]
-  SegmentDefaultPosition SegmentDefaultPosition[]
+  templatePositions      CallSheetTemplatePosition[]
+  skill                  Skill?                      @relation(fields: [skillId], references: [id])
+  linkedPositions        PositionLink[]              @relation("SourcePosition")
+  linkedToPositions      PositionLink[]              @relation("TargetPosition")
+  productionEvents       ProductionEventPosition[]
   productionPositions    ProductionPersonPosition[]
-  linkedPositions        PositionLink[]             @relation("SourcePosition")
-  linkedToPositions      PositionLink[]             @relation("TargetPosition")
-  productionEvents       ProductionEventPosition[] // Relatie naar de koppeltabel
+  SegmentDefaultPosition SegmentDefaultPosition[]
+  segmentAssignments     SegmentRoleAssignment[]
 }
 
 /// NIEUW: Koppeling tussen posities voor synchronisatie van de callsheet
 model PositionLink {
-  id               Int @id @default(autoincrement())
+  id               Int      @id @default(autoincrement())
   sourcePositionId Int
   targetPositionId Int
-
-  sourcePosition Position @relation("SourcePosition", fields: [sourcePositionId], references: [id], onDelete: Cascade)
-  targetPosition Position @relation("TargetPosition", fields: [targetPositionId], references: [id], onDelete: Cascade)
+  sourcePosition   Position @relation("SourcePosition", fields: [sourcePositionId], references: [id], onDelete: Cascade)
+  targetPosition   Position @relation("TargetPosition", fields: [targetPositionId], references: [id], onDelete: Cascade)
 
   @@unique([sourcePositionId, targetPositionId])
 }
 
 /// People who can be assigned roles in livestream productions
 model Person {
-  id        Int      @id @default(autoincrement())
-  name      String
-  gender    Gender
-  createdAt DateTime @default(now())
-
-  // Relations
-  skills              PersonSkill[]
+  id                  Int                        @id @default(autoincrement())
+  name                String
+  gender              Gender
+  createdAt           DateTime                   @default(now())
   assignments         MatchRoleAssignment[]
-  segmentAssignments  SegmentRoleAssignment[]
+  skills              PersonSkill[]
   productionPresences ProductionPerson[]
   productionPositions ProductionPersonPosition[]
+  segmentAssignments  SegmentRoleAssignment[]
 }
 
 /// Link table: which skills a person has
 model PersonSkill {
   personId  Int
-  skillId   Int
   createdAt DateTime @default(now())
-
-  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
-  skill  Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  skillId   Int
+  person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
   @@id([personId, skillId])
   @@map("PersonCapability")
@@ -154,17 +122,17 @@ model PersonSkill {
 
 /// Assignment of a person to a role for a specific match
 model MatchRoleAssignment {
-  id              Int      @id @default(autoincrement())
+  id              Int           @id @default(autoincrement())
   matchScheduleId Int
   personId        Int
+  createdAt       DateTime      @default(now())
   skillId         Int
-  createdAt       DateTime @default(now())
-
-  matchSchedule MatchSchedule @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
-  person        Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
-  skill         Skill         @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  matchSchedule   MatchSchedule @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
+  person          Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+  skill           Skill         @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
   @@unique([matchScheduleId, skillId, personId])
+  @@unique([matchScheduleId, skillId, personId], map: "MatchRoleAssignment_matchScheduleId_capabilityId_personId_key")
   @@index([matchScheduleId])
   @@index([personId])
   @@index([skillId])
@@ -172,32 +140,71 @@ model MatchRoleAssignment {
 
 /// A production instance for a given match
 model Production {
-  id              Int       @id @default(autoincrement())
-  matchScheduleId Int       @unique
-  isActive        Boolean   @default(false)
-  liveTime        DateTime?
-  createdAt       DateTime  @default(now())
-
-  matchSchedule       MatchSchedule              @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
-  segments            ProductionSegment[]
+  id                  Int                        @id @default(autoincrement())
+  matchScheduleId     Int                        @unique
+  createdAt           DateTime                   @default(now())
+  isActive            Boolean                    @default(false)
+  liveTime            DateTime?
+  callSheetTemplateId Int?
   callSheets          CallSheet[]
-  TitleDefinition     TitleDefinition[]
   interviewSubjects   InterviewSubject[]
-  productionReport    ProductionReport?
+  callSheetTemplate   CallSheetTemplate?         @relation(fields: [callSheetTemplateId], references: [id])
+  matchSchedule       MatchSchedule              @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
+  events              ProductionEvent[]
   productionPersons   ProductionPerson[]
   productionPositions ProductionPersonPosition[]
-  events              ProductionEvent[]
+  productionReport    ProductionReport?
+  segments            ProductionSegment[]
+  TitleDefinition     TitleDefinition[]
+}
+
+model CallSheetTemplate {
+  id          Int                     @id @default(autoincrement())
+  name        String                  @unique
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  items       CallSheetTemplateItem[]
+  productions Production[]
+}
+
+model CallSheetTemplateItem {
+  id             String                      @id @default(cuid())
+  templateId     Int
+  title          String
+  note           String?
+  durationSec    Int
+  orderIndex     Int                         @default(0)
+  isInVenue      Boolean                     @default(false)
+  isInLivestream Boolean                     @default(true)
+  isTimeAnchor   Boolean                     @default(false)
+  anchorType     String?
+  autoAdvance    Boolean                     @default(false)
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  template       CallSheetTemplate           @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  positions      CallSheetTemplatePosition[]
+
+  @@index([templateId])
+}
+
+model CallSheetTemplatePosition {
+  templateItemId String
+  positionId     Int
+  position       Position              @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  item           CallSheetTemplateItem @relation(fields: [templateItemId], references: [id], onDelete: Cascade)
+
+  @@id([templateItemId, positionId])
+  @@index([positionId])
 }
 
 /// People marked as present for a production
 model ProductionPerson {
-  id           Int      @id @default(autoincrement())
+  id           Int        @id @default(autoincrement())
   productionId Int
   personId     Int
-  createdAt    DateTime @default(now())
-
-  production Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
-  person     Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  person       Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
 
   @@unique([productionId, personId])
   @@index([productionId])
@@ -205,15 +212,14 @@ model ProductionPerson {
 }
 
 model ProductionPersonPosition {
-  id           Int      @id @default(autoincrement())
+  id           Int        @id @default(autoincrement())
   productionId Int
   personId     Int
   positionId   Int
-  createdAt    DateTime @default(now())
-
-  production Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
-  person     Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
-  position   Position   @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  person       Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  position     Position   @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
 
   @@unique([productionId, personId, positionId])
   @@index([productionId])
@@ -222,30 +228,26 @@ model ProductionPersonPosition {
 }
 
 model ProductionSegment {
-  id           Int        @id @default(autoincrement())
-  productionId Int
-  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
-
-  naam     String
-  volgorde Int
-
-  duurInMinuten Int
-  isTimeAnchor  Boolean @default(false)
-
-  bezetting      SegmentRoleAssignment[]
+  id             Int                     @id @default(autoincrement())
+  productionId   Int
+  naam           String
+  volgorde       Int
+  duurInMinuten  Int
+  isTimeAnchor   Boolean                 @default(false)
   callSheetItems CallSheetItem[]
+  production     Production              @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  bezetting      SegmentRoleAssignment[]
 
   @@unique([productionId, volgorde])
   @@index([productionId])
 }
 
 model SegmentDefaultPosition {
-  id          Int    @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   segmentName String
   positionId  Int
   order       Int
-
-  position Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  position    Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
 
   @@unique([segmentName, order])
   @@index([segmentName])
@@ -253,15 +255,14 @@ model SegmentDefaultPosition {
 }
 
 model SegmentRoleAssignment {
-  id                  Int      @id @default(autoincrement())
+  id                  Int               @id @default(autoincrement())
   productionSegmentId Int
   personId            Int
+  createdAt           DateTime          @default(now())
   positionId          Int
-  createdAt           DateTime @default(now())
-
-  productionSegment ProductionSegment @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
-  person            Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
-  position          Position          @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  person              Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+  position            Position          @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  productionSegment   ProductionSegment @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
 
   @@unique([productionSegmentId, positionId, personId])
   @@index([productionSegmentId])
@@ -276,61 +277,38 @@ model Club {
   slug      String   @unique
   logoUrl   String?
   createdAt DateTime @default(now())
-
-  players Player[]
+  players   Player[]
 }
 
 model Player {
-  id         Int      @id @default(autoincrement())
-  clubId     Int
-  name       String
-  shirtNo    Int?
-  gender     Gender?
-  photoUrl   String?
-  externalId String?  @unique
-  personType String?
-  function   String?
-  createdAt  DateTime @default(now())
-
-  club              Club               @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  id                Int                @id @default(autoincrement())
+  clubId            Int
+  name              String
+  shirtNo           Int?
+  gender            Gender?
+  photoUrl          String?
+  externalId        String?            @unique
+  createdAt         DateTime           @default(now())
+  function          String?
+  personType        String?
   interviewSubjects InterviewSubject[]
+  club              Club               @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
   @@index([clubId])
   @@index([name])
 }
 
-enum TitleSourceType {
-  COMMENTARY
-  PRESENTATION
-  PRESENTATION_AND_ANALIST
-  TEAM_COACH
-  TEAM_PLAYER
-  FREE_TEXT
-}
-
-enum TeamSide {
-  HOME
-  AWAY
-  NONE
-}
-
-enum InterviewRole {
-  PLAYER
-  COACH
-}
-
 model TitleDefinition {
-  id           Int      @id @default(autoincrement())
-  productionId Int?
-  name         String
-  order        Int      @default(1)
-  enabled      Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
+  id                Int                @id @default(autoincrement())
+  productionId      Int?
+  name              String
+  order             Int                @default(1)
+  enabled           Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  interviewSubjects InterviewSubject[]
   production        Production?        @relation(fields: [productionId], references: [id], onDelete: Cascade)
   parts             TitlePart[]
-  interviewSubjects InterviewSubject[]
 
   @@index([productionId, order])
 }
@@ -344,25 +322,23 @@ model TitlePart {
   filters           Json?
   customFunction    String?
   customName        String?
-
-  definition TitleDefinition @relation(fields: [titleDefinitionId], references: [id], onDelete: Cascade)
+  definition        TitleDefinition @relation(fields: [titleDefinitionId], references: [id], onDelete: Cascade)
 
   @@index([titleDefinitionId])
 }
 
 model InterviewSubject {
-  id                Int           @id @default(autoincrement())
+  id                Int              @id @default(autoincrement())
   productionId      Int
   side              TeamSide
   role              InterviewRole
   playerId          Int
   titleDefinitionId Int?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-
-  production      Production       @relation(fields: [productionId], references: [id], onDelete: Cascade)
-  player          Player           @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  titleDefinition TitleDefinition? @relation(fields: [titleDefinitionId], references: [id])
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  player            Player           @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  production        Production       @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  titleDefinition   TitleDefinition? @relation(fields: [titleDefinitionId], references: [id])
 
   @@unique([productionId, side, role, titleDefinitionId])
   @@index([productionId])
@@ -380,22 +356,21 @@ model PlayerImage {
 }
 
 model CallSheet {
-  id           Int      @id @default(autoincrement())
+  id           Int             @id @default(autoincrement())
   productionId Int
   name         String
   color        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  production Production      @relation(fields: [productionId], references: [id], onDelete: Cascade)
-  items      CallSheetItem[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  production   Production      @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  items        CallSheetItem[]
 
   @@unique([productionId, name])
   @@index([productionId])
 }
 
 model CallSheetItem {
-  id                  String    @id
+  id                  String                  @id
   callSheetId         Int
   productionSegmentId Int
   cue                 String
@@ -405,17 +380,17 @@ model CallSheetItem {
   timeStart           DateTime?
   timeEnd             DateTime?
   durationSec         Int
-  orderIndex          Int       @default(0)
-  isInVenue           Boolean   @default(false)
-  isInLivestream      Boolean   @default(true)
-  isTimeAnchor        Boolean   @default(false)
-  anchorType          String? // 'MATCH_START', 'LIVESTREAM_START', etc.
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
-  callSheet         CallSheet               @relation(fields: [callSheetId], references: [id], onDelete: Cascade)
-  productionSegment ProductionSegment       @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
-  positions         CallSheetItemPosition[]
+  orderIndex          Int                     @default(0)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  isInVenue           Boolean                 @default(false)
+  anchorType          String?
+  isTimeAnchor        Boolean                 @default(false)
+  autoAdvance         Boolean                 @default(false)
+  isInLivestream      Boolean                 @default(true)
+  callSheet           CallSheet               @relation(fields: [callSheetId], references: [id], onDelete: Cascade)
+  productionSegment   ProductionSegment       @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
+  positions           CallSheetItemPosition[]
 
   @@index([callSheetId])
   @@index([productionSegmentId])
@@ -424,10 +399,9 @@ model CallSheetItem {
 model CallSheetItemPosition {
   callSheetItemId String
   positionId      Int
-  createdAt       DateTime @default(now())
-
-  item     CallSheetItem @relation(fields: [callSheetItemId], references: [id], onDelete: Cascade)
-  position Position      @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  item            CallSheetItem @relation(fields: [callSheetItemId], references: [id], onDelete: Cascade)
+  position        Position      @relation(fields: [positionId], references: [id], onDelete: Cascade)
 
   @@id([callSheetItemId, positionId])
   @@index([positionId])
@@ -441,18 +415,96 @@ model Setting {
 }
 
 model ProductionReport {
-  id           Int        @id @default(autoincrement())
-  productionId Int        @unique
-  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
-
+  id                 Int        @id @default(autoincrement())
+  productionId       Int        @unique
   matchSponsor       String?
   interviewRationale String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
   remarks            String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  production         Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
 
   @@index([productionId])
+}
+
+model ProductionEvent {
+  id               String                    @id @default(cuid())
+  productionId     Int
+  metadata         Json?
+  createdAt        DateTime                  @default(now())
+  actualStartTime  DateTime?
+  order            Int
+  status           EventStatus               @default(WAITING)
+  title            String
+  triggerSource    TriggerSource             @default(MANUAL)
+  vMixInputName    String?
+  durationSec      Int?
+  note             String?
+  plannedEndTime   DateTime?
+  plannedStartTime DateTime?
+  anchorType       String?
+  autoAdvance      Boolean                   @default(false)
+  callSheetItemId  String?                   @unique
+  isInLivestream   Boolean                   @default(true)
+  isInVenue        Boolean                   @default(false)
+  isTimeAnchor     Boolean                   @default(false)
+  production       Production                @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  positions        ProductionEventPosition[]
+
+  @@index([productionId])
+  @@index([productionId, createdAt])
+}
+
+model ProductionEventPosition {
+  eventId    String
+  positionId Int
+  event      ProductionEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  position   Position        @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, positionId])
+}
+
+enum SponsorType {
+  premium
+  goud
+  zilver
+  brons
+}
+
+enum Gender {
+  male
+  female
+}
+
+enum SkillType {
+  crew
+  on_stream
+}
+
+enum PositionCategory {
+  GENERAL
+  TECHNICAL
+  ENTERTAINMENT
+}
+
+enum TitleSourceType {
+  COMMENTARY
+  PRESENTATION
+  PRESENTATION_AND_ANALIST
+  TEAM_PLAYER
+  TEAM_COACH
+  FREE_TEXT
+}
+
+enum TeamSide {
+  HOME
+  AWAY
+  NONE
+}
+
+enum InterviewRole {
+  PLAYER
+  COACH
 }
 
 enum EventStatus {
@@ -465,38 +517,4 @@ enum TriggerSource {
   VMIX
   MANUAL
   AUTO
-}
-
-model ProductionEvent {
-  id               String                    @id @default(cuid())
-  productionId     Int
-  order            Int
-  title            String
-  note             String?
-  durationSec      Int?
-  triggerSource    TriggerSource             @default(MANUAL)
-  vMixInputName    String?
-  status           EventStatus               @default(WAITING)
-  actualStartTime  DateTime?
-  plannedStartTime DateTime?
-  plannedEndTime   DateTime?
-  production       Production                @relation(fields: [productionId], references: [id], onDelete: Cascade)
-  metadata         Json?
-  positions        ProductionEventPosition[] // Relatie naar de koppeltabel
-
-  createdAt DateTime @default(now())
-
-  @@index([productionId])
-  @@index([productionId, createdAt])
-}
-
-// Koppeltabel tussen ProductionEvent en Position
-model ProductionEventPosition {
-  eventId    String
-  positionId Int
-
-  event    ProductionEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  position Position        @relation(fields: [positionId], references: [id], onDelete: Cascade)
-
-  @@id([eventId, positionId])
 }

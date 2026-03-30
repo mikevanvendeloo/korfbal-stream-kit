@@ -36,6 +36,12 @@ export interface ProductionEvent {
   plannedEndTime: string | null;
   metadata: any;
   createdAt: Date;
+  isInVenue: boolean;
+  isInLivestream: boolean;
+  autoAdvance: boolean;
+  isTimeAnchor: boolean;
+  anchorType: string | null;
+  production: any;
   positions: { position: Position }[];
 }
 
@@ -90,7 +96,20 @@ export const useLiveState = () => {
         const eventsResponse = await fetch(createUrl(`/api/production/${productionId}/events`));
         if (eventsResponse.ok) {
           const eventsData = await eventsResponse.json();
-          setAllItems(eventsData.items);
+          const items: ProductionEvent[] = eventsData.items;
+          setAllItems(items);
+
+          // Zet het initiële actieve event op basis van de status
+          const active = items.find(item => item.status === 'ACTIVE');
+          if (active) {
+            setActiveEvent(active);
+            // We schatten de starttijd in op basis van actualStartTime als die er is
+            if (active.actualStartTime) {
+              eventStartTimeRef.current = new Date(active.actualStartTime).getTime();
+            } else {
+              eventStartTimeRef.current = Date.now();
+            }
+          }
         } else {
           console.error("Failed to fetch all items.");
         }
@@ -157,8 +176,20 @@ export const useLiveState = () => {
 
     socket.on('active_event_update', (event: ProductionEvent) => {
       setActiveEvent(event);
-      eventStartTimeRef.current = Date.now();
+      if (event.actualStartTime) {
+        eventStartTimeRef.current = new Date(event.actualStartTime).getTime();
+      } else {
+        eventStartTimeRef.current = Date.now();
+      }
       setActiveEventElapsedTime(0);
+    });
+
+    socket.on('production_events_update', (data: { items: ProductionEvent[] }) => {
+      setAllItems(data.items);
+    });
+
+    socket.on('production_events_update_needed', () => {
+      fetchData();
     });
 
     intervalRef.current = setInterval(updateClocks, 100);

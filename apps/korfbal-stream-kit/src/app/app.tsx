@@ -18,6 +18,8 @@ import ClubsPage from '../pages/ClubsPage';
 import CrewReportPage from '../pages/CrewReportPage';
 import ProductionReportPage from '../pages/ProductionReportPage';
 import CallSheetsPage from '../pages/CallSheetsPage';
+import CallSheetTemplatesPage from '../pages/CallSheetTemplatesPage';
+import CallSheetTemplateDetailsPage from '../pages/CallSheetTemplateDetailsPage';
 import CallSheetEditPage from '../pages/CallSheetEditPage';
 import ActiveProductionPage from '../pages/ActiveProductionPage';
 import {ThemeProvider, useTheme} from '../theme/ThemeProvider';
@@ -147,6 +149,13 @@ function Nav() {
                         className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
                     <MdPeople/>
                     <span>Personen</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/admin/callsheets/templates"
+                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdViewList/>
+                    <span>Draaiboeken</span>
                   </Link>
                 </li>
 
@@ -350,6 +359,8 @@ export function App() {
             <Route path="/matches/schedule" element={<MatchSchedulePage/>}/>
             <Route path="/admin/manual-matches" element={<ManualMatchesAdminPage />} />
             <Route path="/admin/persons" element={<PersonsAdminPage/>}/>
+            <Route path="/admin/callsheets/templates" element={<CallSheetTemplatesPage />} />
+            <Route path="/admin/callsheets/templates/:id" element={<CallSheetTemplateDetailsPage />} />
             <Route path="/admin/skills" element={<SkillsAdminPage/>}/>
             <Route path="/admin/positions" element={<PositionsAdminPage/>}/>
             <Route path="/admin/segment-defaults" element={<SegmentDefaultsAdminPage/>}/>

@@ -29,7 +29,8 @@
     "prisma:studio": "dotenv -e apps/korfbal-stream-api/.env -- prisma studio --schema=apps/korfbal-stream-api/prisma/schema.prisma",
     "generate:sponsors:csv": "tsx ./scripts/generate-sponsor-csv.ts",
     "clean": "nx reset && rm -rf node_modules dist .nx/cache tmp",
-    "reinstall": "npm run clean && npm i"
+    "reinstall": "npm run clean && npm i",
+    "prisma:reset": "dotenv -e apps/korfbal-stream-api/.env -- prisma migrate reset --schema=apps/korfbal-stream-api/prisma/schema.prisma"
   },
   "private": true,
   "dependencies": {
@@ -44,6 +45,7 @@
     "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "html2canvas": "^1.4.1",
+    "lucide-react": "^1.7.0",
     "multer": "^2.0.0",
     "pdfkit": "^0.17.2",
     "prisma": "^6.17.1",

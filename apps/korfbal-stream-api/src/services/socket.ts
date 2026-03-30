@@ -1,7 +1,8 @@
-import { Server as SocketIOServer } from 'socket.io';
-import { Server as HttpServer } from 'http';
-import { logger } from '../utils/logger';
-import { timeSyncService } from './timeSyncService';
+import {Server as SocketIOServer} from 'socket.io';
+import {Server as HttpServer} from 'http';
+import {logger} from '../utils/logger';
+import {timeSyncService} from './timeSyncService';
+import {initializeClient} from './productionState';
 
 let io: SocketIOServer;
 
@@ -17,6 +18,7 @@ export function initSocket(httpServer: HttpServer) {
 
     // Stuur de huidige tijd-status naar de nieuwe client
     timeSyncService.initializeClient(socket);
+    initializeClient(socket);
 
     socket.on('disconnect', () => {
       logger.info(`🔌 Client disconnected: ${socket.id}`);

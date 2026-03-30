@@ -1,6 +1,6 @@
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import {describe, expect, it, vi} from 'vitest';
+import {act, fireEvent, render, screen} from '@testing-library/react';
 import SegmentFormModal from './SegmentFormModal';
 
 describe('SegmentFormModal', () => {
@@ -17,12 +17,16 @@ describe('SegmentFormModal', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Naam'), { target: { value: 'Voorbeschouwing' } });
-    fireEvent.change(screen.getByLabelText('Duur (minuten)'), { target: { value: '12' } });
-    fireEvent.change(screen.getByLabelText('Volgorde (optioneel)'), { target: { value: '2' } });
-    fireEvent.click(screen.getByText('Dit segment is het tijdanker'));
+    act(() => {
+      fireEvent.change(screen.getByLabelText('Naam'), { target: { value: 'Voorbeschouwing' } });
+      fireEvent.change(screen.getByLabelText('Duur (minuten)'), { target: { value: '12' } });
+      fireEvent.change(screen.getByLabelText('Volgorde (optioneel)'), { target: { value: '2' } });
+      fireEvent.click(screen.getByText('Dit segment is het tijdanker'));
+    });
 
-    fireEvent.click(screen.getByText('Opslaan'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Opslaan'));
+    });
 
     expect(onSubmit).toHaveBeenCalledWith({ naam: 'Voorbeschouwing', duurInMinuten: 12, volgorde: 2, isTimeAnchor: true });
   });
@@ -39,11 +43,15 @@ describe('SegmentFormModal', () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText('Naam'), { target: { value: 'Nabeschouwing' } });
-    fireEvent.change(screen.getByLabelText('Duur (minuten)'), { target: { value: '8' } });
+    act(() => {
+      fireEvent.change(screen.getByLabelText('Naam'), { target: { value: 'Nabeschouwing' } });
+      fireEvent.change(screen.getByLabelText('Duur (minuten)'), { target: { value: '8' } });
+    });
     // leave Volgorde empty
 
-    fireEvent.click(screen.getByText('Opslaan'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Opslaan'));
+    });
 
     expect(onSubmit).toHaveBeenCalledWith({ naam: 'Nabeschouwing', duurInMinuten: 8 });
   });

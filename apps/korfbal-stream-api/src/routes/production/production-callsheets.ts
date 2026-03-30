@@ -279,6 +279,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
     const isInVenue = req.body?.isInVenue === true;
     const isInLivestream = req.body?.isInLivestream !== false; // Default true
     const isTimeAnchor = req.body?.isTimeAnchor === true;
+    const autoAdvance = req.body?.autoAdvance === true;
     const anchorType = req.body?.anchorType != null ? String(req.body.anchorType) : null;
     const positionIds: number[] = Array.isArray(req.body?.positionIds) ? req.body.positionIds.map((x: any) => Number(x)).filter((x: number) => Number.isInteger(x) && x > 0) : [];
 
@@ -307,6 +308,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
           isInVenue,
           isInLivestream,
           isTimeAnchor,
+          autoAdvance,
           anchorType: anchorType || undefined,
         },
       });
@@ -348,6 +350,7 @@ productionCallsheetsRouter.put('/callsheet-items/:itemId', async (req, res, next
     if (req.body?.isInVenue != null) data.isInVenue = req.body.isInVenue === true;
     if (req.body?.isInLivestream != null) data.isInLivestream = req.body.isInLivestream === true;
     if (req.body?.isTimeAnchor != null) data.isTimeAnchor = req.body.isTimeAnchor === true;
+    if (req.body?.autoAdvance != null) data.autoAdvance = req.body.autoAdvance === true;
     if (req.body?.anchorType !== undefined) data.anchorType = req.body.anchorType ? String(req.body.anchorType) : null;
 
     const positionIds: number[] | undefined = Array.isArray(req.body?.positionIds)

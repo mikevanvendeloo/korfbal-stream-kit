@@ -14,12 +14,24 @@ import {
   useUpdateProductionPersonPositions,
   useUpdateSegment,
 } from '../hooks/useProductions';
+import {useCallSheets} from '../hooks/useCallsheet';
 import SegmentFormModal, {SegmentFormValues} from '../components/SegmentFormModal';
 import IconButton from '../components/IconButton';
-import {MdAdd, MdAnchor, MdArrowDownward, MdArrowUpward, MdDelete, MdDownload, MdEdit, MdGroups, MdLiveTv} from 'react-icons/md';
+import {
+  MdAdd,
+  MdAnchor,
+  MdArrowDownward,
+  MdArrowUpward,
+  MdDelete,
+  MdDownload,
+  MdEdit,
+  MdGroups,
+  MdLiveTv
+} from 'react-icons/md';
 import SegmentOverridesManager from '../components/SegmentOverridesManager';
 import ProductionHeader from '../components/ProductionHeader';
 import MultiSelect from '../components/MultiSelect';
+import {CallSheetTemplateSelector} from '../components/CallSheetTemplateSelector';
 import {createUrl} from '../lib/api';
 
 function timeLocal(iso: string) {
@@ -41,7 +53,7 @@ function ProductionWideAssignmentsCard({ productionId }: { productionId: number 
 
   // Fetch skills for all production persons
   React.useEffect(() => {
-    if (!productionPersons) return;
+    if (!productionPersons || productionPersons.length === 0) return;
 
     const fetchSkills = async () => {
       const skillsMap: Record<number, number[]> = {};
@@ -129,18 +141,27 @@ export default function ProductionDetailPage() {
   const id = Number(params.id);
   const navigate = useNavigate();
 
-  const { data: prod, isError, error } = useProduction(id);
+  const { data: prod, isError, error, refetch: refetchProduction } = useProduction(id);
   const segments = useProductionSegments(id);
   const createSeg = useCreateSegment(id);
   const updateSeg = useUpdateSegment();
   const deleteSeg = useDeleteSegment();
   const timing = useProductionTiming(id);
   const updateProduction = useUpdateProduction();
+  const { data: callSheets } = useCallSheets(id);
   const [modal, setModal] = React.useState<null | { mode: 'create' | 'edit'; seg?: ProductionSegment }>(null);
   const [err, setErr] = React.useState<string | null>(null);
   const { data: productionPersonPositions } = useProductionPersonPositions(id);
   const { data: productionPersons } = useProductionPersons(id);
   const { data: allPositions } = usePositions();
+
+  const refetch = async () => {
+    await Promise.all([
+      refetchProduction(),
+      segments.refetch(),
+      timing.refetch(),
+    ]);
+  };
 
   async function handleCreate(values: SegmentFormValues) {
     setErr(null);
@@ -253,7 +274,15 @@ export default function ProductionDetailPage() {
 
         <div className="flex items-center gap-2">
           <Link to={`/admin/productions/${id}/production-report`} className="px-3 py-1 border rounded">Productie rapport</Link>
-          <Link to={`/admin/productions/${id}/callsheets`} className="px-3 py-1 border rounded">Callsheets</Link>
+          {callSheets && callSheets.length > 0 ? (
+            <Link to={`/admin/productions/${id}/callsheets/${callSheets[0].id}`} className="px-3 py-1 border rounded flex items-center gap-1">
+              <MdEdit /> Bewerk Draaiboek
+            </Link>
+          ) : (
+            <span className="px-3 py-1 border rounded text-gray-400 cursor-not-allowed" title="Kies eerst een draaiboek-template hieronder">
+              Geen draaiboek actief
+            </span>
+          )}
           {/*<Link to={`/admin/productions/${id}/segment-assignments`} className="px-3 py-1 border rounded">Segment Toewijzingen</Link>*/}
           <button onClick={handleExport} className="px-3 py-1 border rounded flex items-center gap-1" title="Exporteer productie">
             <MdDownload /> Exporteer
@@ -290,8 +319,13 @@ export default function ProductionDetailPage() {
       )}
 
       {/* Productie-brede Positietoewijzingen */}
-      <div className="mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <ProductionWideAssignmentsCard productionId={id} />
+        <CallSheetTemplateSelector
+          productionId={id}
+          currentTemplateId={prod?.callSheetTemplateId}
+          onTemplateApplied={refetch}
+        />
       </div>
 
 

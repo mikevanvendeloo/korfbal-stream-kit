@@ -33,27 +33,38 @@ showControlRouter.post('/next', async (req, res, next) => {
             return res.status(400).json({error: 'No active production.'});
         }
 
-        const currentEvent = await prisma.productionEvent.findFirst({
-            where: {productionId: activeProductionId, status: 'ACTIVE'}
-        })
+    const nextEvent = await productionStateService.getNextEvent();
 
-        const nextEvent = await prisma.productionEvent.findFirst({
-            where: {
-                productionId: activeProductionId,
-                order: {gt: currentEvent?.order ?? -1},
-            },
-            orderBy: {order: 'asc'},
-        });
-
-        if (!nextEvent) {
-            return res.status(404).json({error: 'End of show reached.'});
-        }
-
-        await productionStateService.setActiveEvent(nextEvent.id, activeProductionId);
-        return res.status(200).json(nextEvent);
-    } catch (err) {
-        return next(err);
+    if (!nextEvent) {
+      return res.status(404).json({error: 'End of show reached.'});
     }
+
+    const updatedEvent = await productionStateService.setActiveEvent(nextEvent.id, activeProductionId);
+    return res.status(200).json(updatedEvent);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// POST /api/show/previous - Ga naar het vorige item
+showControlRouter.post('/previous', async (req, res, next) => {
+  try {
+    const activeProductionId = productionStateService.getActiveProductionId();
+    if (!activeProductionId) {
+      return res.status(400).json({error: 'No active production.'});
+    }
+
+    const previousEvent = await productionStateService.getPreviousEvent();
+
+    if (!previousEvent) {
+      return res.status(404).json({error: 'Start of show reached.'});
+    }
+
+    const updatedEvent = await productionStateService.setActiveEvent(previousEvent.id, activeProductionId);
+    return res.status(200).json(updatedEvent);
+  } catch (err) {
+    return next(err);
+  }
 });
 
 // POST /api/show/clock - Update de scorebordklok

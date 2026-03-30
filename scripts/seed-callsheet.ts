@@ -2,14 +2,11 @@
  * Seed-script om een volledige callsheet en de bijbehorende live events voor een specifieke productie te vullen.
  * Gebruik: tsx scripts/seed-callsheet.ts
  */
-import {Position, PrismaClient, TriggerSource} from '@prisma/client';
+import {Position, PrismaClient} from '@prisma/client';
 import {logger} from '../apps/korfbal-stream-api/src/utils/logger';
 import {v4 as uuidv4} from 'uuid';
 
 const prisma = new PrismaClient();
-
-// --- CONFIGURATIE ---
-const PRODUCTION_ID = 9; // De ID van de productie die je wilt vullen
 
 // Helper om tijd (HH:MM:SS) om te zetten naar een numerieke order
 const timeToOrder = (time: string) => {
@@ -25,53 +22,592 @@ const durationToSeconds = (duration: string) => {
 
 // De gecombineerde en gestructureerde data uit jouw lijsten
 const unifiedCallSheetData = [
-  // Nieuwe livestream regie volgorde
-  { time: '17:00:00', duration: '00:15.0', title: 'Thumbnail neerzetten', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:00:15', duration: '00:00.0', title: 'Livestream starten', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:00:15', duration: '00:48.0', title: 'Intro filmpje starten', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:01:03', duration: '00:00.0', title: 'Regisseur zet microfoon presentator open', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:01:03', duration: '00:15.0', title: 'Presentator heet publiek welkom', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:01:18', duration: '00:53.0', title: 'KL promo afspelen', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:02:11', duration: '02:30.0', title: 'Presentator & Analist gesprek', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:04:41', duration: '00:35.0', title: 'Reclame', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:05:16', duration: '03:00.0', title: 'Interview met uit coach', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:08:16', duration: '03:00.0', title: 'Interview met thuis coach', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:11:16', duration: '01:45.0', title: 'Nabeschouwing en voorspelling', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:13:01', duration: '00:35.0', title: 'Reclame', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:13:36', duration: '00:00.0', title: 'Licht uit', positions: ['Regie livestream', 'Muziek'], isInLivestream: true, isInVenue: true },
-  { time: '17:13:36', duration: '02:00.0', title: 'Commentatoren praten over wedstrijd (opstellingen)', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:13:36', duration: '03:00.0', title: 'Speaker prietpraat', positions: ['Muziek'], isInLivestream: false, isInVenue: true },
-  { time: '17:16:36', duration: '00:42.0', title: 'Start oploopfilm', positions: ['Regie livestream', 'Muziek'], trigger: TriggerSource.VMIX, vmixInput: 'OploopFilm', isInLivestream: true, isInVenue: true },
-  { time: '17:17:36',  duration: '00:00.0',title: 'Check geluid speaker (unmute en schuif open)', positions: ['Muziek'], isInLivestream: true, isInVenue: true },
-  { time: '17:17:36',  duration: '00:00.0',title: 'Na oploopfilm, "Opstellen teams" muziek weer aan', positions: ['Muziek'], isInLivestream: false, isInVenue: true },
-  { time: '17:17:36', duration: '03:00.0', title: 'Geef signaal aan speaker voor prietpraat na 15s', positions: ['Muziek'], isInLivestream: false, isInVenue: true },
-  { time: '17:17:36',  duration: '00:00.0',title: 'Regisseur geeft commentatoren aan dat ze kunnen beginnen', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:17:36',  duration: '00:00.0',title: 'Regisseur toont opstellingen', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:20:36',  duration: '00:00.0',title: 'Check audio licht-PC unmuted', positions: ['Muziek'], isInLivestream: false, isInVenue: true },
-  { time: '17:20:36', duration: '00:30.0',title: 'Regisseur stopt commentatoren', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:20:36', duration: '00:15.0', title: 'Start oploop muziek tegenstander', positions: ['Muziek'], isInLivestream: false, isInVenue: true },
-  { time: '17:20:36', duration: '00:03.0',title: 'Regisseur telt af start oplopen', positions: ['Regie livestream'], isInLivestream: true, isInVenue: true },
-  { time: '17:20:51', duration: '00:15.0',title: 'Signaal aan speaker (lamp op deuropening)', positions: ['Muziek'], isInLivestream: false, isInVenue: true },
-  { time: '17:20:51', duration: '02:00.0', title: 'Oplopen tegenstander door speaker', positions: ['Muziek'], note: 'Volume op 100%, terug naar 70% als speaker praat.', isInLivestream: true, isInVenue: true },
-  { time: '17:22:51', duration: '00:15.0',title: 'Start oploop muziek Fortuna', positions: ['Muziek'], isInLivestream: false, isInVenue: true },
-  { time: '17:22:51', duration: '02:00.0', title: 'Oplopen Fortuna door speaker', positions: ['Muziek'], isInLivestream: true, isInVenue: true },
-  { time: '17:24:51', duration: '00:30.0', title: 'Oplopen scheidsrechters (Fortuna muziek loopt door)', positions: ['Muziek'], isInLivestream: true, isInVenue: true },
-  { time: '17:25:21', duration: '00:00.0', title: 'Scheidsrechters in midden, zaallampen aan', positions: ['Muziek'], isInLivestream: true, isInVenue: true },
-  { time: '17:25:51', duration: '00:00.0', title: 'Muziek "na oplopen" aan', positions: ['Muziek'], isInLivestream: true, isInVenue: true },
-  { time: '17:25:51', duration: '00:30.0', title: 'Tonen en melden wedstrijdsponsor', positions: ['Regie livestream'], isInLivestream: true, isInVenue: false },
-  { time: '17:26:21', duration: '00:00.0', title: 'Zaallicht op wedstrijd niveau', positions: ['Muziek'], isInLivestream: true, isInVenue: true },
-  { time: '17:26:21', duration: '00:30.0', title: 'Teams geven elkaar hand', positions: ['Regie livestream'], isInLivestream: true, isInVenue: true },
-  { time: '17:30:00', duration: '00:00.0', title: 'Muziek uitfaden naar influiten', positions: ['Muziek'], isInLivestream: false, isInVenue: true },
-  { time: '17:30:00', duration: '00:00.0', title: 'Start wedstrijd', positions: ['Regie livestream'], vmixInput: "START", isInLivestream: true, isInVenue: true },
+  {
+    "title": "Thumbnail neerzetten",
+    "durationSec": 15,
+    "orderIndex": 0,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": true,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Livestream starten",
+    "durationSec": 0,
+    "orderIndex": 1,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": true,
+    "anchorType": "LIVESTREAM_START",
+    "autoAdvance": true,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Intro filmpje starten",
+    "durationSec": 48,
+    "orderIndex": 2,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": true,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Regisseur zet microfoon presentator open",
+    "durationSec": 0,
+    "orderIndex": 3,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": true,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Presentatie",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Presentator heet publiek welkom",
+    "durationSec": 15,
+    "orderIndex": 4,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Presentatie",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "KL promo afspelen",
+    "durationSec": 53,
+    "orderIndex": 5,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": true,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Presentator & Analist gesprek",
+    "durationSec": 150,
+    "orderIndex": 6,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Reclame",
+    "durationSec": 35,
+    "orderIndex": 7,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": true,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Presentatie",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Interview met uit coach",
+    "durationSec": 180,
+    "orderIndex": 8,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Presentatie",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Interview met thuis coach",
+    "durationSec": 180,
+    "orderIndex": 9,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Presentatie",
+      "Camera rechts",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Nabeschouwing en voorspelling",
+    "durationSec": 105,
+    "orderIndex": 10,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Presentatie",
+      "Camera rechts",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Reclame",
+    "durationSec": 35,
+    "orderIndex": 11,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": true,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Presentatie",
+      "Camera rechts",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Licht uit",
+    "durationSec": 0,
+    "orderIndex": 12,
+    "isInVenue": true,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Regie livestream",
+      "Regie LEDscherm",
+      "Oplopen volgspot",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Commentatoren praten over wedstrijd (opstellingen)",
+    "durationSec": 120,
+    "orderIndex": 13,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Commentaar",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Speaker prietpraat",
+    "durationSec": 180,
+    "orderIndex": 14,
+    "isInVenue": true,
+    "isInLivestream": false,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Oplopen geluid",
+      "Speaker",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Start oploopfilm",
+    "durationSec": 42,
+    "orderIndex": 15,
+    "isInVenue": true,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": true,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Regie livestream",
+      "Regie LEDscherm",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Check geluid speaker (unmute en schuif open)",
+    "durationSec": 0,
+    "orderIndex": 16,
+    "isInVenue": true,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Na oploopfilm, \"Opstellen teams\" muziek weer aan",
+    "durationSec": 0,
+    "orderIndex": 17,
+    "isInVenue": true,
+    "isInLivestream": false,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Geef signaal aan speaker voor prietpraat na 15s",
+    "durationSec": 180,
+    "orderIndex": 18,
+    "isInVenue": true,
+    "isInLivestream": false,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Regisseur geeft commentatoren aan dat ze kunnen beginnen",
+    "durationSec": 0,
+    "orderIndex": 19,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Regisseur toont opstellingen",
+    "durationSec": 0,
+    "orderIndex": 20,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Check audio licht-PC unmuted",
+    "durationSec": 0,
+    "orderIndex": 21,
+    "isInVenue": true,
+    "isInLivestream": false,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Regisseur stopt commentatoren",
+    "durationSec": 30,
+    "orderIndex": 22,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Start oploop muziek tegenstander",
+    "durationSec": 15,
+    "orderIndex": 23,
+    "isInVenue": true,
+    "isInLivestream": false,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Regisseur telt af start oplopen",
+    "durationSec": 3,
+    "orderIndex": 24,
+    "isInVenue": true,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Signaal aan speaker (lamp op deuropening)",
+    "durationSec": 15,
+    "orderIndex": 25,
+    "isInVenue": true,
+    "isInLivestream": false,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Oplopen tegenstander door speaker",
+    "durationSec": 120,
+    "orderIndex": 26,
+    "isInVenue": true,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Start oploop muziek Fortuna",
+    "durationSec": 15,
+    "orderIndex": 27,
+    "isInVenue": true,
+    "isInLivestream": false,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Oplopen Fortuna door speaker",
+    "durationSec": 120,
+    "orderIndex": 28,
+    "isInVenue": true,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Oplopen scheidsrechters (Fortuna muziek loopt door)",
+    "durationSec": 30,
+    "orderIndex": 29,
+    "isInVenue": true,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Scheidsrechters in midden, zaallampen aan",
+    "durationSec": 0,
+    "orderIndex": 30,
+    "isInVenue": true,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Muziek \"na oplopen\" aan",
+    "durationSec": 0,
+    "orderIndex": 31,
+    "isInVenue": true,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Tonen en melden wedstrijdsponsor",
+    "durationSec": 30,
+    "orderIndex": 32,
+    "isInVenue": false,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Zaallicht op wedstrijd niveau",
+    "durationSec": 0,
+    "orderIndex": 33,
+    "isInVenue": true,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Teams geven elkaar hand",
+    "durationSec": 30,
+    "orderIndex": 34,
+    "isInVenue": true,
+    "isInLivestream": true,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Muziek uitfaden naar influiten",
+    "durationSec": 0,
+    "orderIndex": 35,
+    "isInVenue": true,
+    "isInLivestream": false,
+    "isTimeAnchor": false,
+    "anchorType": null,
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Muziek",
+      "Showcaller"
+    ]
+  },
+  {
+    "title": "Start wedstrijd",
+    "durationSec": 0,
+    "orderIndex": 36,
+    "isInVenue": true,
+    "isInLivestream": true,
+    "isTimeAnchor": true,
+    "anchorType": "MATCH_START",
+    "autoAdvance": false,
+    "type": "MANUAL",
+    "positions": [
+      "Regie livestream",
+      "Showcaller"
+    ]
+  }
 ];
 
 async function main() {
-  logger.info('--- Starting Call Sheet Seeder ---');
+  logger.info('--- Starting Call Sheet Template Seeder ---');
 
   // 1. Vind of creëer de benodigde posities
-  const positionNames = ['Muziek', 'Regie livestream'];
+  const allPositionNames = new Set<string>();
+  unifiedCallSheetData.forEach(item => {
+    item.positions.forEach(pos => allPositionNames.add(pos));
+  });
+
   const positions: Record<string, Position> = {};
-  for (const name of positionNames) {
+  for (const name of Array.from(allPositionNames)) {
     let pos = await prisma.position.findUnique({ where: { name } });
     if (!pos) {
       pos = await prisma.position.create({ data: { name } });
@@ -80,87 +616,40 @@ async function main() {
     positions[name] = pos;
   }
 
-  // --- AANMAKEN VAN CALLSHEET (PLANNING) ---
+  // --- AANMAKEN VAN CALLSHEET TEMPLATE ---
 
-  // 2. Vind of creëer een callsheet voor deze productie
-  let callSheet = await prisma.callSheet.findFirst({
-    where: { productionId: PRODUCTION_ID, name: 'Standaard Callsheet' },
+  // 2. Vind of creëer een template
+  const TEMPLATE_NAME = 'Standaard Korfbal Draaiboek';
+  let template = await prisma.callSheetTemplate.findFirst({
+    where: { name: TEMPLATE_NAME },
   });
-  if (!callSheet) {
-    callSheet = await prisma.callSheet.create({
-      data: { productionId: PRODUCTION_ID, name: 'Standaard Callsheet' },
+
+  if (!template) {
+    template = await prisma.callSheetTemplate.create({
+      data: { name: TEMPLATE_NAME },
     });
-    logger.info(`Created CallSheet: "Standaard Callsheet" for Production ID: ${PRODUCTION_ID}`);
+    logger.info(`Created CallSheetTemplate: "${TEMPLATE_NAME}"`);
+  } else {
+    // Verwijder oude items als de template al bestaat voor een schone seed
+    await prisma.callSheetTemplateItem.deleteMany({ where: { templateId: template.id } });
+    logger.info(`Cleared old items for template: "${TEMPLATE_NAME}"`);
   }
 
-  // 3. Verwijder oude callsheet items voor deze callsheet
-  await prisma.callSheetItem.deleteMany({ where: { callSheetId: callSheet.id } });
-  logger.info(`Cleared old CallSheetItems for CallSheet ID: ${callSheet.id}`);
-
-  // 4. Zorg dat er minstens één ProductionSegment bestaat
-  let productionSegment = await prisma.productionSegment.findFirst({
-    where: { productionId: PRODUCTION_ID },
-    orderBy: { volgorde: 'asc' },
-  });
-  if (!productionSegment) {
-    productionSegment = await prisma.productionSegment.create({
-      data: {
-        productionId: PRODUCTION_ID,
-        naam: 'Algemeen Segment',
-        volgorde: 1,
-        duurInMinuten: 60,
-      },
-    });
-    logger.info(`Created default ProductionSegment for Production ID: ${PRODUCTION_ID}`);
-  }
-
-  // --- AANMAKEN VAN LIVE EVENTS (EXECUTIE) ---
-
-  // 5. Verwijder oude live events voor deze productie
-  await prisma.productionEvent.deleteMany({ where: { productionId: PRODUCTION_ID } });
-  logger.info(`Cleared old ProductionEvents for Production ID: ${PRODUCTION_ID}`);
-
-
-  // 6. Creëer de nieuwe items voor zowel CallSheet als ProductionEvent
-  let orderIndex = 0;
+  // 3. Creëer de items voor de template
   for (const item of unifiedCallSheetData) {
-    const durationSec = item.duration ? durationToSeconds(item.duration) : null;
-    const timeStart = new Date(`1970-01-01T${item.time}Z`);
-    const timeEnd = durationSec ? new Date(timeStart.getTime() + durationSec * 1000) : undefined;
-
-    // Maak CallSheetItem (voor de planning)
-    await prisma.callSheetItem.create({
+    await prisma.callSheetTemplateItem.create({
       data: {
         id: uuidv4(),
-        callSheetId: callSheet.id,
-        productionSegmentId: productionSegment.id,
-        cue: item.title,
+        templateId: template.id,
         title: item.title,
         note: (item as any).note,
-        durationSec: durationSec ?? 0,
-        orderIndex: orderIndex++,
-        timeStart: timeStart,
-        timeEnd: timeEnd,
-        isInLivestream: (item as any).isInLivestream !== undefined ? (item as any).isInLivestream : true,
-        isInVenue: (item as any).isInVenue !== undefined ? (item as any).isInVenue : true,
-        positions: {
-          create: item.positions.map(posName => ({
-            positionId: positions[posName].id
-          })),
-        },
-      },
-    });
-
-    // Maak ProductionEvent (voor de live executie)
-    await prisma.productionEvent.create({
-      data: {
-        productionId: PRODUCTION_ID,
-        title: item.title,
-        note: (item as any).note,
-        order: timeToOrder(item.time),
-        durationSec: durationSec,
-        triggerSource: (item as any).trigger || TriggerSource.MANUAL,
-        vMixInputName: (item as any).vmixInput,
+        durationSec: item.durationSec || 0,
+        orderIndex: item.orderIndex,
+        isInLivestream: item.isInLivestream,
+        isInVenue: item.isInVenue,
+        autoAdvance: item.autoAdvance,
+        isTimeAnchor: item.isTimeAnchor,
+        anchorType: item.anchorType as any,
         positions: {
           create: item.positions.map(posName => ({
             positionId: positions[posName].id
@@ -170,7 +659,7 @@ async function main() {
     });
   }
 
-  logger.info('--- Seeding complete for both CallSheetItems and ProductionEvents! ---');
+  logger.info(`--- Seeding complete for CallSheetTemplate: "${TEMPLATE_NAME}" ---`);
 }
 
 main()

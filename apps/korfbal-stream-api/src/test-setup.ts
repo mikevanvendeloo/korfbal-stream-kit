@@ -4,7 +4,16 @@ import path from 'path';
 import dotenv from 'dotenv';
 
 // Load environment variables from .env.test before any other code runs
-dotenv.config({ path: path.resolve(__dirname, '../.env.test') });
+const envFile = path.resolve(__dirname, '../.env.test');
+const result = dotenv.config({ path: envFile });
+if (result.error) {
+  console.warn(`Could not load .env.test from ${envFile}:`, result.error);
+} else {
+  // Explicitly override DATABASE_URL to ensure it's correct for the tests
+  if (result.parsed?.DATABASE_URL) {
+    process.env.DATABASE_URL = result.parsed.DATABASE_URL;
+  }
+}
 
 const prisma = new PrismaClient();
 

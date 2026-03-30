@@ -2,6 +2,7 @@ import {defineConfig} from 'vitest/config';
 
 export default defineConfig({
   test: {
+    name: 'korfbal-stream-api-tests',
     testTimeout: 30000,
     globals: true,
     // This file is executed once before all test suites.

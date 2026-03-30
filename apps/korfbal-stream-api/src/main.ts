@@ -24,12 +24,19 @@ import {errorHandler} from './middleware/error';
 import {initSocket} from './services/socket';
 import {showControlRouter} from "./routes/show-control";
 import {timeRouter} from './routes/time';
+import {initializeProductionState} from './services/productionState';
+import {callSheetTemplateRouter} from './routes/production/callsheet-templates'
 
 const app: Express = express();
 const httpServer = createServer(app);
 
 // Initialize Socket.io
 initSocket(httpServer);
+
+// Initialize Production State from DB
+initializeProductionState().catch(err => {
+  logger.error('Failed to initialize production state:', err);
+});
 
 // Middlewares
 app.use(express.json());
@@ -121,6 +128,7 @@ app.use('/api/skills', skillsRouter);
 
 
 // Production namespace (new structured URLs)
+app.use('/api/callsheets/templates', callSheetTemplateRouter);
 app.use('/api/production', productionRouter);
 
 // Players (images) endpoints

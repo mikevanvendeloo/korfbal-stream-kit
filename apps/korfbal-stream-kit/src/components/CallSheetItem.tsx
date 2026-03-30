@@ -12,8 +12,9 @@ export const CallSheetItem = ({ item, isActive = false, elapsedTime = 0, isPlace
   const duration = item?.durationSec ?? 0;
   const remainingTime = duration - elapsedTime;
 
-  const isInVenue = (item as any)?.isInVenue;
-  const isInLivestream = (item as any)?.isInLivestream !== false; // Default true if not specified
+  const isInVenue = item?.isInVenue;
+  const isInLivestream = item?.isInLivestream !== false; // Default true if not specified
+  const autoAdvance = item?.autoAdvance === true;
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -53,7 +54,10 @@ export const CallSheetItem = ({ item, isActive = false, elapsedTime = 0, isPlace
         : '00:00:00'));
 
   return (
-    <div className={`p-3 rounded-lg border-2 shadow-sm ${statusColor} ${borderColor} ${textColor} transition-all`}>
+    <div
+      id={item?.id ? `event-${item.id}` : undefined}
+      className={`p-3 rounded-lg border-2 shadow-sm ${statusColor} ${borderColor} ${textColor} transition-all`}
+    >
       <div className="flex items-start gap-4">
         {/* Tijd Label */}
         <div className={`px-3 py-1.5 rounded font-mono font-bold text-sm tracking-tighter whitespace-nowrap shadow-inner flex-shrink-0 ${timeLabelColor} ${isActuallyPlaceholder ? 'invisible' : ''}`}>
@@ -95,6 +99,12 @@ export const CallSheetItem = ({ item, isActive = false, elapsedTime = 0, isPlace
                 <span className="flex items-center gap-1 text-orange-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
                   Zaal
+                </span>
+              )}
+              {autoAdvance && (
+                <span className="flex items-center gap-1 text-purple-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                  Auto
                 </span>
               )}
             </div>
