@@ -1,4 +1,3 @@
-import React from 'react';
 import {useParams} from 'react-router-dom';
 import {MdNavigateBefore, MdNavigateNext, MdPlayArrow} from 'react-icons/md';
 import {useLiveState} from '../hooks/useLiveState';

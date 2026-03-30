@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 import {CallSheetTemplate, useCallSheetTemplates} from '../hooks/useCallSheetTemplates';
 import {Card, CardContent, CardHeader, CardTitle} from './ui/card';
 import {Button} from './ui/button';

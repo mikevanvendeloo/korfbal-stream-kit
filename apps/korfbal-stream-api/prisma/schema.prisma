@@ -469,6 +469,7 @@ enum SponsorType {
   goud
   zilver
   brons
+  event
 }
 
 enum Gender {
