@@ -16,6 +16,7 @@ model Sponsor {
   createdAt   DateTime    @default(now())
   categories  String?
   displayName String?
+  enabled     Boolean     @default(true)
 }
 
 model MatchSchedule {

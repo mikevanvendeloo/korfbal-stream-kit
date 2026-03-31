@@ -17,7 +17,18 @@ if (result.error) {
 
 const prisma = new PrismaClient();
 
-beforeAll(() => {
+beforeAll(async () => {
+  // Check if database is required and available
+  if (process.env.REQUIRE_DB === 'true') {
+    try {
+      await prisma.$connect();
+      console.log('Database connection verified.');
+    } catch (e) {
+      console.error('Failed to connect to database but REQUIRE_DB is set to true:', e);
+      throw e;
+    }
+  }
+
   // Skipping database reset for unit tests if not using a real DB
   // Ensure the test database schema is up-to-date and all data is cleared
   // before starting the test run.

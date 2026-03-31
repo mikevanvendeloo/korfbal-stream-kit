@@ -46,7 +46,7 @@ const typePriority: Record<string, number> = {
 // List sponsors with optional filtering and pagination
 sponsorsRouter.get('/', async (req, res, next) => {
   try {
-    const { type, page, limit } = SponsorQuerySchema.parse(req.query);
+    const { type, page, limit, enabledOnly } = SponsorQuerySchema.parse(req.query);
     const where: any = {};
 
     if (type) {
@@ -55,6 +55,10 @@ sponsorsRouter.get('/', async (req, res, next) => {
       } else {
         where.type = type;
       }
+    }
+
+    if (enabledOnly) {
+      where.enabled = true;
     }
 
     const skip = (page - 1) * limit;
@@ -99,6 +103,7 @@ sponsorsRouter.get('/export-excel', async (_req, res, next) => {
       { header: 'Logo file name', key: 'logoUrl', width: 20 },
       { header: 'Sponsorcategorieën', key: 'categories', width: 25 },
       { header: 'DisplayName', key: 'displayName', width: 25 },
+      { header: 'Enabled', key: 'enabled', width: 10 },
     ];
 
     sponsors.forEach((s) => {
@@ -109,6 +114,7 @@ sponsorsRouter.get('/export-excel', async (_req, res, next) => {
         logoUrl: s.logoUrl,
         categories: s.categories || '',
         displayName: (s as any).displayName || '',
+        enabled: s.enabled ? 'Ja' : 'Nee',
       });
     });
 
@@ -138,7 +144,7 @@ sponsorsRouter.get('/:id', async (req, res, next) => {
 
 sponsorsRouter.post('/', async (req, res, next) => {
   try {
-    const { name, type, websiteUrl, logoUrl, displayName } = SponsorInputSchema.parse(req.body);
+    const { name, type, websiteUrl, logoUrl, displayName, enabled } = SponsorInputSchema.parse(req.body);
     const created = await prisma.sponsor.create({
       data: {
         name,
@@ -146,6 +152,7 @@ sponsorsRouter.post('/', async (req, res, next) => {
         websiteUrl,
         logoUrl: logoUrl ? normalizeLogoFilename(logoUrl) : makeLogoUrl(name),
         displayName: displayName || null,
+        enabled: enabled ?? true,
       },
     });
     return res.status(201).json(created);
@@ -209,6 +216,7 @@ sponsorsRouter.put('/:id', async (req, res, next) => {
         websiteUrl: input.websiteUrl ?? existing.websiteUrl,
         logoUrl: nextLogo,
         displayName: input.displayName === undefined ? (existing as any).displayName : (input.displayName || null),
+        enabled: input.enabled === undefined ? existing.enabled : input.enabled,
       },
     });
     return res.json(updated);
@@ -306,6 +314,7 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
       const logo = String(obj['logo'] || obj['logourl'] || obj['logofilename'] || '').trim();
       const categories = String(obj['sponsorcategorieen'] || obj['categories'] || '').trim();
       const displayName = String(obj['displayname'] || obj['weergavenaam'] || '').trim();
+      const enabledRaw = String(obj['enabled'] || obj['actief'] || '').trim().toLowerCase();
 
       const allowed = ['premium', 'goud', 'zilver', 'brons'];
       let type: any = undefined;
@@ -331,6 +340,7 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
         websiteUrl: website,
         logoUrl: logo ? normalizeLogoFilename(logo) : normalizeLogoFilename(name),
         categories: categories || undefined,
+        enabled: enabledRaw ? (enabledRaw === 'ja' || enabledRaw === 'yes' || enabledRaw === 'true' || enabledRaw === '1') : true,
       };
 
       const hasDisplayNameColumn = 'displayname' in obj || 'weergavenaam' in obj;
@@ -348,6 +358,7 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
               type: data.type,
               websiteUrl: data.websiteUrl,
               categories: data.categories,
+              enabled: data.enabled,
             };
 
             if (hasDisplayNameColumn) {

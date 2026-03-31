@@ -81,6 +81,10 @@ export function updateScoreboardClock(timeInSeconds: number) {
 }
 
 export async function initializeProductionState() {
+  if (process.env.REQUIRE_DB === 'false' || (process.env.NODE_ENV === 'test' && !process.env.REQUIRE_DB)) {
+    logger.info('Skipping production state initialization in test/no-db environment.');
+    return;
+  }
   logger.info('Initializing production state...');
   const activeProduction = await prisma.production.findFirst({
     where: { isActive: true },

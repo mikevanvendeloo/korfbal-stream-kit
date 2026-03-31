@@ -3,7 +3,7 @@ import app from '../../main';
 import {beforeEach, describe, expect, it} from 'vitest';
 import {PrismaClient} from '@prisma/client';
 
-const runDb = !!process.env.DATABASE_URL && process.env.RUN_DB_TESTS === 'true';
+const runDb = process.env.REQUIRE_DB === 'true';
 const prisma = new PrismaClient();
 
 async function resetDb() {
@@ -16,7 +16,7 @@ async function resetDb() {
   ]);
 }
 
-(runDb ? describe : describe.skip)('Positions Export/Import API (integration)', () => {
+describe.runIf(runDb)('Positions Export/Import API (integration)', () => {
   beforeEach(async () => {
     // Unique data for each run to avoid parallel test issues
     await resetDb();

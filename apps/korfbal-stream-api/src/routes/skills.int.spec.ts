@@ -7,9 +7,9 @@ function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
 }
 
-const runDb = !!process.env.DATABASE_URL && process.env.RUN_DB_TESTS === 'true';
+const runDb = process.env.REQUIRE_DB === 'true';
 
-(runDb ? describe : describe.skip)('Skills API (integration)', () => {
+describe.runIf(runDb)('Skills API (integration)', () => {
   beforeAll(() => {
     // Apply migrations and seed to real DB
     run('npx prisma migrate deploy --schema=apps/korfbal-stream-api/prisma/schema.prisma');

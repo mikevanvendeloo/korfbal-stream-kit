@@ -49,7 +49,10 @@ describe('vMix API - sponsor names ticker', () => {
     expect(prisma.sponsor.findMany).toHaveBeenCalledTimes(1);
     // Verify it used the default types from mock
     expect(prisma.sponsor.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { type: { in: ['premium', 'goud', 'zilver'] } }
+      where: {
+        type: { in: ['premium', 'goud', 'zilver'] },
+        enabled: true
+      }
     }));
   });
 
@@ -78,5 +81,38 @@ describe('vMix API - sponsor names ticker', () => {
     expect(ticker).toContain('Beta Co'); // no displayName, uses name
     expect(ticker).toContain('Gamma N.V.'); // empty displayName, uses name
     expect(ticker).not.toContain('Alpha BV'); // original name should not appear
+  });
+});
+
+describe('vMix API - sponsor carousel', () => {
+  beforeEach(() => {
+    prisma.sponsor = {
+      findMany: vi.fn(async () => []),
+    };
+  });
+
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('returns sponsors for carousel excluding disabled ones', async () => {
+    prisma.sponsor.findMany = vi.fn(async () => [
+      { id: 1, name: 'Alpha BV', logoUrl: 'alpha.png', type: 'premium', enabled: true },
+      { id: 2, name: 'Beta Co', logoUrl: 'beta.png', type: 'goud', enabled: true },
+    ]);
+
+    const res = await request(app).get('/api/vmix/sponsor-carrousel');
+
+    expect(res.status).toBe(200);
+    expect(prisma.sponsor.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        type: { in: ['premium', 'goud', 'zilver'] },
+        enabled: true
+      }
+    }));
+    // Should include the two from DB plus the hardcoded one
+    expect(res.body.length).toBe(3);
+    expect(res.body.some((s: any) => s.name === 'Alpha BV')).toBe(true);
+    expect(res.body.some((s: any) => s.name === 'Fortuna sponsor')).toBe(true);
   });
 });

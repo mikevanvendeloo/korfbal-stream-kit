@@ -10,7 +10,7 @@ import {
 } from '@tanstack/react-table';
 import {Sponsor} from '../lib/api';
 import IconButton from './IconButton';
-import {MdDelete, MdEdit} from 'react-icons/md';
+import {MdCheck, MdClose, MdDelete, MdEdit} from 'react-icons/md';
 import {RiVipCrown2Fill} from 'react-icons/ri';
 import {FaMedal} from 'react-icons/fa';
 
@@ -18,9 +18,10 @@ export type SponsorsTableProps = {
   data: Sponsor[];
   onEdit?: (s: Sponsor) => void;
   onDelete?: (s: Sponsor) => void;
+  onToggleEnabled?: (s: Sponsor) => void;
 };
 
-export function SponsorsTable({ data, onEdit, onDelete }: SponsorsTableProps) {
+export function SponsorsTable({ data, onEdit, onDelete, onToggleEnabled }: SponsorsTableProps) {
   const typeIcon = (type: string) => {
     switch (type) {
       case 'premium':
@@ -77,6 +78,21 @@ export function SponsorsTable({ data, onEdit, onDelete }: SponsorsTableProps) {
             </div>
             <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[150px] hidden sm:inline-block" title={String(info.getValue())}>{String(info.getValue())}</span>
           </div>
+        ),
+      },
+      {
+        header: 'Actief',
+        accessorKey: 'enabled',
+        cell: (info) => (
+          <button
+            onClick={() => onToggleEnabled?.(info.row.original)}
+            className={`p-1 rounded transition-colors ${
+              info.getValue() ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+            }`}
+            title={info.getValue() ? 'Uitschakelen' : 'Inschakelen'}
+          >
+            {info.getValue() ? <MdCheck className="w-5 h-5" /> : <MdClose className="w-5 h-5" />}
+          </button>
         ),
       },
       {

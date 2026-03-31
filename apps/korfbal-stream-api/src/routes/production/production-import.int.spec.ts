@@ -4,9 +4,9 @@ import {describe, expect, it} from 'vitest';
 import {prisma} from '../../services/prisma';
 
 
-describe('Production Import API (integration)', () => {
+describe.runIf(process.env.REQUIRE_DB === 'true')('Production Import API (integration)', () => {
 
-  it.skipIf(process.env.CI)('should deactivate an existing active production when importing a new active one', async () => {
+  it('should deactivate an existing active production when importing a new active one', async () => {
     const suffix = Math.random().toString(36).substring(7);
     // 1. Create an initial active production
     const initialMatch = await prisma.matchSchedule.create({

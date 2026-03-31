@@ -14,6 +14,7 @@ export default function SponsorFormModal({ initial, onCancel, onSubmit }: Readon
   const [websiteUrl, setWebsiteUrl] = React.useState(initial?.websiteUrl || '');
   const [logoUrl, setLogoUrl] = React.useState(initial?.logoUrl || '');
   const [displayName, setDisplayName] = React.useState((initial as any)?.displayName || '');
+  const [enabled, setEnabled] = React.useState(initial?.enabled !== false);
   const [logoFile, setLogoFile] = React.useState<File | undefined>();
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -36,6 +37,7 @@ export default function SponsorFormModal({ initial, onCancel, onSubmit }: Readon
       websiteUrl,
       logoUrl: logoUrl || undefined,
       displayName: displayName || undefined,
+      enabled,
       logoFile,
     };
     try {
@@ -93,6 +95,18 @@ export default function SponsorFormModal({ initial, onCancel, onSubmit }: Readon
             <label htmlFor="sponsor-displayname" className="block text-xs mb-1">Weergavenaam (optioneel)</label>
             <input id="sponsor-displayname" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Laat leeg om reguliere naam te gebruiken" className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-950" />
             <div className="text-xs text-gray-500 mt-1">Wordt gebruikt in vMix ticker en carrousel als deze gevuld is</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              id="sponsor-enabled"
+              type="checkbox"
+              checked={enabled}
+              onChange={(e) => setEnabled(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+            />
+            <label htmlFor="sponsor-enabled" className="text-xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+              Sponsor is actief (zichtbaar in API's en vMix)
+            </label>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onCancel} className="px-3 py-1 border rounded">Annuleren</button>

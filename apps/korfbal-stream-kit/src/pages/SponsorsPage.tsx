@@ -10,7 +10,7 @@ import {SponsorsTable} from '../components/SponsorsTable';
 import React, {useRef, useState} from 'react';
 // Using a plain anchor to avoid Router context requirement in tests
 // import { Link } from 'react-router-dom';
-import {uploadSponsorsExcel} from '../lib/api';
+import {Sponsor, uploadSponsorsExcel} from '../lib/api';
 import {MdAdd, MdDownload, MdRefresh, MdUploadFile} from 'react-icons/md';
 import SponsorFormModal from '../components/SponsorFormModal';
 
@@ -34,6 +34,15 @@ export default function SponsorsPage() {
 
   const [editing, setEditing] = useState<null | { id?: number; name?: string; type?: SponsorType; websiteUrl?: string; logoUrl?: string; displayName?: string }>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const handleToggleEnabled = async (s: Sponsor) => {
+    try {
+      setActionError(null);
+      await update.mutateAsync({ id: s.id, input: { enabled: !s.enabled } });
+    } catch (e: any) {
+      setActionError(e?.message || 'Toggle status mislukt');
+    }
+  };
 
   const onPickFile = () => fileRef.current?.click();
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,8 +182,9 @@ export default function SponsorsPage() {
         <div className="mt-4">
           <SponsorsTable
             data={data.items}
-            onEdit={(s) => setEditing({ id: s.id, name: s.name, type: s.type, websiteUrl: s.websiteUrl, logoUrl: s.logoUrl, displayName: (s as any).displayName })}
+            onEdit={(s) => setEditing({ id: s.id, name: s.name, type: s.type, websiteUrl: s.websiteUrl, logoUrl: s.logoUrl, displayName: s.displayName, enabled: s.enabled } as any)}
             onDelete={(s) => handleDeleteSponsor(s)}
+            onToggleEnabled={handleToggleEnabled}
           />
         </div>
       )}

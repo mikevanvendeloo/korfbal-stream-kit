@@ -8,7 +8,7 @@ const app = express();
 app.use(express.json());
 app.use('/api/callsheets/templates', callSheetTemplateRouter);
 
-describe('CallSheetTemplate Excel Export/Import', () => {
+describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Excel Export/Import', () => {
   beforeEach(async () => {
     // Clear test data
     await prisma.callSheetTemplateItem.deleteMany({

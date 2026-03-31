@@ -11,7 +11,7 @@ vi.mock('./socket', () => ({
   })),
 }));
 
-describe('ProductionState Service Auto-Advance', () => {
+describe.runIf(process.env.REQUIRE_DB === 'true')('ProductionState Service Auto-Advance', () => {
   let productionId: number;
   let event1Id: string;
   let event2Id: string;

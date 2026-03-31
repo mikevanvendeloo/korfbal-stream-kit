@@ -11,7 +11,30 @@
 [Click here to finish setting up your workspace!](https://cloud.nx.app/connect/7efYNzhXZF)
 
 
-## Run tasks
+## Testing
+
+This project uses Vitest for testing. There are two types of tests:
+1. **Unit Tests**: Test logic without requiring a database.
+2. **Integration Tests**: Test API endpoints and database services, requiring a running PostgreSQL instance.
+
+### Running Unit Tests
+Unit tests are always run in CI and can be run locally using:
+```sh
+npx nx test korfbal-stream-api
+```
+
+### Running Integration Tests
+Integration tests are skipped in CI unless a database is provided. To run them locally, ensure your database is running and set `REQUIRE_DB=true`:
+```sh
+# Ensure database is up and migrated
+npm run db:up
+npm run prisma:push
+
+# Run integration tests
+REQUIRE_DB=true npx nx test korfbal-stream-api
+```
+
+In CI, `REQUIRE_DB` is set to `false` by default to avoid failures when no database is available.
 
 To run the dev server for your app, use:
 

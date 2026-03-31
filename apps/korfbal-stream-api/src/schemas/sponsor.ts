@@ -8,12 +8,14 @@ export const SponsorInputSchema = z.object({
   websiteUrl: z.string().url(),
   logoUrl: z.string().optional(),
   displayName: z.string().optional(),
+  enabled: z.boolean().optional().default(true),
 });
 
 export const SponsorUpdateSchema = SponsorInputSchema.partial();
 
 export const SponsorQuerySchema = z.object({
   type: z.union([SponsorTypeEnum, z.array(SponsorTypeEnum)]).optional(),
+  enabledOnly: z.preprocess((v) => v === 'true' || v === true, z.boolean()).optional(),
   page: z
     .preprocess((v) => (typeof v === 'string' ? parseInt(v, 10) : v), z.number().int().min(1))
     .default(1),

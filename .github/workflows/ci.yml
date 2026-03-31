@@ -55,6 +55,8 @@ jobs:
         run: pnpm prisma:generate # Use pnpm to run scripts
 
       - name: Run CI checks for affected projects
+        env:
+          REQUIRE_DB: 'false'
         run: npx nx affected -t test --parallel=3 --base=$NX_BASE --head=$NX_HEAD #  ADD later lint,typecheck,
 
       # Install jq using the apt-get package manager

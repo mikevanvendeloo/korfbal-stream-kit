@@ -30,11 +30,12 @@ export function createUrl(path: string): URL {
 export type Sponsor = {
   id: number;
   name: string;
-  type: 'premium' | 'goud' | 'zilver' | 'brons';
+  type: 'premium' | 'goud' | 'zilver' | 'brons' | 'event';
   logoUrl: string;
   websiteUrl: string;
   categories?: string | null;
   displayName?: string | null;
+  enabled: boolean;
   createdAt: string;
 };
 
@@ -48,6 +49,7 @@ export type SponsorInput = {
   websiteUrl: string;
   logoUrl?: string;
   displayName?: string;
+  enabled?: boolean;
 };
 
 export type SponsorUpdate = Partial<SponsorInput> & { id: number };
@@ -124,9 +126,10 @@ export async function vmixSetTimer(seconds: number): Promise<{ ok: boolean; seco
 
 export async function fetchSponsors(params: {
   type?: Sponsor['type'] | Sponsor['type'][];
+  enabledOnly?: boolean;
   page?: number;
   limit?: number
-} = {}): Promise<Paginated<Sponsor>> {
+}): Promise<Paginated<Sponsor>> {
   const url = createUrl('/api/sponsors');
   logger.info(`Fetching sponsors: ${url}`);
   if (params.type) {
@@ -136,6 +139,7 @@ export async function fetchSponsors(params: {
       url.searchParams.set('type', params.type);
     }
   }
+  if (params.enabledOnly) url.searchParams.set('enabledOnly', 'true');
   if (params.page) url.searchParams.set('page', String(params.page));
   if (params.limit) url.searchParams.set('limit', String(params.limit));
   const res = await fetch(url.toString());

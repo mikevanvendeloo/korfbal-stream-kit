@@ -1,15 +1,15 @@
 import request from 'supertest';
-import { execSync } from 'node:child_process';
+import {execSync} from 'node:child_process';
 import app from '../main';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { PrismaClient } from '@prisma/client';
-import { POSITION_TO_SKILL } from './positionSkill';
+import {beforeAll, beforeEach, describe, expect, it} from 'vitest';
+import {PrismaClient} from '@prisma/client';
+import {POSITION_TO_SKILL} from './positionSkill';
 
 function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
 }
 
-const runDb = !!process.env.DATABASE_URL && process.env.RUN_DB_TESTS === 'true';
+const runDb = process.env.REQUIRE_DB === 'true';
 const prisma = new PrismaClient();
 
 async function resetDb() {
@@ -28,7 +28,7 @@ async function resetDb() {
   ] as any);
 }
 
-(runDb ? describe : describe.skip)('Position -> Skill mapping (integration)', () => {
+describe.runIf(runDb)('Position -> Skill mapping (integration)', () => {
   beforeAll(async () => {
     run('npx prisma migrate deploy --schema=apps/korfbal-stream-api/prisma/schema.prisma');
     run('npx prisma db seed --schema=apps/korfbal-stream-api/prisma/schema.prisma');

@@ -14,6 +14,7 @@
     "api:package": "nx package @korfbal-stream-kit/korfbal-stream-api",
     "api:serve": "npm run prisma:generate && dotenv -e apps/korfbal-stream-api/.env -- nx serve @korfbal-stream-kit/korfbal-stream-api --verbose",
     "api:test": "nx test @korfbal-stream-kit/korfbal-stream-api",
+    "api:test-no-db": "REQUIRE_DB=false nx test @korfbal-stream-kit/korfbal-stream-api",
     "api:test:integration": "dotenv -e apps/korfbal-stream-api/.env -- vitest run apps/korfbal-stream-api/src/routes/sponsors.int.spec.ts --environment=node",
     "kit:dev": "nx serve @korfbal-stream-kit/korfbal-stream-kit",
     "kit:build": "nx build @korfbal-stream-kit/korfbal-stream-kit",

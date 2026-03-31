@@ -8,7 +8,7 @@ function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
 }
 
-const runDb = !!process.env.DATABASE_URL && process.env.RUN_DB_TESTS === 'true';
+const runDb = process.env.REQUIRE_DB === 'true';
 const prisma = new PrismaClient();
 
 async function resetDb() {
@@ -21,7 +21,7 @@ async function resetDb() {
   ]);
 }
 
-(runDb ? describe : describe.skip)('Positions & Segment Defaults API (integration)', () => {
+describe.runIf(runDb)('Positions & Segment Defaults API (integration)', () => {
   beforeAll(async () => {
     run('npx prisma migrate deploy --schema=apps/korfbal-stream-api/prisma/schema.prisma');
     run('npx prisma db seed --schema=apps/korfbal-stream-api/prisma/schema.prisma');

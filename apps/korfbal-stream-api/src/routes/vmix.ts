@@ -165,12 +165,12 @@ vmixRouter.post('/sponsor-rows', async (req, res, next) => {
     const rnd = mulberry32(hashSeed(seedStr));
 
     // Load sponsors to use
-    let where: any = {};
+    let where: any = { enabled: true };
     if (sponsorIds && sponsorIds.length > 0) {
-      where = { id: { in: sponsorIds } };
+      where = { id: { in: sponsorIds }, enabled: true };
     } else {
       const types = await getSponsorRowsTypes();
-      where = { type: { in: types } };
+      where = { type: { in: types }, enabled: true };
     }
 
     const sponsors = await prisma.sponsor.findMany({
@@ -345,9 +345,9 @@ vmixRouter.get('/sponsor-slides', async (req, res, next) => {
     const rnd = mulberry32(hashSeed(seedStr));
 
     // Load sponsors to use
-    let where: any = {};
+    let where: any = { enabled: true };
     const types = await getSponsorSlidesTypes();
-    where = { type: { in: types } };
+    where = { type: { in: types }, enabled: true };
 
     const sponsors = await prisma.sponsor.findMany({
       where,
@@ -491,7 +491,8 @@ vmixRouter.get('/sponsor-names', async (_req, res, next) => {
       where: {
         type: {
           in: types as any
-        }
+        },
+        enabled: true
       },
       orderBy: [
         {type: 'asc'},
@@ -527,7 +528,8 @@ vmixRouter.get('/sponsor-carrousel', async (_req, res, next) => {
       where: {
         type: {
           in: types as any
-        }
+        },
+        enabled: true
       },
       orderBy: [
         {type: 'asc'},
