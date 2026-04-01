@@ -75,6 +75,11 @@ RUN mkdir -p /app/seed
 COPY --from=builder /app/dist-seed/seed.js /app/seed/seed.cjs
 COPY --from=builder /app/dist-seed/seed-data.js /app/seed/seed-data.js
 
+# Kopieer de JSON seed-data naar de locatie waar de seed scripts ze verwachten.
+# In seed.ts wordt path.join(__dirname, 'seed-data/...') gebruikt.
+# Dus kopieer apps/korfbal-stream-api/prisma/seed-data naar /app/seed/seed-data.
+COPY --from=builder /app/apps/korfbal-stream-api/prisma/seed-data /app/seed/seed-data
+
 # --- DE PRISMA FIX ---
 # Genereer de Prisma Client *binnen* de definitieve container
 RUN npx prisma generate
