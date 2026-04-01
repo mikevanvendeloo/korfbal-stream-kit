@@ -57,3 +57,4 @@ test-output
 /dbdata
 /migrate.log
 /apps/korfbal-stream-api/Sponsordeals_2025.xlsx
+/streamz-test/

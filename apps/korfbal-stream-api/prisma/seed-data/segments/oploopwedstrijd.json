@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "name": "Oploopwedstrijd",
+  "items": [
+    { "naam": "Oplopen", "duurInMinuten": 10, "volgorde": 1, "isTimeAnchor": false },
+    { "naam": "Eerste helft", "duurInMinuten": 35, "volgorde": 2, "isTimeAnchor": true },
+    { "naam": "Rust", "duurInMinuten": 10, "volgorde": 3, "isTimeAnchor": false },
+    { "naam": "Tweede helft", "duurInMinuten": 35, "volgorde": 4, "isTimeAnchor": false }
+  ]
+}

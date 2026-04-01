@@ -90,6 +90,8 @@ productionEventsRouter.get('/:id/events', async (req, res, next) => {
             position: true,
           },
         },
+        parent: true,
+        linkedItems: true,
       },
     });
 

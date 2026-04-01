@@ -19,7 +19,8 @@ import {productionReportsRouter} from './production/production-reports';
 import {productionCrewRouter} from './production/production-crew';
 import {productionExportImportRouter} from './production/production-export-import';
 import {productionEventsRouter} from './production/production-events';
-import { callsheetControlsRouter } from './production/callsheet-controls';
+import {callsheetControlsRouter} from './production/callsheet-controls';
+import {segmentTemplatesRouter} from './production/segment-templates';
 
 export const productionRouter: Router = Router();
 
@@ -43,6 +44,8 @@ productionRouter.use(productionCrewRouter);
 productionRouter.use(productionExportImportRouter);
 productionRouter.use(productionEventsRouter);
 productionRouter.use(callsheetControlsRouter);
+
+productionRouter.use('/segment-templates', segmentTemplatesRouter);
 
 // Nest skills router under production namespace for backward compatibility
 // Note: /persons router is NOT nested here - persons are available at /api/persons
@@ -114,20 +117,40 @@ productionRouter.post('/', async (req, res, next) => {
           liveTime
         }
       });
-      // Auto-create default segments in correct order if none exist yet
+      // Auto-create segments from default template if it exists, otherwise use fallback
       const count = await tx.productionSegment.count({ where: { productionId: p.id } });
       if (count === 0) {
-        await tx.productionSegment.createMany({
-          data: [
-            { productionId: p.id, naam: 'Voorbeschouwing', duurInMinuten: 20, volgorde: 1, isTimeAnchor: false },
-            { productionId: p.id, naam: 'Oplopen', duurInMinuten: 10, volgorde: 2, isTimeAnchor: false },
-            { productionId: p.id, naam: 'Eerste helft', duurInMinuten: 35, volgorde: 3, isTimeAnchor: true },
-            { productionId: p.id, naam: 'Rust', duurInMinuten: 10, volgorde: 4, isTimeAnchor: false },
-            { productionId: p.id, naam: 'Tweede helft', duurInMinuten: 35, volgorde: 5, isTimeAnchor: false },
-            { productionId: p.id, naam: 'Nabeschouwing', duurInMinuten: 20, volgorde: 6, isTimeAnchor: false },
-          ],
-          skipDuplicates: true,
+        const defaultTemplate = await tx.segmentTemplate.findFirst({
+          where: { isDefault: true },
+          include: { items: { orderBy: { volgorde: 'asc' } } }
         });
+
+        if (defaultTemplate && defaultTemplate.items.length > 0) {
+          for (const item of defaultTemplate.items) {
+            await tx.productionSegment.create({
+              data: {
+                productionId: p.id,
+                naam: item.naam,
+                volgorde: item.volgorde,
+                duurInMinuten: item.duurInMinuten,
+                isTimeAnchor: item.isTimeAnchor,
+              }
+            });
+          }
+        } else {
+          // Fallback if no default template is found
+          await tx.productionSegment.createMany({
+            data: [
+              { productionId: p.id, naam: 'Voorbeschouwing', duurInMinuten: 20, volgorde: 1, isTimeAnchor: false },
+              { productionId: p.id, naam: 'Oplopen', duurInMinuten: 10, volgorde: 2, isTimeAnchor: false },
+              { productionId: p.id, naam: 'Eerste helft', duurInMinuten: 35, volgorde: 3, isTimeAnchor: true },
+              { productionId: p.id, naam: 'Rust', duurInMinuten: 10, volgorde: 4, isTimeAnchor: false },
+              { productionId: p.id, naam: 'Tweede helft', duurInMinuten: 35, volgorde: 5, isTimeAnchor: false },
+              { productionId: p.id, naam: 'Nabeschouwing', duurInMinuten: 20, volgorde: 6, isTimeAnchor: false },
+            ],
+            skipDuplicates: true,
+          });
+        }
       }
 
       // Ensure there is always at least one callsheet for a production

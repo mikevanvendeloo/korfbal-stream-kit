@@ -39,3 +39,78 @@ html, body, #root {
 }
 .card .label { @apply text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400; }
 .card .value { @apply text-sm text-gray-900 dark:text-gray-100; }
+
+/* Report Export Styles */
+.report-container.exporting {
+  background-color: white !important;
+  color: black !important;
+  width: fit-content !important;
+  min-width: 100% !important;
+  padding: 20px !important;
+}
+
+.report-container.exporting * {
+  background-color: transparent !important;
+  border-color: #d1d5db !important; /* gray-300 */
+  color: black !important;
+  box-shadow: none !important;
+}
+
+.report-container.exporting .overflow-x-auto {
+  overflow: visible !important;
+}
+
+.report-container.exporting table {
+  width: auto !important;
+  min-width: 100% !important;
+  border-collapse: collapse !important;
+}
+
+.report-container.exporting table.data-table,
+.report-container.exporting table.data-table td,
+.report-container.exporting table.data-table th {
+  font-size: 1.8rem !important; /* ~28.8px */
+  padding: 14px 18px !important;
+  background-color: white !important;
+  border-bottom: 1px solid #d1d5db !important;
+}
+
+.report-container.exporting thead th {
+  background-color: #f9fafb !important; /* gray-50 */
+  font-weight: bold !important;
+}
+
+.report-container.exporting .sticky {
+  position: static !important;
+}
+
+.report-container.exporting .text-lg,
+.report-container.exporting h2,
+.report-container.exporting .caption,
+.report-container.exporting [class*="text-lg"] {
+  font-size: 2.2rem !important;
+  font-weight: bold !important;
+  margin-bottom: 1rem !important;
+}
+
+.report-container.exporting .text-sm,
+.report-container.exporting span,
+.report-container.exporting div:not(.text-base):not(.text-lg) {
+  font-size: 1.4rem !important;
+}
+
+.report-container.exporting .text-xs {
+  font-size: 1.25rem !important;
+}
+
+.report-container.exporting .text-red-500 {
+  color: #ef4444 !important;
+}
+
+.no-export {
+  display: flex !important;
+}
+
+.report-container.exporting .no-export {
+  display: none !important;
+}

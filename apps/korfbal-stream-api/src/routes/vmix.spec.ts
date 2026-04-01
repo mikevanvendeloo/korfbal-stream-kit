@@ -15,6 +15,7 @@ vi.mock('../services/appSettings', async (importOriginal) => {
     ...actual,
     getSponsorNamesTypes: vi.fn(async () => ['premium', 'goud', 'zilver']),
     getSponsorRowsTypes: vi.fn(async () => ['premium', 'goud', 'zilver']),
+    getSponsorSlidesTypes: vi.fn(async () => ['premium', 'goud', 'zilver']),
   };
 });
 
@@ -22,6 +23,16 @@ describe('vMix API - sponsor names ticker', () => {
   beforeEach(() => {
     prisma.sponsor = {
       findMany: vi.fn(async () => []),
+    };
+    prisma.playerImage = {
+      findMany: vi.fn(async () => [
+        { id: 1, name: 'Player 1', imageUrl: 'p1.png' },
+        { id: 2, name: 'Player 2', imageUrl: 'p2.png' },
+        { id: 3, name: 'Player 3', imageUrl: 'p3.png' },
+        { id: 4, name: 'Player 4', imageUrl: 'p4.png' },
+        { id: 5, name: 'Player 5', imageUrl: 'p5.png' },
+        { id: 6, name: 'Player 6', imageUrl: 'p6.png' },
+      ]),
     };
   });
 
@@ -49,10 +60,10 @@ describe('vMix API - sponsor names ticker', () => {
     expect(prisma.sponsor.findMany).toHaveBeenCalledTimes(1);
     // Verify it used the default types from mock
     expect(prisma.sponsor.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: {
+      where: expect.objectContaining({
         type: { in: ['premium', 'goud', 'zilver'] },
         enabled: true
-      }
+      })
     }));
   });
 
@@ -89,6 +100,16 @@ describe('vMix API - sponsor carousel', () => {
     prisma.sponsor = {
       findMany: vi.fn(async () => []),
     };
+    prisma.playerImage = {
+      findMany: vi.fn(async () => [
+        { id: 1, name: 'Player 1', imageUrl: 'p1.png' },
+        { id: 2, name: 'Player 2', imageUrl: 'p2.png' },
+        { id: 3, name: 'Player 3', imageUrl: 'p3.png' },
+        { id: 4, name: 'Player 4', imageUrl: 'p4.png' },
+        { id: 5, name: 'Player 5', imageUrl: 'p5.png' },
+        { id: 6, name: 'Player 6', imageUrl: 'p6.png' },
+      ]),
+    };
   });
 
   afterEach(() => {
@@ -114,5 +135,106 @@ describe('vMix API - sponsor carousel', () => {
     expect(res.body.length).toBe(3);
     expect(res.body.some((s: any) => s.name === 'Alpha BV')).toBe(true);
     expect(res.body.some((s: any) => s.name === 'Fortuna sponsor')).toBe(true);
+  });
+});
+
+describe('vMix API - sponsor rows', () => {
+  beforeEach(() => {
+    prisma.sponsor = {
+      findMany: vi.fn(async () => []),
+    };
+    prisma.playerImage = {
+      findMany: vi.fn(async () => [
+        { id: 1, name: 'Player 1', imageUrl: 'p1.png' },
+        { id: 2, name: 'Player 2', imageUrl: 'p2.png' },
+        { id: 3, name: 'Player 3', imageUrl: 'p3.png' },
+        { id: 4, name: 'Player 4', imageUrl: 'p4.png' },
+        { id: 5, name: 'Player 5', imageUrl: 'p5.png' },
+        { id: 6, name: 'Player 6', imageUrl: 'p6.png' },
+      ]),
+    };
+  });
+
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('filters only enabled sponsors of specified types for rows', async () => {
+    prisma.sponsor.findMany = vi.fn(async () => [
+      { id: 1, name: 'Alpha BV', logoUrl: 'alpha.png', type: 'premium', enabled: true },
+      { id: 2, name: 'Beta Co', logoUrl: 'beta.png', type: 'goud', enabled: true },
+      { id: 3, name: 'Gamma N.V.', logoUrl: 'gamma.png', type: 'zilver', enabled: true },
+    ]);
+
+    const res = await request(app)
+      .post('/api/vmix/sponsor-rows')
+      .send({ seed: 'test-seed' });
+
+    expect(res.status).toBe(200);
+    expect(prisma.sponsor.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        type: { in: ['premium', 'goud', 'zilver'] },
+        enabled: true
+      })
+    }));
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThan(0);
+  });
+
+  it('fails if not enough sponsors are available', async () => {
+    prisma.sponsor.findMany = vi.fn(async () => [
+      { id: 1, name: 'Alpha BV', logoUrl: 'alpha.png', type: 'premium', enabled: true },
+    ]);
+
+    const res = await request(app)
+      .post('/api/vmix/sponsor-rows')
+      .send({ seed: 'test-seed' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Need at least 3 sponsors');
+  });
+});
+
+describe('vMix API - sponsor slides', () => {
+  beforeEach(() => {
+    prisma.sponsor = {
+      findMany: vi.fn(async () => []),
+    };
+    prisma.playerImage = {
+      findMany: vi.fn(async () => [
+        { id: 1, name: 'Player 1', imageUrl: 'p1.png' },
+        { id: 2, name: 'Player 2', imageUrl: 'p2.png' },
+        { id: 3, name: 'Player 3', imageUrl: 'p3.png' },
+        { id: 4, name: 'Player 4', imageUrl: 'p4.png' },
+        { id: 5, name: 'Player 5', imageUrl: 'p5.png' },
+        { id: 6, name: 'Player 6', imageUrl: 'p6.png' },
+      ]),
+    };
+  });
+
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('filters only enabled sponsors of specified types for slides', async () => {
+    prisma.sponsor.findMany = vi.fn(async () => [
+      { id: 1, name: 'Alpha BV', logoUrl: 'alpha.png', type: 'premium', enabled: true },
+      { id: 2, name: 'Beta Co', logoUrl: 'beta.png', type: 'goud', enabled: true },
+      { id: 3, name: 'Gamma N.V.', logoUrl: 'gamma.png', type: 'zilver', enabled: true },
+    ]);
+
+    const res = await request(app)
+      .get('/api/vmix/sponsor-slides')
+      .query({ seed: 'test-seed' });
+
+    expect(res.status).toBe(200);
+    expect(prisma.sponsor.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        type: { in: ['premium', 'goud', 'zilver'] },
+        enabled: true
+      })
+    }));
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThan(0);
   });
 });

@@ -15,6 +15,7 @@ export const CallSheetItem = ({ item, isActive = false, elapsedTime = 0, isPlace
   const isInVenue = item?.isInVenue;
   const isInLivestream = item?.isInLivestream !== false; // Default true if not specified
   const autoAdvance = item?.autoAdvance === true;
+  const isLinked = !!item?.parentId;
 
   const formatDuration = (seconds: number) => {
     const absSeconds = Math.abs(Math.round(seconds));
@@ -45,6 +46,9 @@ export const CallSheetItem = ({ item, isActive = false, elapsedTime = 0, isPlace
       timeLabelColor = 'bg-green-800';
       durationBadgeColor = 'bg-green-900/50';
     }
+  } else if (isLinked && !isActuallyPlaceholder) {
+    statusColor = 'bg-blue-900/20 border-blue-500/30';
+    borderColor = 'border-2';
   }
 
   const displayTime = !isActuallyPlaceholder && item.calculatedTime
@@ -121,6 +125,12 @@ export const CallSheetItem = ({ item, isActive = false, elapsedTime = 0, isPlace
                 <span className="flex items-center gap-1 text-purple-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
                   Auto
+                </span>
+              )}
+              {isLinked && (
+                <span className="flex items-center gap-1 text-blue-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                  Link
                 </span>
               )}
             </div>

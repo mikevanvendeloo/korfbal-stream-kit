@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "name": "Reserve KorfbalLeague",
+  "isDefault": false,
+  "items": [
+    { "naam": "Eerste helft", "duurInMinuten": 35, "volgorde": 1, "isTimeAnchor": true },
+    { "naam": "Rust", "duurInMinuten": 5, "volgorde": 2, "isTimeAnchor": false },
+    { "naam": "Tweede helft", "duurInMinuten": 35, "volgorde": 3, "isTimeAnchor": false }
+  ]
+}

@@ -7,7 +7,28 @@ import {SponsorInputSchema} from '../schemas/sponsor';
 
 export const backupRouter: Router = Router();
 
+// Version for segment template JSON
+const SEGMENT_TEMPLATE_JSON_VERSION = 1 as const;
+
 // --- Export Endpoints ---
+
+// GET /api/backup/segment-templates/export
+backupRouter.get('/segment-templates/export', async (_req, res, next) => {
+  try {
+    const templates = await prisma.segmentTemplate.findMany({ include: { items: { orderBy: { volgorde: 'asc' } } }, orderBy: { name: 'asc' } });
+    const exportData = templates.map(t => ({
+      version: SEGMENT_TEMPLATE_JSON_VERSION,
+      name: t.name,
+      items: t.items.map(i => ({ naam: i.naam, volgorde: i.volgorde, duurInMinuten: i.duurInMinuten, isTimeAnchor: i.isTimeAnchor }))
+    }));
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename=segment-templates.json');
+    return res.json(exportData);
+  } catch (err) {
+    logger.error('GET /api/backup/segment-templates/export failed', err as any);
+    return next(err);
+  }
+});
 
 // GET /api/backup/persons/export
 backupRouter.get('/persons/export', async (_req, res, next) => {
@@ -377,6 +398,47 @@ backupRouter.post('/matches/import', async (req, res, next) => {
     return res.json({ ok: true, created, updated });
   } catch (err) {
     logger.error('POST /api/backup/matches/import failed', err as any);
+    return next(err);
+  }
+});
+
+// POST /api/backup/segment-templates/import
+backupRouter.post('/segment-templates/import', async (req, res, next) => {
+  try {
+    const data = req.body;
+    if (!Array.isArray(data)) return res.status(400).json({ error: 'Array expected' });
+    let created = 0, updated = 0;
+    for (const item of data) {
+      try {
+        const version = Number(item.version ?? 1);
+        if (!Number.isInteger(version) || version > SEGMENT_TEMPLATE_JSON_VERSION) continue;
+        const name = String(item.name || '').trim();
+        if (!name) continue;
+        const items = Array.isArray(item.items) ? item.items : [];
+        const existing = await prisma.segmentTemplate.findUnique({ where: { name } }).catch(() => null);
+        let tplId: number;
+        if (existing) {
+          tplId = existing.id;
+          await prisma.segmentTemplateItem.deleteMany({ where: { templateId: tplId } });
+          updated++;
+        } else {
+          const tpl = await prisma.segmentTemplate.create({ data: { name } });
+          tplId = tpl.id;
+          created++;
+        }
+        for (const raw of items) {
+          const naam = String(raw.naam || '').trim();
+          const volgorde = Number(raw.volgorde);
+          const duurInMinuten = Number(raw.duurInMinuten);
+          const isTimeAnchor = !!raw.isTimeAnchor;
+          if (!naam || !Number.isInteger(volgorde) || volgorde <= 0 || !Number.isInteger(duurInMinuten) || duurInMinuten < 0) continue;
+          await prisma.segmentTemplateItem.create({ data: { templateId: tplId, naam, volgorde, duurInMinuten, isTimeAnchor } });
+        }
+      } catch (_) {}
+    }
+    return res.json({ ok: true, created, updated });
+  } catch (err) {
+    logger.error('POST /api/backup/segment-templates/import failed', err as any);
     return next(err);
   }
 });

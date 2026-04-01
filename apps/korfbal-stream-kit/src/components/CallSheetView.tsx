@@ -212,6 +212,21 @@ export const CallSheetView = () => {
                 calculatedStartTime = new Date(calculatedStartTime.getTime() + timeShiftMs);
             }
 
+            // Gebruik de tijd van de parent als dit een gelinkt item is
+            if (item.parentId) {
+                const parent = allItems.find(it => it.id === item.parentId);
+                if (parent && parent.plannedStartTime) {
+                    calculatedStartTime = new Date(parent.plannedStartTime);
+                    // Pas ook hier de shift toe indien nodig
+                    if (anchorEvent && anchorEvent.actualStartTime) {
+                        const plannedAnchorDate = new Date(anchorEvent.plannedStartTime!);
+                        const actualAnchorDate = new Date(anchorEvent.actualStartTime);
+                        const timeShiftMs = actualAnchorDate.getTime() - plannedAnchorDate.getTime();
+                        calculatedStartTime = new Date(calculatedStartTime.getTime() + timeShiftMs);
+                    }
+                }
+            }
+
             return {
                 ...item,
                 calculatedTime: calculatedStartTime,

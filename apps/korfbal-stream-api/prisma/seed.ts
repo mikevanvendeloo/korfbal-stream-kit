@@ -1,4 +1,6 @@
 import {PrismaClient} from '@prisma/client';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {seedPersons, seedPositions, seedSkills, seedTitles} from './seed-data';
 
 const prisma = new PrismaClient();
@@ -177,6 +179,134 @@ async function main() {
         }
       }
       console.log(`Synced skills for person: ${p.name}`);
+    }
+  }
+
+  console.log('Seeding CallSheetTemplates from JSON...');
+  const callsheetDir = path.join(__dirname, 'seed-data/callsheets');
+  console.log(`Checking directory: ${callsheetDir}`);
+  if (fs.existsSync(callsheetDir)) {
+    const files = fs.readdirSync(callsheetDir).filter(f => f.endsWith('.json'));
+    console.log(`Found ${files.length} JSON files: ${files.join(', ')}`);
+    const positions = await prisma.position.findMany();
+    const positionsByName = Object.fromEntries(positions.map(p => [p.name, p.id] as const));
+
+    for (const file of files) {
+      const filePath = path.join(callsheetDir, file);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const data = JSON.parse(content);
+
+      if (data.version && data.version > 1) {
+        console.warn(`Skipping ${file}: Unsupported template version ${data.version}`);
+        continue;
+      }
+
+      const template = await prisma.callSheetTemplate.upsert({
+        where: { name: data.name },
+        update: {},
+        create: { name: data.name }
+      });
+
+      console.log(`Ensured CallSheetTemplate: ${data.name}`);
+
+      // Sync items
+      // For simplicity, we remove existing items and recreate them to ensure order and positions are correct
+      // In a production environment with existing productions linked to these templates, you might want to be more careful.
+      await prisma.callSheetTemplateItem.deleteMany({ where: { templateId: template.id } });
+
+      const idMapping: Record<string, string> = {};
+
+      for (const item of data.items) {
+        const createdItem = await prisma.callSheetTemplateItem.create({
+          data: {
+            templateId: template.id,
+            title: item.title,
+            durationSec: item.durationSec,
+            orderIndex: item.orderIndex,
+            isInVenue: item.isInVenue ?? false,
+            isInLivestream: item.isInLivestream ?? true,
+            note: item.note ?? null,
+            isTimeAnchor: item.isTimeAnchor ?? false,
+            anchorType: item.anchorType ?? null,
+            autoAdvance: item.autoAdvance ?? false,
+          }
+        });
+
+        if (item.id) {
+          idMapping[item.id] = createdItem.id;
+        }
+
+        if (item.positions && Array.isArray(item.positions)) {
+          for (const posName of item.positions) {
+            const positionId = positionsByName[posName];
+            if (positionId) {
+              await prisma.callSheetTemplatePosition.create({
+                data: {
+                  templateItemId: createdItem.id,
+                  positionId: positionId
+                }
+              });
+            } else {
+              console.warn(`Position not found: ${posName} for template ${data.name}`);
+            }
+          }
+        }
+      }
+
+      // Second pass for parentIds
+      for (const item of data.items) {
+        if (item.parentId && idMapping[item.parentId]) {
+          const currentItemId = idMapping[item.id];
+          if (currentItemId) {
+            await prisma.callSheetTemplateItem.update({
+              where: { id: currentItemId },
+              data: { parentId: idMapping[item.parentId] }
+            });
+          }
+        }
+      }
+      console.log(`Synced ${data.items.length} items for template: ${data.name}`);
+    }
+  }
+
+  console.log('Seeding SegmentTemplates from JSON...');
+  const segDir = path.join(__dirname, 'seed-data/segments');
+  if (fs.existsSync(segDir)) {
+    const files = fs.readdirSync(segDir).filter(f => f.endsWith('.json'));
+    console.log(`Found ${files.length} segment template JSON files: ${files.join(', ')}`);
+    for (const file of files) {
+      const filePath = path.join(segDir, file);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const data = JSON.parse(content);
+      const version = Number(data.version ?? 1);
+      if (!Number.isInteger(version) || version > 1) {
+        console.warn(`Skipping ${file}: Unsupported template version ${data.version}`);
+        continue;
+      }
+      const name = String(data.name || '').trim();
+      if (!name) {
+        console.warn(`Skipping ${file}: Missing name`);
+        continue;
+      }
+      const isDefault = !!data.isDefault;
+      const template = await prisma.segmentTemplate.upsert({
+        where: { name },
+        update: { isDefault },
+        create: { name, isDefault },
+      });
+      await prisma.segmentTemplateItem.deleteMany({ where: { templateId: template.id } });
+      const items = Array.isArray(data.items) ? data.items : [];
+      for (const raw of items) {
+        const naam = String(raw.naam || '').trim();
+        const volgorde = Number(raw.volgorde);
+        const duurInMinuten = Number(raw.duurInMinuten);
+        const isTimeAnchor = !!raw.isTimeAnchor;
+        if (!naam || !Number.isInteger(volgorde) || volgorde <= 0 || !Number.isInteger(duurInMinuten) || duurInMinuten < 0) continue;
+        await prisma.segmentTemplateItem.create({
+          data: { templateId: template.id, naam, volgorde, duurInMinuten, isTimeAnchor },
+        });
+      }
+      console.log(`Synced SegmentTemplate from ${file}: ${name}`);
     }
   }
 

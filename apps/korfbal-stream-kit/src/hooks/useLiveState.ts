@@ -42,6 +42,9 @@ export interface ProductionEvent {
   isTimeAnchor: boolean;
   anchorType: string | null;
   production: any;
+  parentId?: string | null;
+  parent?: ProductionEvent | null;
+  linkedItems?: ProductionEvent[];
   positions: { position: Position }[];
 }
 

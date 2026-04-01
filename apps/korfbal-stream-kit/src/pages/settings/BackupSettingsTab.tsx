@@ -16,6 +16,7 @@ const ENTITIES: Entity[] = [
   { id: 'clubs', label: 'Clubs', endpoint: 'clubs' },
   { id: 'sponsors', label: 'Sponsors', endpoint: 'sponsors' },
   { id: 'settings', label: 'Instellingen', endpoint: 'settings' },
+  { id: 'segment-templates', label: 'Segment templates', endpoint: 'segment-templates' },
 ];
 
 export default function BackupPage() {

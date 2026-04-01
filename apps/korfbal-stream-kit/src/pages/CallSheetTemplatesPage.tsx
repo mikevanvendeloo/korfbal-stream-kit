@@ -8,11 +8,11 @@ import {Link} from 'react-router-dom';
 import {createUrl} from "../lib/api";
 
 export default function CallSheetTemplatesPage() {
-  const { fetchTemplates, createTemplate, deleteTemplate, importTemplate, loading } = useCallSheetTemplates();
+  const { fetchTemplates, createTemplate, deleteTemplate, importTemplate, importTemplateJson, loading } = useCallSheetTemplates();
   const [templates, setTemplates] = useState<CallSheetTemplate[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
-  const [isImporting, setIsImporting] = useState(false);
+  const [isImporting, setIsImporting] = useState<'excel' | 'json' | null>(null);
   const [importName, setImportName] = useState('');
 
   const loadTemplates = async () => {
@@ -43,12 +43,15 @@ export default function CallSheetTemplatesPage() {
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !importName.trim()) return;
+    if (!file || !importName.trim() || !isImporting) return;
 
-    const imported = await importTemplate(importName, file);
+    const imported = isImporting === 'excel'
+      ? await importTemplate(importName, file)
+      : await importTemplateJson(importName, file);
+
     if (imported) {
       setImportName('');
-      setIsImporting(false);
+      setIsImporting(null);
       loadTemplates();
     }
   };
@@ -62,12 +65,20 @@ export default function CallSheetTemplatesPage() {
         </div>
         <div className="flex gap-3">
           <Button
-            onClick={() => setIsImporting(true)}
+            onClick={() => setIsImporting('excel')}
             variant="outline"
             className="border-white/10 hover:bg-white/5"
           >
             <Upload className="w-4 h-4 mr-2" />
-            Importeren
+            Excel Import
+          </Button>
+          <Button
+            onClick={() => setIsImporting('json')}
+            variant="outline"
+            className="border-white/10 hover:bg-white/5"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            JSON Import
           </Button>
           <Button onClick={() => setIsAdding(true)} className="bg-blue-600 hover:bg-blue-700">
             <Plus className="w-4 h-4 mr-2" />
@@ -101,7 +112,9 @@ export default function CallSheetTemplatesPage() {
       {isImporting && (
         <Card className="bg-white/5 border-white/10 mb-6">
           <CardHeader>
-            <CardTitle className="text-white text-lg">Draaiboek importeren uit Excel</CardTitle>
+            <CardTitle className="text-white text-lg">
+              Draaiboek importeren uit {isImporting === 'excel' ? 'Excel' : 'JSON'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -114,17 +127,19 @@ export default function CallSheetTemplatesPage() {
               <div className="flex items-center gap-4">
                 <Input
                   type="file"
-                  accept=".xlsx"
+                  accept={isImporting === 'excel' ? '.xlsx' : '.json'}
                   onChange={handleImport}
                   disabled={!importName.trim()}
                   className="bg-black/20 border-white/10 text-white cursor-pointer"
                 />
-                <Button onClick={() => setIsImporting(false)} variant="ghost">
+                <Button onClick={() => setIsImporting(null)} variant="ghost">
                   Annuleren
                 </Button>
               </div>
               <p className="text-xs text-white/40 italic">
-                De Excel moet de volgende kolommen bevatten: Titel, Notitie, Duur (sec), Posities, Tijd Anchor, Anchor Type, Auto Advance, Zaal, Stream.
+                {isImporting === 'excel'
+                  ? 'De Excel moet de volgende kolommen bevatten: Titel, Notitie, Duur (sec), Posities, Tijd Anchor, Anchor Type, Auto Advance, Zaal, Stream.'
+                  : 'Het JSON-bestand moet een "name" en een lijst met "items" bevatten.'}
               </p>
             </div>
           </CardContent>
@@ -143,6 +158,13 @@ export default function CallSheetTemplatesPage() {
                   href={createUrl(`/api/callsheets/templates/${template.id}/export`)}
                   className="p-2 hover:bg-white/10 rounded-full text-white/60 hover:text-white"
                   title="Exporteren naar Excel"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                </a>
+                <a
+                  href={createUrl(`/api/callsheets/templates/${template.id}/export-json`)}
+                  className="p-2 hover:bg-white/10 rounded-full text-white/60 hover:text-white"
+                  title="Exporteren naar JSON"
                 >
                   <Download className="w-4 h-4" />
                 </a>

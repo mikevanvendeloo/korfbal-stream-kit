@@ -6,6 +6,8 @@ export type DailyOccupancyReport = {
   productions: Array<{
     id: number;
     time: string;
+    liveTime?: string;
+    endLiveTime?: string;
     homeTeam: string;
     awayTeam: string;
   }>;
@@ -22,6 +24,7 @@ export type DailyOccupancyByPositionReport = {
     id: number;
     time: string;
     liveTime?: string;
+    endLiveTime?: string;
     homeTeam: string;
     awayTeam: string;
   }>;

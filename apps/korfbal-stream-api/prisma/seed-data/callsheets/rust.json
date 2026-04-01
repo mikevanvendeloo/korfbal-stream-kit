@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "name": "Rust",
+  "items": [
+    {
+      "title": "Reclame",
+      "durationSec": 180,
+      "orderIndex": 0,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "positions": ["Regie livestream", "Muziek", "Camera overzicht","Commentaar", "Presentatie"]
+    },
+    {
+      "title": "Speaker kondigt einde eerste helft aan",
+      "durationSec": 30,
+      "orderIndex": 1,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "positions": [ "Muziek", "Regie LEDscherm", "Showcaller"]
+    },
+    {
+      "title": "Reclame LEDscherm",
+      "durationSec": 300,
+      "orderIndex": 2,
+      "isInVenue": true,
+      "isInLivestream": false,
+      "positions": ["Regie LEDscherm", "Muziek"]
+    },
+    {
+      "title": "Analyse presentator & analist",
+      "durationSec": 600,
+      "orderIndex": 3,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "positions": ["Regie livestream", "Camera rechts", "PTZ operator", "Commentaar", "Presentatie"]
+    },
+    {
+      "title": "Reclame",
+      "durationSec": 180,
+      "orderIndex": 4,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "positions": ["Regie livestream", "Commentaar", "Presentatie"]
+    },
+    {
+      "title": "Wedstrijd (2e helft)",
+      "durationSec": 1500,
+      "orderIndex": 5,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "positions": ["Regie livestream", "Regie LEDscherm","Camera links", "Camera rechts", "Camera overzicht", "Commentaar", "Herhalingen"]
+    }
+  ]
+}

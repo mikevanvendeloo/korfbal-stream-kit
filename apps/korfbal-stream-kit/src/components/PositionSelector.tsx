@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import {useEffect, useState} from 'react';
+import {Link, useParams} from 'react-router-dom';
+import {MatchHeader} from "./MatchHeader";
 
 // Type dat overeenkomt met het Prisma 'Position' model
 interface Position {
@@ -51,6 +52,11 @@ export const PositionSelector = () => {
 
   return (
     <div className="bg-gray-800 min-h-screen flex flex-col items-center justify-center p-8">
+      {productionId && (
+        <div className="mb-12">
+          <MatchHeader productionId={Number(productionId)} size="medium" />
+        </div>
+      )}
       <h1 className="text-4xl font-bold text-white mb-8">Kies je positie</h1>
       {positions.length === 0 ? (
         <p className="text-gray-400">Geen posities gevonden voor deze productie. Zorg dat er events met posities zijn aangemaakt.</p>

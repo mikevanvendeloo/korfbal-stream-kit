@@ -5,9 +5,7 @@ import {
   useDailyOccupancyReport,
   useInterviewsReport
 } from '../hooks/useReports';
-import {useNextProductionDate, useProductionDates} from '../hooks/useProductions';
-import SimpleCalendar from '../components/SimpleCalendar';
-import '../styles/calendar.css';
+import {useProductions} from '../hooks/useProductions';
 import {createColumnHelper, flexRender, getCoreRowModel, useReactTable,} from '@tanstack/react-table';
 import {downloadAsPng} from '../lib/download';
 import {MdClose, MdDownload} from 'react-icons/md';
@@ -50,7 +48,7 @@ function DataTable({ data, columns, stickyFirstColumn = false, id, caption }: Re
           {caption}
         </div>
       )}
-      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-lg data-table">
         <thead className="bg-gray-50 dark:bg-gray-800">
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
@@ -106,27 +104,39 @@ function DataTable({ data, columns, stickyFirstColumn = false, id, caption }: Re
 
 
 function DailyOccupancyReport() {
-  const {data: nextDate} = useNextProductionDate();
-  const {data: productionDates} = useProductionDates();
+  const {data: productionsData} = useProductions();
   const [date, setDate] = React.useState('');
-  const [showCalendar, setShowCalendar] = React.useState(false);
+
+  const sortedProductions = React.useMemo(() => {
+    if (!productionsData?.items) return [];
+    return [...productionsData.items].sort((a, b) => {
+      const dateA = new Date(a.matchSchedule?.date || 0).getTime();
+      const dateB = new Date(b.matchSchedule?.date || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [productionsData]);
 
   React.useEffect(() => {
-    if (nextDate && !date) {
-      setDate(nextDate);
-    } else if (!date) {
+    if (sortedProductions.length > 0 && !date) {
+      const now = new Date().getTime();
+      const nextProd = [...sortedProductions]
+        .reverse()
+        .find(p => new Date(p.matchSchedule?.date || 0).getTime() >= now - (24 * 60 * 60 * 1000));
+
+      const defaultDate = nextProd?.matchSchedule?.date || sortedProductions[0].matchSchedule?.date;
+      if (defaultDate) {
+        setDate(new Date(defaultDate).toISOString().split('T')[0]);
+      }
+    } else if (!date && !productionsData) {
       setDate(new Date().toISOString().split('T')[0]);
     }
-  }, [nextDate, date]);
+  }, [sortedProductions, date, productionsData]);
 
   const {data, isLoading, error} = useDailyOccupancyReport(date);
-  const {data: interviewsData} = useInterviewsReport(); // Fetch all interviews, filter by date locally or ideally API should support date filter
+  const {data: interviewsData} = useInterviewsReport();
 
-  const handleDateChange = (value: Date) => {
-    const offset = value.getTimezoneOffset();
-    const adjustedDate = new Date(value.getTime() - (offset * 60 * 1000));
-    setDate(adjustedDate.toISOString().split('T')[0]);
-    setShowCalendar(false);
+  const handleProductionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setDate(e.target.value);
   };
 
   const columns = React.useMemo(() => {
@@ -142,7 +152,7 @@ function DailyOccupancyReport() {
 
     data.productions.forEach(prod => {
       cols.push(
-        helper.accessor(row => row.assignments[prod.id], {
+        helper.accessor((row: any): string[] => row.assignments[prod.id], {
           id: `prod-${prod.id}`,
           header: () => (
             <div className="text-center">
@@ -201,27 +211,24 @@ function DailyOccupancyReport() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between no-export">
         <div className="flex items-center gap-2 relative">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Datum:</label>
-          <div className="relative">
-            <input
-              type="text"
-              value={date ? formatDate(date) : ''}
-              readOnly
-              onClick={() => setShowCalendar(!showCalendar)}
-              className="border rounded-md px-3 py-2 bg-white dark:bg-gray-900 dark:border-gray-700 cursor-pointer w-48 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-            />
-            {showCalendar && (
-              <div className="absolute top-full left-0 mt-2 z-50 shadow-xl rounded-lg overflow-hidden">
-                <SimpleCalendar
-                  onChange={handleDateChange}
-                  value={date ? new Date(date) : new Date()}
-                  markedDates={productionDates}
-                />
-              </div>
-            )}
-          </div>
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Productie:</label>
+          <select
+            value={date}
+            onChange={handleProductionChange}
+            className="border rounded-md px-3 py-2 bg-white dark:bg-gray-900 dark:border-gray-700 cursor-pointer shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm min-w-[300px]"
+          >
+            {sortedProductions.length === 0 && <option value="">Geen producties gevonden</option>}
+            {sortedProductions.map(p => {
+              const pDate = p.matchSchedule?.date ? new Date(p.matchSchedule.date).toISOString().split('T')[0] : '';
+              return (
+                <option key={p.id} value={pDate}>
+                  {p.matchSchedule ? `${formatDate(p.matchSchedule.date)} - ${p.matchSchedule.homeTeamName} vs ${p.matchSchedule.awayTeamName}` : `Productie ${p.id}`}
+                </option>
+              );
+            })}
+          </select>
         </div>
         <button
           onClick={() => downloadAsPng('daily-occupancy-container', `dagbezetting-${date}`)}
@@ -237,13 +244,18 @@ function DailyOccupancyReport() {
       {error && <div className="text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800">Fout bij laden: {(error as any).message}</div>}
 
       {data && (
-        <div id="daily-occupancy-container" className="space-y-8 bg-white dark:bg-gray-950 p-4 rounded-lg">
+        <div id="daily-occupancy-container" className="space-y-8 bg-white dark:bg-gray-950 p-6 rounded-lg report-container">
           <DataTable
             data={data.persons}
             columns={columns}
             stickyFirstColumn={true}
             caption={`Dagbezetting - ${formatDate(date)}`}
           />
+
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800 pt-4 px-2">
+            <MdClose className="text-red-500 text-lg flex-shrink-0" />
+            <span className="font-medium">Een rood kruisje betekent dat de persoon niet aanwezig is (afwezig gemeld).</span>
+          </div>
 
           {/* Interviews Section per Production */}
           {dailyInterviews.length > 0 && (
@@ -359,7 +371,7 @@ function InterviewsReport() {
           return `${time}${liveStr}`;
         },
       }),
-      helper.accessor(row => `${row.homeTeam} vs ${row.awayTeam}`, {
+      helper.accessor((row: any) => `${row.homeTeam} vs ${row.awayTeam}`, {
         id: 'match',
         header: 'Wedstrijd',
         cell: info => <span className="font-medium">{info.getValue()}</span>,
@@ -423,49 +435,58 @@ function InterviewsReport() {
 
 
 function OccupancyByPositionReport() {
-  const {data: nextDate} = useNextProductionDate();
-  const {data: productionDates} = useProductionDates();
+  const {data: productionsData} = useProductions();
   const [date, setDate] = React.useState('');
-  const [showCalendar, setShowCalendar] = React.useState(false);
+
+  const sortedProductions = React.useMemo(() => {
+    if (!productionsData?.items) return [];
+    return [...productionsData.items].sort((a, b) => {
+      const dateA = new Date(a.matchSchedule?.date || 0).getTime();
+      const dateB = new Date(b.matchSchedule?.date || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [productionsData]);
 
   React.useEffect(() => {
-    if (nextDate && !date) {
-      setDate(nextDate);
-    } else if (!date) {
+    if (sortedProductions.length > 0 && !date) {
+      const now = new Date().getTime();
+      const nextProd = [...sortedProductions]
+        .reverse()
+        .find(p => new Date(p.matchSchedule?.date || 0).getTime() >= now - (24 * 60 * 60 * 1000));
+
+      const defaultDate = nextProd?.matchSchedule?.date || sortedProductions[0].matchSchedule?.date;
+      if (defaultDate) {
+        setDate(new Date(defaultDate).toISOString().split('T')[0]);
+      }
+    } else if (!date && !productionsData) {
       setDate(new Date().toISOString().split('T')[0]);
     }
-  }, [nextDate, date]);
+  }, [sortedProductions, date, productionsData]);
 
-  const handleDateChange = (value: Date) => {
-    const offset = value.getTimezoneOffset();
-    const adjustedDate = new Date(value.getTime() - (offset * 60 * 1000));
-    setDate(adjustedDate.toISOString().split('T')[0]);
-    setShowCalendar(false);
+  const handleProductionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setDate(e.target.value);
   };
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between no-export">
         <div className="flex items-center gap-2 relative">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Datum:</label>
-          <div className="relative">
-            <input
-              type="text"
-              value={date ? formatDate(date) : ''}
-              readOnly
-              onClick={() => setShowCalendar(!showCalendar)}
-              className="border rounded-md px-3 py-2 bg-white dark:bg-gray-900 dark:border-gray-700 cursor-pointer w-48 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-            />
-            {showCalendar && (
-              <div className="absolute top-full left-0 mt-2 z-50 shadow-xl rounded-lg overflow-hidden">
-                <SimpleCalendar
-                  onChange={handleDateChange}
-                  value={date ? new Date(date) : new Date()}
-                  markedDates={productionDates}
-                />
-              </div>
-            )}
-          </div>
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Productie:</label>
+          <select
+            value={date}
+            onChange={handleProductionChange}
+            className="border rounded-md px-3 py-2 bg-white dark:bg-gray-900 dark:border-gray-700 cursor-pointer shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm min-w-[300px]"
+          >
+            {sortedProductions.length === 0 && <option value="">Geen producties gevonden</option>}
+            {sortedProductions.map(p => {
+              const pDate = p.matchSchedule?.date ? new Date(p.matchSchedule.date).toISOString().split('T')[0] : '';
+              return (
+                <option key={p.id} value={pDate}>
+                  {p.matchSchedule ? `${formatDate(p.matchSchedule.date)} - ${p.matchSchedule.homeTeamName} vs ${p.matchSchedule.awayTeamName}` : `Productie ${p.id}`}
+                </option>
+              );
+            })}
+          </select>
         </div>
         <button
           onClick={() => downloadAsPng('daily-occupancy-by-position-container', `positiebezetting-${date}`)}
@@ -476,7 +497,7 @@ function OccupancyByPositionReport() {
         </button>
       </div>
 
-      <div id="daily-occupancy-by-position-container" className="bg-white dark:bg-gray-950 p-4 rounded-lg">
+      <div id="daily-occupancy-by-position-container" className="bg-white dark:bg-gray-950 p-6 rounded-lg report-container">
         <OccupancyByPositionTable date={date} />
       </div>
     </div>
@@ -507,7 +528,7 @@ function OccupancyByPositionTable({ date }: { date: string }) {
 
     data.productions.forEach(prod => {
       cols.push(
-        helper.accessor((row: any) => row.assignments[prod.id], {
+        helper.accessor((row: any): string[] => row.assignments[prod.id], {
           id: `prod-${prod.id}`,
           header: () => (
             <div className="text-center">
@@ -525,7 +546,7 @@ function OccupancyByPositionTable({ date }: { date: string }) {
             </div>
           ),
           cell: info => {
-            const persons = info.getValue() as string[];
+            const persons = info.getValue();
             return persons && persons.length > 0 ? (
               <div className="text-center font-medium text-gray-800 dark:text-gray-200">{persons.join(', ')}</div>
             ) : (
@@ -546,13 +567,17 @@ function OccupancyByPositionTable({ date }: { date: string }) {
   if (!data || data.positions.length === 0) return null;
 
   return (
-    <div className="mt-8 border-t border-gray-100 dark:border-gray-800 pt-8">
+    <div className="mt-8 border-t border-gray-100 dark:border-gray-800 pt-8 space-y-4">
       <DataTable
         data={data.positions}
         columns={columns}
         stickyFirstColumn={true}
         caption={`Bezetting per Positie - ${formatDate(date)}`}
       />
+      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800 pt-4 px-2">
+        <MdClose className="text-red-500 text-lg flex-shrink-0" />
+        <span className="font-medium">Een rood kruisje betekent dat de positie niet is ingevuld (onbezet).</span>
+      </div>
     </div>
   );
 }
@@ -585,7 +610,7 @@ function CrewRolesReport() {
           return `${time}${liveStr}`;
         },
       }),
-      helper.accessor(row => `${row.homeTeam} vs ${row.awayTeam}`, {
+      helper.accessor((row: any) => `${row.homeTeam} vs ${row.awayTeam}`, {
         id: 'match',
         header: 'Wedstrijd',
         cell: info => <span className="font-medium">{info.getValue()}</span>,

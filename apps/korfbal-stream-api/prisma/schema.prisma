@@ -184,8 +184,12 @@ model CallSheetTemplateItem {
   updatedAt      DateTime                    @updatedAt
   template       CallSheetTemplate           @relation(fields: [templateId], references: [id], onDelete: Cascade)
   positions      CallSheetTemplatePosition[]
+  parentId       String?
+  parent         CallSheetTemplateItem?      @relation("LinkedTemplateItems", fields: [parentId], references: [id], onDelete: SetNull)
+  linkedItems    CallSheetTemplateItem[]     @relation("LinkedTemplateItems")
 
   @@index([templateId])
+  @@index([parentId])
 }
 
 model CallSheetTemplatePosition {
@@ -241,6 +245,28 @@ model ProductionSegment {
 
   @@unique([productionId, volgorde])
   @@index([productionId])
+}
+
+model SegmentTemplate {
+  id        Int                   @id @default(autoincrement())
+  name      String                @unique
+  isDefault Boolean               @default(false)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  items     SegmentTemplateItem[]
+}
+
+model SegmentTemplateItem {
+  id            Int             @id @default(autoincrement())
+  templateId    Int
+  naam          String
+  volgorde      Int
+  duurInMinuten Int
+  isTimeAnchor  Boolean         @default(false)
+  template      SegmentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, volgorde])
+  @@index([templateId])
 }
 
 model SegmentDefaultPosition {
@@ -392,9 +418,13 @@ model CallSheetItem {
   callSheet           CallSheet               @relation(fields: [callSheetId], references: [id], onDelete: Cascade)
   productionSegment   ProductionSegment       @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
   positions           CallSheetItemPosition[]
+  parentId            String?
+  parent              CallSheetItem?          @relation("LinkedItems", fields: [parentId], references: [id], onDelete: SetNull)
+  linkedItems         CallSheetItem[]         @relation("LinkedItems")
 
   @@index([callSheetId])
   @@index([productionSegmentId])
+  @@index([parentId])
 }
 
 model CallSheetItemPosition {
@@ -446,6 +476,9 @@ model ProductionEvent {
   anchorType       String?
   autoAdvance      Boolean                   @default(false)
   callSheetItemId  String?                   @unique
+  parentId         String?
+  parent           ProductionEvent?          @relation("LinkedEvents", fields: [parentId], references: [id], onDelete: SetNull)
+  linkedItems      ProductionEvent[]         @relation("LinkedEvents")
   isInLivestream   Boolean                   @default(true)
   isInVenue        Boolean                   @default(false)
   isTimeAnchor     Boolean                   @default(false)
@@ -454,6 +487,7 @@ model ProductionEvent {
 
   @@index([productionId])
   @@index([productionId, createdAt])
+  @@index([parentId])
 }
 
 model ProductionEventPosition {

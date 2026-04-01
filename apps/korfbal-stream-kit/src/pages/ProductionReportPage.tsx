@@ -7,7 +7,7 @@ import {
   useProductionReport,
   useSaveProductionReport,
 } from '../hooks/useProductionReport';
-import {MdPictureAsPdf} from 'react-icons/md';
+import {MdAssignment, MdPictureAsPdf} from 'react-icons/md';
 import {FaCheck, FaMarkdown, FaWhatsapp} from 'react-icons/fa';
 import PlayerCard from '../components/PlayerCard';
 import {Club, useClubs} from '../hooks/useClubs';
@@ -114,44 +114,47 @@ export default function ProductionReportPage() {
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">Livestream Productie Positie Overzicht</h1>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <h1 className="text-xl font-semibold flex items-center gap-2">
+          <MdAssignment className="text-blue-500" />
+          <span>Productie rapport</span>
+        </h1>
+        <div className="flex flex-wrap items-center gap-2">
           <a
             href={getProductionReportPdfUrl(productionId).toString()}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2"
+            className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2 transition-colors text-sm"
           >
-            <MdPictureAsPdf className="text-lg" />
+            <MdPictureAsPdf />
             <span>PDF</span>
           </a>
           <a
             href={getProductionReportMarkdownUrl(productionId).toString()}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-3 py-2 bg-gray-700 text-white rounded hover:bg-gray-800 flex items-center gap-2"
+            className="px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-800 flex items-center gap-2 transition-colors text-sm"
           >
-            <FaMarkdown className="text-lg" />
+            <FaMarkdown />
             <span>Markdown</span>
           </a>
           <button
             onClick={handleCopyWhatsApp}
-            className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"
+            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2 transition-colors text-sm"
           >
             {whatsappCopied ? (
               <>
-                <FaCheck className="text-lg" />
+                <FaCheck />
                 <span>Gekopieerd!</span>
               </>
             ) : (
               <>
-                <FaWhatsapp className="text-lg" />
+                <FaWhatsapp />
                 <span>WhatsApp</span>
               </>
             )}
           </button>
-          <Link className="px-3 py-2 border rounded" to={`/admin/productions/${productionId}`}>
+          <Link className="px-3 py-1 border rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm" to={`/admin/productions/${productionId}`}>
             Terug naar productie
           </Link>
         </div>

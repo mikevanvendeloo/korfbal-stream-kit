@@ -15,24 +15,28 @@ import {
   useUpdateSegment,
 } from '../hooks/useProductions';
 import {useCallSheets} from '../hooks/useCallsheet';
+import {useSegmentTemplates} from '../hooks/useSegmentTemplates';
 import SegmentFormModal, {SegmentFormValues} from '../components/SegmentFormModal';
 import IconButton from '../components/IconButton';
 import {
   MdAdd,
   MdAnchor,
+  MdArrowBack,
   MdArrowDownward,
   MdArrowUpward,
   MdDelete,
   MdDownload,
   MdEdit,
   MdGroups,
-  MdLiveTv
+  MdLiveTv,
+  MdSave
 } from 'react-icons/md';
 import SegmentOverridesManager from '../components/SegmentOverridesManager';
-import ProductionHeader from '../components/ProductionHeader';
+import {MatchHeader} from '../components/MatchHeader';
 import MultiSelect from '../components/MultiSelect';
 import {CallSheetTemplateSelector} from '../components/CallSheetTemplateSelector';
 import {createUrl} from '../lib/api';
+import {SegmentTemplateSelector} from "../components/SegmentTemplateSelector";
 
 function timeLocal(iso: string) {
   const d = new Date(iso);
@@ -149,6 +153,7 @@ export default function ProductionDetailPage() {
   const timing = useProductionTiming(id);
   const updateProduction = useUpdateProduction();
   const { data: callSheets } = useCallSheets(id);
+  const { createTemplateFromProduction } = useSegmentTemplates();
   const [modal, setModal] = React.useState<null | { mode: 'create' | 'edit'; seg?: ProductionSegment }>(null);
   const [err, setErr] = React.useState<string | null>(null);
   const { data: productionPersonPositions } = useProductionPersonPositions(id);
@@ -244,6 +249,18 @@ export default function ProductionDetailPage() {
     window.open(createUrl(`/api/production/${id}/export`).toString(), '_blank');
   };
 
+  const handleSaveAsTemplate = async () => {
+    const name = window.prompt('Naam voor de nieuwe segment template:');
+    if (!name) return;
+    setErr(null);
+    try {
+      await createTemplateFromProduction.mutateAsync({ productionId: id, name });
+      alert('Segment template succesvol aangemaakt!');
+    } catch (e: any) {
+      setErr(e?.message || 'Opslaan als template mislukt');
+    }
+  };
+
   if (!Number.isInteger(id) || id <= 0) {
     return (
       <div className="container py-6 text-gray-800 dark:text-gray-100">
@@ -255,27 +272,27 @@ export default function ProductionDetailPage() {
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
-      <ProductionHeader productionId={id} showLogos={true} />
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">Production #{id}</h1>
-        <div className="flex items-center gap-2">
-          <Link to={`/live/${id}/positions`} className="px-3 py-1 border rounded inline-flex items-center gap-2 bg-green-600 text-white">
+      <div className="flex items-center gap-4 mb-6">
+        <Link to="/admin/productions" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Terug naar overzicht">
+          <MdArrowBack className="w-6 h-6" />
+        </Link>
+        <MatchHeader productionId={id} showLogos={true} />
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link to={`/live/${id}/positions`} className="px-3 py-1 border rounded inline-flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 transition-colors">
             <MdLiveTv className="w-5 h-5" />
             <span>Open Live View</span>
           </Link>
-          <Link to={`/admin/productions/${id}/attendance`} className="px-3 py-1 border rounded inline-flex items-center gap-2">
+          <Link to={`/admin/productions/${id}/attendance`} className="px-3 py-1 border rounded inline-flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
             <MdGroups className="w-5 h-5" />
             <span>Aanwezigheid</span>
           </Link>
-          <Link to={`/admin/productions/${id}/titles`} className="px-3 py-1 border rounded" aria-label="vmix-titles-link">vMix titels</Link>
-        </div>
-      </div>
-      <div className="flex items-center justify-between mb-3">
-
-        <div className="flex items-center gap-2">
-          <Link to={`/admin/productions/${id}/production-report`} className="px-3 py-1 border rounded">Productie rapport</Link>
+          <Link to={`/admin/productions/${id}/titles`} className="px-3 py-1 border rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" aria-label="vmix-titles-link">vMix titels</Link>
+          <Link to={`/admin/productions/${id}/production-report`} className="px-3 py-1 border rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Productie rapport</Link>
           {callSheets && callSheets.length > 0 ? (
-            <Link to={`/admin/productions/${id}/callsheets/${callSheets[0].id}`} className="px-3 py-1 border rounded flex items-center gap-1">
+            <Link to={`/admin/productions/${id}/callsheets/${callSheets[0].id}`} className="px-3 py-1 border rounded flex items-center gap-1 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
               <MdEdit /> Bewerk Draaiboek
             </Link>
           ) : (
@@ -283,11 +300,9 @@ export default function ProductionDetailPage() {
               Geen draaiboek actief
             </span>
           )}
-          {/*<Link to={`/admin/productions/${id}/segment-assignments`} className="px-3 py-1 border rounded">Segment Toewijzingen</Link>*/}
-          <button onClick={handleExport} className="px-3 py-1 border rounded flex items-center gap-1" title="Exporteer productie">
+          <button onClick={handleExport} className="px-3 py-1 border rounded flex items-center gap-1 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" title="Exporteer productie">
             <MdDownload /> Exporteer
           </button>
-          <Link to="/admin/productions" className="px-3 py-1 border rounded">Terug naar overzicht</Link>
         </div>
       </div>
 
@@ -333,10 +348,20 @@ export default function ProductionDetailPage() {
         {/* Segments column */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h2 className="font-semibold">Segments</h2>
-            <button className="px-3 py-1 border rounded inline-flex items-center gap-1" onClick={() => setModal({ mode: 'create' })}>
-              <MdAdd /> Nieuw segment
-            </button>
+            <h2 className="font-semibold">Segmenten</h2>
+            <div className="flex gap-2">
+              <IconButton
+                ariaLabel="Sla huidige segmenten op als template"
+                onClick={handleSaveAsTemplate}
+                disabled={createTemplateFromProduction.isPending}
+              >
+                <MdSave className="w-5 h-5 text-blue-600" />
+              </IconButton>
+              <SegmentTemplateSelector productionId={id} onTemplateApplied={refetch} />
+              <IconButton ariaLabel="Nieuw segment" onClick={() => setModal({ mode: 'create' })}>
+                <MdAdd className="w-5 h-5" />
+              </IconButton>
+            </div>
           </div>
 
           <ul className="divide-y divide-gray-200 dark:divide-gray-800">

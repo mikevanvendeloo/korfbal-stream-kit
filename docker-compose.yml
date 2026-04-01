@@ -89,6 +89,21 @@ services:
     depends_on:
       - korfbal-streamz-api # Wacht tot de API (waarmee het praat) online is
 
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: korfbal-pgadmin
+    networks:
+      - korfbal-network
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@korfbal.nl
+      PGADMIN_DEFAULT_PASSWORD: korfbal
+    volumes:
+      - ./servers.json:/pgadmin4/servers.json
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+
 volumes:
   pgdata:
 

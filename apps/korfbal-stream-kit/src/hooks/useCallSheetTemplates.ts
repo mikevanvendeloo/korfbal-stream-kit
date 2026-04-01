@@ -216,6 +216,28 @@ export function useCallSheetTemplates() {
     }
   }, []);
 
+  const importTemplateJson = useCallback(async (name: string, file: File) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('file', file);
+
+      const res = await fetch(createUrl('/api/callsheets/templates/import-json'), {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Failed to import template (JSON)');
+      return await res.json() as CallSheetTemplate;
+    } catch (err: any) {
+      setError(err.message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     loading,
     error,
@@ -229,5 +251,6 @@ export function useCallSheetTemplates() {
     deleteTemplateItem,
     applyTemplate,
     importTemplate,
+    importTemplateJson,
   };
 }

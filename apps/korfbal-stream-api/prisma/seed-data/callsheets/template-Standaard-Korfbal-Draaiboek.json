@@ -1,0 +1,579 @@
+{
+  "version": 1,
+  "name": "Standaard Korfbal Draaiboek",
+  "items": [
+    {
+      "title": "Thumbnail neerzetten",
+      "note": null,
+      "durationSec": 15,
+      "orderIndex": 0,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Showcaller",
+        "Regie livestream"
+      ]
+    },
+    {
+      "title": "Livestream starten",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 1,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": true,
+      "anchorType": "LIVESTREAM_START",
+      "autoAdvance": false,
+      "positions": [
+        "Showcaller",
+        "Regie livestream"
+      ]
+    },
+    {
+      "title": "Intro filmpje starten",
+      "note": null,
+      "durationSec": 48,
+      "orderIndex": 2,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Regisseur zet microfoon presentator open",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 3,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "positions": [
+        "Regie livestream",
+        "Presentatie",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Presentator heet publiek welkom",
+      "note": null,
+      "durationSec": 15,
+      "orderIndex": 4,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Regie livestream",
+        "Presentatie",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "KL promo afspelen",
+      "note": null,
+      "durationSec": 53,
+      "orderIndex": 5,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Presentator & Analist gesprek",
+      "note": null,
+      "durationSec": 150,
+      "orderIndex": 6,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Reclame",
+      "note": null,
+      "durationSec": 35,
+      "orderIndex": 7,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "positions": [
+        "Regie livestream",
+        "Presentatie",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Interview met uit coach",
+      "note": null,
+      "durationSec": 180,
+      "orderIndex": 8,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Regie livestream",
+        "Presentatie",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Interview met thuis coach",
+      "note": null,
+      "durationSec": 180,
+      "orderIndex": 9,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Regie livestream",
+        "Presentatie",
+        "Camera rechts",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Nabeschouwing en voorspelling",
+      "note": null,
+      "durationSec": 105,
+      "orderIndex": 10,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Regie livestream",
+        "Presentatie",
+        "Camera rechts",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Reclame",
+      "note": null,
+      "durationSec": 35,
+      "orderIndex": 11,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "positions": [
+        "Regie livestream",
+        "Presentatie",
+        "Camera rechts",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Licht uit",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 12,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Regie livestream",
+        "Regie LEDscherm",
+        "Oplopen volgspot",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Commentatoren praten over wedstrijd (opstellingen)",
+      "note": null,
+      "durationSec": 120,
+      "orderIndex": 13,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Regie livestream",
+        "Commentaar",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Speaker prietpraat",
+      "note": null,
+      "durationSec": 180,
+      "orderIndex": 14,
+      "isInVenue": true,
+      "isInLivestream": false,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Oplopen geluid",
+        "Speaker",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Start oploopfilm",
+      "note": null,
+      "durationSec": 42,
+      "orderIndex": 15,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "positions": [
+        "Muziek",
+        "Regie livestream",
+        "Regie LEDscherm",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Check geluid speaker (unmute en schuif open)",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 16,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Na oploopfilm, \"Opstellen teams\" muziek weer aan",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 17,
+      "isInVenue": true,
+      "isInLivestream": false,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Geef signaal aan speaker voor prietpraat na 15s",
+      "note": null,
+      "durationSec": 180,
+      "orderIndex": 18,
+      "isInVenue": true,
+      "isInLivestream": false,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Regisseur geeft commentatoren aan dat ze kunnen beginnen",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 19,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Regisseur toont opstellingen",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 20,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Check audio licht-PC unmuted",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 21,
+      "isInVenue": true,
+      "isInLivestream": false,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Regisseur stopt commentatoren",
+      "note": null,
+      "durationSec": 30,
+      "orderIndex": 22,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Start oploop muziek tegenstander",
+      "note": null,
+      "durationSec": 15,
+      "orderIndex": 23,
+      "isInVenue": true,
+      "isInLivestream": false,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Regisseur telt af start oplopen",
+      "note": null,
+      "durationSec": 3,
+      "orderIndex": 24,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Signaal aan speaker (lamp op deuropening)",
+      "note": null,
+      "durationSec": 15,
+      "orderIndex": 25,
+      "isInVenue": true,
+      "isInLivestream": false,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Oplopen tegenstander door speaker",
+      "note": null,
+      "durationSec": 120,
+      "orderIndex": 26,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Start oploop muziek Fortuna",
+      "note": null,
+      "durationSec": 15,
+      "orderIndex": 27,
+      "isInVenue": true,
+      "isInLivestream": false,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Oplopen Fortuna door speaker",
+      "note": null,
+      "durationSec": 120,
+      "orderIndex": 28,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Oplopen scheidsrechters (Fortuna muziek loopt door)",
+      "note": null,
+      "durationSec": 30,
+      "orderIndex": 29,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Scheidsrechters in midden, zaallampen aan",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 30,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Muziek \"na oplopen\" aan",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 31,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Tonen en melden wedstrijdsponsor",
+      "note": null,
+      "durationSec": 30,
+      "orderIndex": 32,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Zaallicht op wedstrijd niveau",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 33,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Teams geven elkaar hand",
+      "note": null,
+      "durationSec": 30,
+      "orderIndex": 34,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Muziek uitfaden naar influiten",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 35,
+      "isInVenue": true,
+      "isInLivestream": false,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "title": "Start wedstrijd",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 36,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": true,
+      "anchorType": "MATCH_START",
+      "autoAdvance": false,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    }
+  ]
+}

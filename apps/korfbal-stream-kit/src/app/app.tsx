@@ -53,6 +53,7 @@ import SettingsPage from '../pages/SettingsPage';
 import {PositionSelector} from '../components/PositionSelector';
 import {CallSheetView} from '../components/CallSheetView';
 import {ErrorBoundary} from "../components/ErrorBoundary";
+import SegmentTemplatesPage from "../pages/SegmentTemplatesPage";
 
 function Nav() {
   const {theme, toggle} = useTheme();
@@ -156,7 +157,14 @@ function Nav() {
                   <Link to="/admin/callsheets/templates"
                         className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
                     <MdViewList/>
-                    <span>Draaiboeken</span>
+                    <span>Draaiboek Templates</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/admin/segment-templates"
+                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdViewList/>
+                    <span>Segment Templates</span>
                   </Link>
                 </li>
 
@@ -363,6 +371,7 @@ export function App() {
             <Route path="/admin/persons" element={<PersonsAdminPage/>}/>
             <Route path="/admin/callsheets/templates" element={<CallSheetTemplatesPage />} />
             <Route path="/admin/callsheets/templates/:id" element={<CallSheetTemplateDetailsPage />} />
+            <Route path="/admin/segment-templates" element={<SegmentTemplatesPage />} />
             <Route path="/admin/skills" element={<SkillsAdminPage/>}/>
             <Route path="/admin/positions" element={<PositionsAdminPage/>}/>
             <Route path="/admin/segment-defaults" element={<SegmentDefaultsAdminPage/>}/>

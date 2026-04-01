@@ -281,6 +281,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
     const isTimeAnchor = req.body?.isTimeAnchor === true;
     const autoAdvance = req.body?.autoAdvance === true;
     const anchorType = req.body?.anchorType != null ? String(req.body.anchorType) : null;
+    const parentId = req.body?.parentId != null ? String(req.body.parentId).trim() : null;
     const positionIds: number[] = Array.isArray(req.body?.positionIds) ? req.body.positionIds.map((x: any) => Number(x)).filter((x: number) => Number.isInteger(x) && x > 0) : [];
 
     if (!id || !productionSegmentId || !cue || !title || !Number.isInteger(durationSec) || durationSec < 0) {
@@ -310,6 +311,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
           isTimeAnchor,
           autoAdvance,
           anchorType: anchorType || undefined,
+          parentId: parentId || undefined,
         },
       });
 
@@ -352,6 +354,7 @@ productionCallsheetsRouter.put('/callsheet-items/:itemId', async (req, res, next
     if (req.body?.isTimeAnchor != null) data.isTimeAnchor = req.body.isTimeAnchor === true;
     if (req.body?.autoAdvance != null) data.autoAdvance = req.body.autoAdvance === true;
     if (req.body?.anchorType !== undefined) data.anchorType = req.body.anchorType ? String(req.body.anchorType) : null;
+    if (req.body?.parentId !== undefined) data.parentId = req.body.parentId ? String(req.body.parentId).trim() : null;
 
     const positionIds: number[] | undefined = Array.isArray(req.body?.positionIds)
       ? req.body.positionIds.map((x: any) => Number(x)).filter((x: number) => Number.isInteger(x) && x > 0)
