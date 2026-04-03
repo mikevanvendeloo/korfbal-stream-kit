@@ -196,6 +196,25 @@ export default function CallSheetTemplateDetailsPage() {
                       <input type="checkbox" checked={editData.autoAdvance} onChange={e => setEditData({...editData, autoAdvance: e.target.checked})} />
                       Auto Advance
                     </label>
+
+                    <div className="flex flex-col gap-1 min-w-[200px]">
+                      <label className="text-xs text-white/40 uppercase">Koppel aan item (Parent)</label>
+                      <select
+                        value={editData.parentId || ''}
+                        onChange={e => setEditData({...editData, parentId: e.target.value || null})}
+                        className="bg-black/40 border-white/10 text-white text-xs rounded px-2 py-1 outline-none focus:border-blue-500/50"
+                      >
+                        <option value="">Geen (Hoofdlijn)</option>
+                        {template?.items
+                          ?.filter(it => it.id !== editData.id)
+                          ?.map(it => (
+                            <option key={it.id} value={it.id}>
+                              {it.title}
+                            </option>
+                          ))
+                        }
+                      </select>
+                    </div>
                   </div>
 
                   <div className="space-y-2">

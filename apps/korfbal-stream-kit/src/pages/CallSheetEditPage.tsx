@@ -50,6 +50,7 @@ export default function CallSheetEditPage() {
     isTimeAnchor: false,
     autoAdvance: false,
     anchorType: '',
+    parentId: '',
     positionIds: [] as number[],
   });
 
@@ -106,7 +107,7 @@ export default function CallSheetEditPage() {
       payload.timeStart = payload.timeStart ? new Date(payload.timeStart).toISOString() : undefined;
       payload.timeEnd = payload.timeEnd ? new Date(payload.timeEnd).toISOString() : undefined;
       await createItem.mutateAsync(payload as any);
-      setForm({ id: uuid8(), productionSegmentId: segments.data?.[0]?.id || 0, cue: '', title: '', note: '', color: '', durationSec: 0, timeStart: '', timeEnd: '', orderIndex: 0, isInVenue: false, isInLivestream: true, isTimeAnchor: false, autoAdvance: false, anchorType: '', positionIds: []});
+      setForm({ id: uuid8(), productionSegmentId: segments.data?.[0]?.id || 0, cue: '', title: '', note: '', color: '', durationSec: 0, timeStart: '', timeEnd: '', orderIndex: 0, isInVenue: false, isInLivestream: true, isTimeAnchor: false, autoAdvance: false, anchorType: '', parentId: '', positionIds: []});
     } catch (e: any) {
       setErr(e?.message || 'Toevoegen mislukt');
     }
@@ -276,6 +277,25 @@ export default function CallSheetEditPage() {
             </div>
 
             <div className="flex flex-col gap-1">
+              <label className="text-[10px] text-white/30 uppercase font-bold tracking-tight">Koppel aan item (Parent)</label>
+              <select
+                value={it.parentId || ''}
+                onChange={(e) => handleItemChange(it.id, { parentId: e.target.value || null })}
+                className="border border-white/10 rounded px-1.5 py-0.5 text-[10px] bg-black/40 text-white w-full outline-none focus:border-blue-500/50"
+              >
+                <option value="">Geen (Hoofdlijn)</option>
+                {data.items
+                  ?.filter(other => other.id !== it.id)
+                  ?.map(other => (
+                    <option key={other.id} value={other.id}>
+                      {other.cue}: {other.title}
+                    </option>
+                  ))
+                }
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
               <label className="text-[10px] text-white/30 uppercase font-bold tracking-tight">Segment</label>
               <select
                 defaultValue={it.productionSegmentId}
@@ -398,6 +418,22 @@ export default function CallSheetEditPage() {
             <input type="checkbox" checked={form.autoAdvance} onChange={(e) => setForm((f) => ({ ...f, autoAdvance: e.target.checked }))} className="rounded border-white/20 bg-black/40 text-orange-600 focus:ring-orange-500/50" />
             <div className="text-orange-400 font-bold">Auto</div>
           </label>
+        </div>
+
+        <div className="md:col-span-2 flex flex-col gap-1.5">
+          <div className="font-bold text-white/40 uppercase text-xs">Koppel aan item (Parent)</div>
+          <select
+            value={form.parentId}
+            onChange={(e) => setForm((f) => ({ ...f, parentId: e.target.value }))}
+            className="bg-black/40 border border-white/10 rounded px-3 py-2 text-white text-xs outline-none focus:border-blue-500/50"
+          >
+            <option value="">Geen (Hoofdlijn)</option>
+            {data.items?.map(it => (
+              <option key={it.id} value={it.id}>
+                {it.cue}: {it.title}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="md:col-span-2 flex flex-col gap-1.5">

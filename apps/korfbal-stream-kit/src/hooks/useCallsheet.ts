@@ -49,6 +49,8 @@ export type CallSheetItem = {
   isInVenue?: boolean;
   isTimeAnchor?: boolean;
   anchorType?: string | null;
+  autoAdvance?: boolean;
+  parentId?: string | null;
   positionIds?: number[];
 }
 

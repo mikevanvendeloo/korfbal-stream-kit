@@ -46,9 +46,9 @@ export const MatchHeader = ({
         </span>
       </div>
 
-      <div className="flex flex-col items-center px-3 py-1 bg-black/40 rounded border border-gray-700">
-        <span className="text-xs uppercase text-gray-500 font-bold">Aanvang</span>
-        <span className="font-mono font-bold text-orange-500">{startTime}</span>
+      <div className="flex flex-col items-center px-3 py-1 bg-gray-100 dark:bg-black/40 rounded border border-gray-300 dark:border-gray-700">
+        <span className="text-xs uppercase text-gray-500 dark:text-gray-400 font-bold">Aanvang</span>
+        <span className="font-mono font-bold text-amber-700 dark:text-orange-700">{startTime}</span>
       </div>
 
       <div className="flex items-center gap-2">

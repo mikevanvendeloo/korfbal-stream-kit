@@ -24,6 +24,7 @@ export interface CallSheetTemplateItem {
   isTimeAnchor: boolean;
   anchorType: string | null;
   autoAdvance: boolean;
+  parentId: string | null;
   positions: { positionId: number; position: { name: string } }[];
 }
 

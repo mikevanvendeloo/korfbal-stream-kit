@@ -112,7 +112,7 @@ callSheetTemplateRouter.post('/:id/items', async (req, res, next) => {
     const {
       title, note, durationSec, orderIndex,
       isInVenue, isInLivestream, isTimeAnchor, anchorType,
-      autoAdvance, positionIds
+      autoAdvance, positionIds, parentId
     } = req.body;
 
     console.log(`[CallSheetTemplates] Adding item to template ${templateId}`, { title, orderIndex });
@@ -136,6 +136,7 @@ callSheetTemplateRouter.post('/:id/items', async (req, res, next) => {
         isTimeAnchor: !!isTimeAnchor,
         anchorType,
         autoAdvance: !!autoAdvance,
+        parentId: parentId || undefined,
         positions: {
           create: (positionIds || []).map((pid: number) => ({
             position: { connect: { id: pid } }
@@ -157,7 +158,7 @@ callSheetTemplateRouter.put('/items/:itemId', async (req, res, next) => {
     const {
       title, note, durationSec, orderIndex,
       isInVenue, isInLivestream, isTimeAnchor, anchorType,
-      autoAdvance, positionIds
+      autoAdvance, positionIds, parentId
     } = req.body;
 
     // Delete old positions and create new ones
@@ -177,6 +178,7 @@ callSheetTemplateRouter.put('/items/:itemId', async (req, res, next) => {
         isTimeAnchor: isTimeAnchor !== undefined ? !!isTimeAnchor : undefined,
         anchorType,
         autoAdvance: autoAdvance !== undefined ? !!autoAdvance : undefined,
+        parentId: parentId !== undefined ? (parentId || null) : undefined,
         positions: {
           create: (positionIds || []).map((pid: number) => ({
             position: { connect: { id: pid } }

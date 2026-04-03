@@ -9,9 +9,11 @@ interface Props {
   elapsedTime?: number;
   isPlaceholder?: boolean;
   hideStreamVenueLabels?: boolean;
+  isVenueItem?: boolean;
+  isTimeAnchor?: boolean;
 }
 
-export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled = false, elapsedTime = 0, isPlaceholder = false, hideStreamVenueLabels = false }: Props) => {
+export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled = false, elapsedTime = 0, isPlaceholder = false, hideStreamVenueLabels = false, isVenueItem = false, isTimeAnchor = false }: Props) => {
   const { fontSize } = useFontSize();
   const isActuallyPlaceholder = isPlaceholder || !item;
   const duration = item?.durationSec ?? 0;
@@ -21,6 +23,7 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
   const isInLivestream = item?.isInLivestream !== false; // Default true if not specified
   const autoAdvance = item?.autoAdvance === true;
   const isLinked = !!item?.parentId;
+  const isAnchor = isTimeAnchor || item?.isTimeAnchor || item?.title === 'Start wedstrijd';
 
   const formatDuration = (seconds: number) => {
     const absSeconds = Math.abs(Math.round(seconds));
@@ -30,11 +33,18 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
     return `${sign}${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  let statusColor = isActuallyPlaceholder ? 'bg-transparent border-dashed border-gray-300 dark:border-white/5 opacity-40' : 'bg-gray-100 dark:bg-gray-700/50';
-  let borderColor = isActuallyPlaceholder ? 'border-2' : 'border-transparent';
+  let statusColor = isActuallyPlaceholder ? 'bg-transparent border-dashed border-gray-300 dark:border-white/5 opacity-40' : (isVenueItem ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-500/20' : 'bg-gray-100 dark:bg-gray-700/50');
+  let borderColor = isActuallyPlaceholder ? 'border-2' : (isVenueItem ? 'border-2' : 'border-transparent');
   const textColor = 'text-gray-900 dark:text-white';
-  let timeLabelColor = 'bg-gray-200 dark:bg-gray-900/50';
-  let durationBadgeColor = 'bg-gray-300 dark:bg-gray-800/50';
+  let timeLabelColor = isVenueItem ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-gray-200 dark:bg-gray-900/50';
+  let durationBadgeColor = isVenueItem ? 'bg-emerald-200/50 dark:bg-emerald-800/40' : 'bg-gray-300 dark:bg-gray-800/50';
+
+  if (isAnchor && !isActuallyPlaceholder) {
+    statusColor = 'bg-amber-100 dark:bg-amber-900/20 border-amber-200 dark:border-amber-500/30';
+    borderColor = 'border-2 border-amber-400 dark:border-amber-500/50';
+    timeLabelColor = 'bg-amber-200 dark:bg-amber-900/50 text-amber-900 dark:text-amber-100';
+    durationBadgeColor = 'bg-amber-300/50 dark:bg-amber-800/40 text-amber-900 dark:text-amber-100';
+  }
 
   if (isActive && !isActuallyPlaceholder) {
     borderColor = 'border-gray-900 dark:border-white border-2';
@@ -127,17 +137,32 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
           )}
 
           <div className={`flex flex-wrap items-center justify-between mt-2 pt-1 border-t border-gray-200 dark:border-white/10 ${getFontSizeClass('text-[10px]', 'text-lg', 'text-xl')} font-medium uppercase tracking-wider opacity-80 min-h-[1.25rem] ${isActuallyPlaceholder ? 'invisible' : ''}`}>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {!hideStreamVenueLabels && isInLivestream && (
                 <span className="flex items-center gap-2 text-blue-400"><span className={`${getFontSizeClass('w-1.5 h-1.5', 'w-3 h-3', 'w-4 h-4')} rounded-full bg-blue-500`}></span>Stream</span>
               )}
               {!hideStreamVenueLabels && isInVenue && (
-                <span className="flex items-center gap-2 text-orange-400"><span className={`${getFontSizeClass('w-1.5 h-1.5', 'w-3 h-3', 'w-4 h-4')} rounded-full bg-orange-500`}></span>Zaal</span>
+                <span className="flex items-center gap-2 text-emerald-400"><span className={`${getFontSizeClass('w-1.5 h-1.5', 'w-3 h-3', 'w-4 h-4')} rounded-full bg-emerald-500`}></span>Zaal</span>
               )}
+
+              {/* Posities als badges voor de ShowCaller view (wanneer stream/venue labels verborgen zijn) */}
+              {hideStreamVenueLabels && item?.positions && item.positions.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-1 sm:mb-0">
+                  {item.positions.map((p, idx) => (
+                    <span
+                      key={`${item.id}-pos-${p.position.id || idx}`}
+                      className={`px-2 py-0.5 rounded-full border border-gray-300 dark:border-white/10 bg-gray-200 dark:bg-white/5 text-gray-700 dark:text-gray-300 font-bold ${getFontSizeClass('text-[9px]', 'text-base', 'text-lg')}`}
+                    >
+                      {p.position.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {autoAdvance && (
-                <span className={`flex items-center gap-2 ${isAutoAdvanceScheduled ? 'text-purple-300' : 'text-purple-400'}`}>
-                  <FastForward className={`${getFontSizeClass('w-3 h-3', 'w-5 h-5', 'w-7 h-7')} ${isAutoAdvanceScheduled ? 'animate-pulse scale-125' : ''}`} />
-                  Auto {isAutoAdvanceScheduled && <span className="text-[0.8em] font-black italic ml-1">TIMER</span>}
+                <span className={`flex items-center gap-2 ${isAutoAdvanceScheduled ? 'text-purple-800 dark:text-purple-300' : 'text-purple-800 dark:text-purple-400 opacity-100'}`}>
+                  <FastForward className={`${getFontSizeClass('w-5 h-5', 'w-7 h-7', 'w-8 h-8')} ${isAutoAdvanceScheduled ? 'animate-pulse scale-125' : ''}`} />
+                  Auto {isAutoAdvanceScheduled && <span className="text-[1em] font-black italic ml-1">TIMER</span>}
                 </span>
               )}
               {!hideStreamVenueLabels && isLinked && (

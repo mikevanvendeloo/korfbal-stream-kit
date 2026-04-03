@@ -24,6 +24,7 @@ export const ShowCallerView = () => {
     productionClock,
     venueClock,
     systemTime,
+    activeEventRemainingTime,
     isLoading, error,
     autoAdvanceEventId
   } = useLiveState();
@@ -139,14 +140,18 @@ export const ShowCallerView = () => {
       // Check of het hoofditem voor beide is, of specifiek voor één track
       const isBoth = mainEvent.isInLivestream && mainEvent.isInVenue;
 
+      // Filter linked items op kolom
+      const linkedStream = linked.filter(e => e.isInLivestream);
+      const linkedVenue = linked.filter(e => e.isInVenue);
+
       return {
         mainEvent,
         linked,
         isBoth,
         // Items voor de respectievelijke kolommen als het niet 'Both' is
-        streamItems: linked.filter(e => e.isInLivestream),
-        venueItems: linked.filter(e => e.isInVenue),
-        // De visuele hoogte van deze rij (optioneel voor later gebruik)
+        streamItems: linkedStream,
+        venueItems: linkedVenue,
+        // De visuele hoogte van deze rij
         maxDuration: Math.max(
           mainEvent.durationSec || 0,
           ...linked.map(c => c.durationSec || 0)
@@ -311,8 +316,8 @@ export const ShowCallerView = () => {
               <div className="grid grid-cols-3 gap-4 sm:gap-8">
                 <div className="text-center">
                   <span
-                    className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-600 dark:text-orange-500/60 block mb-1">Zaal</span>
-                  <span className="text-3xl font-mono font-black tracking-tighter text-orange-600 dark:text-orange-500">
+                    className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-500/60 block mb-1">Zaal</span>
+                  <span className="text-3xl font-mono font-black tracking-tighter text-emerald-600 dark:text-emerald-500">
                                       {venueClock}
                                   </span>
                 </div>
@@ -325,10 +330,19 @@ export const ShowCallerView = () => {
                 </div>
                 <div className="text-center">
                   <span
-                    className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 dark:text-white/40 block mb-1">Productie</span>
-                  <span className="text-3xl font-mono font-black tracking-tighter text-gray-900 dark:text-white">
-                                      {productionClock.minutes}:{productionClock.seconds}
-                                  </span>
+                    className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 dark:text-white/40 block mb-1">
+                    {activeEventRemainingTime ? 'Resterend' : 'Productie'}
+                  </span>
+                  <span className={`text-3xl font-mono font-black tracking-tighter ${
+                    activeEventRemainingTime && activeEventRemainingTime.rawSeconds <= 10
+                      ? 'text-red-600 dark:text-red-500 animate-pulse'
+                      : 'text-gray-900 dark:text-white'
+                  }`}>
+                    {activeEventRemainingTime
+                      ? `${activeEventRemainingTime.isNegative ? '-' : ''}${activeEventRemainingTime.minutes}:${activeEventRemainingTime.seconds}`
+                      : `${productionClock.minutes}:${productionClock.seconds}`
+                    }
+                  </span>
                 </div>
               </div>
             </div>
@@ -337,9 +351,9 @@ export const ShowCallerView = () => {
 
         <div className="grid grid-cols-12 gap-4 py-2">
           <div className="col-span-6">
-            <div className="flex items-center gap-3 px-4 py-2 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-              <Spotlight className="w-4 h-4 text-orange-600 dark:text-orange-500"/>
-              <h2 className="text-sm font-black uppercase tracking-[0.2em] text-orange-700 dark:text-orange-400">Zaal draaiboek</h2>
+            <div className="flex items-center gap-3 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+              <Spotlight className="w-4 h-4 text-emerald-600 dark:text-emerald-500"/>
+              <h2 className="text-sm font-black uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-400">Zaal draaiboek</h2>
             </div>
           </div>
           <div className="col-span-6">
@@ -376,8 +390,8 @@ export const ShowCallerView = () => {
               <div key={row.mainEvent.id}
                    id={`row-${row.mainEvent.id}`}
                    className={`transition-all duration-500 ${rowOpacity} ${rowScale} ${isRowActive ? 'z-10 relative' : ''}`}>
-                {row.isBoth ? (
-                  /* GEDEELD ITEM: Pak de volle breedte */
+                {row.isBoth && row.linked.length === 0 ? (
+                  /* GEDEELD ITEM: Pak de volle breedte, alleen als er geen parallelle items zijn */
                   <div className="grid grid-cols-12 gap-4">
                     <div className="col-span-12">
                       <CallSheetItem
@@ -386,11 +400,12 @@ export const ShowCallerView = () => {
                         isAutoAdvanceScheduled={autoAdvanceEventId === row.mainEvent.id}
                         elapsedTime={activeEventElapsedTime}
                         hideStreamVenueLabels={true}
+                        isVenueItem={row.mainEvent.isInVenue}
                       />
                     </div>
                   </div>
                 ) : (
-                  /* PARALLEL ITEMS */
+                  /* PARALLEL ITEMS of Gedeeld met gekoppelde items */
                   <div className="grid grid-cols-12 gap-4">
                     {/* LINKER KOLOM: Venue */}
                     <div className="col-span-6 space-y-4">
@@ -398,8 +413,10 @@ export const ShowCallerView = () => {
                         <CallSheetItem
                           item={row.mainEvent}
                           isActive={isMainActive}
+                          isAutoAdvanceScheduled={autoAdvanceEventId === row.mainEvent.id}
                           elapsedTime={activeEventElapsedTime}
                           hideStreamVenueLabels={true}
+                          isVenueItem={true}
                         />
                       )}
                       {row.venueItems.map(item => {
@@ -416,14 +433,15 @@ export const ShowCallerView = () => {
                             isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
                             elapsedTime={activeEventElapsedTime}
                             hideStreamVenueLabels={true}
+                            isVenueItem={true}
                           />
                         );
                       })}
                       {/* Indien leeg in deze kolom voor deze rij */}
                       {!row.mainEvent.isInVenue && row.venueItems.filter(item => !isFocusMode || isRelevantForMe(item) || activeEvent?.id === item.id).length === 0 && (
                         <div
-                          className="h-full min-h-[100px] border-2 border-dashed border-white/5 rounded-lg flex items-center justify-center">
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-white/10 italic">Geen zaal actie</span>
+                          className="h-full min-h-[100px] border-2 border-dashed border-emerald-500/10 dark:border-emerald-500/5 rounded-lg flex items-center justify-center bg-emerald-500/5">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600/20 dark:text-emerald-500/10 italic">Geen zaal actie</span>
                         </div>
                       )}
                     </div>
@@ -437,6 +455,7 @@ export const ShowCallerView = () => {
                           isAutoAdvanceScheduled={autoAdvanceEventId === row.mainEvent.id}
                           elapsedTime={activeEventElapsedTime}
                           hideStreamVenueLabels={true}
+                          isVenueItem={false}
                         />
                       )}
                       {row.streamItems.map(item => {
@@ -454,6 +473,7 @@ export const ShowCallerView = () => {
                             isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
                             elapsedTime={activeEventElapsedTime}
                             hideStreamVenueLabels={true}
+                            isVenueItem={false}
                           />
                         );
                       })}

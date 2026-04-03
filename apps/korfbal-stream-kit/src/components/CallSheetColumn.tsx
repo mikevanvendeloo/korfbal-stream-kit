@@ -127,6 +127,7 @@ export const CallSheetColumn = ({
                 isActive={activeEvent?.id === item.id}
                 isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
                 elapsedTime={elapsedTime}
+                isVenueItem={isEmerald}
               />
             );
           }
@@ -135,6 +136,7 @@ export const CallSheetColumn = ({
             <CallSheetItem
               key={timeSlot}
               isPlaceholder={true}
+              isVenueItem={isEmerald}
             />
           );
         })}
