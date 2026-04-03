@@ -14,7 +14,7 @@ const toSlug = (name: string) => {
 };
 
 export const PositionSelector = () => {
-  const { productionId } = useParams<{ productionId: string }>();
+  const { productionId, viewType } = useParams<{ productionId: string, viewType: string }>();
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +50,8 @@ export const PositionSelector = () => {
     return <div className="text-red-500 text-center p-10">Fout: {error}</div>;
   }
 
+  const baseViewUrl = viewType === 'show-caller' ? 'show-caller' : 'view';
+
   return (
     <div className="bg-gray-800 min-h-screen flex flex-col items-center justify-center p-8">
       {productionId && (
@@ -65,7 +67,7 @@ export const PositionSelector = () => {
           {positions.map((pos) => (
             <Link
               key={pos.id}
-              to={`/live/${productionId}/view/${toSlug(pos.name)}`}
+              to={`/live/${productionId}/${baseViewUrl}/${toSlug(pos.name)}`}
               className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-6 px-8 rounded-lg text-center transition-transform transform hover:scale-105"
             >
               {pos.name}

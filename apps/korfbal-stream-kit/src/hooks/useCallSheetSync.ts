@@ -1,7 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
+import {useEffect, useRef, useState} from 'react';
+import {io, Socket} from 'socket.io-client';
 
-const API_URL = 'http://localhost:3333';
+import {getSocketUrl} from "../lib/api";
+
+const API_URL = getSocketUrl();
 
 type ClockMode = 'stopped' | 'counting_up' | 'counting_down';
 
@@ -35,7 +37,10 @@ export const useTimeSync = () => {
 
   useEffect(() => {
     const socket: Socket = io(API_URL, {
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      timeout: 20000,
     });
 
     const updateDisplay = () => {
@@ -63,6 +68,21 @@ export const useTimeSync = () => {
 
     socket.on('disconnect', () => {
       setIsConnected(false);
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('Socket Connection Error:', err.message);
+      setIsConnected(false);
+
+      // Forceer een herverbinding na een korte vertraging bij specifieke fouten
+      if (err.message === 'websocket error' || err.message === 'xhr poll error') {
+        setTimeout(() => {
+          if (!socket.connected) {
+            console.log('Attempting manual socket reconnection...');
+            socket.connect();
+          }
+        }, 5000);
+      }
     });
 
     socket.on('time_state_update', (newState: ClockState) => {

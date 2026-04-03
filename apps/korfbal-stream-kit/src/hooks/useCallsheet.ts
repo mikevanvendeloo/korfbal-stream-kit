@@ -7,6 +7,13 @@ export type CrewReport = {
   groupedPositions: Array<{ category: PositionCategory, positions: Position[] }>;
   cells: Array<{ segmentId: number; positionId: number; personName: string }>;
   callsheets: Array<CallSheet & { items: Array<CallSheetItem & { productionSegment: { naam: string } }> }>;
+  productionEvents?: Array<{
+    callSheetItemId?: string | null;
+    actualStartTime?: string | null;
+    plannedStartTime?: string | null;
+    durationSec?: number | null;
+    status?: string | null;
+  }>;
   productionReport?: {
     remarks?: string | null;
     interviewRationale?: string | null;

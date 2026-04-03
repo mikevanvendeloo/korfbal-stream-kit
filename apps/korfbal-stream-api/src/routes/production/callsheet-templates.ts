@@ -213,89 +213,67 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
     const productionId = Number(req.params.productionId);
     const { segmentId: requestedSegmentId, replace = true } = req.body || {};
 
-    const template = await prisma.callSheetTemplate.findUnique({
-      where: { id: templateId },
-      include: { items: { include: { positions: true } } }
-    });
-
-    if (!template) return res.status(404).json({ error: 'Template not found' });
-
-    const production = await prisma.production.findUnique({
-      where: { id: productionId },
-      include: { segments: { orderBy: { volgorde: 'asc' } } }
-    });
-
-    if (!production) return res.status(404).json({ error: 'Production not found' });
-
-    let segmentId: number;
-
-    if (replace) {
-      // Clean up old CallSheets, Items, ProductionEvents and Segments for this production
-      // Find all items in existing callsheets to delete their positions first (Prisma doesn't cascade all relations automatically sometimes depending on schema)
-      const oldCallSheets = await prisma.callSheet.findMany({
-        where: { productionId }
+    return await prisma.$transaction(async (tx) => {
+      const template = await tx.callSheetTemplate.findUnique({
+        where: { id: templateId },
+        include: { items: { include: { positions: true } } }
       });
 
-      for (const cs of oldCallSheets) {
-         const items = await prisma.callSheetItem.findMany({ where: { callSheetId: cs.id }, select: { id: true } });
-         const itemIds = items.map(i => i.id);
-         if (itemIds.length > 0) {
-             await prisma.callSheetItemPosition.deleteMany({ where: { callSheetItemId: { in: itemIds } } });
-         }
-      }
+      if (!template) return res.status(404).json({ error: 'Template not found' });
 
-      // Delete ALL events for this production (even those not linked to a callsheet item)
-      // First delete their positions
-      await prisma.productionEventPosition.deleteMany({
-        where: { event: { productionId } }
-      });
-      await prisma.productionEvent.deleteMany({
-        where: { productionId }
+      const production = await tx.production.findUnique({
+        where: { id: productionId },
+        include: { segments: { orderBy: { volgorde: 'asc' } } }
       });
 
-      for (const cs of oldCallSheets) {
-        // Delete the items
-        await prisma.callSheetItem.deleteMany({
-          where: { callSheetId: cs.id }
+      if (!production) return res.status(404).json({ error: 'Production not found' });
+
+      let segmentId: number;
+
+      if (replace) {
+        // Clean up old CallSheets, Items, ProductionEvents for this production
+        const oldCallSheets = await tx.callSheet.findMany({
+          where: { productionId }
         });
 
-        // Delete the callsheet itself
-        await prisma.callSheet.delete({
-          where: { id: cs.id }
-        });
-      }
-
-      // Delete all segments for this production
-      await prisma.productionSegment.deleteMany({
-        where: { productionId }
-      });
-
-      // Ensure at least one segment exists (create a fresh one after cleanup)
-      const newSegment = await prisma.productionSegment.create({
-        data: {
-          productionId,
-          naam: 'Algemeen',
-          volgorde: 1,
-          duurInMinuten: 60,
-          isTimeAnchor: true
+        for (const cs of oldCallSheets) {
+           const items = await tx.callSheetItem.findMany({ where: { callSheetId: cs.id }, select: { id: true } });
+           const itemIds = items.map(i => i.id);
+           if (itemIds.length > 0) {
+               await tx.callSheetItemPosition.deleteMany({ where: { callSheetItemId: { in: itemIds } } });
+           }
         }
-      });
-      segmentId = newSegment.id;
-    } else {
-      // Append mode
-      if (requestedSegmentId) {
-        segmentId = Number(requestedSegmentId);
-        // Verify segment exists and belongs to this production
-        const seg = await prisma.productionSegment.findFirst({
-          where: { id: segmentId, productionId }
+
+        // Delete ALL events for this production
+        await tx.productionEventPosition.deleteMany({
+          where: { event: { productionId } }
         });
-        if (!seg) return res.status(400).json({ error: 'Invalid segment for this production' });
-      } else {
-        // Use first segment or create one if none exists
+        await tx.productionEvent.deleteMany({
+          where: { productionId }
+        });
+
+        for (const cs of oldCallSheets) {
+          // Delete the items
+          await tx.callSheetItem.deleteMany({
+            where: { callSheetId: cs.id }
+          });
+
+          // Delete the callsheet itself
+          await tx.callSheet.delete({
+            where: { id: cs.id }
+          });
+        }
+
+        // Ook eventuele andere callsheets met dezelfde naam verwijderen (veiligheidshalve, mocht de constraint anders geraakt worden)
+        await tx.callSheet.deleteMany({
+          where: { productionId, name: template.name }
+        });
+
+        // Use the first segment if available, otherwise create a default one
         if (production.segments.length > 0) {
           segmentId = production.segments[0].id;
         } else {
-          const newSegment = await prisma.productionSegment.create({
+          const newSegment = await tx.productionSegment.create({
             data: {
               productionId,
               naam: 'Algemeen',
@@ -306,110 +284,145 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
           });
           segmentId = newSegment.id;
         }
+      } else {
+        // Append mode
+        // Mocht er al een callsheet zijn met deze naam, dan moeten we die hergebruiken of de naam aanpassen
+        // Voor nu: als we niet replacen, maar de naam botst, voegen we een timestamp toe
+        const existingCS = await tx.callSheet.findFirst({
+           where: { productionId, name: template.name }
+        });
+
+        if (existingCS) {
+           // We kunnen de unieke constraint niet schenden, dus als we niet replacen maar wel dezelfde naam hebben:
+           // Of we gebruiken de bestaande, of we geven een error, of we hernoemen.
+           // Gezien 'apply' meestal bedoeld is om een nieuwe set items toe te voegen, hernoemen we de nieuwe callsheet.
+           template.name = `${template.name} (${new Date().toLocaleTimeString()})`;
+        }
+
+        if (requestedSegmentId) {
+          segmentId = Number(requestedSegmentId);
+          const seg = await tx.productionSegment.findFirst({
+            where: { id: segmentId, productionId }
+          });
+          if (!seg) return res.status(400).json({ error: 'Invalid segment for this production' });
+        } else {
+          if (production.segments.length > 0) {
+            segmentId = production.segments[0].id;
+          } else {
+            const newSegment = await tx.productionSegment.create({
+              data: {
+                productionId,
+                naam: 'Algemeen',
+                volgorde: 1,
+                duurInMinuten: 60,
+                isTimeAnchor: true
+              }
+            });
+            segmentId = newSegment.id;
+          }
+        }
       }
-    }
 
-    // Create a new CallSheet for this production
-    const callSheet = await prisma.callSheet.create({
-      data: { productionId, name: template.name }
-    });
-
-    const itemsToCreate = [];
-    const eventsToCreate = [];
-
-    const idMapping: Record<string, string> = {};
-    const eventMapping: Record<string, string> = {};
-
-    // Copieer items
-    for (const tItem of template.items) {
-      const itemId = `t-${tItem.id}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-      idMapping[tItem.id] = itemId;
-      eventMapping[tItem.id] = `ev-${itemId}`;
-
-      itemsToCreate.push({
-        id: itemId,
-        callSheetId: callSheet.id,
-        productionSegmentId: segmentId,
-        cue: '',
-        title: tItem.title,
-        note: tItem.note,
-        durationSec: tItem.durationSec,
-        orderIndex: tItem.orderIndex,
-        isInVenue: tItem.isInVenue,
-        isInLivestream: tItem.isInLivestream,
-        isTimeAnchor: tItem.isTimeAnchor,
-        anchorType: tItem.anchorType,
-        autoAdvance: tItem.autoAdvance,
-        parentId: null as any, // Placeholder
+      // Create a new CallSheet for this production
+      const callSheet = await tx.callSheet.create({
+        data: { productionId, name: template.name }
       });
 
-      eventsToCreate.push({
-        id: `ev-${itemId}`,
-        productionId: productionId,
-        callSheetItemId: itemId,
-        title: tItem.title,
-        order: tItem.orderIndex,
-        status: 'WAITING' as const,
-        durationSec: tItem.durationSec,
-        autoAdvance: tItem.autoAdvance,
-        isTimeAnchor: tItem.isTimeAnchor,
-        anchorType: tItem.anchorType,
-        isInVenue: tItem.isInVenue,
-        isInLivestream: tItem.isInLivestream,
-        parentId: null as any, // Placeholder
+      const itemsToCreate = [];
+      const eventsToCreate = [];
+      const idMapping: Record<string, string> = {};
+      const eventMapping: Record<string, string> = {};
+
+      // Copieer items
+      for (const tItem of template.items) {
+        const itemId = `t-${tItem.id}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        idMapping[tItem.id] = itemId;
+        eventMapping[tItem.id] = `ev-${itemId}`;
+
+        itemsToCreate.push({
+          id: itemId,
+          callSheetId: callSheet.id,
+          productionSegmentId: segmentId,
+          cue: '',
+          title: tItem.title,
+          note: tItem.note,
+          durationSec: tItem.durationSec,
+          orderIndex: tItem.orderIndex,
+          isInVenue: tItem.isInVenue,
+          isInLivestream: tItem.isInLivestream,
+          isTimeAnchor: tItem.isTimeAnchor,
+          anchorType: tItem.anchorType,
+          autoAdvance: tItem.autoAdvance,
+          parentId: null as any,
+        });
+
+        eventsToCreate.push({
+          id: `ev-${itemId}`,
+          productionId: productionId,
+          callSheetItemId: itemId,
+          title: tItem.title,
+          order: tItem.orderIndex,
+          status: 'WAITING' as const,
+          durationSec: tItem.durationSec,
+          autoAdvance: tItem.autoAdvance,
+          isTimeAnchor: tItem.isTimeAnchor,
+          anchorType: tItem.anchorType,
+          isInVenue: tItem.isInVenue,
+          isInLivestream: tItem.isInLivestream,
+          parentId: null as any,
+        });
+      }
+
+      // Pass parentIds
+      for (let i = 0; i < template.items.length; i++) {
+          const tItem = template.items[i];
+          if (tItem.parentId && idMapping[tItem.parentId]) {
+              itemsToCreate[i].parentId = idMapping[tItem.parentId];
+              eventsToCreate[i].parentId = eventMapping[tItem.parentId];
+          }
+      }
+
+      // Bulk create items and events
+      await tx.callSheetItem.createMany({ data: itemsToCreate });
+      await tx.productionEvent.createMany({ data: eventsToCreate });
+
+      const itemPositions = [];
+      const eventPositions = [];
+
+      for (let i = 0; i < template.items.length; i++) {
+          const tItem = template.items[i];
+          const itemId = itemsToCreate[i].id;
+          const eventId = eventsToCreate[i].id;
+
+          for (const p of tItem.positions) {
+              itemPositions.push({
+                  callSheetItemId: itemId,
+                  positionId: p.positionId
+              });
+              eventPositions.push({
+                  eventId: eventId,
+                  positionId: p.positionId
+              });
+          }
+      }
+
+      if (itemPositions.length > 0) {
+          await tx.callSheetItemPosition.createMany({ data: itemPositions });
+      }
+      if (eventPositions.length > 0) {
+          await tx.productionEventPosition.createMany({ data: eventPositions });
+      }
+
+      // Update production with template link
+      await tx.production.update({
+        where: { id: productionId },
+        data: { callSheetTemplateId: templateId }
       });
-    }
 
-    // Pass parentIds
-    for (let i = 0; i < template.items.length; i++) {
-        const tItem = template.items[i];
-        if (tItem.parentId && idMapping[tItem.parentId]) {
-            itemsToCreate[i].parentId = idMapping[tItem.parentId];
-            eventsToCreate[i].parentId = eventMapping[tItem.parentId];
-        }
-    }
-
-    // Bulk create items and events
-    await prisma.callSheetItem.createMany({ data: itemsToCreate });
-    await prisma.productionEvent.createMany({ data: eventsToCreate });
-
-    // Handle positions (Prisma createMany doesn't support nested writes, so we do this in a loop or another createMany)
-    const itemPositions = [];
-    const eventPositions = [];
-
-    for (let i = 0; i < template.items.length; i++) {
-        const tItem = template.items[i];
-        const itemId = itemsToCreate[i].id;
-        const eventId = eventsToCreate[i].id;
-
-        for (const p of tItem.positions) {
-            itemPositions.push({
-                callSheetItemId: itemId,
-                positionId: p.positionId
-            });
-            eventPositions.push({
-                eventId: eventId,
-                positionId: p.positionId
-            });
-        }
-    }
-
-    if (itemPositions.length > 0) {
-        await prisma.callSheetItemPosition.createMany({ data: itemPositions });
-    }
-    if (eventPositions.length > 0) {
-        await prisma.productionEventPosition.createMany({ data: eventPositions });
-    }
-
-    // Update production with template link
-    await prisma.production.update({
-      where: { id: productionId },
-      data: { callSheetTemplateId: templateId }
-    });
-
-    return res.json({
-      message: `Template applied. Created ${itemsToCreate.length} items.`,
-      callSheetId: callSheet.id
+      return res.json({
+        message: `Template applied. Created ${itemsToCreate.length} items.`,
+        callSheetId: callSheet.id
+      });
     });
   } catch (err) {
     return next(err);

@@ -10,6 +10,19 @@ function getApiBaseUrl() {
   return '/api';
 }
 
+export function getSocketUrl() {
+  if (typeof window !== 'undefined') {
+    // In development draait de frontend vaak op poort 4200 of 5173, terwijl de backend op 3333 draait.
+    // Als we geen absolute URL opgeven, probeert hij de poort van de frontend te gebruiken.
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+       return `http://${window.location.hostname}:3333`;
+    }
+    // Gebruik de origin van de browser voor de socket verbinding (bijv. in productie met Nginx)
+    return window.location.origin;
+  }
+  return 'http://localhost:3333';
+}
+
 export function createUrl(path: string): URL {
   const base = getApiBaseUrl();
   // Als path al met /api begint, gebruik dan alleen de base origin

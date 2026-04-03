@@ -30,8 +30,37 @@ const currentState: LiveProductionState = {
 
 let clockInterval: NodeJS.Timeout | null = null;
 
+function sanitizeEvent(event: any) {
+  if (!event) return null;
+  // Maak een kopie met alleen de velden die we in de frontend nodig hebben
+  // en voorkom dat we parent/children recursief meesturen als dat per ongeluk in de include zit
+  const sanitized = {
+    ...event,
+    // Verwijder potentieel circulaire of te grote relaties als ze niet nodig zijn
+    parent: undefined,
+    linkedItems: undefined,
+  };
+
+  // Als we positions hebben, zorg dat die ook schoon zijn
+  if (Array.isArray(event.positions)) {
+      sanitized.positions = event.positions.map((p: any) => ({
+          id: p.id,
+          positionId: p.positionId,
+          productionEventId: p.productionEventId,
+          position: p.position ? {
+              id: p.position.id,
+              name: p.position.name,
+              color: p.position.color
+          } : undefined
+      }));
+  }
+
+  return sanitized;
+}
+
 async function broadcastState() {
   const io = getIO();
+  if (!io) return;
 
   // Stuur de globale state
   io.emit('callsheet_state_update', currentState);
@@ -47,7 +76,9 @@ async function broadcastState() {
     });
 
     // We kunnen een specifiek event sturen voor de events-lijst
-    io.emit('production_events_update', { items: events });
+    // Sanitize elk event om stack overflow in socket.io-parser te voorkomen
+    const sanitizedEvents = events.map(sanitizeEvent);
+    io.emit('production_events_update', { items: sanitizedEvents });
   }
 }
 
@@ -107,7 +138,7 @@ export async function initializeProductionState() {
       // Emit de status naar alle verbonden clients
       const io = getIO();
       if (io) {
-        io.emit('active_event_update', activeEvent);
+        io.emit('active_event_update', sanitizeEvent(activeEvent));
       }
 
       // Start de klok en timers opnieuw als we een actief event hebben
@@ -140,7 +171,7 @@ function setupAutoAdvance(event: any) {
     currentState.autoAdvanceTimer = null;
   }
 
-  if (event.autoAdvance && event.durationSec && event.actualStartTime) {
+  if (event.autoAdvance && event.durationSec != null && event.actualStartTime) {
     const now = Date.now();
     const startTime = new Date(event.actualStartTime).getTime();
     const durationMs = event.durationSec * 1000;
@@ -234,7 +265,10 @@ export async function setActiveEvent(eventId: string, productionId: number) {
     startProductionClock(productionId);
   }
 
-  getIO().emit('active_event_update', activeEvent);
+  const io = getIO();
+  if (io) {
+    io.emit('active_event_update', sanitizeEvent(activeEvent));
+  }
 
   // Stop bestaande auto-advance timer
   if (currentState.autoAdvanceTimer) {
@@ -243,44 +277,68 @@ export async function setActiveEvent(eventId: string, productionId: number) {
   }
 
   // Start nieuwe auto-advance timer indien nodig
-  if (activeEvent.autoAdvance && activeEvent.durationSec) {
+  if (activeEvent.autoAdvance && activeEvent.durationSec != null) {
     const delayMs = activeEvent.durationSec * 1000;
     const currentProdId = productionId; // Bewaar in closure
 
     logger.info(`Auto-advance scheduled for event ${activeEvent.id} ("${activeEvent.title}") in ${activeEvent.durationSec}s (${delayMs}ms)`);
 
-    currentState.autoAdvanceTimer = setTimeout(async () => {
-      logger.info(`--- AUTO-ADVANCE TIMER EXPIRED for event ${activeEvent.id} ---`);
-      try {
-        const checkProdId = currentState.productionId || currentProdId;
-        logger.info(`Checking active event in DB for production ${checkProdId}`);
-        const currentActiveDb = await prisma.productionEvent.findFirst({
-          where: { productionId: checkProdId, status: 'ACTIVE' }
-        });
+    // Meld aan alle clients dat er een auto-advance gepland is
+    const io = getIO();
+    if (io) {
+      io.emit('auto_advance_scheduled', {
+          eventId: activeEvent.id,
+          delayMs: delayMs,
+          scheduledAt: new Date().toISOString()
+      });
+    }
 
-        const activeInDbId = currentActiveDb ? currentActiveDb.id : 'null';
-        logger.info(`currentActiveDb result in timer: ${activeInDbId}`);
+    if (delayMs <= 0) {
+        logger.info(`Immediate auto-advance triggered for event ${activeEvent.id} (duration 0s)`);
+        // Gebruik een kleine timeout om te voorkomen dat we in een oneindige loop komen
+        // of dat de database transactie van de huidige setActiveEvent nog niet klaar is.
+        currentState.autoAdvanceTimer = setTimeout(async () => {
+            try {
+                const checkProdId = currentState.productionId || currentProdId;
+                const nextEvent = await getNextEventWithId(checkProdId, activeEvent.id);
+                if (nextEvent) {
+                    logger.info(`Auto-advancing (immediate) to next event: ${nextEvent.id} ("${nextEvent.title}")`);
+                    await setActiveEvent(nextEvent.id, checkProdId);
+                }
+            } catch (err) {
+                logger.error(`Error during immediate auto-advance from ${activeEvent.id}:`, err);
+            }
+        }, 1000);
+    } else {
+        currentState.autoAdvanceTimer = setTimeout(async () => {
+          logger.info(`--- AUTO-ADVANCE TIMER EXPIRED for event ${activeEvent.id} ---`);
+          try {
+            const checkProdId = currentState.productionId || currentProdId;
 
-        if (currentActiveDb && currentActiveDb.id !== activeEvent.id) {
-          logger.info(`Auto-advance aborted: current active event in DB (${currentActiveDb.id}) is different from the one that started the timer (${activeEvent.id})`);
-          return;
-        }
+            // Check of dit event nog steeds het actieve event is
+            const currentActiveDb = await prisma.productionEvent.findFirst({
+              where: { productionId: checkProdId, status: 'ACTIVE' }
+            });
 
-        logger.info(`Proceeding with auto-advance from ${activeEvent.id}`);
-        // FORCEER getNextEventWithId om DB te gebruiken
-        const nextEvent = await getNextEventWithId(checkProdId, activeEvent.id);
-        logger.info(`getNextEventWithId result in timer: ${nextEvent ? nextEvent.id : 'null'}`);
+            if (currentActiveDb && currentActiveDb.id !== activeEvent.id) {
+              logger.info(`Auto-advance aborted: current active event in DB (${currentActiveDb.id}) is different from the one that started the timer (${activeEvent.id})`);
+              return;
+            }
 
-        if (nextEvent) {
-          logger.info(`Auto-advancing to next event: ${nextEvent.id} ("${nextEvent.title}")`);
-          await setActiveEvent(nextEvent.id, checkProdId);
-        } else {
-          logger.info('No next event found for auto-advance');
-        }
-      } catch (err) {
-        logger.error(`Error during auto-advance from ${activeEvent.id}:`, err);
-      }
-    }, delayMs);
+            logger.info(`Proceeding with auto-advance from ${activeEvent.id}`);
+            const nextEvent = await getNextEventWithId(checkProdId, activeEvent.id);
+
+            if (nextEvent) {
+              logger.info(`Auto-advancing to next event: ${nextEvent.id} ("${nextEvent.title}")`);
+              await setActiveEvent(nextEvent.id, checkProdId);
+            } else {
+              logger.info('No next event found for auto-advance');
+            }
+          } catch (err) {
+            logger.error(`Error during auto-advance from ${activeEvent.id}:`, err);
+          }
+        }, delayMs);
+    }
   } else {
     logger.info(`No auto-advance for event ${activeEvent.id} ("${activeEvent.title}"). AutoAdvance: ${activeEvent.autoAdvance}, Duration: ${activeEvent.durationSec}`);
   }
@@ -476,7 +534,7 @@ export function initializeClient(socket: any) {
       }
     }).then(event => {
       if (event) {
-        socket.emit('active_event_update', event);
+        socket.emit('active_event_update', sanitizeEvent(event));
       }
     });
   }
@@ -500,7 +558,10 @@ export async function startProduction(productionId: number, firstEvent: Producti
     }
   });
 
-  getIO().emit('active_event_update', activeEvent);
+  const io = getIO();
+  if (io) {
+    io.emit('active_event_update', sanitizeEvent(activeEvent));
+  }
 
   // Zoek alle callsheet items voor deze productie die gepland zijn
   const callSheets = await prisma.callSheet.findMany({
@@ -588,6 +649,18 @@ export function updateVenueClock(time: string) {
   const [minutes, seconds] = time.split(':').map(Number);
   if (!isNaN(minutes) && !isNaN(seconds)) {
     currentState.clocks.scoreboardTime = minutes * 60 + seconds;
+
+    // Stuur ook de geformatteerde tijd mee voor directe weergave
+    const io = getIO();
+    if (io) {
+        io.emit('time_state_update', {
+            mode: currentState.isClockRunning ? 'counting_down' : 'stopped', // Korfbal klok telt meestal af
+            serverStartTime: Date.now(),
+            initialDuration: currentState.clocks.scoreboardTime,
+            venueClock: time
+        });
+    }
+
     broadcastState();
   }
 }

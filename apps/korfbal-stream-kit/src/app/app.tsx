@@ -50,10 +50,14 @@ import AppIcon from "../components/AppIcon";
 import ReportsPage from '../pages/ReportsPage';
 import AboutPage from '../pages/AboutPage';
 import SettingsPage from '../pages/SettingsPage';
+import {ShowCallerView} from '../components/ShowCallerView';
 import {PositionSelector} from '../components/PositionSelector';
+import LiveCallsheetEntry from '../pages/LiveCallsheetEntry';
 import {CallSheetView} from '../components/CallSheetView';
 import {ErrorBoundary} from "../components/ErrorBoundary";
 import SegmentTemplatesPage from "../pages/SegmentTemplatesPage";
+import {FontSizeProvider} from '../hooks/useFontSize';
+import ProductionTimingReportPage from "../pages/ProductionTimingReportPage";
 
 function Nav() {
   const {theme, toggle} = useTheme();
@@ -118,10 +122,17 @@ function Nav() {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/live/1/positions" // Example link to position selector for production 1
+                  <Link to="/live/callsheet"
                         className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
                     <MdViewList/>
                     <span>Callsheet</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/live/show-caller"
+                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdViewList/>
+                    <span>Show Caller</span>
                   </Link>
                 </li>
               </ul>
@@ -173,6 +184,13 @@ function Nav() {
                         className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
                     <MdAssessment/>
                     <span>Rapportages</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/reports?tab=timing"
+                        className="block px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-2">
+                    <MdSchedule/>
+                    <span>Tijdsanalyse</span>
                   </Link>
                 </li>
               </ul>
@@ -348,61 +366,67 @@ function Nav() {
 export function App() {
   return (
     <ThemeProvider>
-      <div className="min-h-screen bg-white dark:bg-gray-950">
-        <Nav/>
-        <main>
-          <ErrorBoundary>
-            <Routes>
-            <Route path="/"
-                   element={
-                     <div className="container py-6 text-gray-800 dark:text-gray-100 flex flex-col items-center">
-                       <AppLogo className="w-aut h-40 mb-6" />
-                       <h1 className="text-2xl font-bold mb-4">Welkom!</h1>
-                       <p className="text-center max-w-lg">
-                         Deze applicatie helpt met ondersteunen van planning van livestreams en het voorzien van data aan livestream software zoals vMix.
-                       </p>
-                     </div>
-                   }
-            />
-            <Route path="/sponsors" element={<SponsorsPage/>}/>
-            <Route path="/scoreboard" element={<ScoreboardPage/>}/>
-            <Route path="/matches/schedule" element={<MatchSchedulePage/>}/>
-            <Route path="/admin/manual-matches" element={<ManualMatchesAdminPage />} />
-            <Route path="/admin/persons" element={<PersonsAdminPage/>}/>
-            <Route path="/admin/callsheets/templates" element={<CallSheetTemplatesPage />} />
-            <Route path="/admin/callsheets/templates/:id" element={<CallSheetTemplateDetailsPage />} />
-            <Route path="/admin/segment-templates" element={<SegmentTemplatesPage />} />
-            <Route path="/admin/skills" element={<SkillsAdminPage/>}/>
-            <Route path="/admin/positions" element={<PositionsAdminPage/>}/>
-            <Route path="/admin/segment-defaults" element={<SegmentDefaultsAdminPage/>}/>
-            <Route path="/admin/clubs" element={<ClubsPage/>}/>
-            <Route path="/admin/qr" element={<QRAdminPage/>}/>
-            <Route path="/admin/productions" element={<ProductionsAdminPage/>}/>
-            <Route path="/admin/productions/:id" element={<ProductionDetailPage/>}/>
-            <Route path="/admin/productions/:id/attendance" element={<ProductionAttendancePage/>}/>
-            <Route path="/admin/productions/:id/titles" element={<ProductionTitlesPage/>}/>
-            <Route path="/admin/productions/:id/crew-report" element={<CrewReportPage/>}/>
-            <Route path="/admin/productions/:id/production-report" element={<ProductionReportPage/>}/>
-            <Route path="/admin/productions/:id/callsheets" element={<CallSheetsPage/>}/>
-            <Route path="/admin/productions/:id/callsheets/:callSheetId" element={<CallSheetEditPage/>}/>
-            <Route path="/admin/productions/:id/segment-assignments"
-                   element={<SegmentAssignmentsPage/>}/>
-            <Route path="/active" element={<ActiveProductionPage/>}/>
-            <Route path="/admin/sponsor-slides" element={<SponsorSlidesPage/>}/>
-            <Route path="/admin/vmix/title-templates" element={<VmixTemplatesPage/>}/>
-            <Route path="/admin/vmix/control" element={<VmixControlPage/>}/>
-            <Route path="/admin/vmix/datasources" element={<VmixDatasourcesPage/>}/>
-            <Route path="/reports" element={<ReportsPage/>}/>
-            <Route path="/about" element={<AboutPage/>}/>
-            <Route path="/settings" element={<SettingsPage/>}/>
+      <FontSizeProvider>
+        <div className="min-h-screen bg-white dark:bg-gray-950">
+          <Nav/>
+          <main>
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/"
+                       element={
+                         <div className="container py-6 text-gray-800 dark:text-gray-100 flex flex-col items-center">
+                           <AppLogo className="w-aut h-40 mb-6" />
+                           <h1 className="text-2xl font-bold mb-4">Welkom!</h1>
+                           <p className="text-center max-w-lg">
+                             Deze applicatie helpt met ondersteunen van planning van livestreams en het voorzien van data aan livestream software zoals vMix.
+                           </p>
+                         </div>
+                       }
+                />
+                <Route path="/sponsors" element={<SponsorsPage/>}/>
+                <Route path="/scoreboard" element={<ScoreboardPage/>}/>
+                <Route path="/matches/schedule" element={<MatchSchedulePage/>}/>
+                <Route path="/admin/manual-matches" element={<ManualMatchesAdminPage />} />
+                <Route path="/admin/persons" element={<PersonsAdminPage/>}/>
+                <Route path="/admin/callsheets/templates" element={<CallSheetTemplatesPage />} />
+                <Route path="/admin/callsheets/templates/:id" element={<CallSheetTemplateDetailsPage />} />
+                <Route path="/admin/segment-templates" element={<SegmentTemplatesPage />} />
+                <Route path="/admin/skills" element={<SkillsAdminPage/>}/>
+                <Route path="/admin/positions" element={<PositionsAdminPage/>}/>
+                <Route path="/admin/segment-defaults" element={<SegmentDefaultsAdminPage/>}/>
+                <Route path="/admin/clubs" element={<ClubsPage/>}/>
+                <Route path="/admin/qr" element={<QRAdminPage/>}/>
+                <Route path="/admin/productions" element={<ProductionsAdminPage/>}/>
+                <Route path="/admin/productions/:id" element={<ProductionDetailPage/>}/>
+                <Route path="/admin/productions/:id/attendance" element={<ProductionAttendancePage/>}/>
+                <Route path="/admin/productions/:id/titles" element={<ProductionTitlesPage/>}/>
+                <Route path="/admin/productions/:id/crew-report" element={<CrewReportPage/>}/>
+                <Route path="/admin/productions/:id/timing-report" element={<ProductionTimingReportPage/>}/>
+                <Route path="/admin/productions/:id/production-report" element={<ProductionReportPage/>}/>
+                <Route path="/admin/productions/:id/callsheets" element={<CallSheetsPage/>}/>
+                <Route path="/admin/productions/:id/callsheets/:callSheetId" element={<CallSheetEditPage/>}/>
+                <Route path="/admin/productions/:id/segment-assignments"
+                       element={<SegmentAssignmentsPage/>}/>
+                <Route path="/active" element={<ActiveProductionPage/>}/>
+                <Route path="/admin/sponsor-slides" element={<SponsorSlidesPage/>}/>
+                <Route path="/admin/vmix/title-templates" element={<VmixTemplatesPage/>}/>
+                <Route path="/admin/vmix/control" element={<VmixControlPage/>}/>
+                <Route path="/admin/vmix/datasources" element={<VmixDatasourcesPage/>}/>
+                <Route path="/reports" element={<ReportsPage/>}/>
+                <Route path="/about" element={<AboutPage/>}/>
+                <Route path="/settings" element={<SettingsPage/>}/>
 
-            {/* Nieuwe Live Routes */}
-            <Route path="/live/:productionId/positions" element={<PositionSelector />} />
-            <Route path="/live/:productionId/view/:positionSlug" element={<CallSheetView />} />
-          </Routes>
-          </ErrorBoundary>
-        </main>
-      </div>
+                {/* Nieuwe Live Routes */}
+                <Route path="/live/callsheet" element={<LiveCallsheetEntry viewType="standard" />} />
+                <Route path="/live/show-caller" element={<LiveCallsheetEntry viewType="show-caller" />} />
+                <Route path="/live/:productionId/positions/:viewType" element={<PositionSelector />} />
+                <Route path="/live/:productionId/show-caller/:positionSlug" element={<ShowCallerView />} />
+                <Route path="/live/:productionId/view/:positionSlug" element={<CallSheetView />} />
+              </Routes>
+            </ErrorBoundary>
+          </main>
+        </div>
+      </FontSizeProvider>
     </ThemeProvider>
   );
 }

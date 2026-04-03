@@ -11,6 +11,7 @@ export function initSocket(httpServer: HttpServer) {
     cors: {
       origin: '*',
     },
+    transports: ['websocket', 'polling'], // Zorg dat beide transports expliciet aan staan
   });
 
   io.on('connection', (socket) => {

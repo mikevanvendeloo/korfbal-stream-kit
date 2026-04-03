@@ -142,7 +142,7 @@ export default function CrewReportPage() {
                           </td>
                           <td className="p-2">{item.title}</td>
                           <td className="p-2 text-gray-500">{item.productionSegment.naam}</td>
-                          <td className="p-2 whitespace-nowrap">{item.durationSec > 0 ? `${Math.floor(item.durationSec / 60)}:${(item.durationSec % 60).toString().padStart(2, '0')}` : '-'}</td>
+                          <td className="p-2 whitespace-nowrap">{item.durationSec >= 0 ? `${Math.floor(item.durationSec / 60)}:${(item.durationSec % 60).toString().padStart(2, '0')}` : '-'}</td>
                           <td className="p-2 text-gray-500 italic text-xs">
                             {item.note}
                             {selectedPositionId && item.positionIds?.some((pid: number) => allLinkedIds.includes(pid) && pid !== selectedPositionId) && (

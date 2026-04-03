@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { io, Socket } from 'socket.io-client';
+import {useEffect, useState} from 'react';
+import {io, Socket} from 'socket.io-client';
 
 interface ClockState {
   productionTime: number;
@@ -13,7 +13,9 @@ interface LiveProductionState {
   isClockRunning: boolean;
 }
 
-const SOCKET_URL = 'http://localhost:3333'; // Your API server URL
+import {getSocketUrl} from "../../lib/api";
+
+const SOCKET_URL = getSocketUrl(); // Your API server URL
 
 export const useCallsheetSync = () => {
   const [state, setState] = useState<LiveProductionState | null>(null);
@@ -21,7 +23,11 @@ export const useCallsheetSync = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const socket: Socket = io(SOCKET_URL);
+    const socket: Socket = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+    });
 
     socket.on('connect', () => {
       console.log('Connected to production server.');

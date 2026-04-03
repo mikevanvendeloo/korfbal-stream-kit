@@ -2,9 +2,9 @@ import {useEffect, useRef, useState} from 'react';
 import {io, Socket} from 'socket.io-client';
 import {useParams} from 'react-router-dom';
 import {EventStatus, TriggerSource} from '@prisma/client';
-import {createUrl} from "../lib/api";
+import {createUrl, getSocketUrl} from "../lib/api";
 
-const API_URL = 'http://localhost:3333';
+const API_URL = getSocketUrl();
 
 // --- Type definities ---
 type ClockMode = 'stopped' | 'counting_up' | 'counting_down';
@@ -71,6 +71,59 @@ export function formatSystemTime(date: Date): string {
   return `${hours}:${minutes}:${seconds}`;
 }
 
+/**
+ * Berekent de verwachte starttijden voor alle events in een productie.
+ * Houdt rekening met plannedStartTime, actualStartTime (als verschuiving) en parent/child relaties.
+ */
+export function calculateEventTimes(allItems: ProductionEvent[]): (ProductionEvent & { calculatedTime: Date | null })[] {
+  if (!allItems.length) return [];
+
+  // 1. Zoek naar een ankerpunt voor de tijdverschuiving (Start wedstrijd)
+  const anchorEvent = allItems.find(it => it.isTimeAnchor || it.title === 'Start wedstrijd');
+  let timeShiftMs = 0;
+
+  if (anchorEvent && anchorEvent.actualStartTime && anchorEvent.plannedStartTime) {
+    const plannedAnchorDate = new Date(anchorEvent.plannedStartTime);
+    const actualAnchorDate = new Date(anchorEvent.actualStartTime);
+    timeShiftMs = actualAnchorDate.getTime() - plannedAnchorDate.getTime();
+  }
+
+  // 2. Bereken voor elk item de verwachte tijd
+  return allItems.map(item => {
+    let calculatedStartTime: Date | null = null;
+
+    // A. Als het een gelinkt item is, neem de tijd van de parent
+    if (item.parentId) {
+      const parent = allItems.find(it => it.id === item.parentId);
+      if (parent && parent.plannedStartTime) {
+        calculatedStartTime = new Date(parent.plannedStartTime);
+      }
+    }
+
+    // B. Als we nog geen tijd hebben, gebruik de eigen geplande starttijd
+    if (!calculatedStartTime && item.plannedStartTime) {
+      calculatedStartTime = new Date(item.plannedStartTime);
+    }
+
+    // C. Fallback: als er echt geen geplande tijd is, gebruik de order als relatieve offset vanaf vandaag 00:00
+    if (!calculatedStartTime) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      calculatedStartTime = new Date(today.getTime() + (item.order * 1000));
+    }
+
+    // D. Pas de tijdverschuiving van het ankerpunt toe (als dat er is)
+    if (calculatedStartTime && timeShiftMs !== 0) {
+      calculatedStartTime = new Date(calculatedStartTime.getTime() + timeShiftMs);
+    }
+
+    return {
+      ...item,
+      calculatedTime: calculatedStartTime,
+    };
+  });
+}
+
 // --- De Hook ---
 export const useLiveState = () => {
   const { productionId } = useParams<{ productionId: string }>();
@@ -85,6 +138,7 @@ export const useLiveState = () => {
   const [activeEventElapsedTime, setActiveEventElapsedTime] = useState(0);
   const [activeEventRemainingTime, setActiveEventRemainingTime] = useState<DisplayTime | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [autoAdvanceEventId, setAutoAdvanceEventId] = useState<string | null>(null);
 
   const timeStateRef = useRef<TimeState | null>(null);
   const eventStartTimeRef = useRef<number | null>(null);
@@ -93,11 +147,13 @@ export const useLiveState = () => {
   const activeEventRef = useRef<ProductionEvent | null>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchData = async (isInitial = false) => {
       if (!productionId) return;
 
       try {
-        setIsLoading(true);
+        if (isInitial) {
+          setIsLoading(true);
+        }
         // Haal alle events op
         const eventsResponse = await fetch(createUrl(`/api/production/${productionId}/events`));
         if (eventsResponse.ok) {
@@ -138,17 +194,21 @@ export const useLiveState = () => {
     };
 
     if (productionId) {
-      fetchData();
+      fetchData(true);
     }
 
-    const socket: Socket = io(API_URL, { transports: ['websocket'] });
+    const socket: Socket = io(API_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      timeout: 20000,
+    });
 
     const updateClocks = () => {
       setSystemTime(formatSystemTime(new Date()));
 
       if (timeStateRef.current) {
         const state = timeStateRef.current;
-        setVenueClock(state.venueClock);
 
         if (state.mode !== 'stopped') {
           const elapsedMs = Date.now() - state.serverStartTime;
@@ -159,8 +219,29 @@ export const useLiveState = () => {
           } else if (state.mode === 'counting_down') {
             setProductionClock(formatTime(state.initialDuration - elapsedSec));
           }
+
+          // Lokale interpolatie voor de zaalklok (venueClock)
+          // Scorebord data komt binnen als "MM:SS" (bijv. "15:34")
+          const venueParts = state.venueClock.split(':');
+          if (venueParts.length === 2) {
+            let venueMins = parseInt(venueParts[0]);
+            let venueSecs = parseInt(venueParts[1]);
+            let totalVenueSecs = venueMins * 60 + venueSecs;
+
+            // Alleen doorlopen als de wedstrijd bezig is (mode !== 'stopped')
+            // Omdat we niet weten of het omhoog of omlaag telt op het scorebord,
+            // gaan we uit van omlaag tellen (meest gebruikelijk bij korfbal/basketbal)
+            // tenzij we expliciete mode informatie van het scorebord krijgen.
+            // Voor nu: we passen de tijd aan op basis van elapsedSec sinds last update
+            // Maar dat is complex zonder lastUpdate time van het scorebord zelf.
+            // Simpelere benadering: we tonen gewoon de laatste state.venueClock.
+            setVenueClock(state.venueClock);
+          } else {
+            setVenueClock(state.venueClock);
+          }
         } else {
           setProductionClock({ minutes: '00', seconds: '00', isNegative: false, rawSeconds: 0 });
+          setVenueClock(state.venueClock);
         }
       }
 
@@ -171,9 +252,9 @@ export const useLiveState = () => {
 
         // Bereken resterende tijd voor actief event
         const active = activeEventRef.current;
-        if (active && active.durationSec) {
-          setActiveEventRemainingTime(formatTime(active.durationSec - eventElapsedSec));
-        } else {
+    if (active && active.durationSec !== undefined && active.durationSec !== null) {
+      setActiveEventRemainingTime(formatTime(active.durationSec - eventElapsedSec));
+    } else {
           setActiveEventRemainingTime(null);
         }
       } else {
@@ -184,6 +265,20 @@ export const useLiveState = () => {
 
     socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
+    socket.on('connect_error', (err) => {
+      console.error('Socket Connection Error:', err.message);
+      setIsConnected(false);
+
+      // Forceer een herverbinding na een korte vertraging bij specifieke fouten
+      if (err.message === 'websocket error' || err.message === 'xhr poll error') {
+        setTimeout(() => {
+          if (!socket.connected) {
+            console.log('Attempting manual socket reconnection...');
+            socket.connect();
+          }
+        }, 5000);
+      }
+    });
     socket.on('heartbeat', () => setLastSyncTime(Date.now()));
 
     socket.on('time_state_update', (newState: TimeState) => {
@@ -194,6 +289,7 @@ export const useLiveState = () => {
     socket.on('active_event_update', (event: ProductionEvent) => {
       setActiveEvent(event);
       activeEventRef.current = event;
+      setAutoAdvanceEventId(null); // Reset auto-advance indicator
       if (event.actualStartTime) {
         eventStartTimeRef.current = new Date(event.actualStartTime).getTime();
       } else {
@@ -201,6 +297,10 @@ export const useLiveState = () => {
       }
       setActiveEventElapsedTime(0);
       setActiveEventRemainingTime(null);
+    });
+
+    socket.on('auto_advance_scheduled', (data: { eventId: string, delayMs: number }) => {
+      setAutoAdvanceEventId(data.eventId);
     });
 
     socket.on('production_events_update', (data: { items: ProductionEvent[] }) => {
@@ -233,5 +333,6 @@ export const useLiveState = () => {
     activeEventElapsedTime,
     activeEventRemainingTime,
     isLoading,
+    autoAdvanceEventId,
   };
 };

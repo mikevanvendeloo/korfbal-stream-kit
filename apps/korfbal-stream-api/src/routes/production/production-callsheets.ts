@@ -205,11 +205,18 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async
             productionId: cs.productionId,
             title: item.title,
             note: item.note,
-            order: item.orderIndex, // We kunnen hier ook iets anders voor gebruiken
+            order: item.orderIndex,
             durationSec: item.durationSec,
             plannedStartTime: item.timeStart,
             plannedEndTime: item.timeEnd,
             triggerSource: 'MANUAL',
+            autoAdvance: item.autoAdvance,
+            isInLivestream: item.isInLivestream,
+            isInVenue: item.isInVenue,
+            isTimeAnchor: item.isTimeAnchor,
+            anchorType: item.anchorType,
+            callSheetItemId: item.id,
+            parentId: item.parentId,
             positions: {
               create: item.positions.map(p => ({
                 positionId: p.positionId

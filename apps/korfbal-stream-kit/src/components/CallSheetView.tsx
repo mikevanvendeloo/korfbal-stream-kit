@@ -2,10 +2,11 @@ import {useNavigate, useParams} from 'react-router-dom';
 import {CallSheetColumn} from './CallSheetColumn';
 import {ShowControl} from './ShowControl';
 import {TimeDisplay} from './TimeDisplay';
-import {useLiveState} from '../hooks/useLiveState';
+import {calculateEventTimes, useLiveState} from '../hooks/useLiveState';
 import {useEffect, useMemo, useRef, useState} from "react";
 import {MatchHeader} from "./MatchHeader";
 import {MdSettings} from "react-icons/md";
+import {useFontSize} from "../hooks/useFontSize"; // Helper om een naam om te zetten naar een URL-vriendelijke slug
 
 // Helper om een naam om te zetten naar een URL-vriendelijke slug
 const toSlug = (name: string) => {
@@ -27,7 +28,8 @@ export const CallSheetView = () => {
         systemTime,
         activeEventElapsedTime,
         activeEventRemainingTime,
-        isLoading
+        isLoading,
+        autoAdvanceEventId
     } = useLiveState();
 
     // Lokale staat voor de tweede en derde kolom
@@ -35,6 +37,7 @@ export const CallSheetView = () => {
     const [tertiaryPositionId, setTertiaryPositionId] = useState<number | null>(null);
     const [showSecondaryColumn, setShowSecondaryColumn] = useState(true);
     const [showTertiaryColumn, setShowTertiaryColumn] = useState(false);
+    const { fontSize, setFontSize } = useFontSize();
     const [showSettings, setShowSettings] = useState(false);
     const settingsRef = useRef<HTMLDivElement>(null);
 
@@ -96,7 +99,7 @@ export const CallSheetView = () => {
 
     // Vind de geselecteerde positie voor de eerste kolom op basis van de URL
     const primaryPosition = useMemo(() => {
-        if (!allPositions.length || !positionSlug) return null;
+        if (!allPositions.length || !positionSlug || positionSlug === 'all') return null;
         return allPositions.find(pos => toSlug(pos.name) === positionSlug);
     }, [allPositions, positionSlug]);
 
@@ -189,51 +192,7 @@ export const CallSheetView = () => {
     };
 
     const timedItems = useMemo(() => {
-        if (!allItems.length) return [];
-        // We gebruiken de plannedStartTime die uit de database komt (via de sync van de callsheet)
-        const itemsWithCalculatedTime = allItems.map(item => {
-            let calculatedStartTime: Date | null = null;
-
-            if (item.plannedStartTime) {
-                calculatedStartTime = new Date(item.plannedStartTime);
-            } else {
-                // Fallback naar de oude order-gebaseerde berekening als er geen geplande tijd is
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                calculatedStartTime = new Date(today.getTime() + item.order * 1000);
-            }
-
-            // Pas de tijd aan op basis van de werkelijke starttijd van de wedstrijd (als die er is)
-            const anchorEvent = allItems.find(it => it.title === 'Start wedstrijd');
-            if (anchorEvent && anchorEvent.actualStartTime && item.plannedStartTime) {
-                const plannedAnchorDate = new Date(anchorEvent.plannedStartTime!);
-                const actualAnchorDate = new Date(anchorEvent.actualStartTime);
-                const timeShiftMs = actualAnchorDate.getTime() - plannedAnchorDate.getTime();
-                calculatedStartTime = new Date(calculatedStartTime.getTime() + timeShiftMs);
-            }
-
-            // Gebruik de tijd van de parent als dit een gelinkt item is
-            if (item.parentId) {
-                const parent = allItems.find(it => it.id === item.parentId);
-                if (parent && parent.plannedStartTime) {
-                    calculatedStartTime = new Date(parent.plannedStartTime);
-                    // Pas ook hier de shift toe indien nodig
-                    if (anchorEvent && anchorEvent.actualStartTime) {
-                        const plannedAnchorDate = new Date(anchorEvent.plannedStartTime!);
-                        const actualAnchorDate = new Date(anchorEvent.actualStartTime);
-                        const timeShiftMs = actualAnchorDate.getTime() - plannedAnchorDate.getTime();
-                        calculatedStartTime = new Date(calculatedStartTime.getTime() + timeShiftMs);
-                    }
-                }
-            }
-
-            return {
-                ...item,
-                calculatedTime: calculatedStartTime,
-            };
-        });
-
-        return itemsWithCalculatedTime;
+        return calculateEventTimes(allItems);
     }, [allItems]);
 
     const allTimes = useMemo(() => {
@@ -307,18 +266,35 @@ export const CallSheetView = () => {
     }, [timedItems, primaryPositionId, secondaryPositionId, tertiaryPositionId, showSecondaryColumn, showTertiaryColumn]);
 
 
+    const lastScrolledEventId = useRef<string | null>(null);
+
     useEffect(() => {
-        if (activeEvent) {
+        if (activeEvent && activeEvent.id !== lastScrolledEventId.current) {
             const activeElement = document.getElementById(`event-${activeEvent.id}`);
             if (activeElement) {
-                activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              // Check of het item al redelijk centraal staat om onrustig scrollen te voorkomen
+              const rect = activeElement.getBoundingClientRect();
+              const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+
+              // We beschouwen het item als "redelijk centraal" als het midden van het item
+              // tussen de 30% en 70% van de viewport hoogte staat.
+              const itemCenter = rect.top + rect.height / 2;
+              const isCentrallyVisible = (itemCenter > viewportHeight * 0.3) && (itemCenter < viewportHeight * 0.7);
+
+              if (!isCentrallyVisible) {
+                activeElement.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'center'
+                });
+              }
+              lastScrolledEventId.current = activeEvent.id;
             }
         }
     }, [activeEvent]);
 
-    if (isLoading) {
+    if (isLoading && allItems.length === 0) {
         return (
-            <div className="bg-gray-900 min-h-screen text-white p-4 flex items-center justify-center">
+            <div className="bg-white dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white p-4 flex items-center justify-center transition-colors">
                 <p>Laden...</p>
             </div>
         );
@@ -326,46 +302,100 @@ export const CallSheetView = () => {
 
     if (!primaryPosition) {
         return (
-            <div className="bg-gray-900 min-h-screen text-white p-4 flex items-center justify-center">
+            <div className="bg-white dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white p-4 flex items-center justify-center transition-colors">
                 <p className="text-red-500">Geselecteerde positie "{positionSlug}" niet gevonden voor deze productie.</p>
             </div>
         );
     }
 
     return (
-        <div className="bg-gray-900 min-h-screen text-white p-4">
+        <div className="bg-white dark:bg-gray-950 min-h-screen text-gray-900 dark:text-white p-2 md:p-4 transition-colors">
             <header
-                className="mb-4 sticky top-0 z-40 bg-gray-900">
-                <div className="flex flex-col gap-2 p-3 bg-black/80 rounded-b-lg backdrop-blur-md border-b border-white/10 shadow-2xl relative h-[72px] box-content">
+                className="mb-1 sticky top-0 z-40 bg-white dark:bg-gray-950 transition-colors">
+                <div className="flex flex-col gap-4 p-3 bg-gray-100/80 dark:bg-black/80 rounded-b-lg backdrop-blur-md border-b border-gray-200 dark:border-white/10 shadow-2xl relative min-h-[72px] box-content">
                     {/* Background accent */}
                     <div className="absolute top-0 left-0 w-1 bg-blue-500 h-full"></div>
 
-                    <div className="flex justify-between items-center relative z-10">
-                        <div className="flex items-center gap-4">
+                    <div className="w-full relative flex items-center justify-center min-h-[64px] z-10">
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-4">
+                            <button
+                                onClick={() => navigate(`/live/${productionId}/positions`)}
+                                className="px-4 py-2 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all border border-black/10 dark:border-white/10 text-gray-600 dark:text-white/70"
+                            >
+                                Wissel Positie
+                            </button>
+
                             <div className="relative" ref={settingsRef}>
                                 <button
                                     onClick={() => setShowSettings(!showSettings)}
-                                    className={`p-2 rounded-full transition-all ${showSettings ? 'bg-blue-600 text-white shadow-lg' : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'}`}
-                                    title="Positie Instellingen"
+                                    className={`p-2 rounded-full transition-all border ${
+                                        showSettings
+                                            ? 'bg-blue-600 border-blue-500 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]'
+                                            : 'bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 text-gray-600 dark:text-white/60 hover:bg-black/10 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
+                                    }`}
+                                    title="Instellingen"
                                 >
-                                    <MdSettings className={`w-6 h-6 ${showSettings ? 'animate-spin-slow' : ''}`} />
+                                    <MdSettings className={`w-6 h-6 ${showSettings ? 'animate-spin-slow' : ''}`}/>
                                 </button>
 
                                 {showSettings && (
-                                    <div className="absolute top-full left-0 mt-2 flex flex-col gap-4 bg-black/95 p-5 rounded-2xl border border-white/20 animate-in fade-in slide-in-from-top-2 duration-300 shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[340px] z-[100] backdrop-blur-xl">
-                                        <div className="flex flex-col gap-3">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Weergave posities</span>
-                                                <button
-                                                    onClick={() => setShowSettings(false)}
-                                                    className="text-gray-500 hover:text-white transition-colors"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                                </button>
+                                    <div
+                                        className="absolute top-full left-0 mt-2 flex flex-col gap-6 bg-white dark:bg-black/95 p-6 rounded-2xl border border-gray-200 dark:border-white/20 animate-in fade-in slide-in-from-top-2 duration-300 shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[360px] z-[100] backdrop-blur-xl">
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <span
+                                                    className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-white/30">Lettergrootte</span>
+                                                <div className="flex bg-gray-100 dark:bg-white/5 rounded-lg p-1 border border-gray-200 dark:border-white/10">
+                                                    <button
+                                                        onClick={() => setFontSize('m')}
+                                                        className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${fontSize === 'm' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 dark:text-white/40 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}`}
+                                                    >
+                                                        M
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setFontSize('l')}
+                                                        className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${fontSize === 'l' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 dark:text-white/40 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}`}
+                                                    >
+                                                        L
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setFontSize('xl')}
+                                                        className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${fontSize === 'xl' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 dark:text-white/40 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}`}
+                                                    >
+                                                        XL
+                                                    </button>
+                                                </div>
                                             </div>
 
-                                            <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
-                                                <span className="text-xs font-bold text-gray-200">2 Posities (Default)</span>
+                                            <div className="flex items-center justify-between">
+                                                <span
+                                                    className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-white/30">Weergave</span>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            const currentPath = window.location.pathname;
+                                                            const newPath = currentPath.replace('/view/', '/show-caller/');
+                                                            navigate(newPath);
+                                                            setShowSettings(false);
+                                                        }}
+                                                        className="px-3 py-1.5 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border border-gray-200 dark:border-white/10 text-gray-600 dark:text-white/60"
+                                                        title="Wissel naar de Show Caller weergave"
+                                                    >
+                                                        Show Caller
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col gap-3 pt-4 border-t border-gray-200 dark:border-white/10">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span
+                                                    className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-white/30">Kolommen</span>
+                                            </div>
+
+                                            <div
+                                                className="flex items-center justify-between bg-gray-50 dark:bg-white/5 p-3 rounded-xl border border-gray-200 dark:border-white/5">
+                                                <span className="text-xs font-bold text-gray-600 dark:text-gray-200">2 Posities (Default)</span>
                                                 <button
                                                     onClick={() => {
                                                         setShowSecondaryColumn(!showSecondaryColumn);
@@ -373,14 +403,16 @@ export const CallSheetView = () => {
                                                             setShowTertiaryColumn(false);
                                                         }
                                                     }}
-                                                    className={`w-11 h-6 rounded-full transition-colors relative ${showSecondaryColumn && !showTertiaryColumn ? 'bg-blue-600' : 'bg-gray-700'}`}
+                                                    className={`w-11 h-6 rounded-full transition-colors relative ${showSecondaryColumn && !showTertiaryColumn ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'}`}
                                                 >
-                                                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all ${showSecondaryColumn && !showTertiaryColumn ? 'left-6' : 'left-1'}`}></div>
+                                                    <div
+                                                        className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all ${showSecondaryColumn && !showTertiaryColumn ? 'left-6' : 'left-1'}`}></div>
                                                 </button>
                                             </div>
 
-                                            <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
-                                                <span className="text-xs font-bold text-gray-200">3 Posities</span>
+                                            <div
+                                                className="flex items-center justify-between bg-gray-50 dark:bg-white/5 p-3 rounded-xl border border-gray-200 dark:border-white/5">
+                                                <span className="text-xs font-bold text-gray-600 dark:text-gray-200">3 Posities</span>
                                                 <button
                                                     onClick={() => {
                                                         setShowTertiaryColumn(!showTertiaryColumn);
@@ -390,28 +422,31 @@ export const CallSheetView = () => {
                                                             setShowSecondaryColumn(true);
                                                         }
                                                     }}
-                                                    className={`w-11 h-6 rounded-full transition-colors relative ${showTertiaryColumn ? 'bg-purple-600' : 'bg-gray-700'}`}
+                                                    className={`w-11 h-6 rounded-full transition-colors relative ${showTertiaryColumn ? 'bg-purple-600' : 'bg-gray-200 dark:bg-gray-700'}`}
                                                 >
-                                                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all ${showTertiaryColumn ? 'left-6' : 'left-1'}`}></div>
+                                                    <div
+                                                        className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all ${showTertiaryColumn ? 'left-6' : 'left-1'}`}></div>
                                                 </button>
                                             </div>
 
                                             {!showSecondaryColumn && !showTertiaryColumn && (
                                                 <div className="px-2 py-1 bg-blue-500/10 rounded border border-blue-500/20">
-                                                    <p className="text-[10px] text-blue-400 font-medium text-center">Enkele positie weergave actief</p>
+                                                    <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium text-center">Enkele positie weergave actief</p>
                                                 </div>
                                             )}
                                         </div>
 
-                                        <div className="flex flex-col gap-4 pt-4 border-t border-white/10">
+                                        <div className="flex flex-col gap-4 pt-4 border-t border-gray-200 dark:border-white/10">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1">Positie Instellingen</span>
+                                                <span
+                                                    className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest px-1">Positie Instellingen</span>
                                             </div>
 
                                             <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar max-w-[80vw]">
                                                 {/* Positie 1 Selectie */}
-                                                <div className="flex flex-col gap-2 bg-blue-500/5 p-3 rounded-xl border border-blue-500/10 min-w-[160px]">
-                                                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-wider">Positie 1 (Hoofd)</span>
+                                                <div
+                                                    className="flex flex-col gap-2 bg-blue-500/5 p-3 rounded-xl border border-blue-500/10 min-w-[160px]">
+                                                    <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider">Positie 1 (Hoofd)</span>
                                                     <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto pr-1 custom-scrollbar">
                                                         {allPositions.map(pos => (
                                                             <button
@@ -419,8 +454,8 @@ export const CallSheetView = () => {
                                                                 onClick={() => handleSetPrimary(pos.id)}
                                                                 className={`px-3 py-2 rounded-lg text-[11px] font-bold transition-all text-left ${
                                                                     primaryPositionId === pos.id
-                                                                    ? 'bg-blue-600 text-white shadow-lg'
-                                                                    : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-200 border border-transparent'
+                                                                        ? 'bg-blue-600 text-white shadow-lg'
+                                                                        : 'bg-black/5 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-gray-200 border border-transparent'
                                                                 }`}
                                                             >
                                                                 {pos.name}
@@ -431,8 +466,9 @@ export const CallSheetView = () => {
 
                                                 {/* Positie 2 Selectie */}
                                                 {(showSecondaryColumn || showTertiaryColumn) && (
-                                                    <div className="flex flex-col gap-2 bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/10 min-w-[160px]">
-                                                        <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider">Positie 2</span>
+                                                    <div
+                                                        className="flex flex-col gap-2 bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/10 min-w-[160px]">
+                                                        <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Positie 2</span>
                                                         <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto pr-1 custom-scrollbar">
                                                             {allPositions.map(pos => (
                                                                 <button
@@ -441,10 +477,10 @@ export const CallSheetView = () => {
                                                                     disabled={pos.id === primaryPositionId || pos.id === tertiaryPositionId}
                                                                     className={`px-3 py-2 rounded-lg text-[11px] font-bold transition-all text-left ${
                                                                         secondaryPositionId === pos.id
-                                                                        ? 'bg-emerald-600 text-white shadow-lg'
-                                                                        : pos.id === primaryPositionId || pos.id === tertiaryPositionId
-                                                                        ? 'bg-white/5 text-gray-600 cursor-not-allowed opacity-30'
-                                                                        : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-200 border border-transparent'
+                                                                            ? 'bg-emerald-600 text-white shadow-lg'
+                                                                            : pos.id === primaryPositionId || pos.id === tertiaryPositionId
+                                                                                ? 'bg-black/5 dark:bg-white/5 text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-30'
+                                                                                : 'bg-black/5 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-gray-200 border border-transparent'
                                                                     }`}
                                                                 >
                                                                     {pos.name}
@@ -456,8 +492,9 @@ export const CallSheetView = () => {
 
                                                 {/* Positie 3 Selectie */}
                                                 {showTertiaryColumn && (
-                                                    <div className="flex flex-col gap-2 bg-purple-500/5 p-3 rounded-xl border border-purple-500/10 min-w-[160px]">
-                                                        <span className="text-[10px] font-black text-purple-400 uppercase tracking-wider">Positie 3</span>
+                                                    <div
+                                                        className="flex flex-col gap-2 bg-purple-500/5 p-3 rounded-xl border border-purple-500/10 min-w-[160px]">
+                                                        <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-wider">Positie 3</span>
                                                         <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto pr-1 custom-scrollbar">
                                                             {allPositions.map(pos => (
                                                                 <button
@@ -466,10 +503,10 @@ export const CallSheetView = () => {
                                                                     disabled={pos.id === primaryPositionId || pos.id === secondaryPositionId}
                                                                     className={`px-3 py-2 rounded-lg text-[11px] font-bold transition-all text-left ${
                                                                         tertiaryPositionId === pos.id
-                                                                        ? 'bg-purple-600 text-white shadow-lg'
-                                                                        : pos.id === primaryPositionId || pos.id === secondaryPositionId
-                                                                        ? 'bg-white/5 text-gray-600 cursor-not-allowed opacity-30'
-                                                                        : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-200 border border-transparent'
+                                                                            ? 'bg-purple-600 text-white shadow-lg'
+                                                                            : pos.id === primaryPositionId || pos.id === secondaryPositionId
+                                                                                ? 'bg-black/5 dark:bg-white/5 text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-30'
+                                                                                : 'bg-black/5 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:bg-black/10 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-gray-200 border border-transparent'
                                                                     }`}
                                                                 >
                                                                     {pos.name}
@@ -483,17 +520,17 @@ export const CallSheetView = () => {
                                     </div>
                                 )}
                             </div>
-
-                            {productionId && (
-                                <MatchHeader
-                                    productionId={parseInt(productionId)}
-                                    size="small"
-                                    className="border-l border-white/10 pl-4 py-1"
-                                />
-                            )}
                         </div>
 
-                        <div className="flex items-center gap-6">
+                        {productionId && (
+                            <MatchHeader
+                                productionId={parseInt(productionId)}
+                                size="small"
+                                className="transition-colors"
+                            />
+                        )}
+
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center justify-end gap-6">
                             <TimeDisplay
                                 isConnected={isConnected}
                                 timeSinceLastSync={timeSinceLastSync}
@@ -520,6 +557,7 @@ export const CallSheetView = () => {
                     positionId={primaryPositionId}
                     items={timedItems}
                     activeEvent={activeEvent}
+                    autoAdvanceEventId={autoAdvanceEventId}
                     elapsedTime={activeEventElapsedTime}
                     allTimes={allTimes}
                     allPositions={allPositions}
@@ -535,6 +573,7 @@ export const CallSheetView = () => {
                         positionId={secondaryPositionId ?? -2}
                         items={timedItems}
                         activeEvent={activeEvent}
+                        autoAdvanceEventId={autoAdvanceEventId}
                         elapsedTime={activeEventElapsedTime}
                         allTimes={allTimes}
                         allPositions={allPositions}
@@ -551,6 +590,7 @@ export const CallSheetView = () => {
                         positionId={tertiaryPositionId ?? -3}
                         items={timedItems}
                         activeEvent={activeEvent}
+                        autoAdvanceEventId={autoAdvanceEventId}
                         elapsedTime={activeEventElapsedTime}
                         allTimes={allTimes}
                         allPositions={allPositions}

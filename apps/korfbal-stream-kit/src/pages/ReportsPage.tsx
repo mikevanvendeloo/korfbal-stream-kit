@@ -8,8 +8,9 @@ import {
 import {useProductions} from '../hooks/useProductions';
 import {createColumnHelper, flexRender, getCoreRowModel, useReactTable,} from '@tanstack/react-table';
 import {downloadAsPng} from '../lib/download';
-import {MdClose, MdDownload} from 'react-icons/md';
+import {MdClose, MdDownload, MdSchedule} from 'react-icons/md';
 import PlayerCard from '../components/PlayerCard';
+import {Link, useLocation} from "react-router-dom";
 
 function formatDate(date: string | Date) {
   return new Date(date).toLocaleDateString('nl-NL', {
@@ -654,8 +655,58 @@ function CrewRolesReport() {
   );
 }
 
+function TimingAnalysisReport() {
+  const {data, isLoading, error} = useProductions();
+
+  const columns = React.useMemo(() => {
+    const helper = createColumnHelper<any>();
+    return [
+      helper.accessor('matchSchedule.date', {
+        header: 'Datum',
+        cell: info => formatDate(info.getValue()),
+      }),
+      helper.accessor((row: any) => `${row.matchSchedule?.homeTeamName} vs ${row.matchSchedule?.awayTeamName}`, {
+        id: 'match',
+        header: 'Wedstrijd',
+        cell: info => <span className="font-medium">{info.getValue()}</span>,
+      }),
+      helper.accessor('id', {
+        header: 'Acties',
+        cell: info => (
+          <Link
+            to={`/admin/productions/${info.getValue()}/timing-report`}
+            className="text-blue-600 hover:underline flex items-center gap-1"
+          >
+            <MdSchedule /> Tijdsanalyse Bekijken
+          </Link>
+        ),
+      }),
+    ];
+  }, []);
+
+  if (isLoading) return <div className="text-gray-500 animate-pulse">Laden...</div>;
+  if (error) return <div className="text-red-600 p-3">Fout bij laden producties</div>;
+
+  return (
+    <div className="space-y-4">
+      <DataTable data={data?.items || []} columns={columns} />
+    </div>
+  );
+}
+
 export default function ReportsPage() {
-  const [activeTab, setActiveTab] = React.useState<'occupancy' | 'positions' | 'interviews' | 'crew'>('occupancy');
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const initialTab = (queryParams.get('tab') as any) || 'occupancy';
+
+  const [activeTab, setActiveTab] = React.useState<'occupancy' | 'positions' | 'interviews' | 'crew' | 'timing'>(initialTab);
+
+  React.useEffect(() => {
+    const tab = queryParams.get('tab');
+    if (tab && (tab === 'occupancy' || tab === 'positions' || tab === 'interviews' || tab === 'crew' || tab === 'timing')) {
+      setActiveTab(tab as any);
+    }
+  }, [location.search]);
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
@@ -686,6 +737,12 @@ export default function ReportsPage() {
         >
           Crew Rollen
         </button>
+        <button
+          className={`px-6 py-3 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === 'timing' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+          onClick={() => setActiveTab('timing')}
+        >
+          Tijdsanalyse
+        </button>
       </div>
 
       <div className="print:block">
@@ -693,6 +750,7 @@ export default function ReportsPage() {
         {activeTab === 'positions' && <OccupancyByPositionReport />}
         {activeTab === 'interviews' && <InterviewsReport />}
         {activeTab === 'crew' && <CrewRolesReport />}
+        {activeTab === 'timing' && <TimingAnalysisReport />}
       </div>
     </div>
   );

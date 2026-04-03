@@ -7,6 +7,7 @@ import * as useLiveStateHook from '../hooks/useLiveState';
 
 vi.mock('../hooks/useLiveState', () => ({
   useLiveState: vi.fn(),
+  calculateEventTimes: vi.fn((items) => items),
 }));
 
 vi.mock('./MatchHeader', () => ({

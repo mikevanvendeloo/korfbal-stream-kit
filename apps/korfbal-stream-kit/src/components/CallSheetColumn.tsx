@@ -6,6 +6,7 @@ interface Props {
   positionId: number;
   items: (ProductionEvent & { calculatedTime?: Date | null })[];
   activeEvent: ProductionEvent | null;
+  autoAdvanceEventId: string | null;
   elapsedTime: number;
   allTimes: string[];
   allPositions: Position[];
@@ -21,6 +22,7 @@ export const CallSheetColumn = ({
   positionId,
   items,
   activeEvent,
+  autoAdvanceEventId,
   elapsedTime,
   allTimes,
   allPositions,
@@ -48,14 +50,14 @@ export const CallSheetColumn = ({
   });
 
   return (
-    <div className={`bg-black/20 rounded-xl border border-white/5 shadow-xl transition-all`}>
+    <div className={`bg-gray-50 dark:bg-black/20 rounded-xl border border-gray-200 dark:border-white/5 shadow-xl transition-all`}>
       {/* Kolom Header met Positie Selectie */}
       {!isCompact && (
           <header
-            className="sticky top-[88px] z-10 bg-gray-900/95 backdrop-blur-md p-3 rounded-t-xl border-b border-white/10 mb-4">
+            className="sticky top-[300px] sm:top-[220px] lg:top-[120px] z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md p-3 rounded-t-xl border-b border-gray-200 dark:border-white/10 mb-4 transition-colors">
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-black tracking-tight flex items-center gap-3">
+              <h2 className="text-xl font-black tracking-tight flex items-center gap-3 text-gray-900 dark:text-white">
                 <span className={`w-1.5 h-6 rounded-full ${
                     isBlue ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' :
                     isEmerald ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' :
@@ -78,13 +80,13 @@ export const CallSheetColumn = ({
                     className={`text-[10px] py-1.5 px-3 rounded-md font-bold transition-all whitespace-nowrap uppercase tracking-wider ${
                       isSelected
                         ? isBlue
-                          ? 'bg-blue-600 text-white'
+                          ? 'bg-blue-600 text-white shadow-md'
                           : isEmerald
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-purple-600 text-white'
+                            ? 'bg-emerald-600 text-white shadow-md'
+                            : 'bg-purple-600 text-white shadow-md'
                         : isUsedElsewhere
-                          ? 'bg-white/5 text-white/10 cursor-not-allowed'
-                          : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/70'
+                          ? 'bg-black/5 dark:bg-white/5 text-gray-300 dark:text-white/10 cursor-not-allowed'
+                          : 'bg-black/5 dark:bg-white/5 text-gray-500 dark:text-white/40 hover:bg-black/10 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
                     }`}
                   >
                     {pos.name}
@@ -98,14 +100,14 @@ export const CallSheetColumn = ({
 
       {isCompact && (
            <header
-             className="sticky top-[88px] z-10 bg-gray-900/95 backdrop-blur-sm p-2 rounded-t-xl border-b border-white/10 mb-4">
+             className="sticky top-[200px] sm:top-[200px] lg:top-[100px] z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm p-2 rounded-t-xl border-b border-gray-200 dark:border-white/10 mb-4 transition-colors">
             <div className="flex items-center gap-2">
                 <span className={`w-1 h-3 rounded-full ${
                     isBlue ? 'bg-blue-500' :
                     isEmerald ? 'bg-emerald-500' :
                     'bg-purple-500'
                 }`}></span>
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/70">{title}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-white/70">{title}</span>
             </div>
          </header>
       )}
@@ -123,11 +125,12 @@ export const CallSheetColumn = ({
                 key={item.id}
                 item={item}
                 isActive={activeEvent?.id === item.id}
+                isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
                 elapsedTime={elapsedTime}
               />
             );
           }
-          // Gebruik de CallSheetItem placeholder voor perfecte uitlijning
+          // Gebruik de CallSheetItem placeholder for perfecte uitlijning
           return (
             <CallSheetItem
               key={timeSlot}
@@ -136,7 +139,7 @@ export const CallSheetColumn = ({
           );
         })}
         {relevantItems.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-white/20 bg-white/5 rounded-xl border-2 border-dashed border-white/5">
+          <div className="flex flex-col items-center justify-center py-20 text-gray-300 dark:text-white/20 bg-gray-100 dark:bg-white/5 rounded-xl border-2 border-dashed border-gray-200 dark:border-white/5">
             <p className="text-lg font-bold uppercase tracking-widest">Geen items</p>
             <p className="text-xs mt-1">Er zijn geen callsheet items gepland voor deze positie.</p>
           </div>
