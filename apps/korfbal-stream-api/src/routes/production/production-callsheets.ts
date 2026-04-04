@@ -4,6 +4,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import ExcelJS from 'exceljs';
 import {prisma} from '../../services/prisma';
+import {logger} from '../../utils/logger';
+import {broadcastState} from '../../services/productionState';
 
 export const productionCallsheetsRouter: Router = Router();
 
@@ -105,6 +107,8 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/calculate-times', asyn
     const matchStartTime = cs.production.matchSchedule.date;
     const liveStartTime = cs.production.liveTime || new Date(matchStartTime.getTime() - 30 * 60 * 1000); // Default 30 min before
 
+    logger.info(`Calculating times for callsheet ${callSheetId}. Match start: ${matchStartTime.toISOString()}, Live start: ${liveStartTime.toISOString()}`);
+
     // Find anchor item
     const anchorItem = cs.items.find(it => it.isTimeAnchor);
     if (!anchorItem) {
@@ -119,6 +123,8 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/calculate-times', asyn
     } else {
       anchorTime = matchStartTime; // Default to match start
     }
+
+    logger.info(`Anchor found: "${anchorItem.title}" (${anchorItem.id}), type: ${anchorItem.anchorType}, time: ${anchorTime.toISOString()}`);
 
     // Calculate times relative to anchor
     // We assume items are in order.
@@ -162,7 +168,15 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/calculate-times', asyn
       currentTime = new Date(timeStart);
     }
 
+    logger.info(`Updated ${updates.length} items for callsheet ${callSheetId}`);
+
     await prisma.$transaction(updates);
+
+    // Broadcast via WebSocket
+    const io = (req.app as any).get('io');
+    if (io) {
+      io.emit('production_events_update_needed');
+    }
 
     return res.json({ success: true });
   } catch (err) {
@@ -201,6 +215,8 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async
       // 2. Maak nieuwe events aan op basis van callsheet items
       // We doen dit in twee stappen om parentId correct te kunnen zetten (foreign key naar ProductionEvent.id)
       const callSheetToEventIdMap = new Map<string, string>();
+      const positions = await tx.position.findMany();
+      const showcallerId = positions.find(p => p.name.toLowerCase() === 'showcaller')?.id;
 
       for (const item of cs.items) {
         const createdEvent = await tx.productionEvent.create({
@@ -225,11 +241,20 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async
         callSheetToEventIdMap.set(item.id, createdEvent.id);
 
         // Nu ook de posities direct aanmaken voor dit event
+        const positionIdsToCreate = new Set<number>();
+        if (showcallerId) positionIdsToCreate.add(showcallerId);
+
         if (item.positions && item.positions.length > 0) {
+          for (const p of item.positions) {
+            positionIdsToCreate.add(p.positionId);
+          }
+        }
+
+        if (positionIdsToCreate.size > 0) {
           await tx.productionEventPosition.createMany({
-            data: item.positions.map(p => ({
+            data: Array.from(positionIdsToCreate).map(pid => ({
               eventId: createdEvent.id,
-              positionId: p.positionId
+              positionId: pid
             }))
           });
         }
@@ -258,8 +283,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async
 
     // 5. Trigger een update naar alle clients
     try {
-      const { broadcastState } = await import('../../services/productionState');
-      broadcastState(cs.productionId);
+      broadcastState();
     } catch (e) {
       console.error('Failed to broadcast state after sync:', e);
     }
@@ -604,7 +628,13 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem.single
     const callSheetColor = req.body?.color != null ? String(req.body.color) : undefined;
 
     const result = await prisma.$transaction(async (tx) => {
-      const cs = await tx.callSheet.create({ data: { productionId, name: callSheetName, color: callSheetColor } });
+      const cs = await tx.callSheet.create({
+        data: {
+          productionId,
+          name: callSheetName,
+          color: callSheetColor || undefined
+        }
+      });
 
       for (const it of parsed) {
         const created = await tx.callSheetItem.create({
@@ -623,27 +653,47 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem.single
           },
         });
 
+        const ids: number[] = [];
+        // Ensure "Showcaller" position exists and is added
+        const scName = "Showcaller";
+        const scKey = scName.toLowerCase();
+        let scPos = posByName.get(scKey);
+        if (!scPos) {
+          scPos = await tx.position.upsert({
+            where: { name: scName },
+            update: {},
+            create: { name: scName }
+          }) as any;
+          posByName.set(scKey, scPos!);
+        }
+        ids.push(scPos!.id);
+
         if (it.positionNames.length > 0) {
-          // Ensure positions exist
-          const ids: number[] = [];
           for (const name of it.positionNames) {
             const key = name.trim().toLowerCase();
+            if (key === scKey) continue; // already added
+
             let p = posByName.get(key);
             if (!p) {
-              p = await tx.position.create({ data: { name } });
-              posByName.set(key, p as any);
+              p = await tx.position.upsert({
+                where: { name: name.trim() },
+                update: {},
+                create: { name: name.trim() }
+              }) as any;
+              posByName.set(key, p!);
             }
-            ids.push((p as any).id);
-          }
-          if (ids.length > 0) {
-            await tx.callSheetItemPosition.createMany({
-              data: ids.map((pid) => ({ callSheetItemId: created.id, positionId: pid })),
-              skipDuplicates: true,
-            });
+            ids.push(p!.id);
           }
         }
+
+        const uniqueIds = Array.from(new Set(ids));
+        await tx.callSheetItemPosition.createMany({
+          data: uniqueIds.map((pid) => ({ callSheetItemId: created.id, positionId: pid })),
+          skipDuplicates: true,
+        });
       }
 
+      broadcastState();
       return cs;
     });
 

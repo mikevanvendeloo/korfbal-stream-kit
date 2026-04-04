@@ -324,6 +324,9 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
         data: { productionId, name: template.name }
       });
 
+      const positions = await tx.position.findMany();
+      const showcallerId = positions.find(p => p.name.toLowerCase() === 'showcaller')?.id;
+
       const itemsToCreate = [];
       const eventsToCreate = [];
       const idMapping: Record<string, string> = {};
@@ -391,16 +394,33 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
           const eventId = eventsToCreate[i].id;
 
           if (tItem.positions) {
+            const positionIdsToCreate = new Set<number>();
+            if (showcallerId) positionIdsToCreate.add(showcallerId);
+
             for (const p of tItem.positions) {
+                positionIdsToCreate.add(p.positionId);
+            }
+
+            for (const posId of positionIdsToCreate) {
                 itemPositions.push({
                     callSheetItemId: itemId,
-                    positionId: p.positionId
+                    positionId: posId
                 });
                 eventPositions.push({
                     eventId: eventId,
-                    positionId: p.positionId
+                    positionId: posId
                 });
             }
+          } else if (showcallerId) {
+            // Zelfs als er geen posities zijn, Showcaller toevoegen
+            itemPositions.push({
+                callSheetItemId: itemId,
+                positionId: showcallerId
+            });
+            eventPositions.push({
+                eventId: eventId,
+                positionId: showcallerId
+            });
           }
       }
 
@@ -720,6 +740,7 @@ callSheetTemplateRouter.post('/import-json', uploadMem.single('file'), async (re
 
     const positions = await prisma.position.findMany();
     const positionsByName = Object.fromEntries(positions.map(p => [p.name.toLowerCase(), p.id] as const));
+    const showcallerId = positionsByName['showcaller'];
 
     const idMapping: Record<string, string> = {};
 
@@ -743,18 +764,28 @@ callSheetTemplateRouter.post('/import-json', uploadMem.single('file'), async (re
         idMapping[item.id] = createdItem.id;
       }
 
-      if (item.positions && Array.isArray(item.positions)) {
-        for (const posName of item.positions) {
-          const positionId = positionsByName[posName.toLowerCase()];
-          if (positionId) {
-            await prisma.callSheetTemplatePosition.create({
-              data: {
-                templateItemId: createdItem.id,
-                positionId: positionId
-              }
-            });
-          }
+      const itemPositionNames = (item.positions && Array.isArray(item.positions)) ? item.positions : [];
+      const positionIdsToCreate = new Set<number>();
+
+      // Altijd Showcaller toevoegen voor elk item
+      if (showcallerId) {
+        positionIdsToCreate.add(showcallerId);
+      }
+
+      for (const posName of itemPositionNames) {
+        const positionId = positionsByName[posName.toLowerCase()];
+        if (positionId) {
+          positionIdsToCreate.add(positionId);
         }
+      }
+
+      for (const positionId of positionIdsToCreate) {
+        await prisma.callSheetTemplatePosition.create({
+          data: {
+            templateItemId: createdItem.id,
+            positionId: positionId
+          }
+        });
       }
     }
 

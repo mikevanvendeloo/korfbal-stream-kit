@@ -1,6 +1,6 @@
 import request from 'supertest';
 import app from '../main';
-import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import ExcelJS from 'exceljs';
 
 // Mock prisma client methods used by the routes
@@ -52,6 +52,13 @@ describe('Callsheet Excel import API', () => {
         const exists = positions.find((p) => p.name.toLowerCase() === data.name.toLowerCase());
         if (exists) return exists;
         const created = { id: positions.length + 1, name: data.name };
+        positions.push(created);
+        return created;
+      }),
+      upsert: vi.fn(async ({ where, create, update }: any) => {
+        const exists = positions.find((p) => p.name.toLowerCase() === where.name.toLowerCase());
+        if (exists) return exists;
+        const created = { id: positions.length + 1, name: create.name };
         positions.push(created);
         return created;
       }),

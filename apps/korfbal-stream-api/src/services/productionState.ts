@@ -58,7 +58,7 @@ function sanitizeEvent(event: any) {
   return sanitized;
 }
 
-async function broadcastState() {
+export async function broadcastState() {
   const io = getIO();
   if (!io) return;
 
@@ -450,32 +450,29 @@ export async function recalculateProductionTimes(productionId: number, anchorTim
       }
     });
 
-    const itemUpdates = itemsToUpdate.map(item => {
-      // Find the corresponding production event to get the EXACT same timing
-      return prisma.productionEvent.findFirst({
-        where: { callSheetItemId: item.id }
-      }).then(ev => {
-        if (!ev) return null;
-        return prisma.callSheetItem.update({
+    const callSheetItemUpdates = [];
+    for (const item of itemsToUpdate) {
+      const correspondingEvent = allEvents.find(e => e.callSheetItemId === item.id);
+      if (correspondingEvent) {
+        callSheetItemUpdates.push(prisma.callSheetItem.update({
           where: { id: item.id },
           data: {
-            timeStart: ev.plannedStartTime,
-            timeEnd: ev.plannedEndTime
+            timeStart: correspondingEvent.plannedStartTime,
+            timeEnd: correspondingEvent.plannedEndTime
           }
-        });
-      });
-    });
-
-    const resolvedUpdates = (await Promise.all(itemUpdates)).filter(u => u !== null);
-    if (resolvedUpdates.length > 0) {
-      await prisma.$transaction(resolvedUpdates as any);
+        }));
+      }
     }
 
-    // Broadcast again after items update
-    const ioFinal = getIO();
-    if (ioFinal) {
-      ioFinal.emit('production_events_update_needed');
+    if (callSheetItemUpdates.length > 0) {
+      await prisma.$transaction(callSheetItemUpdates);
     }
+  }
+
+  // Broadcast again after items update
+  const ioFinal = getIO();
+  if (ioFinal) {
+    ioFinal.emit('production_events_update_needed');
   }
 }
 

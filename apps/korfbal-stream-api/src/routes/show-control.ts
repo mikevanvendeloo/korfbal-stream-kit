@@ -81,13 +81,30 @@ showControlRouter.post('/recalculate/:productionId', async (req, res, next) => {
             const activeEvent = await prisma.productionEvent.findFirst({
                 where: { productionId, status: 'ACTIVE' }
             });
-            if (!activeEvent) {
-                return res.status(400).json({ error: 'No active event found to use as anchor' });
-            }
-            eventId = activeEvent.id;
-            // If we use the active event, we probably want to use its actualStartTime if it exists
-            if (!anchorTime && activeEvent.actualStartTime) {
-                time = new Date(activeEvent.actualStartTime);
+            if (activeEvent) {
+                eventId = activeEvent.id;
+                // If we use the active event, we probably want to use its actualStartTime if it exists
+                if (!anchorTime && activeEvent.actualStartTime) {
+                    time = new Date(activeEvent.actualStartTime);
+                }
+            } else {
+                // Fallback to the designated time anchor if no active event
+                const anchorEvent = await prisma.productionEvent.findFirst({
+                    where: { productionId, isTimeAnchor: true }
+                });
+                if (anchorEvent) {
+                    eventId = anchorEvent.id;
+                } else {
+                    // Final fallback to the first event
+                    const firstEvent = await prisma.productionEvent.findFirst({
+                        where: { productionId },
+                        orderBy: { order: 'asc' }
+                    });
+                    if (!firstEvent) {
+                        return res.status(400).json({ error: 'No events found for this production' });
+                    }
+                    eventId = firstEvent.id;
+                }
             }
         }
 
