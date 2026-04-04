@@ -1,140 +1,140 @@
 {
   "version": 1,
-  "name": "Standaard Korfbal Draaiboek",
+  "name": "Draaiboek Korfbal League wedstrijd",
   "items": [
     {
+      "id": "cmnk0x8hb0001byxttepl0gv0",
       "title": "Thumbnail neerzetten",
       "note": null,
       "durationSec": 15,
-      "orderIndex": 0,
+      "orderIndex": 1,
       "isInVenue": false,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Showcaller",
         "Regie livestream"
       ]
     },
     {
+      "id": "cmnk0x8hh0003byxta2dfu1v3",
       "title": "Livestream starten",
       "note": null,
       "durationSec": 0,
-      "orderIndex": 1,
+      "orderIndex": 2,
       "isInVenue": false,
       "isInLivestream": true,
       "isTimeAnchor": true,
       "anchorType": "LIVESTREAM_START",
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Showcaller",
         "Regie livestream"
       ]
     },
     {
+      "id": "cmnk0x8hk0005byxtjoof280y",
       "title": "Intro filmpje starten",
       "note": null,
       "durationSec": 48,
-      "orderIndex": 2,
-      "isInVenue": false,
-      "isInLivestream": true,
-      "isTimeAnchor": false,
-      "anchorType": null,
-      "autoAdvance": true,
-      "positions": [
-        "Regie livestream",
-        "Showcaller"
-      ]
-    },
-    {
-      "title": "Regisseur zet microfoon presentator open",
-      "note": null,
-      "durationSec": 0,
       "orderIndex": 3,
       "isInVenue": false,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": true,
+      "parentId": null,
       "positions": [
-        "Regie livestream",
-        "Presentatie",
-        "Showcaller"
+        "Showcaller",
+        "Regie livestream"
       ]
     },
     {
-      "title": "Presentator heet publiek welkom",
+      "id": "cmnk0x8hn0007byxt6tbxqex0",
+      "title": "Regisseur zet microfoon presentator open",
       "note": null,
-      "durationSec": 15,
+      "durationSec": 0,
       "orderIndex": 4,
       "isInVenue": false,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
-      "autoAdvance": false,
+      "autoAdvance": true,
+      "parentId": null,
       "positions": [
-        "Regie livestream",
+        "Showcaller",
         "Presentatie",
-        "Showcaller"
+        "Regie livestream"
       ]
     },
     {
-      "title": "KL promo afspelen",
+      "id": "cmnk0x8ht0009byxtv6qgq0yt",
+      "title": "Presentator heet publiek welkom",
       "note": null,
-      "durationSec": 53,
+      "durationSec": 15,
       "orderIndex": 5,
       "isInVenue": false,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
-      "autoAdvance": true,
+      "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Regie livestream",
+        "Presentatie",
         "Showcaller"
       ]
     },
     {
-      "title": "Presentator & Analist gesprek",
+      "id": "cmnk0x8hz000bbyxt7a2x6565",
+      "title": "KL promo afspelen",
       "note": null,
-      "durationSec": 150,
+      "durationSec": 53,
       "orderIndex": 6,
       "isInVenue": false,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
-      "autoAdvance": false,
+      "autoAdvance": true,
+      "parentId": null,
       "positions": [
-        "Regie livestream",
-        "Showcaller"
+        "Showcaller",
+        "Regie livestream"
       ]
     },
     {
-      "title": "Reclame",
+      "id": "cmnk0x8i3000dbyxtt9ohnh4m",
+      "title": "Presentator & Analist gesprek",
       "note": null,
-      "durationSec": 35,
+      "durationSec": 150,
       "orderIndex": 7,
       "isInVenue": false,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
-      "autoAdvance": true,
+      "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Regie livestream",
-        "Presentatie",
         "Showcaller"
       ]
     },
     {
-      "title": "Interview met uit coach",
+      "id": "cmnk0x8i7000fbyxt02p6npv1",
+      "title": "Reclame",
       "note": null,
-      "durationSec": 180,
+      "durationSec": 35,
       "orderIndex": 8,
       "isInVenue": false,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
-      "autoAdvance": false,
+      "autoAdvance": true,
+      "parentId": null,
       "positions": [
         "Regie livestream",
         "Presentatie",
@@ -142,7 +142,8 @@
       ]
     },
     {
-      "title": "Interview met thuis coach",
+      "id": "cmnk0x8id000hbyxthwte6587",
+      "title": "Interview met uit coach",
       "note": null,
       "durationSec": 180,
       "orderIndex": 9,
@@ -151,23 +152,25 @@
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Regie livestream",
         "Presentatie",
-        "Camera rechts",
         "Showcaller"
       ]
     },
     {
-      "title": "Nabeschouwing en voorspelling",
+      "id": "cmnk0x8ih000jbyxtq53qozbh",
+      "title": "Interview met thuis coach",
       "note": null,
-      "durationSec": 105,
+      "durationSec": 180,
       "orderIndex": 10,
       "isInVenue": false,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Regie livestream",
         "Presentatie",
@@ -176,15 +179,17 @@
       ]
     },
     {
-      "title": "Reclame",
+      "id": "cmnk0x8io000lbyxtkj0h8qxr",
+      "title": "Nabeschouwing en voorspelling",
       "note": null,
-      "durationSec": 35,
+      "durationSec": 105,
       "orderIndex": 11,
       "isInVenue": false,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
-      "autoAdvance": true,
+      "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Regie livestream",
         "Presentatie",
@@ -193,15 +198,54 @@
       ]
     },
     {
+      "id": "cmnk0x8iv000nbyxtg76mlqgj",
+      "title": "Reclame",
+      "note": null,
+      "durationSec": 35,
+      "orderIndex": 12,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "parentId": null,
+      "positions": [
+        "Regie livestream",
+        "Presentatie",
+        "Camera rechts",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8kh0017byxtu8qahlk2",
+      "title": "Check audio licht-PC & LED PC unmuted",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 13,
+      "isInVenue": true,
+      "isInLivestream": false,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Regie LEDscherm",
+        "Showcaller",
+        "Muziek"
+      ]
+    },
+    {
+      "id": "cmnk0x8j3000pbyxtiqpf2ce7",
       "title": "Licht uit",
       "note": null,
       "durationSec": 0,
-      "orderIndex": 12,
+      "orderIndex": 14,
       "isInVenue": true,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Muziek",
         "Regie livestream",
@@ -211,39 +255,7 @@
       ]
     },
     {
-      "title": "Commentatoren praten over wedstrijd (opstellingen)",
-      "note": null,
-      "durationSec": 120,
-      "orderIndex": 13,
-      "isInVenue": false,
-      "isInLivestream": true,
-      "isTimeAnchor": false,
-      "anchorType": null,
-      "autoAdvance": false,
-      "positions": [
-        "Regie livestream",
-        "Commentaar",
-        "Showcaller"
-      ]
-    },
-    {
-      "title": "Speaker prietpraat",
-      "note": null,
-      "durationSec": 180,
-      "orderIndex": 14,
-      "isInVenue": true,
-      "isInLivestream": false,
-      "isTimeAnchor": false,
-      "anchorType": null,
-      "autoAdvance": false,
-      "positions": [
-        "Muziek",
-        "Oplopen geluid",
-        "Speaker",
-        "Showcaller"
-      ]
-    },
-    {
+      "id": "cmnk0x8jo000vbyxtdguv2vhd",
       "title": "Start oploopfilm",
       "note": null,
       "durationSec": 42,
@@ -253,14 +265,16 @@
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": true,
+      "parentId": "cmnk0x8j3000pbyxtiqpf2ce7",
       "positions": [
-        "Muziek",
-        "Regie livestream",
+        "Showcaller",
         "Regie LEDscherm",
-        "Showcaller"
+        "Regie livestream",
+        "Muziek"
       ]
     },
     {
+      "id": "cmnk0x8jv000xbyxt0n7phuau",
       "title": "Check geluid speaker (unmute en schuif open)",
       "note": null,
       "durationSec": 0,
@@ -270,42 +284,50 @@
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": "cmnk0x8jo000vbyxtdguv2vhd",
       "positions": [
-        "Muziek",
-        "Showcaller"
+        "Showcaller",
+        "Muziek"
       ]
     },
     {
-      "title": "Na oploopfilm, \"Opstellen teams\" muziek weer aan",
+      "id": "cmnk32xul0000by8129j4353m",
+      "title": "Regisseur checkt geluid commentatoren & zaal",
       "note": null,
       "durationSec": 0,
       "orderIndex": 17,
-      "isInVenue": true,
-      "isInLivestream": false,
+      "isInVenue": false,
+      "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
-        "Muziek",
-        "Showcaller"
+        "Showcaller",
+        "Regie livestream"
       ]
     },
     {
-      "title": "Geef signaal aan speaker voor prietpraat na 15s",
+      "id": "cmnk0x8k0000zbyxtm8f51msu",
+      "title": "Na oploopfilm, \"Opstellen teams\" muziek weer aan",
       "note": null,
-      "durationSec": 180,
+      "durationSec": 0,
       "orderIndex": 18,
       "isInVenue": true,
       "isInLivestream": false,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
-        "Muziek",
-        "Showcaller"
+        "Oplopen volgspot",
+        "Oplopen geluid",
+        "Showcaller",
+        "Muziek"
       ]
     },
     {
+      "id": "cmnk0x8k90013byxtrw1kj8l4",
       "title": "Regisseur geeft commentatoren aan dat ze kunnen beginnen",
       "note": null,
       "durationSec": 0,
@@ -315,178 +337,216 @@
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Regie livestream",
         "Showcaller"
       ]
     },
     {
-      "title": "Regisseur toont opstellingen",
+      "id": "cmnk0x8jb000rbyxtl1jy67qj",
+      "title": "Commentatoren praten over wedstrijd (opstellingen)",
       "note": null,
-      "durationSec": 0,
+      "durationSec": 120,
       "orderIndex": 20,
       "isInVenue": false,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": "cmnk0x8k90013byxtrw1kj8l4",
       "positions": [
+        "Showcaller",
+        "Commentaar",
         "Regie livestream",
-        "Showcaller"
+        "Camera links",
+        "Camera rechts"
       ]
     },
     {
-      "title": "Check audio licht-PC unmuted",
-      "note": null,
-      "durationSec": 0,
+      "id": "cmnk0x8k40011byxtoyb13kof",
+      "title": "Speaker introduceert wedstrijd",
+      "note": "'Prietpraat' over de wedstrijd en andere achtergrond informatie",
+      "durationSec": 180,
       "orderIndex": 21,
       "isInVenue": true,
       "isInLivestream": false,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": "cmnk0x8k90013byxtrw1kj8l4",
       "positions": [
         "Muziek",
-        "Showcaller"
+        "Showcaller",
+        "Regie livestream",
+        "Oplopen volgspot",
+        "Oplopen geluid",
+        "Camera links",
+        "Camera rechts",
+        "Speaker"
       ]
     },
     {
-      "title": "Regisseur stopt commentatoren",
+      "id": "cmnk0x8kc0015byxtnmjr9p93",
+      "title": "Regisseur toont opstellingen",
       "note": null,
-      "durationSec": 30,
+      "durationSec": 0,
       "orderIndex": 22,
       "isInVenue": false,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Regie livestream",
         "Showcaller"
       ]
     },
     {
+      "id": "cmnk0x8kk0019byxtljuifer3",
+      "title": "Regisseur stopt commentatoren",
+      "note": null,
+      "durationSec": 30,
+      "orderIndex": 23,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8ko001bbyxtpu33plyc",
       "title": "Start oploop muziek tegenstander",
       "note": null,
       "durationSec": 15,
-      "orderIndex": 23,
+      "orderIndex": 24,
       "isInVenue": true,
       "isInLivestream": false,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Muziek",
         "Showcaller"
       ]
     },
     {
+      "id": "cmnk0x8ks001dbyxtytrd1zng",
       "title": "Regisseur telt af start oplopen",
       "note": null,
       "durationSec": 3,
-      "orderIndex": 24,
+      "orderIndex": 25,
       "isInVenue": true,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
-        "Regie livestream",
-        "Showcaller"
+        "Oplopen volgspot",
+        "Oplopen geluid",
+        "Muziek",
+        "Speaker",
+        "Regie LEDscherm",
+        "Showcaller",
+        "Regie livestream"
       ]
     },
     {
+      "id": "cmnk0x8kw001fbyxtivbxjt5c",
       "title": "Signaal aan speaker (lamp op deuropening)",
       "note": null,
       "durationSec": 15,
-      "orderIndex": 25,
+      "orderIndex": 26,
       "isInVenue": true,
       "isInLivestream": false,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Muziek",
         "Showcaller"
       ]
     },
     {
+      "id": "cmnk0x8l0001hbyxt8de4su4q",
       "title": "Oplopen tegenstander door speaker",
       "note": null,
       "durationSec": 120,
-      "orderIndex": 26,
+      "orderIndex": 27,
       "isInVenue": true,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Muziek",
         "Showcaller"
       ]
     },
     {
+      "id": "cmnk0x8l5001jbyxtx611y69d",
       "title": "Start oploop muziek Fortuna",
       "note": null,
       "durationSec": 15,
-      "orderIndex": 27,
+      "orderIndex": 28,
       "isInVenue": true,
       "isInLivestream": false,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Muziek",
         "Showcaller"
       ]
     },
     {
+      "id": "cmnk0x8l9001lbyxttyv2iqlr",
       "title": "Oplopen Fortuna door speaker",
       "note": null,
       "durationSec": 120,
-      "orderIndex": 28,
-      "isInVenue": true,
-      "isInLivestream": true,
-      "isTimeAnchor": false,
-      "anchorType": null,
-      "autoAdvance": false,
-      "positions": [
-        "Muziek",
-        "Showcaller"
-      ]
-    },
-    {
-      "title": "Oplopen scheidsrechters (Fortuna muziek loopt door)",
-      "note": null,
-      "durationSec": 30,
       "orderIndex": 29,
       "isInVenue": true,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Muziek",
         "Showcaller"
       ]
     },
     {
-      "title": "Scheidsrechters in midden, zaallampen aan",
+      "id": "cmnk0x8le001nbyxtjox4p5i7",
+      "title": "Oplopen scheidsrechters (Fortuna muziek loopt door)",
       "note": null,
-      "durationSec": 0,
+      "durationSec": 30,
       "orderIndex": 30,
       "isInVenue": true,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Muziek",
         "Showcaller"
       ]
     },
     {
-      "title": "Muziek \"na oplopen\" aan",
+      "id": "cmnk0x8li001pbyxtnsmzx1n2",
+      "title": "Scheidsrechters in midden, zaallampen aan",
       "note": null,
       "durationSec": 0,
       "orderIndex": 31,
@@ -495,81 +555,550 @@
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Muziek",
         "Showcaller"
       ]
     },
     {
+      "id": "cmnk0x8ln001rbyxtakqx52dp",
+      "title": "Muziek \"na oplopen\" aan",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 32,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8lr001tbyxtuwgxr5mb",
       "title": "Tonen en melden wedstrijdsponsor",
       "note": null,
       "durationSec": 30,
-      "orderIndex": 32,
+      "orderIndex": 33,
       "isInVenue": false,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Regie livestream",
         "Showcaller"
       ]
     },
     {
+      "id": "cmnk0x8lw001vbyxtxzz83ulc",
       "title": "Zaallicht op wedstrijd niveau",
       "note": null,
       "durationSec": 0,
-      "orderIndex": 33,
-      "isInVenue": true,
-      "isInLivestream": true,
-      "isTimeAnchor": false,
-      "anchorType": null,
-      "autoAdvance": false,
-      "positions": [
-        "Muziek",
-        "Showcaller"
-      ]
-    },
-    {
-      "title": "Teams geven elkaar hand",
-      "note": null,
-      "durationSec": 30,
       "orderIndex": 34,
       "isInVenue": true,
       "isInLivestream": true,
       "isTimeAnchor": false,
       "anchorType": null,
       "autoAdvance": false,
-      "positions": [
-        "Regie livestream",
-        "Showcaller"
-      ]
-    },
-    {
-      "title": "Muziek uitfaden naar influiten",
-      "note": null,
-      "durationSec": 0,
-      "orderIndex": 35,
-      "isInVenue": true,
-      "isInLivestream": false,
-      "isTimeAnchor": false,
-      "anchorType": null,
-      "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Muziek",
         "Showcaller"
       ]
     },
     {
-      "title": "Start wedstrijd",
+      "id": "cmnk0x8m1001xbyxts2fddeyj",
+      "title": "Teams geven elkaar hand",
+      "note": null,
+      "durationSec": 30,
+      "orderIndex": 35,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8m6001zbyxt4sk4s5x4",
+      "title": "Muziek uitfaden naar influiten",
       "note": null,
       "durationSec": 0,
       "orderIndex": 36,
+      "isInVenue": true,
+      "isInLivestream": false,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8mb0021byxt4dl96nwh",
+      "title": "Start wedstrijd",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 37,
       "isInVenue": true,
       "isInLivestream": true,
       "isTimeAnchor": true,
       "anchorType": "MATCH_START",
       "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8mh0023byxtis41e3o6",
+      "title": "Eerste helft",
+      "note": "Eerste helft zuivere speeltijd. Bij timeout's statistieken tonen en bij dode spelmomenten eventueel de wedstrijd sponsor.",
+      "durationSec": 1800,
+      "orderIndex": 38,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8mm0025byxtx7ntelgr",
+      "title": "Speaker kondigt rust aan",
+      "note": null,
+      "durationSec": 30,
+      "orderIndex": 39,
+      "isInVenue": true,
+      "isInLivestream": false,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "parentId": "cmnk0x8mh0023byxtis41e3o6",
+      "positions": [
+        "Regie livestream",
+        "Regie LEDscherm",
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8mt0027byxtpxe7flun",
+      "title": "Commentatoren kondigen rust aan",
+      "note": null,
+      "durationSec": 30,
+      "orderIndex": 40,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "parentId": "cmnk0x8mh0023byxtis41e3o6",
+      "positions": [
+        "Regie livestream",
+        "Commentaar",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8n00029byxtah2pb4yl",
+      "title": "Toon statistieken",
+      "note": null,
+      "durationSec": 30,
+      "orderIndex": 41,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": "cmnk0x8mh0023byxtis41e3o6",
+      "positions": [
+        "Regie livestream",
+        "Regie LEDscherm",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8n5002bbyxtvo6wdsc5",
+      "title": "Speel reclame af op LEDScherm",
+      "note": null,
+      "durationSec": 180,
+      "orderIndex": 42,
+      "isInVenue": true,
+      "isInLivestream": false,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": "cmnk0x8n00029byxtah2pb4yl",
+      "positions": [
+        "Muziek",
+        "Showcaller",
+        "Regie LEDscherm"
+      ]
+    },
+    {
+      "id": "cmnk0x8nd002dbyxtyconhfcc",
+      "title": "Reclame",
+      "note": null,
+      "durationSec": 180,
+      "orderIndex": 43,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "parentId": "cmnk0x8n00029byxtah2pb4yl",
+      "positions": [
+        "Showcaller",
+        "Regie livestream",
+        "Presentatie"
+      ]
+    },
+    {
+      "id": "cmnk0x8nk002fbyxtek3p8epi",
+      "title": "Analyse eerste heflt",
+      "note": null,
+      "durationSec": 300,
+      "orderIndex": 44,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "parentId": "cmnk0x8nd002dbyxtyconhfcc",
+      "positions": [
+        "Presentatie",
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8nr002hbyxtwecm4wpv",
+      "title": "Reclame",
+      "note": null,
+      "durationSec": 180,
+      "orderIndex": 45,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "parentId": "cmnk0x8nk002fbyxtek3p8epi",
+      "positions": [
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8nv002jbyxtpjf37pnc",
+      "title": "Commentatoren open zetten",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 46,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Showcaller",
+        "Regie livestream",
+        "Commentaar"
+      ]
+    },
+    {
+      "id": "cmnk0x8o2002lbyxt5jxzjb1v",
+      "title": "Speaker openzetten",
+      "note": null,
+      "durationSec": 0,
+      "orderIndex": 47,
+      "isInVenue": true,
+      "isInLivestream": false,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Muziek",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8o7002nbyxty1usplls",
+      "title": "Tweede helft",
+      "note": null,
+      "durationSec": 1800,
+      "orderIndex": 48,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Commentaar",
+        "Muziek",
+        "Regie livestream",
+        "Regie LEDscherm",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8of002pbyxtgoys8f1u",
+      "title": "Statistieken tonen",
+      "note": null,
+      "durationSec": 20,
+      "orderIndex": 49,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Regie livestream",
+        "Regie LEDscherm",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8ok002rbyxtese53pp9",
+      "title": "Reclame",
+      "note": null,
+      "durationSec": 180,
+      "orderIndex": 50,
+      "isInVenue": true,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Regie livestream",
+        "Regie LEDscherm",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8or002tbyxtplyuymf8",
+      "title": "Analyse en statistieken",
+      "note": null,
+      "durationSec": 120,
+      "orderIndex": 51,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Analist",
+        "Presentatie",
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8p1002vbyxtopqs9jgu",
+      "title": "Interview coach tegenstander",
+      "note": null,
+      "durationSec": 180,
+      "orderIndex": 52,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Interview coordinator",
+        "Showcaller",
+        "Regie livestream",
+        "Presentatie",
+        "Analist"
+      ]
+    },
+    {
+      "id": "cmnk0x8pc002xbyxtkco3dyx9",
+      "title": "Interview speler tegenstander",
+      "note": null,
+      "durationSec": 180,
+      "orderIndex": 53,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Analist",
+        "Regie livestream",
+        "Presentatie",
+        "Interview coordinator",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8ph002zbyxt93sfp635",
+      "title": "Reclame",
+      "note": null,
+      "durationSec": 35,
+      "orderIndex": 54,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "parentId": null,
+      "positions": [
+        "Regie livestream",
+        "Analist",
+        "Interview coordinator",
+        "Presentatie",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8pm0031byxtnkq2zt92",
+      "title": "Interview coach Fortuna/Ruitenheer",
+      "note": null,
+      "durationSec": 180,
+      "orderIndex": 55,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Analist",
+        "Interview coordinator",
+        "Presentatie",
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8q70033byxt1vkybf3m",
+      "title": "Interview speler Fortuna/Ruitenheer",
+      "note": null,
+      "durationSec": 180,
+      "orderIndex": 56,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Analist",
+        "Interview coordinator",
+        "Presentatie",
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8qa0035byxt089kc7kw",
+      "title": "Reacties op interviews, standen, volgende wedstrijd",
+      "note": null,
+      "durationSec": 60,
+      "orderIndex": 57,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Analist",
+        "Regie livestream",
+        "Presentatie",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8qc0037byxt4qkreq1v",
+      "title": "Reclame",
+      "note": null,
+      "durationSec": 35,
+      "orderIndex": 58,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "parentId": null,
+      "positions": [
+        "Interview coordinator",
+        "Analist",
+        "Regie livestream",
+        "Presentatie",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8qe0039byxt9lqr52ca",
+      "title": "Korfballeague promo kort",
+      "note": null,
+      "durationSec": 60,
+      "orderIndex": 59,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": true,
+      "parentId": null,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8qg003bbyxterqk3euh",
+      "title": "Highlights wedstrijd",
+      "note": null,
+      "durationSec": 180,
+      "orderIndex": 60,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
+      "positions": [
+        "Regie livestream",
+        "Showcaller"
+      ]
+    },
+    {
+      "id": "cmnk0x8qh003dbyxtjszx6g58",
+      "title": "Credits",
+      "note": null,
+      "durationSec": 60,
+      "orderIndex": 61,
+      "isInVenue": false,
+      "isInLivestream": true,
+      "isTimeAnchor": false,
+      "anchorType": null,
+      "autoAdvance": false,
+      "parentId": null,
       "positions": [
         "Regie livestream",
         "Showcaller"

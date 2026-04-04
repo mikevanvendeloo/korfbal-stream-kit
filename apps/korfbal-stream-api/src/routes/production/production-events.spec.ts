@@ -1,8 +1,8 @@
 import request from 'supertest';
-import { execSync } from 'node:child_process';
+import {execSync} from 'node:child_process';
 import app from '../../main';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { PrismaClient } from '@prisma/client';
+import {beforeAll, beforeEach, describe, expect, it} from 'vitest';
+import {PrismaClient} from '@prisma/client';
 
 function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
@@ -21,7 +21,7 @@ async function resetDb() {
   ]);
 }
 
-(runDb ? describe : describe.skip)('Production Events API (integration)', () => {
+describe('Production Events API (integration)', () => {
   beforeAll(async () => {
     run('npx prisma migrate deploy --schema=apps/korfbal-stream-api/prisma/schema.prisma');
     run('npx prisma db seed --schema=apps/korfbal-stream-api/prisma/schema.prisma');

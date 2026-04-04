@@ -60,14 +60,14 @@ export default function CallSheetTemplatesPage() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Draaiboeken</h1>
-          <p className="text-white/60">Beheer callsheet templates die je kunt toepassen op producties.</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Draaiboeken</h1>
+          <p className="text-gray-600 dark:text-white/60">Beheer callsheet templates die je kunt toepassen op producties.</p>
         </div>
         <div className="flex gap-3">
           <Button
             onClick={() => setIsImporting('excel')}
             variant="outline"
-            className="border-white/10 hover:bg-white/5"
+            className="border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5"
           >
             <Upload className="w-4 h-4 mr-2" />
             Excel Import
@@ -75,12 +75,12 @@ export default function CallSheetTemplatesPage() {
           <Button
             onClick={() => setIsImporting('json')}
             variant="outline"
-            className="border-white/10 hover:bg-white/5"
+            className="border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5"
           >
             <Upload className="w-4 h-4 mr-2" />
             JSON Import
           </Button>
-          <Button onClick={() => setIsAdding(true)} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={() => setIsAdding(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
             <Plus className="w-4 h-4 mr-2" />
             Nieuw Draaiboek
           </Button>
@@ -88,20 +88,20 @@ export default function CallSheetTemplatesPage() {
       </div>
 
       {isAdding && (
-        <Card className="bg-white/5 border-white/10 mb-6">
+        <Card className="bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 mb-6 shadow-sm">
           <CardContent className="pt-6">
             <div className="flex gap-4">
               <Input
                 placeholder="Naam van het draaiboek..."
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                className="bg-black/20 border-white/10 text-white"
+                className="bg-gray-50 dark:bg-black/20 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white"
                 autoFocus
               />
               <Button onClick={handleCreate} disabled={!newName.trim()}>
                 Opslaan
               </Button>
-              <Button onClick={() => setIsAdding(false)} variant="ghost">
+              <Button onClick={() => setIsAdding(false)} variant="ghost" className="text-gray-600 dark:text-white/60">
                 Annuleren
               </Button>
             </div>
@@ -110,9 +110,9 @@ export default function CallSheetTemplatesPage() {
       )}
 
       {isImporting && (
-        <Card className="bg-white/5 border-white/10 mb-6">
+        <Card className="bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 mb-6 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-white text-lg">
+            <CardTitle className="text-gray-900 dark:text-white text-lg">
               Draaiboek importeren uit {isImporting === 'excel' ? 'Excel' : 'JSON'}
             </CardTitle>
           </CardHeader>
@@ -122,7 +122,7 @@ export default function CallSheetTemplatesPage() {
                 placeholder="Naam voor het nieuwe draaiboek..."
                 value={importName}
                 onChange={(e) => setImportName((e.target as HTMLInputElement).value)}
-                className="bg-black/20 border-white/10 text-white"
+                className="bg-gray-50 dark:bg-black/20 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white"
               />
               <div className="flex items-center gap-4">
                 <Input
@@ -130,13 +130,13 @@ export default function CallSheetTemplatesPage() {
                   accept={isImporting === 'excel' ? '.xlsx' : '.json'}
                   onChange={handleImport}
                   disabled={!importName.trim()}
-                  className="bg-black/20 border-white/10 text-white cursor-pointer"
+                  className="bg-gray-50 dark:bg-black/20 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white cursor-pointer"
                 />
-                <Button onClick={() => setIsImporting(null)} variant="ghost">
+                <Button onClick={() => setIsImporting(null)} variant="ghost" className="text-gray-600 dark:text-white/60">
                   Annuleren
                 </Button>
               </div>
-              <p className="text-xs text-white/40 italic">
+              <p className="text-xs text-gray-500 dark:text-white/40 italic">
                 {isImporting === 'excel'
                   ? 'De Excel moet de volgende kolommen bevatten: Titel, Notitie, Duur (sec), Posities, Tijd Anchor, Anchor Type, Auto Advance, Zaal, Stream.'
                   : 'Het JSON-bestand moet een "name" en een lijst met "items" bevatten.'}
@@ -148,22 +148,22 @@ export default function CallSheetTemplatesPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {templates.map((template) => (
-          <Card key={template.id} className="bg-white/5 border-white/10 hover:border-white/20 transition-all group">
+          <Card key={template.id} className="bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-white/20 transition-all group shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xl font-semibold text-white">
+              <CardTitle className="text-xl font-semibold text-gray-900 dark:text-white">
                 {template.name}
               </CardTitle>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <a
                   href={createUrl(`/api/callsheets/templates/${template.id}/export`)}
-                  className="p-2 hover:bg-white/10 rounded-full text-white/60 hover:text-white"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full text-gray-500 dark:text-white/60 hover:text-gray-900 dark:hover:text-white"
                   title="Exporteren naar Excel"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
                 </a>
                 <a
                   href={createUrl(`/api/callsheets/templates/${template.id}/export-json`)}
-                  className="p-2 hover:bg-white/10 rounded-full text-white/60 hover:text-white"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full text-gray-500 dark:text-white/60 hover:text-gray-900 dark:hover:text-white"
                   title="Exporteren naar JSON"
                 >
                   <Download className="w-4 h-4" />
@@ -171,7 +171,7 @@ export default function CallSheetTemplatesPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                  className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-400/10"
                   onClick={() => handleDelete(template.id)}
                 >
                   <Trash2 className="w-4 h-4" />
@@ -180,11 +180,11 @@ export default function CallSheetTemplatesPage() {
             </CardHeader>
             <CardContent>
               <div className="flex justify-between items-end">
-                <span className="text-white/40 text-sm">
+                <span className="text-gray-500 dark:text-white/40 text-sm font-medium">
                   {template._count?.items || 0} items
                 </span>
                 <Link to={`/admin/callsheets/templates/${template.id}`}>
-                  <Button variant="outline" size="sm" className="border-white/10 hover:bg-white/5">
+                  <Button variant="outline" size="sm" className="border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-white/80">
                     Bekijken / Bewerken
                   </Button>
                 </Link>
@@ -194,9 +194,9 @@ export default function CallSheetTemplatesPage() {
         ))}
 
         {templates.length === 0 && !loading && (
-          <div className="col-span-full py-20 text-center border-2 border-dashed border-white/5 rounded-xl">
-            <FileSpreadsheet className="w-12 h-12 text-white/10 mx-auto mb-4" />
-            <p className="text-white/40">Geen draaiboeken gevonden. Maak er een aan of importeer uit Excel.</p>
+          <div className="col-span-full py-20 text-center border-2 border-dashed border-gray-200 dark:border-white/5 rounded-xl">
+            <FileSpreadsheet className="w-12 h-12 text-gray-300 dark:text-white/10 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-white/40">Geen draaiboeken gevonden. Maak er een aan of importeer uit Excel.</p>
           </div>
         )}
       </div>

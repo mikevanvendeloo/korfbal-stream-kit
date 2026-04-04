@@ -161,31 +161,51 @@ callSheetTemplateRouter.put('/items/:itemId', async (req, res, next) => {
       autoAdvance, positionIds, parentId
     } = req.body;
 
-    // Delete old positions and create new ones
-    await prisma.callSheetTemplatePosition.deleteMany({
-      where: { templateItemId: itemId }
+    // Update positions and fields
+    const updated = await prisma.$transaction(async (tx) => {
+      // If orderIndex changed, we might want to shift others,
+      // but the simplest is to just update this one and let the user reorder.
+      // However, the request specifically asked: "waarna alles vanaf dat nummer eentje wordt opgeschoven"
+      const currentItem = await tx.callSheetTemplateItem.findUnique({ where: { id: itemId } });
+      if (currentItem && orderIndex !== undefined && Number(orderIndex) !== currentItem.orderIndex) {
+        const newIdx = Number(orderIndex);
+        // Shift items that are at or after the new index
+        await tx.callSheetTemplateItem.updateMany({
+          where: {
+            templateId: currentItem.templateId,
+            orderIndex: { gte: newIdx },
+            id: { not: itemId }
+          },
+          data: { orderIndex: { increment: 1 } }
+        });
+      }
+
+      await tx.callSheetTemplatePosition.deleteMany({
+        where: { templateItemId: itemId }
+      });
+
+      return tx.callSheetTemplateItem.update({
+        where: { id: itemId },
+        data: {
+          title,
+          note,
+          durationSec: durationSec !== undefined ? Number(durationSec) : undefined,
+          orderIndex: orderIndex !== undefined ? Number(orderIndex) : undefined,
+          isInVenue: isInVenue !== undefined ? !!isInVenue : undefined,
+          isInLivestream: isInLivestream !== undefined ? !!isInLivestream : undefined,
+          isTimeAnchor: isTimeAnchor !== undefined ? !!isTimeAnchor : undefined,
+          anchorType,
+          autoAdvance: autoAdvance !== undefined ? !!autoAdvance : undefined,
+          parentId: parentId !== undefined ? (parentId || null) : undefined,
+          positions: {
+            create: (positionIds || []).map((pid: number) => ({
+              position: { connect: { id: pid } }
+            }))
+          }
+        }
+      });
     });
 
-    const updated = await prisma.callSheetTemplateItem.update({
-      where: { id: itemId },
-      data: {
-        title,
-        note,
-        durationSec: durationSec !== undefined ? Number(durationSec) : undefined,
-        orderIndex: orderIndex !== undefined ? Number(orderIndex) : undefined,
-        isInVenue: isInVenue !== undefined ? !!isInVenue : undefined,
-        isInLivestream: isInLivestream !== undefined ? !!isInLivestream : undefined,
-        isTimeAnchor: isTimeAnchor !== undefined ? !!isTimeAnchor : undefined,
-        anchorType,
-        autoAdvance: autoAdvance !== undefined ? !!autoAdvance : undefined,
-        parentId: parentId !== undefined ? (parentId || null) : undefined,
-        positions: {
-          create: (positionIds || []).map((pid: number) => ({
-            position: { connect: { id: pid } }
-          }))
-        }
-      }
-    });
     return res.json(updated);
   } catch (err) {
     return next(err);
@@ -206,6 +226,31 @@ callSheetTemplateRouter.delete('/items/:itemId', async (req, res, next) => {
   }
 });
 
+// Reorder template items
+callSheetTemplateRouter.put('/:id/reorder', async (req, res, next) => {
+  try {
+    const templateId = Number(req.params.id);
+    const { itemIds } = req.body;
+
+    if (!Array.isArray(itemIds)) {
+      return res.status(400).json({ error: 'itemIds must be an array' });
+    }
+
+    await prisma.$transaction(
+      itemIds.map((id, index) =>
+        prisma.callSheetTemplateItem.update({
+          where: { id: String(id), templateId },
+          data: { orderIndex: index + 1 }
+        })
+      )
+    );
+
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // --- Actions ---
 
 // Apply template to production
@@ -213,24 +258,26 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
   try {
     const templateId = Number(req.params.id);
     const productionId = Number(req.params.productionId);
-    const { segmentId: requestedSegmentId, replace = true } = req.body || {};
+    // Forceer replace = true volgens issue description
+    const replace = true;
 
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const template = await tx.callSheetTemplate.findUnique({
         where: { id: templateId },
-        include: { items: { include: { positions: true } } }
+        include: { items: { include: { positions: true }, orderBy: { orderIndex: 'asc' } } }
       });
 
-      if (!template) return res.status(404).json({ error: 'Template not found' });
+      if (!template) throw new Error('Template not found');
 
       const production = await tx.production.findUnique({
         where: { id: productionId },
-        include: { segments: { orderBy: { volgorde: 'asc' } } }
+        include: {
+          segments: { orderBy: { volgorde: 'asc' } },
+          matchSchedule: true
+        }
       });
 
-      if (!production) return res.status(404).json({ error: 'Production not found' });
-
-      let segmentId: number;
+      if (!production) throw new Error('Production not found');
 
       if (replace) {
         // Clean up old CallSheets, Items, ProductionEvents for this production
@@ -270,59 +317,6 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
         await tx.callSheet.deleteMany({
           where: { productionId, name: template.name }
         });
-
-        // Use the first segment if available, otherwise create a default one
-        if (production.segments.length > 0) {
-          segmentId = production.segments[0].id;
-        } else {
-          const newSegment = await tx.productionSegment.create({
-            data: {
-              productionId,
-              naam: 'Algemeen',
-              volgorde: 1,
-              duurInMinuten: 60,
-              isTimeAnchor: true
-            }
-          });
-          segmentId = newSegment.id;
-        }
-      } else {
-        // Append mode
-        // Mocht er al een callsheet zijn met deze naam, dan moeten we die hergebruiken of de naam aanpassen
-        // Voor nu: als we niet replacen, maar de naam botst, voegen we een timestamp toe
-        const existingCS = await tx.callSheet.findFirst({
-           where: { productionId, name: template.name }
-        });
-
-        if (existingCS) {
-           // We kunnen de unieke constraint niet schenden, dus als we niet replacen maar wel dezelfde naam hebben:
-           // Of we gebruiken de bestaande, of we geven een error, of we hernoemen.
-           // Gezien 'apply' meestal bedoeld is om een nieuwe set items toe te voegen, hernoemen we de nieuwe callsheet.
-           template.name = `${template.name} (${new Date().toLocaleTimeString()})`;
-        }
-
-        if (requestedSegmentId) {
-          segmentId = Number(requestedSegmentId);
-          const seg = await tx.productionSegment.findFirst({
-            where: { id: segmentId, productionId }
-          });
-          if (!seg) return res.status(400).json({ error: 'Invalid segment for this production' });
-        } else {
-          if (production.segments.length > 0) {
-            segmentId = production.segments[0].id;
-          } else {
-            const newSegment = await tx.productionSegment.create({
-              data: {
-                productionId,
-                naam: 'Algemeen',
-                volgorde: 1,
-                duurInMinuten: 60,
-                isTimeAnchor: true
-              }
-            });
-            segmentId = newSegment.id;
-          }
-        }
       }
 
       // Create a new CallSheet for this production
@@ -344,7 +338,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
         itemsToCreate.push({
           id: itemId,
           callSheetId: callSheet.id,
-          productionSegmentId: segmentId,
+          productionSegmentId: null,
           cue: '',
           title: tItem.title,
           note: tItem.note,
@@ -355,7 +349,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
           isTimeAnchor: tItem.isTimeAnchor,
           anchorType: tItem.anchorType,
           autoAdvance: tItem.autoAdvance,
-          parentId: null as any,
+          parentId: null as string | null,
         });
 
         eventsToCreate.push({
@@ -371,7 +365,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
           anchorType: tItem.anchorType,
           isInVenue: tItem.isInVenue,
           isInLivestream: tItem.isInLivestream,
-          parentId: null as any,
+          parentId: null as string | null,
         });
       }
 
@@ -396,15 +390,17 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
           const itemId = itemsToCreate[i].id;
           const eventId = eventsToCreate[i].id;
 
-          for (const p of tItem.positions) {
-              itemPositions.push({
-                  callSheetItemId: itemId,
-                  positionId: p.positionId
-              });
-              eventPositions.push({
-                  eventId: eventId,
-                  positionId: p.positionId
-              });
+          if (tItem.positions) {
+            for (const p of tItem.positions) {
+                itemPositions.push({
+                    callSheetItemId: itemId,
+                    positionId: p.positionId
+                });
+                eventPositions.push({
+                    eventId: eventId,
+                    positionId: p.positionId
+                });
+            }
           }
       }
 
@@ -421,13 +417,75 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
         data: { callSheetTemplateId: templateId }
       });
 
-      return res.json({
-        message: `Template applied. Created ${itemsToCreate.length} items.`,
-        callSheetId: callSheet.id
-      });
+      return { success: true, message: 'Draaiboek succesvol toegepast!', production };
     });
-  } catch (err) {
-    return next(err);
+
+    // Herbereken tijden
+    // We moeten eerst relatieve tijden berekenen voor alle items
+    // Voordat we recalculate aanroepen, moeten we de anchorEvent een starttijd geven.
+    const allEvents = await prisma.productionEvent.findMany({
+      where: { productionId },
+      orderBy: { order: 'asc' }
+    });
+
+    const anchorEvent = allEvents.find(e => e.isTimeAnchor);
+
+    if (anchorEvent && result.production.matchSchedule) {
+      const anchorTime = new Date(result.production.matchSchedule.date);
+
+      // Eerst relatieve tijden zetten voor alle events in de juiste volgorde
+
+      // Events VOOR het anker (teruguit rekenen)
+      const beforeAnchor = allEvents.filter(e => e.order < anchorEvent.order).reverse();
+      let prevStart = new Date(anchorTime);
+      for (const ev of beforeAnchor) {
+          const start = new Date(prevStart.getTime() - ((ev.durationSec || 0) * 1000));
+          await prisma.productionEvent.update({
+              where: { id: ev.id },
+              data: { plannedStartTime: start, plannedEndTime: prevStart }
+          });
+          prevStart = start;
+      }
+
+      // Anker zelf
+      const anchorEnd = new Date(anchorTime.getTime() + ((anchorEvent.durationSec || 0) * 1000));
+      await prisma.productionEvent.update({
+          where: { id: anchorEvent.id },
+          data: { plannedStartTime: anchorTime, plannedEndTime: anchorEnd }
+      });
+
+      // Events NA het anker
+      const afterAnchor = allEvents.filter(e => e.order > anchorEvent.order);
+      let nextStart = anchorEnd;
+      for (const ev of afterAnchor) {
+          const end = new Date(nextStart.getTime() + ((ev.durationSec || 0) * 1000));
+          await prisma.productionEvent.update({
+              where: { id: ev.id },
+              data: { plannedStartTime: nextStart, plannedEndTime: end }
+          });
+          nextStart = end;
+      }
+
+      // Nu ook de callsheet items bijwerken (gemakshalve even herhalen of syncen)
+      const items = await prisma.callSheetItem.findMany({
+          where: { callSheetId: (await prisma.callSheet.findFirst({ where: { productionId }}))?.id }
+      });
+
+      for (const item of items) {
+          const ev = await prisma.productionEvent.findFirst({ where: { callSheetItemId: item.id }});
+          if (ev) {
+              await prisma.callSheetItem.update({
+                  where: { id: item.id },
+                  data: { timeStart: ev.plannedStartTime, timeEnd: ev.plannedEndTime }
+              });
+          }
+      }
+    }
+
+    return res.json({ success: true, message: result.message });
+  } catch (err: any) {
+    console.error('Error applying template:', err);
+    return res.status(500).json({ error: err.message || 'Fout bij toepassen template' });
   }
 });
 

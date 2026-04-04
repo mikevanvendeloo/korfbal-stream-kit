@@ -1,6 +1,6 @@
 import React, {createContext, useContext, useEffect, useMemo, useState} from 'react';
 
-export type FontSize = 'm' | 'l' | 'xl';
+export type FontSize = 's' | 'm' | 'l' | 'xl';
 
 interface FontSizeContextValue {
   fontSize: FontSize;
@@ -14,7 +14,11 @@ function getInitialFontSize(): FontSize {
   const saved = localStorage.getItem('callsheet-font-size');
   if (saved === 'normal' || saved === 'lg') return 'm';
   if (saved === '2xl') return 'xl';
-  return (saved as FontSize) || 'm';
+  if (saved && ['s', 'm', 'l', 'xl'].includes(saved)) return saved as FontSize;
+
+  // Default naar 's' op kleine schermen
+  if (window.innerWidth < 768) return 's';
+  return 'm';
 }
 
 interface FontSizeProviderProps {

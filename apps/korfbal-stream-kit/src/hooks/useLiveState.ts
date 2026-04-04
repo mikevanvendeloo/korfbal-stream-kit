@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'react';
-import {io, Socket} from 'socket.io-client';
+import {io} from 'socket.io-client';
 import {useParams} from 'react-router-dom';
 import {EventStatus, TriggerSource} from '@prisma/client';
 import {createUrl, getSocketUrl} from "../lib/api";
@@ -58,9 +58,9 @@ interface DisplayTime {
 // --- Helper Functies ---
 export function formatTime(totalSeconds: number): DisplayTime {
   const isNegative = totalSeconds < 0;
-  const absSeconds = Math.abs(totalSeconds);
+  const absSeconds = Math.abs(Math.round(totalSeconds));
   const minutes = Math.floor(absSeconds / 60).toString().padStart(2, '0');
-  const seconds = Math.floor(absSeconds % 60).toString().padStart(2, '0');
+  const seconds = (absSeconds % 60).toString().padStart(2, '0');
   return { minutes, seconds, isNegative, rawSeconds: totalSeconds };
 }
 
@@ -193,11 +193,11 @@ export const useLiveState = () => {
       }
     };
 
-    if (productionId) {
-      fetchData(true);
-    }
+    if (!productionId) return;
 
-    const socket: Socket = io(API_URL, {
+    fetchData(true);
+
+    const socket = io(API_URL, {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
@@ -224,18 +224,19 @@ export const useLiveState = () => {
           // Scorebord data komt binnen als "MM:SS" (bijv. "15:34")
           const venueParts = state.venueClock.split(':');
           if (venueParts.length === 2) {
-            let venueMins = parseInt(venueParts[0]);
-            let venueSecs = parseInt(venueParts[1]);
-            let totalVenueSecs = venueMins * 60 + venueSecs;
+            const venueMins = parseInt(venueParts[0]);
+            const venueSecs = parseInt(venueParts[1]);
+            const totalVenueSecs = venueMins * 60 + venueSecs;
 
-            // Alleen doorlopen als de wedstrijd bezig is (mode !== 'stopped')
-            // Omdat we niet weten of het omhoog of omlaag telt op het scorebord,
-            // gaan we uit van omlaag tellen (meest gebruikelijk bij korfbal/basketbal)
-            // tenzij we expliciete mode informatie van het scorebord krijgen.
-            // Voor nu: we passen de tijd aan op basis van elapsedSec sinds last update
-            // Maar dat is complex zonder lastUpdate time van het scorebord zelf.
-            // Simpelere benadering: we tonen gewoon de laatste state.venueClock.
-            setVenueClock(state.venueClock);
+            // We interpoleren vanaf de laatst ontvangen venue clock tijd.
+            // Omdat we weten dat de serverStartTime is bijgewerkt bij de laatste venue clock update,
+            // kunnen we berekenen hoeveel tijd er sindsdien is verstreken.
+            const elapsedSinceLastVenueSync = (Date.now() - state.serverStartTime) / 1000;
+
+            // Korfbal klokken tellen vrijwel altijd af.
+            const interpolatedVenueSecs = Math.max(0, totalVenueSecs - elapsedSinceLastVenueSync);
+            const displayVenue = formatTime(interpolatedVenueSecs);
+            setVenueClock(`${displayVenue.minutes}:${displayVenue.seconds}`);
           } else {
             setVenueClock(state.venueClock);
           }
@@ -248,13 +249,16 @@ export const useLiveState = () => {
       if (eventStartTimeRef.current) {
         const eventElapsedMs = Date.now() - eventStartTimeRef.current;
         const eventElapsedSec = eventElapsedMs / 1000;
-        setActiveEventElapsedTime(eventElapsedSec);
 
         // Bereken resterende tijd voor actief event
         const active = activeEventRef.current;
-    if (active && active.durationSec !== undefined && active.durationSec !== null) {
-      setActiveEventRemainingTime(formatTime(active.durationSec - eventElapsedSec));
-    } else {
+        if (active && active.durationSec !== undefined && active.durationSec !== null) {
+          const remaining = formatTime(active.durationSec - eventElapsedSec);
+          setActiveEventRemainingTime(remaining);
+          // Gebruik de rawSeconds van het formatTime resultaat om elapsedTime consistent te houden
+          setActiveEventElapsedTime(active.durationSec - remaining.rawSeconds);
+        } else {
+          setActiveEventElapsedTime(eventElapsedSec);
           setActiveEventRemainingTime(null);
         }
       } else {
@@ -263,21 +267,15 @@ export const useLiveState = () => {
       }
     };
 
+    socket.on('production_events_update_needed', () => {
+      fetchData();
+    });
+
     socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
     socket.on('connect_error', (err) => {
       console.error('Socket Connection Error:', err.message);
       setIsConnected(false);
-
-      // Forceer een herverbinding na een korte vertraging bij specifieke fouten
-      if (err.message === 'websocket error' || err.message === 'xhr poll error') {
-        setTimeout(() => {
-          if (!socket.connected) {
-            console.log('Attempting manual socket reconnection...');
-            socket.connect();
-          }
-        }, 5000);
-      }
     });
     socket.on('heartbeat', () => setLastSyncTime(Date.now()));
 
@@ -314,7 +312,9 @@ export const useLiveState = () => {
     intervalRef.current = setInterval(updateClocks, 100);
 
     return () => {
-      socket.disconnect();
+      if (socket) {
+        socket.disconnect();
+      }
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [productionId]);

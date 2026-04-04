@@ -1,5 +1,5 @@
-import { getIO } from './socket';
-import { logger } from '../utils/logger';
+import {getIO} from './socket';
+import {logger} from '../utils/logger';
 
 type ClockMode = 'stopped' | 'counting_up' | 'counting_down';
 
@@ -51,6 +51,9 @@ export const timeSyncService = {
   updateVenueClock: (newTime: string) => {
     if (timeState.venueClock === newTime) return;
     timeState.venueClock = newTime;
+    // Update de serverStartTime bij een venue clock update, zodat lokale interpolatie
+    // op de client synchroon loopt met de laatst ontvangen tijd van de server.
+    timeState.serverStartTime = Date.now();
     // We sturen de *volledige* state mee, zodat clients altijd alles hebben.
     // Dit voorkomt race conditions.
     broadcastTimeState();

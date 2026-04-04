@@ -399,7 +399,7 @@ model CallSheet {
 model CallSheetItem {
   id                  String                  @id
   callSheetId         Int
-  productionSegmentId Int
+  productionSegmentId Int?
   cue                 String
   title               String
   note                String?
@@ -416,7 +416,7 @@ model CallSheetItem {
   autoAdvance         Boolean                 @default(false)
   isInLivestream      Boolean                 @default(true)
   callSheet           CallSheet               @relation(fields: [callSheetId], references: [id], onDelete: Cascade)
-  productionSegment   ProductionSegment       @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
+  productionSegment   ProductionSegment?      @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
   positions           CallSheetItemPosition[]
   parentId            String?
   parent              CallSheetItem?          @relation("LinkedItems", fields: [parentId], references: [id], onDelete: SetNull)

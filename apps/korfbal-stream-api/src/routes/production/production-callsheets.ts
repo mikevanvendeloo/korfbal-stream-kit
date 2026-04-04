@@ -199,8 +199,11 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async
       });
 
       // 2. Maak nieuwe events aan op basis van callsheet items
+      // We doen dit in twee stappen om parentId correct te kunnen zetten (foreign key naar ProductionEvent.id)
+      const callSheetToEventIdMap = new Map<string, string>();
+
       for (const item of cs.items) {
-         await tx.productionEvent.create({
+        const createdEvent = await tx.productionEvent.create({
           data: {
             productionId: cs.productionId,
             title: item.title,
@@ -216,16 +219,50 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async
             isTimeAnchor: item.isTimeAnchor,
             anchorType: item.anchorType,
             callSheetItemId: item.id,
-            parentId: item.parentId,
-            positions: {
-              create: item.positions.map(p => ({
-                positionId: p.positionId
-              }))
-            }
+            // parentId slaan we in de eerste stap over omdat het een FK is naar ProductionEvent
           }
         });
+        callSheetToEventIdMap.set(item.id, createdEvent.id);
+
+        // Nu ook de posities direct aanmaken voor dit event
+        if (item.positions && item.positions.length > 0) {
+          await tx.productionEventPosition.createMany({
+            data: item.positions.map(p => ({
+              eventId: createdEvent.id,
+              positionId: p.positionId
+            }))
+          });
+        }
       }
+
+      // 3. Nu we alle IDs hebben, de parentId relaties leggen
+      for (const item of cs.items) {
+        if (item.parentId && callSheetToEventIdMap.has(item.parentId)) {
+          const eventId = callSheetToEventIdMap.get(item.id);
+          const parentEventId = callSheetToEventIdMap.get(item.parentId);
+          if (eventId && parentEventId) {
+            await tx.productionEvent.update({
+              where: { id: eventId },
+              data: { parentId: parentEventId }
+            });
+          }
+        }
+      }
+
+      // 4. Synchroniseer de nieuwe events met de callsheet items
+      await tx.callSheetItem.updateMany({
+        where: { callSheetId: cs.id },
+        data: { updatedAt: new Date() }
+      });
     });
+
+    // 5. Trigger een update naar alle clients
+    try {
+      const { broadcastState } = await import('../../services/productionState');
+      broadcastState(cs.productionId);
+    } catch (e) {
+      console.error('Failed to broadcast state after sync:', e);
+    }
 
     return res.json({ success: true });
   } catch (err) {
@@ -274,7 +311,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
     if (!Number.isInteger(callSheetId) || callSheetId <= 0) return res.status(400).json({ error: 'Invalid callsheet id' });
 
     const id = String(req.body?.id || '').trim();
-    const productionSegmentId = Number(req.body?.productionSegmentId);
+    const productionSegmentId = req.body?.productionSegmentId ? Number(req.body.productionSegmentId) : null;
     const cue = String(req.body?.cue || '').trim();
     const title = String(req.body?.title || '').trim();
     const note = req.body?.note != null ? String(req.body.note) : null;
@@ -291,20 +328,22 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
     const parentId = req.body?.parentId != null ? String(req.body.parentId).trim() : null;
     const positionIds: number[] = Array.isArray(req.body?.positionIds) ? req.body.positionIds.map((x: any) => Number(x)).filter((x: number) => Number.isInteger(x) && x > 0) : [];
 
-    if (!id || !productionSegmentId || !cue || !title || !Number.isInteger(durationSec) || durationSec < 0) {
+    if (!id || !cue || !title || !Number.isInteger(durationSec) || durationSec < 0) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Basic validation of segment and positions
-    const seg = await prisma.productionSegment.findUnique({ where: { id: productionSegmentId } });
-    if (!seg) return res.status(404).json({ error: 'Segment not found' });
+    // Basic validation of positions
+    if (productionSegmentId) {
+      const seg = await prisma.productionSegment.findUnique({ where: { id: productionSegmentId } });
+      if (!seg) return res.status(404).json({ error: 'Segment not found' });
+    }
 
     const created = await prisma.$transaction(async (tx) => {
       const it = await tx.callSheetItem.create({
         data: {
           id,
           callSheetId,
-          productionSegmentId,
+          productionSegmentId: productionSegmentId || undefined,
           cue,
           title,
           note: note || undefined,
@@ -347,7 +386,7 @@ productionCallsheetsRouter.put('/callsheet-items/:itemId', async (req, res, next
     if (!itemId) return res.status(400).json({ error: 'Invalid item id' });
 
     const data: any = {};
-    if (req.body?.productionSegmentId != null) data.productionSegmentId = Number(req.body.productionSegmentId);
+    if (req.body?.productionSegmentId !== undefined) data.productionSegmentId = req.body.productionSegmentId ? Number(req.body.productionSegmentId) : null;
     if (req.body?.cue != null) data.cue = String(req.body.cue).trim();
     if (req.body?.title != null) data.title = String(req.body.title).trim();
     if (req.body?.note != null) data.note = String(req.body.note);

@@ -141,7 +141,7 @@ export default function CrewReportPage() {
                             {item.isInVenue ? <MdLocationOn className="text-orange-500" title="Zaal" /> : <MdLiveTv className="text-blue-500" title="Livestream" />}
                           </td>
                           <td className="p-2">{item.title}</td>
-                          <td className="p-2 text-gray-500">{item.productionSegment.naam}</td>
+                          <td className="p-2 text-gray-500">{item.productionSegment?.naam || '-'}</td>
                           <td className="p-2 whitespace-nowrap">{item.durationSec >= 0 ? `${Math.floor(item.durationSec / 60)}:${(item.durationSec % 60).toString().padStart(2, '0')}` : '-'}</td>
                           <td className="p-2 text-gray-500 italic text-xs">
                             {item.note}

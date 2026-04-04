@@ -2,6 +2,7 @@ import {useNavigate, useParams} from 'react-router-dom';
 import {calculateEventTimes, ProductionEvent, useLiveState} from '../hooks/useLiveState';
 import {useEffect, useMemo, useRef, useState} from "react";
 import {MatchHeader} from "./MatchHeader";
+import {TimeDisplay} from "./TimeDisplay";
 import {CallSheetItem} from "./CallSheetItem";
 import {LucideTvMinimalPlay, Play, Settings, SkipBack, SkipForward, Spotlight} from 'lucide-react';
 import {useFontSize} from "../hooks/useFontSize";
@@ -26,7 +27,9 @@ export const ShowCallerView = () => {
     systemTime,
     activeEventRemainingTime,
     isLoading, error,
-    autoAdvanceEventId
+    autoAdvanceEventId,
+    isConnected,
+    timeSinceLastSync
   } = useLiveState();
 
   const {fontSize, setFontSize} = useFontSize();
@@ -62,6 +65,27 @@ export const ShowCallerView = () => {
   const handleStart = () => handleApiCall(`start/${productionId}`);
   const handleNext = () => handleApiCall('next');
   const handlePrevious = () => handleApiCall('previous');
+  const handleRecalculate = () => handleApiCall(`recalculate/${productionId}`);
+  const handleReset = () => handleApiCall(`reset/${productionId}`);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check of de focus niet in een input- of textarea-veld staat
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      if (isInput) return;
+
+      if (e.key === 'ArrowRight') {
+        handleApiCall('next');
+      } else if (e.key === 'ArrowLeft') {
+        handleApiCall('previous');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isProcessing]); // Re-bind if isProcessing changes if needed, though handleApiCall handles it
 
   // Click outside handler for settings menu
   useEffect(() => {
@@ -200,6 +224,12 @@ export const ShowCallerView = () => {
                             className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-white/30 block mb-3">Lettergrootte</span>
                           <div className="flex bg-gray-100 dark:bg-black/40 rounded-xl p-1 border border-gray-200 dark:border-white/5">
                             <button
+                              onClick={() => setFontSize('s')}
+                              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${fontSize === 's' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 dark:text-white/40 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}`}
+                            >
+                              S
+                            </button>
+                            <button
                               onClick={() => setFontSize('m')}
                               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${fontSize === 'm' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 dark:text-white/40 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'}`}
                             >
@@ -261,13 +291,33 @@ export const ShowCallerView = () => {
                             }}
                             className="w-full px-4 py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-gray-200 dark:border-white/5 text-gray-600 dark:text-white/70"
                           >
-                            Multi View
+                            Callsheet view
                           </button>
                           <button
-                            onClick={() => navigate(`/live/${productionId}/positions`)}
+                            onClick={() => navigate(`/live/${productionId}/positions/show-caller`)}
                             className="w-full px-4 py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-gray-200 dark:border-white/5 text-gray-600 dark:text-white/70"
                           >
                             Wissel Positie
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleRecalculate();
+                              setShowSettings(false);
+                            }}
+                            className="w-full px-4 py-3 bg-amber-600/10 hover:bg-amber-600/20 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-amber-500/30 text-amber-700 dark:text-amber-400"
+                          >
+                            Tijden herberekenen
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Weet je zeker dat je het draaiboek wilt resetten naar de originele tijden?')) {
+                                handleReset();
+                                setShowSettings(false);
+                              }
+                            }}
+                            className="w-full px-4 py-3 bg-red-600/10 hover:bg-red-600/20 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-red-500/30 text-red-700 dark:text-red-400"
+                          >
+                            Draaiboek Resetten
                           </button>
                         </div>
                       </div>
@@ -312,40 +362,15 @@ export const ShowCallerView = () => {
               </div>
             </div>
 
-            <div className="w-full max-w-xl">
-              <div className="grid grid-cols-3 gap-4 sm:gap-8">
-                <div className="text-center">
-                  <span
-                    className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-500/60 block mb-1">Zaal</span>
-                  <span className="text-3xl font-mono font-black tracking-tighter text-emerald-600 dark:text-emerald-500">
-                                      {venueClock}
-                                  </span>
-                </div>
-                <div className="text-center">
-                  <span
-                    className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 dark:text-white/40 block mb-1">Tijd</span>
-                  <span className="text-3xl font-mono font-black tracking-tighter text-gray-900 dark:text-white">
-                                      {systemTime}
-                                  </span>
-                </div>
-                <div className="text-center">
-                  <span
-                    className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 dark:text-white/40 block mb-1">
-                    {activeEventRemainingTime ? 'Resterend' : 'Productie'}
-                  </span>
-                  <span className={`text-3xl font-mono font-black tracking-tighter ${
-                    activeEventRemainingTime && activeEventRemainingTime.rawSeconds <= 10
-                      ? 'text-red-600 dark:text-red-500 animate-pulse'
-                      : 'text-gray-900 dark:text-white'
-                  }`}>
-                    {activeEventRemainingTime
-                      ? `${activeEventRemainingTime.isNegative ? '-' : ''}${activeEventRemainingTime.minutes}:${activeEventRemainingTime.seconds}`
-                      : `${productionClock.minutes}:${productionClock.seconds}`
-                    }
-                  </span>
-                </div>
-              </div>
-            </div>
+            <TimeDisplay
+              isConnected={isConnected}
+              timeSinceLastSync={timeSinceLastSync}
+              productionClock={productionClock}
+              activeEventRemainingTime={activeEventRemainingTime}
+              venueClock={venueClock}
+              systemTime={systemTime}
+              variant="large"
+            />
           </div>
         </div>
 
@@ -399,6 +424,7 @@ export const ShowCallerView = () => {
                         isActive={isMainActive}
                         isAutoAdvanceScheduled={autoAdvanceEventId === row.mainEvent.id}
                         elapsedTime={activeEventElapsedTime}
+                        remainingTimeDisplay={isMainActive ? activeEventRemainingTime : null}
                         hideStreamVenueLabels={true}
                         isVenueItem={row.mainEvent.isInVenue}
                       />
@@ -415,6 +441,7 @@ export const ShowCallerView = () => {
                           isActive={isMainActive}
                           isAutoAdvanceScheduled={autoAdvanceEventId === row.mainEvent.id}
                           elapsedTime={activeEventElapsedTime}
+                          remainingTimeDisplay={isMainActive ? activeEventRemainingTime : null}
                           hideStreamVenueLabels={true}
                           isVenueItem={true}
                         />
@@ -432,6 +459,7 @@ export const ShowCallerView = () => {
                             isActive={isActive}
                             isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
                             elapsedTime={activeEventElapsedTime}
+                            remainingTimeDisplay={isActive ? activeEventRemainingTime : null}
                             hideStreamVenueLabels={true}
                             isVenueItem={true}
                           />
@@ -454,6 +482,7 @@ export const ShowCallerView = () => {
                           isActive={isMainActive}
                           isAutoAdvanceScheduled={autoAdvanceEventId === row.mainEvent.id}
                           elapsedTime={activeEventElapsedTime}
+                          remainingTimeDisplay={isMainActive ? activeEventRemainingTime : null}
                           hideStreamVenueLabels={true}
                           isVenueItem={false}
                         />
@@ -472,6 +501,7 @@ export const ShowCallerView = () => {
                             isActive={isActive}
                             isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
                             elapsedTime={activeEventElapsedTime}
+                            remainingTimeDisplay={isActive ? activeEventRemainingTime : null}
                             hideStreamVenueLabels={true}
                             isVenueItem={false}
                           />

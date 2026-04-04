@@ -37,7 +37,7 @@ export type CallSheet = { id: number; productionId: number; name: string; color?
 export type CallSheetItem = {
   id: string;
   callSheetId: number;
-  productionSegmentId: number;
+  productionSegmentId?: number | null;
   cue: string;
   title: string;
   note?: string | null;

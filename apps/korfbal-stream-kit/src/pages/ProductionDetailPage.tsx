@@ -152,7 +152,7 @@ export default function ProductionDetailPage() {
   const deleteSeg = useDeleteSegment(id);
   const timing = useProductionTiming(id);
   const updateProduction = useUpdateProduction();
-  const { data: callSheets } = useCallSheets(id);
+  const { data: callSheets, refetch: refetchCallSheets } = useCallSheets(id);
   const { createTemplateFromProduction } = useSegmentTemplates();
   const [modal, setModal] = React.useState<null | { mode: 'create' | 'edit'; seg?: ProductionSegment }>(null);
   const [err, setErr] = React.useState<string | null>(null);
@@ -165,6 +165,7 @@ export default function ProductionDetailPage() {
       refetchProduction(),
       segments.refetch(),
       timing.refetch(),
+      refetchCallSheets(),
     ]);
   };
 
@@ -281,9 +282,9 @@ export default function ProductionDetailPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex flex-wrap items-center gap-2">
-          <Link to={`/live/${id}/positions`} className="px-3 py-1 border rounded inline-flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 transition-colors">
+          <Link to={`/live/${id}/positions/view`} className="px-3 py-1 border rounded inline-flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 transition-colors">
             <MdLiveTv className="w-5 h-5" />
-            <span>Open Live View</span>
+            <span>Open Callsheet View</span>
           </Link>
           <Link to={`/admin/productions/${id}/attendance`} className="px-3 py-1 border rounded inline-flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
             <MdGroups className="w-5 h-5" />
@@ -292,7 +293,10 @@ export default function ProductionDetailPage() {
           <Link to={`/admin/productions/${id}/titles`} className="px-3 py-1 border rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" aria-label="vmix-titles-link">vMix titels</Link>
           <Link to={`/admin/productions/${id}/production-report`} className="px-3 py-1 border rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Productie rapport</Link>
           {callSheets && callSheets.length > 0 ? (
-            <Link to={`/admin/productions/${id}/callsheets/${callSheets[0].id}`} className="px-3 py-1 border rounded flex items-center gap-1 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            <Link
+              to={`/admin/productions/${id}/callsheets/${callSheets[callSheets.length - 1].id}`}
+              className="px-3 py-1 border rounded flex items-center gap-1 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
               <MdEdit /> Bewerk Draaiboek
             </Link>
           ) : (

@@ -67,6 +67,93 @@ showControlRouter.post('/previous', async (req, res, next) => {
   }
 });
 
+// Recalculate production times based on a specific event (or active event)
+showControlRouter.post('/recalculate/:productionId', async (req, res, next) => {
+    try {
+        const productionId = Number(req.params.productionId);
+        const { anchorEventId, anchorTime } = req.body;
+
+        let eventId = anchorEventId;
+        let time = anchorTime ? new Date(anchorTime) : new Date();
+
+        if (!eventId) {
+            // Fallback to active event if no specific event ID provided
+            const activeEvent = await prisma.productionEvent.findFirst({
+                where: { productionId, status: 'ACTIVE' }
+            });
+            if (!activeEvent) {
+                return res.status(400).json({ error: 'No active event found to use as anchor' });
+            }
+            eventId = activeEvent.id;
+            // If we use the active event, we probably want to use its actualStartTime if it exists
+            if (!anchorTime && activeEvent.actualStartTime) {
+                time = new Date(activeEvent.actualStartTime);
+            }
+        }
+
+        await productionStateService.recalculateProductionTimes(productionId, time, eventId, true);
+        return res.status(200).json({ message: 'Production times recalculated successfully' });
+    } catch (err) {
+        return next(err);
+    }
+});
+
+// Reset production times based on the match start time anchor
+showControlRouter.post('/reset/:productionId', async (req, res, next) => {
+    try {
+        const productionId = Number(req.params.productionId);
+        const production = await prisma.production.findUnique({
+            where: { id: productionId },
+            include: { matchSchedule: true }
+        });
+
+        if (!production || !production.matchSchedule) {
+            return res.status(400).json({ error: 'Production or match schedule not found' });
+        }
+
+        const anchorEvent = await prisma.productionEvent.findFirst({
+            where: { productionId, isTimeAnchor: true }
+        });
+
+        if (!anchorEvent) {
+            return res.status(400).json({ error: 'No time anchor found in callsheet' });
+        }
+
+        const anchorTime = new Date(production.matchSchedule.date);
+
+        // Update production liveTime to match the match start time
+        await prisma.production.update({
+            where: { id: productionId },
+            data: {
+                liveTime: anchorTime
+            }
+        });
+
+        // Reset production state: clear actual times and status
+        await prisma.productionEvent.updateMany({
+            where: { productionId },
+            data: {
+                actualStartTime: null,
+                status: 'WAITING'
+            }
+        });
+
+        // Clear active event in memory if it belongs to this production
+        if (productionStateService.getActiveProductionId() === productionId) {
+            await productionStateService.setActiveEvent('', productionId);
+            productionStateService.stopProductionClock();
+        }
+
+        // We call recalculateProductionTimes with force=true to ensure all times are updated
+        // even if the anchor time didn't change (e.g. if previous actual times were different)
+        await productionStateService.recalculateProductionTimes(productionId, anchorTime, anchorEvent.id, true);
+
+        return res.status(200).json({ message: 'Production times reset to match start successfully' });
+    } catch (err) {
+        return next(err);
+    }
+});
+
 // POST /api/show/clock - Update de scorebordklok
 showControlRouter.post('/clock', (req, res) => {
     const {time} = req.body; // verwacht bijv. "15:34"

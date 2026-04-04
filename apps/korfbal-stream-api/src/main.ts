@@ -26,6 +26,7 @@ import {showControlRouter} from "./routes/show-control";
 import {timeRouter} from './routes/time';
 import {initializeProductionState} from './services/productionState';
 import {callSheetTemplateRouter} from './routes/production/callsheet-templates'
+import {venueClockSyncService} from "./services/venueClockSyncService";
 
 const app: Express = express();
 const httpServer = createServer(app);
@@ -34,7 +35,10 @@ const httpServer = createServer(app);
 initSocket(httpServer);
 
 // Initialize Production State from DB
-initializeProductionState().catch(err => {
+initializeProductionState().then(() => {
+  // Start venue clock sync after production state is initialized
+  venueClockSyncService.start();
+}).catch(err => {
   logger.error('Failed to initialize production state:', err);
 });
 

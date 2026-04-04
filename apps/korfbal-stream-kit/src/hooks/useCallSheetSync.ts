@@ -73,16 +73,6 @@ export const useTimeSync = () => {
     socket.on('connect_error', (err) => {
       console.error('Socket Connection Error:', err.message);
       setIsConnected(false);
-
-      // Forceer een herverbinding na een korte vertraging bij specifieke fouten
-      if (err.message === 'websocket error' || err.message === 'xhr poll error') {
-        setTimeout(() => {
-          if (!socket.connected) {
-            console.log('Attempting manual socket reconnection...');
-            socket.connect();
-          }
-        }, 5000);
-      }
     });
 
     socket.on('time_state_update', (newState: ClockState) => {
@@ -99,7 +89,9 @@ export const useTimeSync = () => {
     });
 
     return () => {
-      socket.disconnect();
+      if (socket) {
+        socket.disconnect();
+      }
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, []);

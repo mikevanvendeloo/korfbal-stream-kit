@@ -18,7 +18,7 @@ export const MatchHeader = ({
   const { data: production, isLoading } = useProduction(productionId);
 
   if (isLoading) {
-    return <div className={`animate-pulse bg-gray-700/50 rounded h-12 w-48 ${className}`} />;
+    return <div className={`animate-pulse bg-gray-200 dark:bg-gray-700/50 rounded h-12 w-48 ${className}`} />;
   }
 
   const ms = production?.matchSchedule;
@@ -48,7 +48,7 @@ export const MatchHeader = ({
 
       <div className="flex flex-col items-center px-3 py-1 bg-gray-100 dark:bg-black/40 rounded border border-gray-300 dark:border-gray-700">
         <span className="text-xs uppercase text-gray-500 dark:text-gray-400 font-bold">Aanvang</span>
-        <span className="font-mono font-bold text-amber-700 dark:text-orange-700">{startTime}</span>
+        <span className="font-mono font-bold text-amber-600 dark:text-orange-500">{startTime}</span>
       </div>
 
       <div className="flex items-center gap-2">
@@ -90,7 +90,7 @@ function TeamLogo({ teamName, size }: { teamName?: string; size: 'small' | 'medi
   const club = matchClub(teamName, clubs);
 
   if (!club?.logoUrl) {
-      return <div className={`${size === 'small' ? 'w-8 h-8' : 'w-12 h-12'} bg-gray-800 rounded flex items-center justify-center text-[10px] text-gray-500`}>?</div>;
+    return <div className={`${size === 'small' ? 'w-8 h-8' : 'w-12 h-12'} bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center text-[10px] text-gray-400 dark:text-gray-500`}>?</div>;
   }
 
   return (

@@ -1,4 +1,5 @@
 import {useCallback, useState} from 'react';
+import {useQueryClient} from "@tanstack/react-query";
 import {createUrl} from "../lib/api";
 
 
@@ -35,6 +36,8 @@ export interface FullCallSheetTemplate extends CallSheetTemplate {
 export function useCallSheetTemplates() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const qc = useQueryClient();
 
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
@@ -176,6 +179,25 @@ export function useCallSheetTemplates() {
     }
   }, []);
 
+  const reorderTemplateItems = useCallback(async (templateId: number, itemIds: string[]) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(createUrl(`/api/callsheets/templates/${templateId}/reorder`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemIds }),
+      });
+      if (!res.ok) throw new Error('Failed to reorder items');
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const applyTemplate = useCallback(async (templateId: number, productionId: number, options?: { segmentId?: number, replace?: boolean }) => {
     setLoading(true);
     setError(null);
@@ -186,7 +208,13 @@ export function useCallSheetTemplates() {
         body: JSON.stringify(options || {}),
       });
       if (!res.ok) throw new Error('Failed to apply template');
-      return await res.json();
+
+      const result = await res.json();
+
+      // Invalidate relevant queries after successful application
+      qc.invalidateQueries({ queryKey: ['production', productionId] });
+
+      return result;
     } catch (err: any) {
       setError(err.message);
       return null;
@@ -250,6 +278,7 @@ export function useCallSheetTemplates() {
     addTemplateItem,
     updateTemplateItem,
     deleteTemplateItem,
+    reorderTemplateItems,
     applyTemplate,
     importTemplate,
     importTemplateJson,

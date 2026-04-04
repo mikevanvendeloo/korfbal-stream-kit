@@ -85,7 +85,7 @@ export default function ProductionTimingReportPage() {
                 const event = data.productionEvents?.find(e => e.callSheetItemId === item.id);
                 const actualDuration = itemActualDurations[item.id] ?? event?.durationSec;
                 rows.push([
-                  item.productionSegment.naam,
+                  item.productionSegment?.naam || '-',
                   item.title,
                   formatTime(item.timeStart),
                   formatTime(event?.actualStartTime),
@@ -148,7 +148,7 @@ export default function ProductionTimingReportPage() {
 
                 return (
                   <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                    <td className="px-4 py-3 text-sm text-gray-500 truncate max-w-[120px]">{item.productionSegment.naam}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 truncate max-w-[120px]">{item.productionSegment?.naam || '-'}</td>
                     <td className="px-4 py-3 text-sm font-medium">{item.title}</td>
                     <td className="px-4 py-3 text-sm font-mono text-gray-500">{formatTime(item.timeStart)}</td>
                     <td className="px-4 py-3 text-sm font-mono">{formatTime(event?.actualStartTime)}</td>

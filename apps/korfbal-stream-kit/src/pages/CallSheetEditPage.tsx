@@ -36,7 +36,6 @@ export default function CallSheetEditPage() {
 
   const [form, setForm] = React.useState({
     id: uuid8(),
-    productionSegmentId: 0,
     cue: '',
     title: '',
     note: '',
@@ -54,11 +53,14 @@ export default function CallSheetEditPage() {
     positionIds: [] as number[],
   });
 
+  // Geen segment selectie nodig per item
+  /*
   React.useEffect(() => {
     if (segments.data?.length && !form.productionSegmentId) {
       setForm((f) => ({ ...f, productionSegmentId: segments.data![0].id }));
     }
   }, [segments.data?.length]);
+  */
 
   async function handleHeaderUpdate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -107,7 +109,7 @@ export default function CallSheetEditPage() {
       payload.timeStart = payload.timeStart ? new Date(payload.timeStart).toISOString() : undefined;
       payload.timeEnd = payload.timeEnd ? new Date(payload.timeEnd).toISOString() : undefined;
       await createItem.mutateAsync(payload as any);
-      setForm({ id: uuid8(), productionSegmentId: segments.data?.[0]?.id || 0, cue: '', title: '', note: '', color: '', durationSec: 0, timeStart: '', timeEnd: '', orderIndex: 0, isInVenue: false, isInLivestream: true, isTimeAnchor: false, autoAdvance: false, anchorType: '', parentId: '', positionIds: []});
+      setForm({ id: uuid8(), cue: '', title: '', note: '', color: '', durationSec: 0, timeStart: '', timeEnd: '', orderIndex: 0, isInVenue: false, isInLivestream: true, isTimeAnchor: false, autoAdvance: false, anchorType: '', parentId: '', positionIds: []});
     } catch (e: any) {
       setErr(e?.message || 'Toevoegen mislukt');
     }
@@ -295,16 +297,6 @@ export default function CallSheetEditPage() {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] text-white/30 uppercase font-bold tracking-tight">Segment</label>
-              <select
-                defaultValue={it.productionSegmentId}
-                onChange={(e) => handleItemChange(it.id, { productionSegmentId: Number(e.target.value) })}
-                className="border border-white/10 rounded px-1.5 py-0.5 text-xs bg-black/40 text-white outline-none focus:border-white/30"
-              >
-                {segments.data?.map((s) => <option key={s.id} value={s.id}>{s.volgorde}. {s.naam}</option>)}
-              </select>
-            </div>
 
             <div className="md:col-span-4 mt-2">
               <label className="text-[10px] text-white/30 uppercase font-bold block mb-2">Posities</label>
@@ -369,12 +361,6 @@ export default function CallSheetEditPage() {
         <label className="text-xs flex flex-col gap-1.5">
           <div className="font-bold text-white/40 uppercase">Duur (sec)</div>
           <input type="number" value={form.durationSec} onChange={(e) => setForm((f) => ({ ...f, durationSec: Number(e.target.value||0) }))} className="bg-black/40 border border-white/10 rounded px-3 py-2 text-white focus:border-blue-500/50 outline-none" />
-        </label>
-        <label className="text-xs flex flex-col gap-1.5 md:col-span-2">
-          <div className="font-bold text-white/40 uppercase">Segment</div>
-          <select value={form.productionSegmentId} onChange={(e) => setForm((f) => ({ ...f, productionSegmentId: Number(e.target.value) }))} className="bg-black/40 border border-white/10 rounded px-3 py-2 text-white focus:border-blue-500/50 outline-none">
-            {segments.data?.map((s) => <option key={s.id} value={s.id}>{s.volgorde}. {s.naam}</option>)}
-          </select>
         </label>
         <label className="text-xs flex flex-col gap-1.5 md:col-span-3">
           <div className="font-bold text-white/40 uppercase">Notitie</div>

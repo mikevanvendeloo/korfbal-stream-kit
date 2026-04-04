@@ -38,10 +38,10 @@ describe('useLiveState - formatTime', () => {
     });
   });
 
-  it('should floor the seconds', () => {
+  it('should round the seconds', () => {
     expect(formatTime(65.9)).toEqual({
       minutes: '01',
-      seconds: '05',
+      seconds: '06',
       isNegative: false,
       rawSeconds: 65.9
     });

@@ -7,17 +7,20 @@ interface Props {
   isActive?: boolean;
   isAutoAdvanceScheduled?: boolean;
   elapsedTime?: number;
+  remainingTimeDisplay?: { minutes: string; seconds: string; isNegative: boolean; rawSeconds: number } | null;
   isPlaceholder?: boolean;
   hideStreamVenueLabels?: boolean;
   isVenueItem?: boolean;
   isTimeAnchor?: boolean;
 }
 
-export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled = false, elapsedTime = 0, isPlaceholder = false, hideStreamVenueLabels = false, isVenueItem = false, isTimeAnchor = false }: Props) => {
+export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled = false, elapsedTime = 0, remainingTimeDisplay = null, isPlaceholder = false, hideStreamVenueLabels = false, isVenueItem = false, isTimeAnchor = false }: Props) => {
   const { fontSize } = useFontSize();
   const isActuallyPlaceholder = isPlaceholder || !item;
   const duration = item?.durationSec ?? 0;
-  const remainingTime = duration - elapsedTime;
+
+  // Gebruik de voorberekende resterende tijd indien beschikbaar, anders herberekenen
+  const remainingTime = remainingTimeDisplay ? remainingTimeDisplay.rawSeconds : (duration - elapsedTime);
 
   const isInVenue = item?.isInVenue;
   const isInLivestream = item?.isInLivestream !== false; // Default true if not specified
@@ -76,13 +79,15 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
           ? formatSystemTime(new Date((item as any).plannedStartTime))
           : '00:00:00')));
 
-    const getFontSizeClass = (base: string, large: string, xl: string) => {
+    const getFontSizeClass = (small: string, base: string, large: string, xl: string) => {
+      if (fontSize === 's') return small;
       if (fontSize === 'l') return large;
       if (fontSize === 'xl') return xl;
       return base;
     };
 
     const getPaddingClass = () => {
+        if (fontSize === 's') return 'p-2';
         if (fontSize === 'l') return 'p-5';
         if (fontSize === 'xl') return 'p-7';
         return 'p-3';
@@ -97,18 +102,21 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
         {/* Linker kolom: Tijdstip en Countdown */}
         <div className="flex flex-col gap-2 w-full sm:w-auto flex-shrink-0">
           {/* Tijd Label */}
-          <div className={`px-4 py-2.5 rounded font-mono font-bold ${getFontSizeClass('text-lg', 'text-2xl', 'text-4xl')} tracking-tighter whitespace-nowrap shadow-inner text-center sm:text-left ${timeLabelColor} ${isActuallyPlaceholder ? 'invisible' : 'text-gray-900 dark:text-white'}`}>
+          <div className={`px-4 py-2.5 rounded font-mono font-bold ${getFontSizeClass('text-base', 'text-lg', 'text-2xl', 'text-4xl')} tracking-tighter whitespace-nowrap shadow-inner text-center sm:text-left ${timeLabelColor} ${isActuallyPlaceholder ? 'invisible' : 'text-gray-900 dark:text-white'}`}>
             {displayTime}
           </div>
 
           {/* Countdown / Resterende tijd */}
           {isActive && !isActuallyPlaceholder && (
-            <div className={`px-4 py-3 rounded-md font-mono font-black ${getFontSizeClass('text-xl', 'text-4xl', 'text-6xl')} text-center shadow-lg border border-white/10 ${
+            <div className={`px-4 py-3 rounded-md font-mono font-black ${getFontSizeClass('text-lg', 'text-xl', 'text-4xl', 'text-6xl')} text-center shadow-lg border border-white/10 ${
               remainingTime < 0 ? 'bg-red-800 dark:bg-red-900/80 text-white' :
               remainingTime <= 10 ? 'bg-orange-700 dark:bg-orange-800/80 text-white' :
               'bg-green-700 dark:bg-green-800/80 text-white'
             }`}>
-              {formatDuration(remainingTime)}
+              {remainingTimeDisplay
+                ? `${remainingTimeDisplay.isNegative ? '-' : ''}${remainingTimeDisplay.minutes}:${remainingTimeDisplay.seconds}`
+                : formatDuration(remainingTime)
+              }
             </div>
           )}
         </div>
@@ -116,33 +124,33 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
         {/* Rechter kolom: Inhoud */}
         <div className="flex-grow min-w-0 w-full">
           <div className="flex items-start justify-between gap-2">
-            <h3 className={`font-bold ${getFontSizeClass('text-lg', 'text-3xl', 'text-5xl')} leading-tight pt-0.5 ${isActuallyPlaceholder ? 'invisible bg-gray-200 dark:bg-white/5 rounded h-6 w-1/3' : ''}`}>
+            <h3 className={`font-bold ${getFontSizeClass('text-base', 'text-lg', 'text-3xl', 'text-5xl')} leading-tight pt-0.5 ${isActuallyPlaceholder ? 'invisible bg-gray-200 dark:bg-white/5 rounded h-6 w-1/3' : ''}`}>
               {item?.title || '\u00A0'}
             </h3>
             {((duration >= 0) || isActuallyPlaceholder) && (
               <div
                 title={`${duration} seconden`}
-                className={`px-3 py-1 rounded ${getFontSizeClass('text-lg', 'text-2xl', 'text-4xl')} font-mono font-bold ${durationBadgeColor} border border-gray-300 dark:border-white/10 whitespace-nowrap flex-shrink-0 mt-1 ${isActuallyPlaceholder ? 'invisible bg-gray-200 dark:bg-white/5 h-5 w-10' : isActive ? 'text-white' : ''}`}
+                className={`px-3 py-1 rounded ${getFontSizeClass('text-base', 'text-lg', 'text-2xl', 'text-4xl')} font-mono font-bold ${durationBadgeColor} border border-gray-300 dark:border-white/10 whitespace-nowrap flex-shrink-0 mt-1 ${isActuallyPlaceholder ? 'invisible bg-gray-200 dark:bg-white/5 h-5 w-10' : isActive ? 'text-white' : ''}`}
               >
                 {formatDuration(duration)}
               </div>
             )}
           </div>
 
-          {item?.note && <p className={`${getFontSizeClass('text-sm', 'text-xl', 'text-2xl')} text-gray-600 dark:text-gray-300/80 mt-2 italic leading-snug`}>{item.note}</p>}
+          {item?.note && <p className={`${getFontSizeClass('text-[10px]', 'text-sm', 'text-xl', 'text-2xl')} text-gray-600 dark:text-gray-300/80 mt-2 italic leading-snug`}>{item.note}</p>}
           {(isActuallyPlaceholder || !item?.note) && (
-            <p className={`${getFontSizeClass('text-sm', 'text-base', 'text-lg')} text-gray-600 dark:text-gray-300/80 mt-1 italic border-t border-gray-200 dark:border-white/10 pt-1 ${isActuallyPlaceholder ? 'invisible' : ''}`}>
+            <p className={`${getFontSizeClass('text-[10px]', 'text-sm', 'text-base', 'text-lg')} text-gray-600 dark:text-gray-300/80 mt-1 italic border-t border-gray-200 dark:border-white/10 pt-1 ${isActuallyPlaceholder ? 'invisible' : ''}`}>
               &nbsp;
             </p>
           )}
 
-          <div className={`flex flex-wrap items-center justify-between mt-2 pt-1 border-t border-gray-200 dark:border-white/10 ${getFontSizeClass('text-[10px]', 'text-lg', 'text-xl')} font-medium uppercase tracking-wider opacity-80 min-h-[1.25rem] ${isActuallyPlaceholder ? 'invisible' : ''}`}>
+          <div className={`flex flex-wrap items-center justify-between mt-2 pt-1 border-t border-gray-200 dark:border-white/10 ${getFontSizeClass('text-[8px]', 'text-[10px]', 'text-lg', 'text-xl')} font-medium uppercase tracking-wider opacity-80 min-h-[1.25rem] ${isActuallyPlaceholder ? 'invisible' : ''}`}>
             <div className="flex flex-wrap gap-2">
               {!hideStreamVenueLabels && isInLivestream && (
-                <span className="flex items-center gap-2 text-blue-400"><span className={`${getFontSizeClass('w-1.5 h-1.5', 'w-3 h-3', 'w-4 h-4')} rounded-full bg-blue-500`}></span>Stream</span>
+                <span className={`px-2 py-0.5 rounded-full border border-blue-400/30 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-bold ${getFontSizeClass('text-[8px]', 'text-[9px]', 'text-base', 'text-lg')}`}>Stream</span>
               )}
               {!hideStreamVenueLabels && isInVenue && (
-                <span className="flex items-center gap-2 text-emerald-400"><span className={`${getFontSizeClass('w-1.5 h-1.5', 'w-3 h-3', 'w-4 h-4')} rounded-full bg-emerald-500`}></span>Zaal</span>
+                <span className={`px-2 py-0.5 rounded-full border border-emerald-400/30 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 font-bold ${getFontSizeClass('text-[8px]', 'text-[9px]', 'text-base', 'text-lg')}`}>Zaal</span>
               )}
 
               {/* Posities als badges voor de ShowCaller view (wanneer stream/venue labels verborgen zijn) */}
@@ -151,7 +159,7 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
                   {item.positions.map((p, idx) => (
                     <span
                       key={`${item.id}-pos-${p.position.id || idx}`}
-                      className={`px-2 py-0.5 rounded-full border border-gray-300 dark:border-white/10 bg-gray-200 dark:bg-white/5 text-gray-700 dark:text-gray-300 font-bold ${getFontSizeClass('text-[9px]', 'text-base', 'text-lg')}`}
+                      className={`px-2 py-0.5 rounded-full border border-gray-300 dark:border-white/10 bg-gray-200 dark:bg-white/5 text-gray-700 dark:text-gray-300 font-bold ${getFontSizeClass('text-[8px]', 'text-[9px]', 'text-base', 'text-lg')}`}
                     >
                       {p.position.name}
                     </span>
@@ -161,12 +169,12 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
 
               {autoAdvance && (
                 <span className={`flex items-center gap-2 ${isAutoAdvanceScheduled ? 'text-purple-800 dark:text-purple-300' : 'text-purple-800 dark:text-purple-400 opacity-100'}`}>
-                  <FastForward className={`${getFontSizeClass('w-5 h-5', 'w-7 h-7', 'w-8 h-8')} ${isAutoAdvanceScheduled ? 'animate-pulse scale-125' : ''}`} />
+                  <FastForward className={`${getFontSizeClass('w-4 h-4', 'w-5 h-5', 'w-7 h-7', 'w-8 h-8')} ${isAutoAdvanceScheduled ? 'animate-pulse scale-125' : ''}`} />
                   Auto {isAutoAdvanceScheduled && <span className="text-[1em] font-black italic ml-1">TIMER</span>}
                 </span>
               )}
               {!hideStreamVenueLabels && isLinked && (
-                <span className="flex items-center gap-2 text-blue-400"><span className={`${getFontSizeClass('w-1.5 h-1.5', 'w-3 h-3', 'w-4 h-4')} rounded-full bg-blue-500`}></span>Link</span>
+                <span className={`px-2 py-0.5 rounded-full border border-blue-400/30 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-bold ${getFontSizeClass('text-[8px]', 'text-[9px]', 'text-base', 'text-lg')}`}>Link</span>
               )}
             </div>
           </div>

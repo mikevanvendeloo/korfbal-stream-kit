@@ -222,6 +222,21 @@ function setupAutoAdvance(event: any) {
 }
 
 export async function setActiveEvent(eventId: string, productionId: number) {
+  if (!eventId) {
+    logger.info(`Clearing active event for production ${productionId}`);
+    currentState.activeEventId = null;
+    currentState.productionId = productionId;
+    if (currentState.autoAdvanceTimer) {
+      clearTimeout(currentState.autoAdvanceTimer);
+      currentState.autoAdvanceTimer = null;
+    }
+    const io = getIO();
+    if (io) {
+      io.emit('active_event_update', null);
+    }
+    return null;
+  }
+
   logger.info(`Setting active event ${eventId} for production ${productionId}`);
   const event = await prisma.productionEvent.findUnique({
     where: { id: eventId },
@@ -240,7 +255,7 @@ export async function setActiveEvent(eventId: string, productionId: number) {
       where: { id: currentState.activeEventId },
       data: { status: 'COMPLETED' },
     });
-  } else {
+  } else if (productionId) {
     // Fail-safe: als currentState leeg is, zet alle andere ACTIVE events voor deze productie op COMPLETED
     await prisma.productionEvent.updateMany({
       where: { productionId, status: 'ACTIVE', id: { not: eventId } },
@@ -358,7 +373,7 @@ export async function setActiveEvent(eventId: string, productionId: number) {
  * Herrekent alle geplande tijden van de callsheet items en production events
  * op basis van een nieuw ankerpunt (bijv. een trigger vanuit vMix of handmatig).
  */
-async function recalculateProductionTimes(productionId: number, anchorTime: Date, anchorEventId: string) {
+export async function recalculateProductionTimes(productionId: number, anchorTime: Date, anchorEventId: string, force = false) {
   const anchorEvent = await prisma.productionEvent.findUnique({
     where: { id: anchorEventId }
   });
@@ -367,40 +382,60 @@ async function recalculateProductionTimes(productionId: number, anchorTime: Date
   const oldAnchorTime = anchorEvent.plannedStartTime ? new Date(anchorEvent.plannedStartTime) : anchorTime;
   const timeShiftMs = anchorTime.getTime() - oldAnchorTime.getTime();
 
-  if (Math.abs(timeShiftMs) < 1000) return; // Geen noemenswaardige shift
+  if (!force && Math.abs(timeShiftMs) < 1000) return; // Geen noemenswaardige shift
 
   logger.info(`Recalculating times for production ${productionId} with shift of ${timeShiftMs}ms`);
 
-  // Update alle toekomstige events (events met een hogere order dan het huidige)
-  const futureEvents = await prisma.productionEvent.findMany({
-    where: {
-      productionId,
-      order: { gte: anchorEvent.order }
-    }
+  // Update alle events (events met een hogere order dan het huidige)
+  const allEvents = await prisma.productionEvent.findMany({
+    where: { productionId },
+    orderBy: { order: 'asc' }
   });
 
-  const eventUpdates = futureEvents.map(event => {
-    let newPlannedStart = event.plannedStartTime;
-    let newPlannedEnd = event.plannedEndTime;
+  const anchorIdx = allEvents.findIndex(e => e.id === anchorEventId);
+  if (anchorIdx === -1) return;
 
-    if (event.plannedStartTime) {
-      newPlannedStart = new Date(new Date(event.plannedStartTime).getTime() + timeShiftMs);
-    }
-    if (event.plannedEndTime) {
-      newPlannedEnd = new Date(new Date(event.plannedEndTime).getTime() + timeShiftMs);
-    }
+  const eventUpdates = [];
 
-    return prisma.productionEvent.update({
-      where: { id: event.id },
-      data: {
-        plannedStartTime: newPlannedStart,
-        plannedEndTime: newPlannedEnd
-      }
-    });
-  });
+  // Anchor zelf
+  const anchorEnd = new Date(anchorTime.getTime() + ((allEvents[anchorIdx].durationSec || 0) * 1000));
+  eventUpdates.push(prisma.productionEvent.update({
+    where: { id: allEvents[anchorIdx].id },
+    data: { plannedStartTime: anchorTime, plannedEndTime: anchorEnd }
+  }));
+
+  // Vooruit rekenen vanaf anker
+  let nextStart = anchorEnd;
+  for (let i = anchorIdx + 1; i < allEvents.length; i++) {
+    const ev = allEvents[i];
+    const end = new Date(nextStart.getTime() + ((ev.durationSec || 0) * 1000));
+    eventUpdates.push(prisma.productionEvent.update({
+      where: { id: ev.id },
+      data: { plannedStartTime: nextStart, plannedEndTime: end }
+    }));
+    nextStart = end;
+  }
+
+  // Achteruit rekenen vanaf anker
+  let prevStart = anchorTime;
+  for (let i = anchorIdx - 1; i >= 0; i--) {
+    const ev = allEvents[i];
+    const start = new Date(prevStart.getTime() - ((ev.durationSec || 0) * 1000));
+    eventUpdates.push(prisma.productionEvent.update({
+      where: { id: ev.id },
+      data: { plannedStartTime: start, plannedEndTime: prevStart }
+    }));
+    prevStart = start;
+  }
 
   if (eventUpdates.length > 0) {
     await prisma.$transaction(eventUpdates);
+  }
+
+  // Broadcast that events need update
+  const io = getIO();
+  if (io) {
+    io.emit('production_events_update_needed');
   }
 
   // Update ook de bijbehorende callsheet items
@@ -412,32 +447,34 @@ async function recalculateProductionTimes(productionId: number, anchorTime: Date
     const itemsToUpdate = await prisma.callSheetItem.findMany({
       where: {
         callSheetId: cs.id,
-        orderIndex: { gte: anchorEvent.order / 100 } // Dit is een ruwe gok, beter is op titel/volgorde
       }
     });
 
     const itemUpdates = itemsToUpdate.map(item => {
-      let newStart = item.timeStart;
-      let newEnd = item.timeEnd;
-
-      if (item.timeStart) {
-        newStart = new Date(new Date(item.timeStart).getTime() + timeShiftMs);
-      }
-      if (item.timeEnd) {
-        newEnd = new Date(new Date(item.timeEnd).getTime() + timeShiftMs);
-      }
-
-      return prisma.callSheetItem.update({
-        where: { id: item.id },
-        data: {
-          timeStart: newStart,
-          timeEnd: newEnd
-        }
+      // Find the corresponding production event to get the EXACT same timing
+      return prisma.productionEvent.findFirst({
+        where: { callSheetItemId: item.id }
+      }).then(ev => {
+        if (!ev) return null;
+        return prisma.callSheetItem.update({
+          where: { id: item.id },
+          data: {
+            timeStart: ev.plannedStartTime,
+            timeEnd: ev.plannedEndTime
+          }
+        });
       });
     });
 
-    if (itemUpdates.length > 0) {
-      await prisma.$transaction(itemUpdates);
+    const resolvedUpdates = (await Promise.all(itemUpdates)).filter(u => u !== null);
+    if (resolvedUpdates.length > 0) {
+      await prisma.$transaction(resolvedUpdates as any);
+    }
+
+    // Broadcast again after items update
+    const ioFinal = getIO();
+    if (ioFinal) {
+      ioFinal.emit('production_events_update_needed');
     }
   }
 }
@@ -568,7 +605,7 @@ export async function startProduction(productionId: number, firstEvent: Producti
     where: { productionId },
     include: {
       items: {
-        orderBy: [{ productionSegmentId: 'asc' }, { orderIndex: 'asc' }],
+        orderBy: [{ orderIndex: 'asc' }],
       }
     }
   });
@@ -654,7 +691,7 @@ export function updateVenueClock(time: string) {
     const io = getIO();
     if (io) {
         io.emit('time_state_update', {
-            mode: currentState.isClockRunning ? 'counting_down' : 'stopped', // Korfbal klok telt meestal af
+            mode: 'counting_down', // Korfbal klok telt meestal af
             serverStartTime: Date.now(),
             initialDuration: currentState.clocks.scoreboardTime,
             venueClock: time

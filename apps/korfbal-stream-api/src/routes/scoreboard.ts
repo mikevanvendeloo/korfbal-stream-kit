@@ -25,7 +25,7 @@ scoreboardRouter.get('/', async (_req, res) => {
 });
 
 function colorForShotclock(time: number): 'green' | 'orange' | 'red' {
-  if (time <= 8) return 'red';
+  if (time <= 10) return 'red';
   if (time <= 15) return 'orange';
   return 'green';
 }
