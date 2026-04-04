@@ -108,7 +108,12 @@ export function stopProductionClock() {
 
 export function updateScoreboardClock(timeInSeconds: number) {
   currentState.clocks.scoreboardTime = timeInSeconds;
+  logger.debug(`Scoreboard clock updated to ${timeInSeconds}s`);
   broadcastState();
+}
+
+export function getCurrentState() {
+  return currentState;
 }
 
 export async function initializeProductionState() {
@@ -682,7 +687,10 @@ export function updateVenueClock(time: string) {
   // Parse time "MM:SS" to seconds
   const [minutes, seconds] = time.split(':').map(Number);
   if (!isNaN(minutes) && !isNaN(seconds)) {
-    currentState.clocks.scoreboardTime = minutes * 60 + seconds;
+    const totalSeconds = minutes * 60 + seconds;
+    currentState.clocks.scoreboardTime = totalSeconds;
+
+    logger.debug(`Venue clock sync: ${time} (${totalSeconds}s)`);
 
     // Stuur ook de geformatteerde tijd mee voor directe weergave
     const io = getIO();
@@ -690,7 +698,7 @@ export function updateVenueClock(time: string) {
         io.emit('time_state_update', {
             mode: 'counting_down', // Korfbal klok telt meestal af
             serverStartTime: Date.now(),
-            initialDuration: currentState.clocks.scoreboardTime,
+            initialDuration: totalSeconds,
             venueClock: time
         });
     }

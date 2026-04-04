@@ -1,5 +1,6 @@
 import {Router} from 'express';
 import {prisma} from '../../services/prisma';
+import {getCurrentState} from '../../services/productionState';
 
 export const productionTimingRouter: Router = Router();
 
@@ -43,6 +44,25 @@ productionTimingRouter.get('/:id/timing', async (req, res, next) => {
   } catch (err) {
     return next(err);
   }
+});
+
+// GET /api/production/:id/clocks
+productionTimingRouter.get('/:id/clocks', async (req, res, next) => {
+    try {
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+
+        const state = getCurrentState();
+        // Als we geen actieve productie in de state hebben, zetten we die hier even goed
+        // zodat de frontend de juiste context heeft.
+        if (!state.productionId) {
+            state.productionId = id;
+        }
+
+        return res.json(state);
+    } catch (err) {
+        return next(err);
+    }
 });
 
 // GET /api/production/next-date

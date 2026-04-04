@@ -21,10 +21,18 @@ export const venueClockSyncService = {
         const response = await axios.get(url, { timeout: 800 }); // Iets kortere timeout dan interval
 
         if (Array.isArray(response.data) && response.data.length > 0) {
-            // De scoreboard API 'time-as-array' geeft meestal iets als ["15", "34"]
+            // De scoreboard API 'time-as-array' geeft meestal iets als ["15", "34"] of [{minute: "15", second: "34"}]
             // We verwachten dat updateVenueClock in productionState.ts dit kan parsen ("MM:SS")
-            const timeStr = response.data.join(':');
-            updateVenueClock(timeStr);
+            let timeStr = '';
+            if (typeof response.data[0] === 'string') {
+                timeStr = response.data.join(':');
+            } else if (response.data[0]?.minute !== undefined) {
+                timeStr = `${response.data[0].minute}:${response.data[0].second}`;
+            }
+
+            if (timeStr) {
+                updateVenueClock(timeStr);
+            }
         }
       } catch (err: any) {
         // We loggen dit niet op 'info' niveau om de logs niet te vervuilen als het scoreboard uit staat

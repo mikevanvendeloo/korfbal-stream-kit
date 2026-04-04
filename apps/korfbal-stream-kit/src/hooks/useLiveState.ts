@@ -186,6 +186,30 @@ export const useLiveState = () => {
           console.error("Failed to fetch all positions.");
         }
 
+        // Haal huidige klok status op
+        const clockResponse = await fetch(createUrl(`/api/production/${productionId}/clocks`));
+        if (clockResponse.ok) {
+          const clockData = await clockResponse.json();
+          if (clockData.clocks) {
+              const displayVenue = formatTime(clockData.clocks.scoreboardTime);
+              const venueClockStr = `${displayVenue.minutes}:${displayVenue.seconds}`;
+
+              // Alleen setten als het niet 00:00 is of als we nog niks hebben
+              if (clockData.clocks.scoreboardTime > 0 || !venueClock) {
+                setVenueClock(venueClockStr);
+              }
+
+              if (!timeStateRef.current) {
+                timeStateRef.current = {
+                  mode: clockData.isClockRunning ? 'counting_up' : 'stopped',
+                  serverStartTime: Date.now() - (clockData.clocks.productionTime * 1000),
+                  initialDuration: clockData.clocks.scoreboardTime,
+                  venueClock: venueClockStr
+                };
+              }
+          }
+        }
+
       } catch (error) {
         console.error("Failed to fetch initial data:", error);
       } finally {
@@ -279,9 +303,37 @@ export const useLiveState = () => {
     });
     socket.on('heartbeat', () => setLastSyncTime(Date.now()));
 
+    socket.on('callsheet_state_update', (state: any) => {
+      if (state.clocks) {
+        // Update venue clock from global state if no specific time_state_update was received yet
+        // or as a fallback. Format seconds to MM:SS
+        const displayVenue = formatTime(state.clocks.scoreboardTime);
+        const venueClockStr = `${displayVenue.minutes}:${displayVenue.seconds}`;
+
+        // Alleen overschrijven als we een zinvolle tijd hebben of als de huidige 00:00 is
+        if (state.clocks.scoreboardTime > 0 || venueClock === '00:00' || !venueClock) {
+            setVenueClock(venueClockStr);
+        }
+
+        // Update timeStateRef if it's currently null or if it has a 0 duration and we get a positive one
+        if (!timeStateRef.current || (timeStateRef.current.initialDuration === 0 && state.clocks.scoreboardTime > 0)) {
+          timeStateRef.current = {
+            mode: state.isClockRunning ? 'counting_up' : 'stopped',
+            serverStartTime: Date.now() - (state.clocks.productionTime * 1000),
+            initialDuration: state.clocks.scoreboardTime,
+            venueClock: venueClockStr
+          };
+        }
+      }
+    });
+
     socket.on('time_state_update', (newState: TimeState) => {
       timeStateRef.current = newState;
       setLastSyncTime(Date.now());
+      // Triggers immediate update
+      if (newState.venueClock) {
+          setVenueClock(newState.venueClock);
+      }
     });
 
     socket.on('active_event_update', (event: ProductionEvent) => {
