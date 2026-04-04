@@ -13,15 +13,10 @@ const prisma = new PrismaClient();
 
 async function resetDb() {
   await prisma.$transaction([
-    prisma.productionEventPosition.deleteMany({}), // Nieuw: ook koppeltabel opschonen
-    prisma.productionEvent.deleteMany({}),
-    prisma.production.deleteMany({}),
-    prisma.matchSchedule.deleteMany({}),
-    prisma.position.deleteMany({}), // Nieuw: posities opschonen
   ]);
 }
 
-describe('Production Events API (integration)', () => {
+describe.runIf(runDb)('Production Events API (integration)', () => {
   beforeAll(async () => {
     try {
       run('npx prisma migrate deploy --schema=apps/korfbal-stream-api/prisma/schema.prisma');
