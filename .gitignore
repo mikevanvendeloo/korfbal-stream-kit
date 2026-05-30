@@ -58,3 +58,7 @@ test-output
 /migrate.log
 /apps/korfbal-stream-api/Sponsordeals_2025.xlsx
 /streamz-test/
+/backups/
+
+# Claude Code local settings (secrets)
+.claude/settings.local.json

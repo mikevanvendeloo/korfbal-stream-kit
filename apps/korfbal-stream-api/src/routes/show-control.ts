@@ -171,6 +171,21 @@ showControlRouter.post('/reset/:productionId', async (req, res, next) => {
     }
 });
 
+// POST /api/show/stop/:productionId - Stop de show en halt websocket broadcasts
+showControlRouter.post('/stop/:productionId', async (req, res, next) => {
+    try {
+        const productionId = Number(req.params.productionId);
+        const activeProductionId = productionStateService.getActiveProductionId();
+        if (activeProductionId !== productionId) {
+            return res.status(400).json({ error: 'This production is not currently active.' });
+        }
+        await productionStateService.stopProduction(productionId);
+        return res.status(200).json({ message: 'Production stopped.' });
+    } catch (err) {
+        return next(err);
+    }
+});
+
 // POST /api/show/clock - Update de scorebordklok
 showControlRouter.post('/clock', (req, res) => {
     const {time} = req.body; // verwacht bijv. "15:34"

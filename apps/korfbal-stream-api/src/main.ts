@@ -43,7 +43,8 @@ initializeProductionState().then(() => {
 });
 
 // Middlewares
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // CORS for frontend (allow cross-origin requests)
 app.use((req, res, next) => {

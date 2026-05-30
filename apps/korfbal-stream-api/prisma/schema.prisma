@@ -151,7 +151,7 @@ model Production {
   interviewSubjects   InterviewSubject[]
   callSheetTemplate   CallSheetTemplate?         @relation(fields: [callSheetTemplateId], references: [id])
   matchSchedule       MatchSchedule              @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
-  events              ProductionEvent[]
+  productionEvents    ProductionEvent[]
   productionPersons   ProductionPerson[]
   productionPositions ProductionPersonPosition[]
   productionReport    ProductionReport?

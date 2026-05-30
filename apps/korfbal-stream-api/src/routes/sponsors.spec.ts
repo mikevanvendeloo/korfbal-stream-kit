@@ -94,4 +94,11 @@ describe('Sponsors API', () => {
     const res = await request(app).post('/api/sponsors').send({});
     expect(res.status).toBe(400);
   });
+
+  it('should accept event type', async () => {
+    const payload = { name: 'Event Sponsor', type: 'event', websiteUrl: 'https://event.example' };
+    const res = await request(app).post('/api/sponsors').send(payload);
+    expect(res.status).toBe(201);
+    expect(res.body.type).toBe('event');
+  });
 });

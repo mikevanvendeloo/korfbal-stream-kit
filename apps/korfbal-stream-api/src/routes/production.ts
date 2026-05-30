@@ -1,6 +1,7 @@
 import {Router} from 'express';
 import {skillsRouter} from './skills';
 import {prisma} from '../services/prisma';
+import * as productionStateService from '../services/productionState';
 import {getSetting, PRODUCTION_TEAM_NAMES_KEY} from '../services/appSettings';
 
 // Import all production sub-routers
@@ -58,6 +59,12 @@ productionRouter.post('/:id/activate', async (req, res, next) => {
   try {
     const target = await prisma.production.findUnique({ where: { id } });
     if (!target) return res.status(404).json({ error: 'Not found' });
+
+    // Stop de lopende productie als die anders is dan de te activeren productie
+    const currentProductionId = productionStateService.getActiveProductionId();
+    if (currentProductionId && currentProductionId !== id) {
+      await productionStateService.stopProduction(currentProductionId);
+    }
 
     await prisma.$transaction([
       prisma.production.updateMany({ where: { isActive: true }, data: { isActive: false } }),

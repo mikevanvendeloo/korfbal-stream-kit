@@ -125,18 +125,17 @@ export async function initializeProductionState() {
   const activeProduction = await prisma.production.findFirst({
     where: { isActive: true },
     include: {
-      events: {
+      productionEvents: {
         where: { status: 'ACTIVE' },
         orderBy: { order: 'asc' },
         take: 1
       }
     }
   });
-
   if (activeProduction) {
     currentState.productionId = activeProduction.id;
-    if (activeProduction.events.length > 0) {
-      const activeEvent = activeProduction.events[0];
+    if (activeProduction.productionEvents.length > 0) {
+      const activeEvent = activeProduction.productionEvents[0];
       currentState.activeEventId = activeEvent.id;
       logger.info(`Restored active production ${activeProduction.id} with event ${activeEvent.id}`);
 
@@ -559,6 +558,46 @@ export async function getPreviousEvent(): Promise<ProductionEvent | null> {
 
 export function getActiveProductionId() {
   return currentState.productionId;
+}
+
+export async function stopProduction(productionId: number) {
+  if (currentState.productionId !== productionId) {
+    logger.warn(`stopProduction called for ${productionId} but current is ${currentState.productionId}`);
+    return;
+  }
+
+  logger.info(`Stopping production ${productionId}`);
+
+  // Stop clock and auto-advance
+  stopProductionClock();
+  if (currentState.autoAdvanceTimer) {
+    clearTimeout(currentState.autoAdvanceTimer);
+    currentState.autoAdvanceTimer = null;
+  }
+
+  // Mark currently active event as COMPLETED
+  if (currentState.activeEventId) {
+    await prisma.productionEvent.update({
+      where: { id: currentState.activeEventId },
+      data: { status: 'COMPLETED' },
+    }).catch(err => logger.error('Failed to mark active event as COMPLETED on stop:', err));
+  }
+
+  // Clear in-memory state
+  currentState.productionId = null;
+  currentState.activeEventId = null;
+  currentState.clocks.productionTime = 0;
+  currentState.clocks.scoreboardTime = 0;
+
+  // Broadcast stopped state to all clients
+  const io = getIO();
+  if (io) {
+    io.emit('production_stopped', { productionId });
+    io.emit('active_event_update', null);
+    io.emit('callsheet_state_update', currentState);
+  }
+
+  logger.info(`Production ${productionId} stopped and websocket broadcasts halted.`);
 }
 
 export function initializeClient(socket: any) {

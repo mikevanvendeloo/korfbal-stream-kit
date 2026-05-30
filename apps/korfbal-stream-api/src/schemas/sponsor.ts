@@ -1,6 +1,6 @@
 import {z} from 'zod';
 
-export const SponsorTypeEnum = z.enum(['premium', 'goud', 'zilver', 'brons']);
+export const SponsorTypeEnum = z.enum(['premium', 'goud', 'zilver', 'brons', 'event']);
 
 export const SponsorInputSchema = z.object({
   name: z.string().min(1),

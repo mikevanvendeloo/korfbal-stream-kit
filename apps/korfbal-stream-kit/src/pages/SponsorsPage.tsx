@@ -14,9 +14,9 @@ import {Sponsor, uploadSponsorsExcel} from '../lib/api';
 import {MdAdd, MdDownload, MdRefresh, MdUploadFile} from 'react-icons/md';
 import SponsorFormModal from '../components/SponsorFormModal';
 
-export type SponsorType = 'premium' | 'goud' | 'zilver' | 'brons' | 'evenement';
+export type SponsorType = 'premium' | 'goud' | 'zilver' | 'brons' | 'event';
 
-export const ALL_SPONSOR_TYPES: SponsorType[] = ['premium', 'goud', 'zilver', 'brons', 'evenement'];
+export const ALL_SPONSOR_TYPES: SponsorType[] = ['premium', 'goud', 'zilver', 'brons', 'event'];
 
 export default function SponsorsPage() {
   const [selectedTypes, setSelectedTypes] = useState<SponsorType[]>([]);

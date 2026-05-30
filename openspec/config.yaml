@@ -1,0 +1,43 @@
+schema: spec-driven
+
+context: |
+  Tech stack: TypeScript 5.9, Node.js 20, Express 5, Prisma ORM, PostgreSQL 16 (backend);
+  React 19, Vite, Tailwind CSS, TanStack Query, React Router v6 (frontend);
+  Socket.io for real-time state; Vitest for testing; Nx 21 monorepo.
+
+  Domain: Korfbal (Dutch sport) livestream production management.
+  This is an internal LAN tool — no authentication. All routes are open.
+
+  Monorepo apps:
+    - apps/korfbal-stream-api — Express API, port 3333, routes under /api/
+    - apps/korfbal-stream-kit — React frontend, port 4200, proxies /api/ to 3333
+    - apps/korfbal-stream-kit-e2e — Playwright e2e tests
+
+  Key conventions:
+    - Only one Production can be active at a time
+    - Event status flow: WAITING → ACTIVE → COMPLETED (unidirectional)
+    - In-memory live state in productionState.ts; DB holds persistent data
+    - Socket.io broadcasts full state snapshots (not diffs) every 1 second
+    - Segment ordering uses 2-phase reorder (bump to 1000+, reorder, renumber)
+    - Zod schemas in apps/korfbal-stream-api/src/schemas/ for all API inputs
+    - Settings stored as key/value JSON in the Setting table
+
+  API route groups:
+    /api/production — productions, segments, events, crew, callsheets
+    /api/sponsors — sponsor CRUD + Excel import/export
+    /api/vmix/* — vMix data feeds and title templates
+    /api/match — match schedule import
+    /api/show — live show control
+    /api/backup — export/import of all data
+
+rules:
+  proposal:
+    - Keep proposals under 400 words
+    - Focus on WHY this feature exists and what crew workflow it supports
+  tasks:
+    - Mark all tasks as complete for reverse-generated specs (existing code)
+    - Separate backend and frontend task sections
+  specs:
+    - Document existing behavior, not aspirational behavior
+    - Include all edge cases and constraints
+    - Document API request/response shapes exactly as implemented

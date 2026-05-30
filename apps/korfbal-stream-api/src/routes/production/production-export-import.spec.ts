@@ -50,7 +50,28 @@ describe('Production Export/Import API', () => {
           playerName: 'Player 1',
           clubSlug: 'home-team',
           clubName: 'Home Team',
-          clubShortName: 'Home'
+          clubShortName: 'Home',
+          titleName: 'Title 1'
+        }
+      ],
+      titles: [
+        {
+          id: 1,
+          name: 'Title 1',
+          order: 1,
+          enabled: true,
+          parts: [
+            { sourceType: 'MANUAL', customName: 'Part 1' }
+          ]
+        }
+      ],
+      productionEvents: [
+        {
+          id: 'EVENT-1',
+          title: 'Event 1',
+          status: 'PENDING',
+          order: 1,
+          positions: ['Camera 1']
         }
       ]
     };
@@ -59,7 +80,10 @@ describe('Production Export/Import API', () => {
     prisma.$transaction = vi.fn(async (fn: any) => fn(prisma));
 
     // Mock upserts/creates/finds
-    prisma.matchSchedule.upsert = vi.fn().mockResolvedValue({ id: 100 });
+    prisma.matchSchedule.findUnique = vi.fn().mockResolvedValue({ id: 100 });
+    prisma.matchSchedule.findFirst = vi.fn().mockResolvedValue({ id: 100 });
+    prisma.matchSchedule.create = vi.fn().mockResolvedValue({ id: 100 });
+    prisma.matchSchedule.update = vi.fn().mockResolvedValue({ id: 100 });
     prisma.production.updateMany = vi.fn();
     prisma.production.findUnique = vi.fn().mockResolvedValue(null); // Not found initially
     prisma.production.create = vi.fn().mockResolvedValue({ id: 200 });
@@ -88,6 +112,12 @@ describe('Production Export/Import API', () => {
     prisma.player.findFirst = vi.fn().mockResolvedValue(null);
     prisma.player.create = vi.fn().mockResolvedValue({ id: 800 });
     prisma.interviewSubject.create = vi.fn();
+    prisma.titleDefinition.deleteMany = vi.fn();
+    prisma.titleDefinition.create = vi.fn().mockResolvedValue({ id: 900 });
+    prisma.titleDefinition.findFirst = vi.fn().mockResolvedValue({ id: 900 });
+    prisma.productionEvent.deleteMany = vi.fn();
+    prisma.productionEvent.create = vi.fn().mockResolvedValue({ id: 'EVENT-1' });
+    prisma.productionEventPosition.create = vi.fn();
   });
 
   afterEach(() => {
@@ -104,7 +134,8 @@ describe('Production Export/Import API', () => {
     expect(res.body.id).toBe(200);
 
     // Verify calls
-    expect(prisma.matchSchedule.upsert).toHaveBeenCalled();
+    expect(prisma.matchSchedule.findUnique).toHaveBeenCalled();
+    expect(prisma.matchSchedule.update).toHaveBeenCalled();
     expect(prisma.production.create).toHaveBeenCalled();
     expect(prisma.productionReport.upsert).toHaveBeenCalled();
     expect(prisma.person.create).toHaveBeenCalledWith(expect.objectContaining({ data: { name: 'Person A', gender: 'male' } }));
@@ -116,7 +147,16 @@ describe('Production Export/Import API', () => {
     expect(prisma.segmentRoleAssignment.create).toHaveBeenCalled();
     expect(prisma.club.create).toHaveBeenCalled();
     expect(prisma.player.create).toHaveBeenCalled();
-    expect(prisma.interviewSubject.create).toHaveBeenCalled();
+    expect(prisma.titleDefinition.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ name: 'Title 1' })
+    }));
+    expect(prisma.interviewSubject.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ titleDefinitionId: 900 })
+    }));
+    expect(prisma.productionEvent.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ title: 'Event 1' })
+    }));
+    expect(prisma.productionEventPosition.create).toHaveBeenCalled();
   });
 
   it('returns 400 for invalid data', async () => {

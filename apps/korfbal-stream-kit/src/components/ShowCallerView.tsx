@@ -67,6 +67,7 @@ export const ShowCallerView = () => {
   const handlePrevious = () => handleApiCall('previous');
   const handleRecalculate = () => handleApiCall(`recalculate/${productionId}`);
   const handleReset = () => handleApiCall(`reset/${productionId}`);
+  const handleStop = () => handleApiCall(`stop/${productionId}`);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -319,6 +320,19 @@ export const ShowCallerView = () => {
                           >
                             Draaiboek Resetten
                           </button>
+                          {activeEvent && (
+                            <button
+                              onClick={() => {
+                                if (window.confirm('Weet je zeker dat je de show wilt stoppen? Websocket broadcasts worden gestopt voor deze productie.')) {
+                                  handleStop();
+                                  setShowSettings(false);
+                                }
+                              }}
+                              className="w-full px-4 py-3 bg-red-700/20 hover:bg-red-700/30 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-red-600/50 text-red-800 dark:text-red-300"
+                            >
+                              Einde Show / Stream Stoppen
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

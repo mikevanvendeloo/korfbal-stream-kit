@@ -357,6 +357,20 @@ export const useLiveState = () => {
       setAllItems(data.items);
     });
 
+    socket.on('production_stopped', () => {
+      setActiveEvent(null);
+      activeEventRef.current = null;
+      eventStartTimeRef.current = null;
+      setActiveEventElapsedTime(0);
+      setActiveEventRemainingTime(null);
+      setAutoAdvanceEventId(null);
+      setProductionClock(formatTime(0));
+      if (timeStateRef.current) {
+        timeStateRef.current = { ...timeStateRef.current, mode: 'stopped' };
+      }
+      fetchData();
+    });
+
     socket.on('production_events_update_needed', () => {
       fetchData();
     });

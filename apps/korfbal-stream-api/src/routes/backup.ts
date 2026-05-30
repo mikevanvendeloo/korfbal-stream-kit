@@ -154,19 +154,206 @@ backupRouter.get('/producties/export', async (_req, res, next) => {
       include: {
         matchSchedule: true,
         productionReport: true,
+        productionPersons: {
+          include: {
+            person: {
+              include: {
+                skills: {
+                  include: {
+                    skill: true
+                  }
+                }
+              }
+            }
+          }
+        },
+        productionPositions: {
+          include: {
+            position: true,
+            person: true
+          }
+        },
+        segments: {
+          include: {
+            bezetting: {
+              include: {
+                person: true,
+                position: true
+              }
+            }
+          },
+          orderBy: { volgorde: 'asc' }
+        },
+        TitleDefinition: {
+          include: {
+            parts: true
+          }
+        },
+        interviewSubjects: {
+          include: {
+            player: {
+              include: {
+                club: true
+              }
+            },
+            titleDefinition: true
+          }
+        },
+        callSheets: {
+          include: {
+            items: {
+              include: {
+                positions: {
+                  include: {
+                    position: true
+                  }
+                }
+              }
+            }
+          }
+        },
+        productionEvents: {
+          include: {
+            positions: {
+              include: {
+                position: true
+              }
+            }
+          }
+        }
       },
       orderBy: { id: 'asc' }
     });
 
     const exportData = productions.map(p => ({
-      matchExternalId: p.matchSchedule.externalId,
-      isActive: p.isActive,
-      liveTime: p.liveTime,
-      report: p.productionReport ? {
-        matchSponsor: p.productionReport.matchSponsor,
-        interviewRationale: p.productionReport.interviewRationale,
-        remarks: p.productionReport.remarks
-      } : null
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      matchSchedule: {
+        externalId: p.matchSchedule.externalId,
+        date: p.matchSchedule.date,
+        homeTeamName: p.matchSchedule.homeTeamName,
+        awayTeamName: p.matchSchedule.awayTeamName,
+        accommodationName: p.matchSchedule.accommodationName,
+        accommodationRoute: p.matchSchedule.accommodationRoute,
+        attendanceTime: p.matchSchedule.attendanceTime,
+        isPracticeMatch: p.matchSchedule.isPracticeMatch,
+        isHomeMatch: p.matchSchedule.isHomeMatch,
+        isCompetitiveMatch: p.matchSchedule.isCompetitiveMatch,
+        fieldName: p.matchSchedule.fieldName,
+        refereeName: p.matchSchedule.refereeName,
+        reserveRefereeName: p.matchSchedule.reserveRefereeName,
+        homeScore: p.matchSchedule.homeScore,
+        awayScore: p.matchSchedule.awayScore,
+        color: p.matchSchedule.color,
+        isManual: p.matchSchedule.isManual
+      },
+      production: {
+        isActive: p.isActive,
+        liveTime: p.liveTime,
+        report: p.productionReport ? {
+          matchSponsor: p.productionReport.matchSponsor,
+          interviewRationale: p.productionReport.interviewRationale,
+          remarks: p.productionReport.remarks
+        } : null
+      },
+      persons: p.productionPersons.map(pp => ({
+        name: pp.person.name,
+        gender: pp.person.gender,
+        skills: pp.person.skills.map(ps => ({
+          code: ps.skill.code,
+          name: ps.skill.name,
+          nameMale: ps.skill.nameMale,
+          nameFemale: ps.skill.nameFemale,
+          type: ps.skill.type
+        }))
+      })),
+      positions: p.productionPositions.map(pp => ({
+        personName: pp.person.name,
+        positionName: pp.position.name,
+        isStudio: pp.position.isStudio
+      })),
+      segments: p.segments.map(seg => ({
+        naam: seg.naam,
+        volgorde: seg.volgorde,
+        duurInMinuten: seg.duurInMinuten,
+        isTimeAnchor: seg.isTimeAnchor,
+        assignments: seg.bezetting.map(bez => ({
+          personName: bez.person.name,
+          positionName: bez.position.name,
+          isStudio: bez.position.isStudio
+        }))
+      })),
+      titles: p.TitleDefinition.map(td => ({
+        id: td.id,
+        name: td.name,
+        order: td.order,
+        enabled: td.enabled,
+        parts: td.parts.map(tp => ({
+          sourceType: tp.sourceType,
+          teamSide: tp.teamSide,
+          limit: tp.limit,
+          filters: tp.filters,
+          customFunction: tp.customFunction,
+          customName: tp.customName
+        }))
+      })),
+      interviews: p.interviewSubjects.map(subj => ({
+        side: subj.side,
+        role: subj.role,
+        playerName: subj.player.name,
+        playerShirtNo: subj.player.shirtNo,
+        playerGender: subj.player.gender,
+        playerPersonType: subj.player.personType,
+        playerFunction: subj.player.function,
+        playerPhotoUrl: subj.player.photoUrl,
+        clubName: subj.player.club.name,
+        clubShortName: subj.player.club.shortName,
+        clubSlug: subj.player.club.slug,
+        clubLogoUrl: subj.player.club.logoUrl,
+        titleName: subj.titleDefinition?.name || null
+      })),
+      callSheets: p.callSheets.map(cs => ({
+        name: cs.name,
+        color: cs.color,
+        items: cs.items.map(item => ({
+          id: item.id,
+          productionSegmentVolgorde: item.productionSegmentId ? p.segments.find(s => s.id === item.productionSegmentId)?.volgorde : null,
+          cue: item.cue,
+          title: item.title,
+          note: item.note,
+          color: item.color,
+          timeStart: item.timeStart,
+          timeEnd: item.timeEnd,
+          durationSec: item.durationSec,
+          orderIndex: item.orderIndex,
+          isInVenue: item.isInVenue,
+          anchorType: item.anchorType,
+          isTimeAnchor: item.isTimeAnchor,
+          autoAdvance: item.autoAdvance,
+          isInLivestream: item.isInLivestream,
+          parentId: item.parentId,
+          positions: item.positions.map(pos => pos.position.name)
+        }))
+      })),
+      productionEvents: p.productionEvents.map(ev => ({
+        id: ev.id,
+        title: ev.title,
+        status: ev.status,
+        order: ev.order,
+        actualStartTime: ev.actualStartTime,
+        plannedStartTime: ev.plannedStartTime,
+        plannedEndTime: ev.plannedEndTime,
+        durationSec: ev.durationSec,
+        note: ev.note,
+        triggerSource: ev.triggerSource,
+        vMixInputName: ev.vMixInputName,
+        isInVenue: ev.isInVenue,
+        isInLivestream: ev.isInLivestream,
+        isTimeAnchor: ev.isTimeAnchor,
+        anchorType: ev.anchorType,
+        autoAdvance: ev.autoAdvance,
+        positions: ev.positions.map(pos => pos.position.name)
+      }))
     }));
 
     res.setHeader('Content-Type', 'application/json');
@@ -365,7 +552,6 @@ backupRouter.post('/matches/import', async (req, res, next) => {
     let created = 0, updated = 0;
     for (const item of data) {
       try {
-        if (!item.externalId) continue;
         const matchData = {
           externalId: item.externalId,
           date: new Date(item.date),
@@ -385,9 +571,22 @@ backupRouter.post('/matches/import', async (req, res, next) => {
           awayScore: item.awayScore,
           color: item.color
         };
-        const existing = await prisma.matchSchedule.findUnique({ where: { externalId: item.externalId } });
+
+        let existing;
+        if (item.externalId) {
+          existing = await prisma.matchSchedule.findUnique({ where: { externalId: item.externalId } });
+        } else {
+          existing = await prisma.matchSchedule.findFirst({
+            where: {
+              date: matchData.date,
+              homeTeamName: matchData.homeTeamName,
+              awayTeamName: matchData.awayTeamName
+            }
+          });
+        }
+
         if (existing) {
-          await prisma.matchSchedule.update({ where: { externalId: item.externalId }, data: matchData });
+          await prisma.matchSchedule.update({ where: { id: existing.id }, data: matchData });
           updated++;
         } else {
           await prisma.matchSchedule.create({ data: matchData });
@@ -451,40 +650,360 @@ backupRouter.post('/producties/import', async (req, res, next) => {
     let created = 0, updated = 0;
     for (const item of data) {
       try {
-        const match = await prisma.matchSchedule.findUnique({ where: { externalId: item.matchExternalId } });
-        if (!match) continue;
+        if (!item.matchSchedule || !item.production) continue;
 
-        let production = await prisma.production.findUnique({ where: { matchScheduleId: match.id } });
-        if (production) {
-          production = await prisma.production.update({
-            where: { id: production.id },
-            data: { isActive: !!item.isActive, liveTime: item.liveTime }
-          });
-          updated++;
-        } else {
-          production = await prisma.production.create({
-            data: { matchScheduleId: match.id, isActive: !!item.isActive, liveTime: item.liveTime }
-          });
-          created++;
-        }
+        await prisma.$transaction(async (tx) => {
+          // 1. Find or create MatchSchedule
+          let match;
+          if (item.matchSchedule.externalId) {
+            match = await tx.matchSchedule.findUnique({
+              where: { externalId: item.matchSchedule.externalId }
+            });
+          } else {
+            match = await tx.matchSchedule.findFirst({
+              where: {
+                date: new Date(item.matchSchedule.date),
+                homeTeamName: item.matchSchedule.homeTeamName,
+                awayTeamName: item.matchSchedule.awayTeamName
+              }
+            });
+          }
 
-        if (item.report) {
-          await prisma.productionReport.upsert({
-            where: { productionId: production.id },
-            create: {
-              productionId: production.id,
-              matchSponsor: item.report.matchSponsor,
-              interviewRationale: item.report.interviewRationale,
-              remarks: item.report.remarks
-            },
-            update: {
-              matchSponsor: item.report.matchSponsor,
-              interviewRationale: item.report.interviewRationale,
-              remarks: item.report.remarks
+          const matchData = {
+            ...item.matchSchedule,
+            date: new Date(item.matchSchedule.date),
+            attendanceTime: item.matchSchedule.attendanceTime ? new Date(item.matchSchedule.attendanceTime) : null
+          };
+
+          if (match) {
+            match = await tx.matchSchedule.update({
+              where: { id: match.id },
+              data: matchData
+            });
+          } else {
+            match = await tx.matchSchedule.create({
+              data: matchData
+            });
+          }
+
+          // 2. Create Production
+          let production = await tx.production.findUnique({ where: { matchScheduleId: match.id } });
+          if (!production) {
+            production = await tx.production.create({
+              data: {
+                matchScheduleId: match.id,
+                isActive: !!item.production.isActive,
+                liveTime: item.production.liveTime ? new Date(item.production.liveTime) : null
+              }
+            });
+            created++;
+          } else {
+            production = await tx.production.update({
+              where: { id: production.id },
+              data: {
+                isActive: !!item.production.isActive,
+                liveTime: item.production.liveTime ? new Date(item.production.liveTime) : null
+              }
+            });
+            updated++;
+          }
+
+          // 3. Upsert Production Report
+          if (item.production.report) {
+            await tx.productionReport.upsert({
+              where: { productionId: production.id },
+              update: item.production.report,
+              create: {
+                productionId: production.id,
+                ...item.production.report
+              }
+            });
+          }
+
+          // 4. Process Persons and Skills
+          if (Array.isArray(item.persons)) {
+            for (const pData of item.persons) {
+              let person = await tx.person.findFirst({ where: { name: pData.name } });
+              if (!person) {
+                person = await tx.person.create({
+                  data: { name: pData.name, gender: pData.gender }
+                });
+              }
+
+              if (Array.isArray(pData.skills)) {
+                for (const sData of pData.skills) {
+                  const skill = await tx.skill.upsert({
+                    where: { code: sData.code },
+                    update: { name: sData.name, nameMale: sData.nameMale, nameFemale: sData.nameFemale, type: sData.type },
+                    create: { code: sData.code, name: sData.name, nameMale: sData.nameMale, nameFemale: sData.nameFemale, type: sData.type }
+                  });
+                  await tx.personSkill.upsert({
+                    where: { personId_skillId: { personId: person.id, skillId: skill.id } },
+                    update: {},
+                    create: { personId: person.id, skillId: skill.id }
+                  });
+                }
+              }
             }
-          });
-        }
-      } catch (_) {}
+          }
+
+          // 5. Link Persons to Production (ProductionPerson)
+          if (Array.isArray(item.persons)) {
+            for (const pData of item.persons) {
+              const person = await tx.person.findFirst({ where: { name: pData.name } });
+              if (person) {
+                await tx.productionPerson.upsert({
+                  where: { productionId_personId: { productionId: production.id, personId: person.id } },
+                  update: {},
+                  create: { productionId: production.id, personId: person.id }
+                });
+              }
+            }
+          }
+
+          // 6. Crew / Position Assignments
+          if (Array.isArray(item.positions)) {
+            for (const cData of item.positions) {
+              const person = await tx.person.findFirst({ where: { name: cData.personName } });
+              let position = await tx.position.findFirst({ where: { name: cData.positionName } });
+              if (!position) {
+                position = await tx.position.create({
+                  data: { name: cData.positionName, isStudio: !!cData.isStudio }
+                });
+              }
+              if (person) {
+                await tx.productionPersonPosition.upsert({
+                  where: {
+                    productionId_personId_positionId: {
+                      productionId: production.id,
+                      personId: person.id,
+                      positionId: position.id
+                    }
+                  },
+                  update: {},
+                  create: {
+                    productionId: production.id,
+                    personId: person.id,
+                    positionId: position.id
+                  }
+                });
+              }
+            }
+          }
+
+          // 7. Segments and Bezetting
+          if (Array.isArray(item.segments)) {
+            await tx.productionSegment.deleteMany({ where: { productionId: production.id } });
+
+            for (const sData of item.segments) {
+              const segment = await tx.productionSegment.create({
+                data: {
+                  productionId: production.id,
+                  naam: sData.naam,
+                  volgorde: sData.volgorde,
+                  duurInMinuten: sData.duurInMinuten,
+                  isTimeAnchor: !!sData.isTimeAnchor
+                }
+              });
+
+              if (Array.isArray(sData.assignments)) {
+                for (const bData of sData.assignments) {
+                  const person = await tx.person.findFirst({ where: { name: bData.personName } });
+                  let position = await tx.position.findFirst({ where: { name: bData.positionName } });
+                  if (!position) {
+                    position = await tx.position.create({
+                      data: { name: bData.positionName, isStudio: !!bData.isStudio }
+                    });
+                  }
+                  if (person) {
+                    await tx.segmentRoleAssignment.create({
+                      data: {
+                        productionSegmentId: segment.id,
+                        personId: person.id,
+                        positionId: position.id
+                      }
+                    });
+                  }
+                }
+              }
+            }
+          }
+
+          // 8. Titles
+          const titleIdMap = new Map<number, number>();
+          if (Array.isArray(item.titles)) {
+            await tx.titleDefinition.deleteMany({ where: { productionId: production.id } });
+            for (const tData of item.titles) {
+              const title = await tx.titleDefinition.create({
+                data: {
+                  productionId: production.id,
+                  name: tData.name,
+                  order: tData.order,
+                  enabled: tData.enabled,
+                  parts: {
+                    create: tData.parts
+                  }
+                }
+              });
+              titleIdMap.set(tData.id, title.id);
+            }
+          }
+
+          // 9. Interviews
+          if (Array.isArray(item.interviews)) {
+            await tx.interviewSubject.deleteMany({ where: { productionId: production.id } });
+            for (const intData of item.interviews) {
+              let club = await tx.club.findUnique({ where: { slug: intData.clubSlug } });
+              if (!club) {
+                club = await tx.club.create({
+                  data: {
+                    name: intData.clubName,
+                    shortName: intData.clubShortName,
+                    slug: intData.clubSlug,
+                    logoUrl: intData.clubLogoUrl
+                  }
+                });
+              }
+              let player = await tx.player.findFirst({ where: { clubId: club.id, name: intData.playerName } });
+              if (!player) {
+                player = await tx.player.create({
+                  data: {
+                    clubId: club.id,
+                    name: intData.playerName,
+                    shirtNo: intData.playerShirtNo,
+                    gender: intData.playerGender,
+                    personType: intData.playerPersonType,
+                    function: intData.playerFunction,
+                    photoUrl: intData.playerPhotoUrl
+                  }
+                });
+              }
+
+              let titleId = null;
+              if (intData.titleName) {
+                const title = await tx.titleDefinition.findFirst({
+                  where: { productionId: production.id, name: intData.titleName }
+                });
+                titleId = title?.id || null;
+              }
+
+              await tx.interviewSubject.create({
+                data: {
+                  productionId: production.id,
+                  playerId: player.id,
+                  titleDefinitionId: titleId,
+                  side: intData.side,
+                  role: intData.role
+                }
+              });
+            }
+          }
+
+          // 10. CallSheets
+          if (Array.isArray(item.callSheets)) {
+            await tx.callSheet.deleteMany({ where: { productionId: production.id } });
+            for (const csData of item.callSheets) {
+              const callSheet = await tx.callSheet.create({
+                data: { productionId: production.id, name: csData.name, color: csData.color }
+              });
+
+              if (Array.isArray(csData.items)) {
+                for (const iData of csData.items) {
+                  const seg = iData.productionSegmentVolgorde ? await tx.productionSegment.findFirst({
+                    where: { productionId: production.id, volgorde: iData.productionSegmentVolgorde }
+                  }) : null;
+
+                  const callSheetItem = await tx.callSheetItem.create({
+                    data: {
+                      id: iData.id,
+                      callSheetId: callSheet.id,
+                      cue: iData.cue,
+                      title: iData.title,
+                      note: iData.note,
+                      color: iData.color,
+                      timeStart: iData.timeStart ? new Date(iData.timeStart) : null,
+                      timeEnd: iData.timeEnd ? new Date(iData.timeEnd) : null,
+                      durationSec: Number(iData.durationSec || 0),
+                      orderIndex: Number(iData.orderIndex || 0),
+                      isInVenue: !!iData.isInVenue,
+                      anchorType: iData.anchorType,
+                      isTimeAnchor: !!iData.isTimeAnchor,
+                      autoAdvance: !!iData.autoAdvance,
+                      isInLivestream: iData.isInLivestream !== false,
+                      parentId: iData.parentId,
+                      productionSegmentId: seg?.id || null
+                    }
+                  });
+
+                  if (Array.isArray(iData.positions)) {
+                    for (const posName of iData.positions) {
+                      let position = await tx.position.findUnique({ where: { name: posName } });
+                      if (!position) {
+                        position = await tx.position.create({
+                          data: { name: posName }
+                        });
+                      }
+                      await tx.callSheetItemPosition.create({
+                        data: {
+                          callSheetItemId: callSheetItem.id,
+                          positionId: position.id
+                        }
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // 11. Production Events
+          if (Array.isArray(item.productionEvents)) {
+            await tx.productionEvent.deleteMany({ where: { productionId: production.id } });
+
+            for (const evData of item.productionEvents) {
+              const event = await tx.productionEvent.create({
+                data: {
+                  productionId: production.id,
+                  title: evData.title,
+                  status: evData.status,
+                  order: evData.order,
+                  actualStartTime: evData.actualStartTime ? new Date(evData.actualStartTime) : null,
+                  plannedStartTime: evData.plannedStartTime ? new Date(evData.plannedStartTime) : null,
+                  plannedEndTime: evData.plannedEndTime ? new Date(evData.plannedEndTime) : null,
+                  durationSec: evData.durationSec,
+                  note: evData.note,
+                  triggerSource: evData.triggerSource,
+                  vMixInputName: evData.vMixInputName,
+                  isInVenue: evData.isInVenue,
+                  isInLivestream: evData.isInLivestream,
+                  isTimeAnchor: evData.isTimeAnchor,
+                  anchorType: evData.anchorType,
+                  autoAdvance: evData.autoAdvance
+                }
+              });
+
+              if (Array.isArray(evData.positions)) {
+                for (const posName of evData.positions) {
+                  let position = await tx.position.findUnique({ where: { name: posName } });
+                  if (!position) {
+                    position = await tx.position.create({
+                      data: { name: posName }
+                    });
+                  }
+                  await tx.productionEventPosition.create({
+                    data: {
+                      eventId: event.id,
+                      positionId: position.id
+                    }
+                  });
+                }
+              }
+            }
+          }
+        });
+      } catch (err) {
+        logger.error(`Import of production failed for item`, { item, error: err });
+      }
     }
     return res.json({ ok: true, created, updated });
   } catch (err) {
