@@ -34,9 +34,10 @@ jobs:
           fetch-depth: 0
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v6
         with:
           version: 11
+          cache: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -159,9 +160,10 @@ jobs:
       # ...
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v6
         with:
           version: 11
+          cache: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
