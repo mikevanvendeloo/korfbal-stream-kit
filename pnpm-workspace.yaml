@@ -8,7 +8,7 @@ allowBuilds:
   '@prisma/engines': true
   '@scarf/scarf': false
   core-js-pure: true
-  cpu-features: true
+  cpu-features: false
   esbuild: true
   less: true
   nx: true
