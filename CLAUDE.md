@@ -252,6 +252,7 @@ SCOREBOARD_BASE_URL=http://<scoreboard-ip>/scoreboard
 SHOTCLOCK_BASE_URL=http://<shotclock-ip>/shotclock
 MATCH_SCHEDULE_BASE_URL=https://api.sportclubvrijwilligersmanagement.nl/v1
 MATCH_SCHEDULE_API_TOKEN=<optional>
+MATCH_SCHEDULE_PROVIDER=vrijwilligers  # selects the MatchScheduleProvider adapter, see services/matchSchedule/providerFactory.ts
 ASSETS_DIR=storage
 HOST_IP=<optional, for vMix endpoint auto-detection in Docker>
 ```
