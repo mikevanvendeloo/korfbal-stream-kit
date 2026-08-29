@@ -1,3 +1,18 @@
 packages:
   - 'apps/*'
   - 'libs/*'
+
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - '@prisma/client'
+  - '@prisma/engines'
+  - '@scarf/scarf'
+  - core-js-pure
+  - cpu-features
+  - esbuild
+  - less
+  - nx
+  - prisma
+  - protobufjs
+  - ssh2
+  - unrs-resolver
