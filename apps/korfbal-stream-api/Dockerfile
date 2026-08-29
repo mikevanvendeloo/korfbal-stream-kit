@@ -89,7 +89,16 @@ COPY --from=builder /app/apps/korfbal-stream-api/prisma/seed-data /app/seed/seed
 
 # --- DE PRISMA FIX ---
 # Genereer de Prisma Client *binnen* de definitieve container
-RUN npx prisma generate
+# Gebruik 'pnpm exec' i.p.v. 'npx': npx roept npm's eigen gebundelde
+# node_modules aan (verouderde tar/brace-expansion/ip-address met CVE's),
+# wat we hieronder juist verwijderen.
+RUN pnpm exec prisma generate
+
+# npm/npx zijn na deze stap niet meer nodig (alleen 'node main.js' draait straks).
+# npm bundelt zelf verouderde, kwetsbare kopieen van tar/brace-expansion/ip-address
+# (CVE-2026-59873/-24842/-23745, CVE-2026-14257, CVE-2026-69192) die niet via een
+# npm-upgrade te patchen zijn - dus verwijderen we npm's eigen install uit de image.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 # Expose de poort van je API
 EXPOSE 3333

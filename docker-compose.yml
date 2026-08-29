@@ -39,7 +39,7 @@ services:
       - |
         echo "=== Starting Prisma migration ==="
         echo "DATABASE_URL: $$DATABASE_URL"
-        npx prisma migrate deploy --schema=/app/apps/korfbal-stream-api/prisma/schema.prisma
+        pnpm exec prisma migrate deploy --schema=/app/apps/korfbal-stream-api/prisma/schema.prisma
         echo "=== Migration completed successfully ==="
         echo "=== Starting seed ==="
         node /app/seed/seed.cjs
