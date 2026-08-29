@@ -16,3 +16,6 @@ allowBuilds:
   protobufjs: true
   ssh2: true
   unrs-resolver: true
+
+minimumReleaseAgeExclude:
+  - multer@2.3.0

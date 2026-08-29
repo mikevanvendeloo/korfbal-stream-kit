@@ -59,6 +59,7 @@ test-output
 /apps/korfbal-stream-api/Sponsordeals_2025.xlsx
 /streamz-test/
 /backups/
+/.pnpm-store/
 
 # Claude Code local settings (secrets)
 .claude/settings.local.json
