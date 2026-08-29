@@ -148,7 +148,10 @@ jobs:
       fail-fast: false # Don't cancel other jobs if one app fails
       matrix:
         # Read the JSON array output from the ci-checks job, or build all apps for manual dispatch
-        app: ${{ github.event_name == 'workflow_dispatch' && fromJson('[{"original":"korfbal-stream-api","sanitized":"korfbal-stream-api"},{"original":"korfbal-stream-kit","sanitized":"korfbal-stream-kit"}]') || fromJson(needs.ci-checks.outputs.affected_apps_json || '[]') }}
+        # Matrix vectors may never be empty, so fall back to a 'none' placeholder
+        # when no apps are affected (e.g. a root-config-only change) - the actual
+        # build/push step is skipped for that placeholder below.
+        app: ${{ github.event_name == 'workflow_dispatch' && fromJson('[{"original":"korfbal-stream-api","sanitized":"korfbal-stream-api"},{"original":"korfbal-stream-kit","sanitized":"korfbal-stream-kit"}]') || (needs.ci-checks.outputs.affected_apps_json != '' && needs.ci-checks.outputs.affected_apps_json != '[]' && fromJson(needs.ci-checks.outputs.affected_apps_json)) || fromJson('[{"original":"none","sanitized":"none"}]') }}
 
     steps:
       - name: Checkout
@@ -204,6 +207,7 @@ jobs:
           echo "Docker tag: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:$TAG"
 
       - name: Build and push Docker image
+        if: matrix.app.original != 'none'
         uses: docker/build-push-action@v7
         with:
           context: .
