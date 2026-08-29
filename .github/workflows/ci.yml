@@ -28,7 +28,7 @@ jobs:
       affected_apps_json: ${{ steps.get_affected.outputs.affected_apps_json }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # Fetch all history and tags for Nx affected
           fetch-depth: 0
@@ -50,7 +50,7 @@ jobs:
 
       - name: Determine Nx SHAs
         # This action is vital. It sets $NX_BASE and $NX_HEAD env vars
-        uses: nrwl/nx-set-shas@v4
+        uses: nrwl/nx-set-shas@v5
 
       - name: Generate Prisma Client
         run: pnpm prisma:generate # Use pnpm to run scripts
@@ -94,7 +94,7 @@ jobs:
       new_tag: ${{ steps.versioner.outputs.new_tag }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0 # Required to fetch all tags
 
@@ -152,7 +152,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0 # Needed for Nx
 
@@ -175,19 +175,19 @@ jobs:
         run: pnpm install
 
       - name: Determine Nx SHAs
-        uses: nrwl/nx-set-shas@v4
+        uses: nrwl/nx-set-shas@v5
 
       - name: Generate Prisma Client
         run: pnpm prisma:generate
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -204,7 +204,7 @@ jobs:
           echo "Docker tag: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:$TAG"
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -237,7 +237,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
