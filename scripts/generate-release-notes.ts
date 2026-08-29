@@ -89,8 +89,16 @@ async function main() {
   if (!newTag) {
     throw new Error('NEW_TAG env var is required');
   }
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.log('ANTHROPIC_API_KEY not set - skipping AI release notes generation.');
+  // Either a plain API key/auth token, or Workload Identity Federation (the SDK
+  // auto-detects WIF from ANTHROPIC_FEDERATION_RULE_ID/_ORGANIZATION_ID/
+  // _SERVICE_ACCOUNT_ID + ANTHROPIC_IDENTITY_TOKEN - see services/config.ts callers).
+  const hasCredentials = !!(
+    process.env.ANTHROPIC_API_KEY ||
+    process.env.ANTHROPIC_AUTH_TOKEN ||
+    process.env.ANTHROPIC_IDENTITY_TOKEN
+  );
+  if (!hasCredentials) {
+    console.log('No Anthropic credentials configured (API key or WIF) - skipping AI release notes generation.');
     return;
   }
 

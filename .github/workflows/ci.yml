@@ -96,6 +96,7 @@ jobs:
     if: github.event_name == 'pull_request'
     permissions:
       pull-requests: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -117,10 +118,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Fetch GitHub OIDC token for Anthropic
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const token = await core.getIDToken('https://api.anthropic.com');
+            core.setSecret(token);
+            core.exportVariable('ANTHROPIC_IDENTITY_TOKEN', token);
+
       - name: Generate preview release notes
         continue-on-error: true
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Workload Identity Federation - the SDK exchanges ANTHROPIC_IDENTITY_TOKEN
+          # (from the step above) for a short-lived access token. No static API key.
+          ANTHROPIC_FEDERATION_RULE_ID: fdrl_012qG62fm1N1C3HwGuAnGBxN
+          ANTHROPIC_ORGANIZATION_ID: fe21c84c-124f-436b-b4fb-06e6c829f7a4
+          ANTHROPIC_SERVICE_ACCOUNT_ID: svac_01EKysMoY7N4pk1zP24TZhNL
+          ANTHROPIC_WORKSPACE_ID: wrkspc_01UNAAN2mqSkjkz1kPRfqC7f
           NEW_TAG: PR #${{ github.event.pull_request.number }} (preview)
           PREVIOUS_TAG: ${{ github.event.pull_request.base.sha }}
           OUTPUT_FILE: release-notes-preview.md
@@ -373,6 +387,7 @@ jobs:
       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     permissions:
       contents: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -423,13 +438,25 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Fetch GitHub OIDC token for Anthropic
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const token = await core.getIDToken('https://api.anthropic.com');
+            core.setSecret(token);
+            core.exportVariable('ANTHROPIC_IDENTITY_TOKEN', token);
+
       - name: Generate AI release notes
-        # Best-effort: if ANTHROPIC_API_KEY isn't configured, or the API call
-        # fails, this step no-ops and the release below falls back to
-        # `gh release create --generate-notes`.
+        # Best-effort: if the WIF exchange or the API call fails, this step
+        # no-ops and the release below falls back to `gh release create --generate-notes`.
         continue-on-error: true
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Workload Identity Federation - the SDK exchanges ANTHROPIC_IDENTITY_TOKEN
+          # (from the step above) for a short-lived access token. No static API key.
+          ANTHROPIC_FEDERATION_RULE_ID: fdrl_012qG62fm1N1C3HwGuAnGBxN
+          ANTHROPIC_ORGANIZATION_ID: fe21c84c-124f-436b-b4fb-06e6c829f7a4
+          ANTHROPIC_SERVICE_ACCOUNT_ID: svac_01EKysMoY7N4pk1zP24TZhNL
+          ANTHROPIC_WORKSPACE_ID: wrkspc_01UNAAN2mqSkjkz1kPRfqC7f
           NEW_TAG: ${{ needs.calculate-version.outputs.new_tag }}
           PREVIOUS_TAG: ${{ steps.tag.outputs.previous_tag }}
           OUTPUT_FILE: release-notes.md
