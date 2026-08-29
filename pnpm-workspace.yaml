@@ -2,17 +2,17 @@ packages:
   - 'apps/*'
   - 'libs/*'
 
-onlyBuiltDependencies:
-  - '@parcel/watcher'
-  - '@prisma/client'
-  - '@prisma/engines'
-  - '@scarf/scarf'
-  - core-js-pure
-  - cpu-features
-  - esbuild
-  - less
-  - nx
-  - prisma
-  - protobufjs
-  - ssh2
-  - unrs-resolver
+allowBuilds:
+  '@parcel/watcher': true
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@scarf/scarf': true
+  core-js-pure: true
+  cpu-features: true
+  esbuild: true
+  less: true
+  nx: true
+  prisma: true
+  protobufjs: true
+  ssh2: true
+  unrs-resolver: true
