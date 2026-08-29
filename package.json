@@ -2,6 +2,23 @@
   "name": "@korfbal-stream-kit/korfbal-stream-apps",
   "version": "0.0.1",
   "license": "MIT",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@prisma/client",
+      "@prisma/engines",
+      "@scarf/scarf",
+      "core-js-pure",
+      "cpu-features",
+      "esbuild",
+      "less",
+      "nx",
+      "prisma",
+      "protobufjs",
+      "ssh2",
+      "unrs-resolver"
+    ]
+  },
   "scripts": {
     "dev": "nx run-many -t serve --all",
     "build": "nx run-many -t build --all",
