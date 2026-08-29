@@ -189,6 +189,24 @@ describe('Match schedule import and list APIs', () => {
     expect(resAway.body.items.length).toBe(1);
     expect(resAway.body.items[0].externalId).toBe('b');
   });
+
+  it('includes manually entered matches regardless of the location filter', async () => {
+    // A manually entered match (no externalId, isHomeMatch left at its default/false)
+    // must still show up next to imported matches, for both HOME and AWAY.
+    store.push(
+      { id: 1, externalId: 'a', date: '2025-11-01T08:00:00.000Z', isHomeMatch: true, homeTeamName: 'H', awayTeamName: 'A' },
+      { id: 2, externalId: null, date: '2025-11-01T09:00:00.000Z', isManual: true, homeTeamName: 'Manual H', awayTeamName: 'Manual A' },
+    );
+
+    const resHome = await request(app).get('/api/match/matches/schedule?date=2025-11-01');
+    expect(resHome.status).toBe(200);
+    expect(resHome.body.items.map((m: any) => m.id).sort()).toEqual([1, 2]);
+
+    const resAway = await request(app).get('/api/match/matches/schedule?date=2025-11-01&location=AWAY');
+    expect(resAway.status).toBe(200);
+    // The manual match still appears even though it isn't a home match
+    expect(resAway.body.items.map((m: any) => m.id)).toEqual([2]);
+  });
 });
 
 
