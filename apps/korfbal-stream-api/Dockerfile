@@ -14,6 +14,7 @@ RUN npm i -g pnpm
 # Kopieer de package manifests
 COPY package.json ./
 COPY pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml ./
 COPY nx.json ./
 COPY apps/korfbal-stream-api/.swcrc ./
 
