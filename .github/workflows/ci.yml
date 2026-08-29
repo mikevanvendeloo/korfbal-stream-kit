@@ -225,7 +225,7 @@ jobs:
 
       - name: Upload digest
         if: matrix.app.original != 'none'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: digests-${{ matrix.app.sanitized }}-${{ env.PLATFORM_PAIR }}
           path: /tmp/digests/*
@@ -262,7 +262,7 @@ jobs:
 
       - name: Download digests
         if: matrix.app.original != 'none'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: /tmp/digests
           pattern: digests-${{ matrix.app.sanitized }}-*
