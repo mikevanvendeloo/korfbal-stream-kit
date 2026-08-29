@@ -3,6 +3,9 @@ FROM node:24-alpine3.23 AS builder
 ENV CI=true
 WORKDIR /app
 
+# Haal de laatste security-patches voor Alpine-systeempakketten (openssl, libc, etc.) op
+RUN apk update && apk upgrade --no-cache
+
 # Accepteer APP_VERSION als build argument
 ARG APP_VERSION=0.0.0-dev
 # Zet het als environment variabele voor de build (Vite gebruikt dit)
@@ -27,6 +30,9 @@ RUN pnpm nx build korfbal-stream-kit --prod
 # STAGE 2: De Productie-Image
 # Gebruik een lichtgewicht Nginx-server
 FROM nginx:1.25-alpine
+
+# Haal de laatste security-patches voor Alpine-systeempakketten op
+RUN apk update && apk upgrade --no-cache
 
 # Verwijder de default Nginx content
 RUN rm -rf /usr/share/nginx/html/*

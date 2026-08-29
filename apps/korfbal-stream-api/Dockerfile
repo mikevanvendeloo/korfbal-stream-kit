@@ -8,6 +8,9 @@ ENV CI=true
 
 WORKDIR /app
 
+# Haal de laatste security-patches voor Alpine-systeempakketten (openssl, libc, etc.) op
+RUN apk update && apk upgrade --no-cache
+
 # Installeer pnpm globaal
 RUN npm i -g pnpm
 
@@ -50,6 +53,9 @@ ARG APP_VERSION=0.0.0-dev
 ENV APP_VERSION=${APP_VERSION}
 
 WORKDIR /app
+
+# Haal de laatste security-patches voor Alpine-systeempakketten (openssl, libc, etc.) op
+RUN apk update && apk upgrade --no-cache
 
 # Installeer pnpm ook hier (nodig voor 'pnpm install --prod')
 RUN npm i -g pnpm
