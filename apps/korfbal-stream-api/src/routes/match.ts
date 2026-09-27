@@ -2,6 +2,7 @@ import {Router} from 'express';
 import {logger} from '../utils/logger';
 import {prisma} from '../services/prisma';
 import {matchScheduleProvider} from '../services/matchSchedule';
+import {createSeasonIdResolver, seasonNameForStartYear, seasonStartYearForDate} from '../services/season';
 
 export const matchRouter: Router = Router();
 
@@ -15,8 +16,17 @@ matchRouter.post('/matches/schedule/import', async (req, res) => {
 
     let inserted = 0;
     let updated = 0;
+    const seasons = createSeasonIdResolver();
+    // Imported matches per season (derived from the match date), so the UI can say where they landed.
+    const bySeasonStartYear = new Map<number, { seasonId: number; name: string; count: number }>();
 
-    for (const data of items) {
+    for (const item of items) {
+      const startYear = seasonStartYearForDate(new Date(item.date));
+      const seasonId = await seasons.forStartYear(startYear);
+      const seasonCount = bySeasonStartYear.get(startYear) ?? {seasonId, name: seasonNameForStartYear(startYear), count: 0};
+      seasonCount.count++;
+      bySeasonStartYear.set(startYear, seasonCount);
+      const data = {...item, seasonId};
       const existing = await prisma.matchSchedule.findUnique({where: {externalId: data.externalId}});
       if (existing) {
         await prisma.matchSchedule.update({where: {externalId: data.externalId}, data});
@@ -27,8 +37,11 @@ matchRouter.post('/matches/schedule/import', async (req, res) => {
       }
     }
 
-    logger.info('Program import: persistence summary', {inserted, updated, total: items.length} as any);
-    return res.json({ok: true, inserted, updated, total: items.length});
+    const bySeason = [...bySeasonStartYear.entries()]
+      .sort(([a], [b]) => b - a)
+      .map(([, seasonCount]) => seasonCount);
+    logger.info('Program import: persistence summary', {inserted, updated, total: items.length, bySeason} as any);
+    return res.json({ok: true, inserted, updated, total: items.length, bySeason});
   } catch (err: any) {
     logger.error('Program import failed', {error: err?.message});
     return res.status(502).json({error: 'Failed to import program'});

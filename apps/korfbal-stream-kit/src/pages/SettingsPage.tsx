@@ -1,12 +1,14 @@
 import React, {useState} from 'react';
+import SeasonSettingsTab from './settings/SeasonSettingsTab';
 import ClubSettingsTab from './settings/ClubSettingsTab';
 import ConnectionSettingsTab from './settings/ConnectionSettingsTab';
 import SponsorSettingsTab from './settings/SponsorSettingsTab';
 import BackupSettingsTab from './settings/BackupSettingsTab';
 
-type Tab = 'club' | 'connections' | 'sponsors' | 'backup';
+type Tab = 'season' | 'club' | 'connections' | 'sponsors' | 'backup';
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'season', label: 'Seizoen' },
   { id: 'club', label: 'Club & Teams' },
   { id: 'connections', label: 'Koppelingen' },
   { id: 'sponsors', label: 'Sponsors' },
@@ -14,10 +16,12 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('club');
+  const [activeTab, setActiveTab] = useState<Tab>('season');
 
   const renderActiveTab = () => {
     switch (activeTab) {
+      case 'season':
+        return <SeasonSettingsTab />;
       case 'club':
         return <ClubSettingsTab />;
       case 'connections':

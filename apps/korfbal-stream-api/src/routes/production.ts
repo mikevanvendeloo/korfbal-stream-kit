@@ -3,6 +3,7 @@ import {skillsRouter} from './skills';
 import {prisma} from '../services/prisma';
 import * as productionStateService from '../services/productionState';
 import {getSetting, PRODUCTION_TEAM_NAMES_KEY} from '../services/appSettings';
+import {resolveSeasonId} from '../services/season';
 
 // Import all production sub-routers
 import {productionPersonsRouter} from './production/production-persons';
@@ -83,9 +84,11 @@ productionRouter.get('/matches', async (req, res, next) => {
   try {
     const productionTeamNames = await getSetting<string[]>(PRODUCTION_TEAM_NAMES_KEY);
     const filters = productionTeamNames || [];
+    const seasonId = await resolveSeasonId(req.query.seasonId);
 
     const items = await prisma.matchSchedule.findMany({
       where: {
+        seasonId,
         OR: [
           { isManual: true },
           {
@@ -177,9 +180,11 @@ productionRouter.post('/', async (req, res, next) => {
 });
 
 // GET /api/production -> list productions with match details
-productionRouter.get('/', async (_req, res, next) => {
+productionRouter.get('/', async (req, res, next) => {
   try {
+    const seasonId = await resolveSeasonId(req.query.seasonId);
     const items = await prisma.production.findMany({
+      where: { matchSchedule: { seasonId } },
       orderBy: {
         matchSchedule: {
           date: 'desc'

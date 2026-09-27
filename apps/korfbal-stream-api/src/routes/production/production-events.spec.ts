@@ -3,6 +3,7 @@ import {execSync} from 'node:child_process';
 import app from '../../main';
 import {beforeAll, beforeEach, describe, expect, it} from 'vitest';
 import {PrismaClient} from '@prisma/client';
+import {currentSeasonId} from '../../../test-helpers';
 
 function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
@@ -33,7 +34,7 @@ describe.runIf(runDb)('Production Events API (integration)', () => {
 
   it('creates and lists production events', async () => {
     const match = await prisma.matchSchedule.create({
-      data: {
+      data: { seasonId: await currentSeasonId(prisma),
         externalId: 'm-events',
         date: new Date(),
         homeTeamName: 'Fortuna/Ruitenheer 1',
@@ -77,7 +78,7 @@ describe.runIf(runDb)('Production Events API (integration)', () => {
 
   it('activates an event via vMix trigger', async () => {
     const match = await prisma.matchSchedule.create({
-      data: {
+      data: { seasonId: await currentSeasonId(prisma),
         externalId: 'm-trigger',
         date: new Date(),
         homeTeamName: 'Fortuna/Ruitenheer 1',
@@ -108,7 +109,7 @@ describe.runIf(runDb)('Production Events API (integration)', () => {
 
   it('activates an event via manual trigger', async () => {
     const match = await prisma.matchSchedule.create({
-      data: {
+      data: { seasonId: await currentSeasonId(prisma),
         externalId: 'm-manual-trigger',
         date: new Date(),
         homeTeamName: 'Fortuna/Ruitenheer 1',
@@ -140,7 +141,7 @@ describe.runIf(runDb)('Production Events API (integration)', () => {
 
   it('should return unique positions for a production', async () => {
     const match = await prisma.matchSchedule.create({
-      data: {
+      data: { seasonId: await currentSeasonId(prisma),
         externalId: 'm-positions',
         date: new Date(),
         homeTeamName: 'Home Team',

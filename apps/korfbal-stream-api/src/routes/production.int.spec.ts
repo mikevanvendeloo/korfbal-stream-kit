@@ -3,6 +3,7 @@ import {execSync} from 'node:child_process';
 import app from '../main';
 import {beforeAll, beforeEach, describe, expect, it} from 'vitest';
 import {PrismaClient} from '@prisma/client';
+import {currentSeasonId} from '../../test-helpers';
 
 function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
@@ -37,7 +38,7 @@ describe.runIf(runDb)('Production API (integration)', () => {
 
   it('creates, lists, updates and deletes a production', async () => {
     const match = await prisma.matchSchedule.create({
-      data: {
+      data: { seasonId: await currentSeasonId(prisma),
         externalId: 'm-1',
         date: new Date(),
         homeTeamName: 'Fortuna/Ruitenheer 1',
@@ -55,7 +56,7 @@ describe.runIf(runDb)('Production API (integration)', () => {
 
     // Update to another match
     const match2 = await prisma.matchSchedule.create({
-      data: {
+      data: { seasonId: await currentSeasonId(prisma),
         externalId: 'm-2',
         date: new Date(),
         homeTeamName: 'Fortuna/Ruitenheer 2',
@@ -75,7 +76,7 @@ describe.runIf(runDb)('Production API (integration)', () => {
   it('manages production persons (attendance tracking)', async () => {
     // Setup production
     const match = await prisma.matchSchedule.create({
-      data: { externalId: 'm-persons', date: new Date(), homeTeamName: 'Fortuna/Ruitenheer 1', awayTeamName: 'Opp', isHomeMatch: true },
+      data: { seasonId: await currentSeasonId(prisma), externalId: 'm-persons', date: new Date(), homeTeamName: 'Fortuna/Ruitenheer 1', awayTeamName: 'Opp', isHomeMatch: true },
     });
     const prod = await prisma.production.create({ data: { matchScheduleId: match.id } });
 
@@ -124,7 +125,7 @@ describe.runIf(runDb)('Production API (integration)', () => {
 
   it('should create a production with the new default segments', async () => {
     const match = await prisma.matchSchedule.create({
-      data: {
+      data: { seasonId: await currentSeasonId(prisma),
         externalId: 'm-segments',
         date: new Date(),
         homeTeamName: 'Test Home',
@@ -155,7 +156,7 @@ describe.runIf(runDb)('Production API (integration)', () => {
   it('should return production report with correct attendees and assignment status', async () => {
     // Setup production
     const match = await prisma.matchSchedule.create({
-      data: { externalId: 'm-report', date: new Date(), homeTeamName: 'Home Team', awayTeamName: 'Away Team', isHomeMatch: true },
+      data: { seasonId: await currentSeasonId(prisma), externalId: 'm-report', date: new Date(), homeTeamName: 'Home Team', awayTeamName: 'Away Team', isHomeMatch: true },
     });
     const prod = await prisma.production.create({ data: { matchScheduleId: match.id } });
 

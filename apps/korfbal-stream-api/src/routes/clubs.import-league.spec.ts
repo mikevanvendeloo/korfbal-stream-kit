@@ -4,6 +4,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 // Mock prisma client methods used by the routes
 import * as prismaSvc from '../services/prisma';
+import {installSeasonMocks} from '../../test-helpers';
 
 const prisma = (prismaSvc as any).prisma as any;
 
@@ -15,6 +16,7 @@ describe('Clubs import from league teams index', () => {
   let players: any[];
 
   beforeEach(() => {
+    installSeasonMocks(prisma, { activeStartYear: 2026 });
     clubs = [];
     players = [];
 
@@ -40,8 +42,11 @@ describe('Clubs import from league teams index', () => {
     };
 
     prisma.player = {
-      findUnique: vi.fn(async ({ where }: any) => players.find((p) => p.externalId && p.externalId === where.externalId) || null),
-      findFirst: vi.fn(async ({ where }: any) => players.find((p) => p.clubId === where.clubId && p.name === where.name && (p.shirtNo ?? null) === (where.shirtNo ?? null)) || null),
+      findUnique: vi.fn(async ({ where }: any) => {
+        const key = where.seasonId_externalId;
+        return players.find((p) => key && p.externalId === key.externalId && p.seasonId === key.seasonId) || null;
+      }),
+      findFirst: vi.fn(async ({ where }: any) => players.find((p) => p.seasonId === where.seasonId && p.clubId === where.clubId && p.name === where.name) || null),
       findMany: vi.fn(async ({ where, orderBy }: any) => {
         let rows = players.filter((p) => (where?.clubId != null ? p.clubId === where.clubId : true));
         if (Array.isArray(orderBy)) {

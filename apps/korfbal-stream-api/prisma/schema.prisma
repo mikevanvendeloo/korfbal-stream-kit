@@ -19,6 +19,15 @@ model Sponsor {
   enabled     Boolean     @default(true)
 }
 
+model Season {
+  id        Int             @id @default(autoincrement())
+  startYear Int             @unique
+  name      String          @unique
+  createdAt DateTime        @default(now())
+  matches   MatchSchedule[]
+  players   Player[]
+}
+
 model MatchSchedule {
   id                 Int                   @id @default(autoincrement())
   externalId         String?               @unique
@@ -41,10 +50,13 @@ model MatchSchedule {
   updatedAt          DateTime              @updatedAt
   description        String?
   isManual           Boolean               @default(false)
+  seasonId           Int
+  season             Season                @relation(fields: [seasonId], references: [id], onDelete: Restrict)
   roleAssignments    MatchRoleAssignment[]
   Production         Production?
 
   @@index([date])
+  @@index([seasonId, date])
 }
 
 /// Catalog of skills (roles) with code and gendered display names
@@ -314,14 +326,18 @@ model Player {
   shirtNo           Int?
   gender            Gender?
   photoUrl          String?
-  externalId        String?            @unique
+  externalId        String?
   createdAt         DateTime           @default(now())
   function          String?
   personType        String?
+  seasonId          Int
+  season            Season             @relation(fields: [seasonId], references: [id], onDelete: Restrict)
   interviewSubjects InterviewSubject[]
   club              Club               @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
+  @@unique([seasonId, externalId])
   @@index([clubId])
+  @@index([seasonId, clubId])
   @@index([name])
 }
 

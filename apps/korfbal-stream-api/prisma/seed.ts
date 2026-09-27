@@ -2,6 +2,7 @@ import {PrismaClient} from '@prisma/client';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {seedPersons, seedPositions, seedSkills, seedTitles} from './seed-data';
+import {ensureSeasonForDate} from '../src/services/season';
 
 const prisma = new PrismaClient();
 
@@ -309,6 +310,11 @@ async function main() {
       console.log(`Synced SegmentTemplate from ${file}: ${name}`);
     }
   }
+
+  // Seasons: matches and players always belong to one. Seed the season containing today so
+  // matches/players created afterwards (import, manual entry) have an active season to land in.
+  const currentSeason = await ensureSeasonForDate(new Date(), prisma);
+  console.log(`Ensured season ${currentSeason.name}`);
 
   console.log('Seeding completed.');
 }

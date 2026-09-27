@@ -4,6 +4,7 @@ import app from '../main';
 import {beforeAll, beforeEach, describe, expect, it} from 'vitest';
 import {PrismaClient} from '@prisma/client';
 import {POSITION_TO_SKILL} from './positionSkill';
+import {currentSeasonId} from '../../test-helpers';
 
 function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
@@ -49,7 +50,7 @@ describe.runIf(runDb)('Position -> Skill mapping (integration)', () => {
   it('GET /segments/:id/positions uses centralized mapping for requiredSkillCode', async () => {
     // Create minimal production + segment
     const match = await prisma.matchSchedule.create({
-      data: { externalId: 'm-map', date: new Date(), homeTeamName: 'Home', awayTeamName: 'Away', isHomeMatch: true },
+      data: { seasonId: await currentSeasonId(prisma), externalId: 'm-map', date: new Date(), homeTeamName: 'Home', awayTeamName: 'Away', isHomeMatch: true },
     });
     const prod = await prisma.production.create({ data: { matchScheduleId: match.id } });
     const seg = await prisma.productionSegment.create({ data: { productionId: prod.id, naam: 'Intro', volgorde: 1, duurInMinuten: 5, isTimeAnchor: false } });
@@ -66,7 +67,7 @@ describe.runIf(runDb)('Position -> Skill mapping (integration)', () => {
   it('POST /segments/:id/assignments enforces required skill from centralized mapping', async () => {
     // Setup production + segment
     const match = await prisma.matchSchedule.create({
-      data: { externalId: 'm-enforce', date: new Date(), homeTeamName: 'Home', awayTeamName: 'Away', isHomeMatch: true },
+      data: { seasonId: await currentSeasonId(prisma), externalId: 'm-enforce', date: new Date(), homeTeamName: 'Home', awayTeamName: 'Away', isHomeMatch: true },
     });
     const prod = await prisma.production.create({ data: { matchScheduleId: match.id } });
     const seg = await prisma.productionSegment.create({ data: { productionId: prod.id, naam: 'Main', volgorde: 1, duurInMinuten: 5, isTimeAnchor: false } });

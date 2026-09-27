@@ -24,7 +24,7 @@ describe('vMix Titles - templates, copy-to-production and resolver', () => {
         if (!where?.id) return null;
         const base = { id: where.id, matchScheduleId: 777 };
         if (include?.matchSchedule) {
-          return { ...base, matchSchedule: { id: 777, date: new Date().toISOString(), homeTeamName: 'Fortuna/Ruitenheer', awayTeamName: 'Dalto/Klaverblad Verzekeringen' } };
+          return { ...base, matchSchedule: { id: 777, seasonId: 5, date: new Date().toISOString(), homeTeamName: 'Fortuna/Ruitenheer', awayTeamName: 'Dalto/Klaverblad Verzekeringen' } };
         }
         return base;
       }),
@@ -210,6 +210,21 @@ describe('vMix Titles - templates, copy-to-production and resolver', () => {
     expect(list.body.length).toBe(2);
     expect(list.body[0].name).toBe('Presentatie & analist');
     expect(list.body[1].name).toBe('Commentaar (allen)');
+  });
+
+  it('resolver loads team players from the season of the production match', async () => {
+    prisma.production.findUnique = vi.fn(async () => ({
+      id: 10,
+      matchScheduleId: 777,
+      matchSchedule: { id: 777, seasonId: 5, homeTeamName: 'Fortuna/Ruitenheer', awayTeamName: 'Dalto' },
+    }));
+    prisma.club.findFirst = vi.fn(async () => ({ id: 1, name: 'Fortuna/Ruitenheer', shortName: 'Fortuna' }));
+    await request(app).post('/api/admin/vmix/title-templates').send({ name: 'Spelers', parts: [{ sourceType: 'TEAM_PLAYER', teamSide: 'HOME' }] });
+
+    const res = await request(app).get('/api/vmix/production/10/titles');
+
+    expect(res.status).toBe(200);
+    expect(prisma.player.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { clubId: 1, seasonId: 5 } }));
   });
 
   it('resolver uses templates when no production-specific titles exist and emits friendly Commentaar title', async () => {

@@ -15,7 +15,7 @@ describe('Production interviews API', () => {
       findUnique: vi.fn(async ({ where, include }: any) => {
         if (!where?.id) return null;
         const base = { id: where.id, matchScheduleId: 42 };
-        if (include?.matchSchedule) return { ...base, matchSchedule: { id: 42, homeTeamName: 'Fortuna/Ruitenheer', awayTeamName: 'Dalto/Klaverblad Verzekeringen' } };
+        if (include?.matchSchedule) return { ...base, matchSchedule: { id: 42, seasonId: 7, homeTeamName: 'Fortuna/Ruitenheer', awayTeamName: 'Dalto/Klaverblad Verzekeringen' } };
         return base;
       }),
     };
@@ -36,21 +36,22 @@ describe('Production interviews API', () => {
     prisma.player = {
       findMany: vi.fn(async ({ where }: any) => {
         if (where?.clubId === 1) {
-          if (where?.personType?.equals === 'player') return [ { id: 10, clubId: 1, name: 'Home Player', personType: 'player', function: 'Speler' } ];
-          return [ { id: 11, clubId: 1, name: 'Home Coach', personType: 'coach', function: 'Coach' } ];
+          if (where?.personType?.equals === 'player') return [ { id: 10, clubId: 1, seasonId: 7, name: 'Home Player', personType: 'player', function: 'Speler' } ];
+          return [ { id: 11, clubId: 1, seasonId: 7, name: 'Home Coach', personType: 'coach', function: 'Coach' } ];
         }
         if (where?.clubId === 2) {
-          if (where?.personType?.equals === 'player') return [ { id: 20, clubId: 2, name: 'Away Player', personType: 'player', function: 'Speler' } ];
-          return [ { id: 21, clubId: 2, name: 'Away Coach', personType: 'coach', function: 'Coach' } ];
+          if (where?.personType?.equals === 'player') return [ { id: 20, clubId: 2, seasonId: 7, name: 'Away Player', personType: 'player', function: 'Speler' } ];
+          return [ { id: 21, clubId: 2, seasonId: 7, name: 'Away Coach', personType: 'coach', function: 'Coach' } ];
         }
         return [];
       }),
       findUnique: vi.fn(async ({ where }: any) => {
         const all = [
-          { id: 10, clubId: 1, name: 'Home Player', personType: 'player', function: 'Speler' },
-          { id: 11, clubId: 1, name: 'Home Coach', personType: 'coach', function: 'Coach' },
-          { id: 20, clubId: 2, name: 'Away Player', personType: 'player', function: 'Speler' },
-          { id: 21, clubId: 2, name: 'Away Coach', personType: 'coach', function: 'Coach' },
+          { id: 10, clubId: 1, seasonId: 7, name: 'Home Player', personType: 'player', function: 'Speler' },
+          { id: 11, clubId: 1, seasonId: 7, name: 'Home Coach', personType: 'coach', function: 'Coach' },
+          { id: 20, clubId: 2, seasonId: 7, name: 'Away Player', personType: 'player', function: 'Speler' },
+          { id: 21, clubId: 2, seasonId: 7, name: 'Away Coach', personType: 'coach', function: 'Coach' },
+          { id: 30, clubId: 1, seasonId: 8, name: 'Last Season Player', personType: 'player', function: 'Speler' },
         ];
         return all.find((p) => p.id === where?.id) || null;
       }),
@@ -125,5 +126,44 @@ describe('Production interviews API', () => {
     const rows = listRes.body as any[];
     expect(rows.length).toBe(2);
     expect(rows[0]).toHaveProperty('player');
+  });
+
+  it('looks up interview options in the season of the production match, not the active season', async () => {
+    await request(app).get('/api/production/123/interviews/options').query({ side: 'HOME', role: 'PLAYER' });
+
+    expect(prisma.player.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ clubId: 1, seasonId: 7 }),
+    }));
+  });
+
+  it('rejects an interview subject from another season than the production match', async () => {
+    const res = await request(app).put('/api/production/123/interviews').send({ items: [
+      { side: 'HOME', role: 'PLAYER', playerId: 30, titleDefinitionId: null },
+    ] });
+
+    expect(res.status).toBe(400);
+  });
+
+  it.each([false, true])('keeps an already linked subject from another season valid (replaceAll=%s)', async (replaceAll) => {
+    // Productions from before the season split can sit in a newer season than their linked players.
+    await prisma.interviewSubject.create({ data: { productionId: 123, side: 'HOME', role: 'PLAYER', playerId: 30, titleDefinitionId: null } });
+
+    const res = await request(app).put('/api/production/123/interviews').send({ items: [
+      { side: 'HOME', role: 'PLAYER', playerId: 30, titleDefinitionId: null },
+      { side: 'HOME', role: 'COACH', playerId: 11, titleDefinitionId: null },
+    ], replaceAll });
+
+    expect(res.status).toBe(200);
+    expect(res.body.map((s: any) => s.playerId).sort()).toEqual([11, 30]);
+  });
+
+  it('rejects a player from another season that is linked to a different production', async () => {
+    await prisma.interviewSubject.create({ data: { productionId: 999, side: 'HOME', role: 'PLAYER', playerId: 30, titleDefinitionId: null } });
+
+    const res = await request(app).put('/api/production/123/interviews').send({ items: [
+      { side: 'HOME', role: 'PLAYER', playerId: 30, titleDefinitionId: null },
+    ] });
+
+    expect(res.status).toBe(400);
   });
 });

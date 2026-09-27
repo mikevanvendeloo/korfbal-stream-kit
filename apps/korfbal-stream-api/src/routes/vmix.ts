@@ -788,6 +788,7 @@ vmixRouter.get('/production/:id/titles', async (req, res, next) => {
       include: { matchSchedule: true },
     });
     if (!production) return res.status(404).json({ error: 'Not found' });
+    const matchSeasonId = production.matchSchedule.seasonId;
 
     // Load definitions for the production
     const definitions = await (prisma as any).titleDefinition.findMany({
@@ -838,9 +839,10 @@ vmixRouter.get('/production/:id/titles', async (req, res, next) => {
     }
 
     // Helper: players/coaches for a club
+    // Players are per season: use the season of the production's match, not the active season
     async function loadClubPeople(clubId: number | null) {
       if (!clubId) return { players: [] as any[], coaches: [] as any[] };
-      const all = await prisma.player.findMany({ where: { clubId }, orderBy: [{ function: 'asc' as any }, { name: 'asc' }] });
+      const all = await prisma.player.findMany({ where: { clubId, seasonId: matchSeasonId }, orderBy: [{ function: 'asc' as any }, { name: 'asc' }] });
       const players = all.filter((p) => p.function === 'Speler' || p.function === 'Speelster');
       const coaches = all.filter((p) => (p.function || '').toLowerCase().includes('coach'));
       return { players, coaches };
@@ -848,11 +850,11 @@ vmixRouter.get('/production/:id/titles', async (req, res, next) => {
 
     const crew = await loadCrew();
     const ms = production.matchSchedule;
-    const homeClub = await findClubByTeamName(prisma as any, ms?.homeTeamName, logger);
-    const awayClub = await findClubByTeamName(prisma as any, ms?.awayTeamName, logger);
+    const homeClub = await findClubByTeamName(prisma as any, ms.homeTeamName, logger);
+    const awayClub = await findClubByTeamName(prisma as any, ms.awayTeamName, logger);
     logger.info('🎬 vMix resolver – clubs resolved', {
       productionId: production.id,
-      match: { homeTeamName: ms?.homeTeamName, awayTeamName: ms?.awayTeamName },
+      match: { homeTeamName: ms.homeTeamName, awayTeamName: ms.awayTeamName },
       homeClub: homeClub ? { id: homeClub.id, name: homeClub.name, shortName: homeClub.shortName } : null,
       awayClub: awayClub ? { id: awayClub.id, name: awayClub.name, shortName: awayClub.shortName } : null,
     });

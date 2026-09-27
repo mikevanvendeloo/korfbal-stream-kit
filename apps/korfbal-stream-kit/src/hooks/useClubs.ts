@@ -1,5 +1,6 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {createUrl, extractError} from "../lib/api";
+import {seasonKeys} from "./useSeasons";
 
 export type Club = { id: number; name: string; shortName: string; slug: string; logoUrl?: string | null };
 export type Player = { id: number; clubId: number; name: string; shirtNo?: number | null; gender?: 'male' | 'female' | null; photoUrl?: string | null; personType?: string | null; function?: string | null };
@@ -66,11 +67,11 @@ export function useDeleteClub() {
 export function useImportLeagueTeams() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input?: { limit?: number }) => {
+    mutationFn: async (input?: { limit?: number; seasonId?: number }) => {
       const res = await fetch(createUrl('/api/clubs/import/league-teams'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit: input?.limit }),
+        body: JSON.stringify({ limit: input?.limit, seasonId: input?.seasonId }),
       });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json() as Promise<{ ok: boolean; clubsCreated: number; clubsUpdated: number; playersCreated: number; playersUpdated: number; problems?: string[] }>;
@@ -78,6 +79,8 @@ export function useImportLeagueTeams() {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['clubs'] });
       await qc.invalidateQueries({ predicate: (q) => Array.isArray(q.queryKey) && q.queryKey.includes('players') });
+      // Player counts per season change after an import
+      await qc.invalidateQueries({ queryKey: seasonKeys.all });
     },
   });
 }

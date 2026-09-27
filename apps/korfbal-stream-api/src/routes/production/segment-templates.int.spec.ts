@@ -2,6 +2,7 @@ import request from 'supertest';
 import app from '../../main';
 import {beforeEach, describe, expect, it} from 'vitest';
 import {PrismaClient} from '@prisma/client';
+import {currentSeasonId} from '../../../test-helpers';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 const prisma = new PrismaClient();
@@ -62,7 +63,7 @@ describe.runIf(runDb)('Segment Templates API (integration)', () => {
 
     // 5. Apply to production
     const match = await prisma.matchSchedule.create({
-      data: {
+      data: { seasonId: await currentSeasonId(prisma),
         externalId: 'm-test-apply',
         date: new Date(),
         homeTeamName: 'Home',

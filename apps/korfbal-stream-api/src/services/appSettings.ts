@@ -98,3 +98,7 @@ export async function getShotclockUrl(): Promise<string | null> {
 export async function setShotclockUrl(input: string): Promise<void> {
   await setSetting(SHOTCLOCK_URL_KEY, input);
 }
+
+export function clearSettingsCache(): void {
+  cache.clear();
+}
