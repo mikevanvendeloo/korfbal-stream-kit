@@ -4,10 +4,21 @@ import {logger} from '../utils/logger';
 import {PersonInputSchema} from '../schemas/person';
 import {SkillInputSchema} from '../schemas/skill';
 import {SponsorInputSchema} from '../schemas/sponsor';
-import {createSeasonIdResolver, getActiveSeason} from '../services/season';
+import {
+  ACTIVE_SEASON_ID_KEY,
+  clearSeasonCache,
+  createSeasonIdResolver,
+  ensureSeasonForStartYear,
+  getActiveSeason,
+  tryParseSeasonName,
+} from '../services/season';
 import {migrateLegacySeasonAssets} from '../services/seasonAssetMigration';
+import {clearSettingsCache} from '../services/appSettings';
 
 export const backupRouter: Router = Router();
+
+/** Settings-backup key for the active season, stored by name because season ids differ per database. */
+export const ACTIVE_SEASON_NAME_EXPORT_KEY = 'activeSeasonName';
 
 // Version for segment template JSON
 const SEGMENT_TEMPLATE_JSON_VERSION = 1 as const;
@@ -436,10 +447,16 @@ backupRouter.get('/settings/export', async (_req, res, next) => {
       orderBy: { key: 'asc' }
     });
 
-    const exportData = items.map(s => ({
-      key: s.key,
-      value: s.value
-    }));
+    const exportData: { key: string; value: unknown }[] = [];
+    for (const s of items) {
+      if (s.key !== ACTIVE_SEASON_ID_KEY) {
+        exportData.push({ key: s.key, value: s.value });
+        continue;
+      }
+      // Season ids are serial per database: export the active season by name so it resolves on import.
+      const season = typeof s.value === 'number' ? await prisma.season.findUnique({ where: { id: s.value } }) : null;
+      if (season) exportData.push({ key: ACTIVE_SEASON_NAME_EXPORT_KEY, value: season.name });
+    }
 
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', 'attachment; filename=settings.json');
@@ -1023,6 +1040,10 @@ backupRouter.post('/producties/import', async (req, res, next) => {
         logger.error(`Import of production failed for item`, { item, error: err });
       }
     }
+    // Interview players created by the import may carry pre-season `players/...` photoUrls.
+    if (created + updated > 0) {
+      await migrateLegacySeasonAssets().catch((err) => logger.error('Season asset migration after productions import failed', err as Error));
+    }
     return res.json({ ok: true, created, updated });
   } catch (err) {
     logger.error('POST /api/backup/producties/import failed', err as any);
@@ -1142,26 +1163,47 @@ backupRouter.post('/settings/import', async (req, res, next) => {
     const data = req.body;
     if (!Array.isArray(data)) return res.status(400).json({ error: 'Array expected' });
     let created = 0, updated = 0;
+    const touchedKeys = new Set<string>();
     for (const item of data) {
       try {
-        if (!item.key) continue;
-        const existing = await prisma.setting.findUnique({ where: { key: item.key } });
+        if (!item?.key) continue;
+        let key: string = item.key;
+        let value = item.value ?? null;
+        if (key === ACTIVE_SEASON_ID_KEY) {
+          // Old backups carry the raw serial id, which points at a different season in this database.
+          logger.warn(`Skipping setting ${ACTIVE_SEASON_ID_KEY} from backup: season ids are not portable between databases`);
+          continue;
+        }
+        if (key === ACTIVE_SEASON_NAME_EXPORT_KEY) {
+          const startYear = tryParseSeasonName(value);
+          if (startYear === undefined) {
+            logger.warn(`Skipping setting ${ACTIVE_SEASON_NAME_EXPORT_KEY} from backup: invalid season name`, { value });
+            continue;
+          }
+          key = ACTIVE_SEASON_ID_KEY;
+          value = (await ensureSeasonForStartYear(startYear)).id;
+        }
+        const existing = await prisma.setting.findUnique({ where: { key } });
         if (existing) {
           await prisma.setting.update({
-            where: { key: item.key },
-            data: { value: item.value ?? null }
+            where: { key },
+            data: { value }
           });
           updated++;
         } else {
           await prisma.setting.create({
-            data: { key: item.key, value: item.value ?? null }
+            data: { key, value }
           });
           created++;
         }
+        touchedKeys.add(key);
       } catch (err) {
-        logger.error(`Failed to import setting ${item.key}`, err as any);
+        logger.error(`Failed to import setting ${item?.key}`, err as any);
       }
     }
+    // Imported values must take effect without a restart.
+    clearSettingsCache(touchedKeys);
+    clearSeasonCache();
     return res.json({ ok: true, created, updated });
   } catch (err) {
     logger.error('POST /api/backup/settings/import failed', err as any);

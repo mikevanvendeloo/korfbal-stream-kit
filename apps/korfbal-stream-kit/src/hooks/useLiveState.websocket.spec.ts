@@ -57,6 +57,16 @@ describe('useLiveState WebSocket events', () => {
     expect(result.current.autoAdvanceEventId).toBe('event-1');
   });
 
+  it('removes its own handlers on unmount but keeps the shared socket connected', () => {
+    const { unmount } = renderHook(() => useLiveState());
+    const handler = mockSocket.on.mock.calls.find((call: any) => call[0] === 'active_event_update')[1];
+
+    unmount();
+
+    expect(mockSocket.off).toHaveBeenCalledWith('active_event_update', handler);
+    expect(mockSocket.disconnect).not.toHaveBeenCalled();
+  });
+
   it('should reset autoAdvanceEventId when active_event_update is received', async () => {
     const { result } = renderHook(() => useLiveState());
 

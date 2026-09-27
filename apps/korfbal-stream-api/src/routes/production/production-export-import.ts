@@ -2,6 +2,7 @@ import {Router} from 'express';
 import {prisma} from '../../services/prisma';
 import {logger} from '../../utils/logger';
 import {ensureSeasonForDate} from '../../services/season';
+import {migrateLegacySeasonAssets} from '../../services/seasonAssetMigration';
 
 export const productionExportImportRouter: Router = Router();
 
@@ -610,6 +611,8 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
       return production;
     });
 
+    // Interview players created by the import may carry pre-season `players/...` photoUrls.
+    await migrateLegacySeasonAssets().catch((err) => logger.error('Season asset migration after production import failed', err as Error));
     return res.json({ ok: true, id: result.id });
   } catch (err) {
     logger.error('Import production failed', err);

@@ -14,6 +14,7 @@ import {
   useSetActiveSeason,
   validateSeasonName,
 } from './useSeasons';
+import {getSharedSocket} from '../lib/socket';
 
 vi.mock('socket.io-client', () => {
   const socket = {on: vi.fn(), off: vi.fn(), disconnect: vi.fn()};
@@ -157,6 +158,21 @@ describe('useSeasons hooks', () => {
 
     unmount();
     expect(socket.off).toHaveBeenCalledWith(SEASON_CHANGED_EVENT, handler);
-    expect(socket.disconnect).toHaveBeenCalled();
+    // The shared app socket stays open for the other hooks.
+    expect(socket.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('useSeasonChangedSync reuses the shared app socket instead of opening a connection per mount', () => {
+    const ioMock = io as unknown as Mock;
+    const callsBefore = ioMock.mock.calls.length;
+    const first = renderHook(() => useSeasonChangedSync(), {wrapper});
+    const second = renderHook(() => useSeasonChangedSync(), {wrapper});
+    first.unmount();
+    second.unmount();
+    renderHook(() => useSeasonChangedSync(), {wrapper});
+
+    // At most the single lazy creation of the shared socket, never one connection per mount.
+    expect(ioMock.mock.calls.length - callsBefore).toBeLessThanOrEqual(1);
+    expect(getSharedSocket()).toBe(getSharedSocket());
   });
 });

@@ -121,6 +121,19 @@ describe('season persistence helpers', () => {
     expect(state.seasons).toHaveLength(3);
   });
 
+  it.each([1999, 2101, 9998, Number.NaN, 2025.5])(
+    'ensureSeasonForStartYear rejects start year %s with a 400 without touching the DB',
+    async (startYear) => {
+      await expect(ensureSeasonForStartYear(startYear)).rejects.toMatchObject({status: 400});
+      expect(prisma.season.upsert).not.toHaveBeenCalled();
+    },
+  );
+
+  it('ensureSeasonForStartYear accepts the range bounds 2000 and 2100', async () => {
+    expect((await ensureSeasonForStartYear(2000)).name).toBe('2000/2001');
+    expect((await ensureSeasonForStartYear(2100)).name).toBe('2100/2101');
+  });
+
   it('ensureSeasonForStartYear falls back to the existing row on a concurrent insert', async () => {
     prisma.season.upsert = vi.fn(async () => {
       throw Object.assign(new Error('Unique constraint failed'), {code: 'P2002'});

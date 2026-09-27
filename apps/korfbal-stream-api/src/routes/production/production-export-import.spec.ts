@@ -114,6 +114,8 @@ describe('Production Export/Import API', () => {
     prisma.club.create = vi.fn().mockResolvedValue({ id: 700 });
     prisma.player.findFirst = vi.fn().mockResolvedValue(null);
     prisma.player.create = vi.fn().mockResolvedValue({ id: 800 });
+    prisma.player.findMany = vi.fn().mockResolvedValue([]);
+    prisma.playerImage = { findMany: vi.fn().mockResolvedValue([]) };
     prisma.interviewSubject.create = vi.fn();
     prisma.titleDefinition.deleteMany = vi.fn();
     prisma.titleDefinition.create = vi.fn().mockResolvedValue({ id: 900 });
@@ -176,6 +178,27 @@ describe('Production Export/Import API', () => {
     const updateData = prisma.matchSchedule.update.mock.calls[0][0].data;
     expect(updateData.seasonName).toBeUndefined();
     expect(updateData.seasonId).toBe(1);
+  });
+
+  it('migrates legacy players/... photoUrls of imported interview players into their season dir', async () => {
+    productionData.interviews[0].playerPhotoUrl = 'players/legacy.jpg';
+
+    const res = await request(app).post('/api/production/import').send(productionData);
+
+    expect(res.status).toBe(200);
+    expect(prisma.player.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { photoUrl: { startsWith: 'players/' } },
+    }));
+  });
+
+  it('rejects a match date outside the supported season range with 400', async () => {
+    productionData.matchSchedule.date = '9999-01-01T12:00:00.000Z';
+
+    const res = await request(app).post('/api/production/import').send(productionData);
+
+    expect(res.status).toBe(400);
+    expect(prisma.season.upsert).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('returns 400 for invalid data', async () => {

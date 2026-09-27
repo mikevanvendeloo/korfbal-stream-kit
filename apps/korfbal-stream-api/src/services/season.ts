@@ -83,10 +83,15 @@ export function parseSeasonName(name: string): number {
   const first = Number(match[1]);
   const second = Number(match[2]);
   if (second !== first + 1) throw new SeasonError('Het tweede jaar moet direct op het eerste jaar volgen', 400);
-  if (first < MIN_SEASON_START_YEAR || first > MAX_SEASON_START_YEAR) {
+  assertValidSeasonStartYear(first);
+  return first;
+}
+
+/** Throws a 400 SeasonError unless `startYear` is an integer within the supported season range. */
+export function assertValidSeasonStartYear(startYear: number): void {
+  if (!Number.isInteger(startYear) || startYear < MIN_SEASON_START_YEAR || startYear > MAX_SEASON_START_YEAR) {
     throw new SeasonError(`Een seizoen moet tussen ${MIN_SEASON_START_YEAR} en ${MAX_SEASON_START_YEAR} beginnen`, 400);
   }
-  return first;
 }
 
 export function seasonDateRange(startYear: number): { startDate: Date; endDate: Date } {
@@ -110,7 +115,9 @@ function isUniqueViolation(err: unknown): boolean {
   return (err as { code?: string })?.code === 'P2002';
 }
 
+/** Finds or creates the season starting in `startYear`; a 400 SeasonError outside the supported range. */
 export async function ensureSeasonForStartYear(startYear: number, db: SeasonDb = prisma): Promise<Season> {
+  assertValidSeasonStartYear(startYear);
   const where = {startYear};
   try {
     return await db.season.upsert({

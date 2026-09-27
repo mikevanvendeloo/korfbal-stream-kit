@@ -194,6 +194,51 @@ describe('migrateLegacySeasonAssets', () => {
     expect(summary).toMatchObject({teamResponsesMoved: 1, teamResponsesSkipped: 1});
   });
 
+  it('skips photoUrls with empty or "." segments and sources that are not regular files, then continues', async () => {
+    write('players/dir.jpg/inner.jpg');
+    write('players/ok.jpg', 'ok');
+    const players: PlayerRow[] = [
+      {id: 1, photoUrl: 'players/.', seasonId: 1},
+      {id: 2, photoUrl: 'players/./ok.jpg', seasonId: 1},
+      {id: 3, photoUrl: 'players//ok.jpg', seasonId: 1},
+      {id: 4, photoUrl: 'players/', seasonId: 1},
+      {id: 5, photoUrl: 'players/dir.jpg', seasonId: 1},
+      {id: 6, photoUrl: 'players/ok.jpg', seasonId: 1},
+    ];
+
+    const summary = await migrateLegacySeasonAssets({db: createDb(players), assetsRoot: root});
+
+    expect(players.slice(0, 5).map((p) => p.photoUrl)).toEqual([
+      'players/.', 'players/./ok.jpg', 'players//ok.jpg', 'players/', 'players/dir.jpg',
+    ]);
+    expect(exists('players')).toBe(true);
+    expect(exists('players/dir.jpg/inner.jpg')).toBe(true);
+    expect(exists('seasons/2025-2026/players/dir.jpg')).toBe(false);
+    expect(players[5].photoUrl).toBe('seasons/2025-2026/players/ok.jpg');
+    expect(summary).toMatchObject({photosSkipped: 5, photosMoved: 1, photoUrlsUpdated: 1});
+  });
+
+  it('logs and skips an entry that fails, instead of aborting the run', async () => {
+    write('players/bad.jpg');
+    write('players/good.jpg');
+    const players: PlayerRow[] = [
+      {id: 1, photoUrl: 'players/bad.jpg', seasonId: 1},
+      {id: 2, photoUrl: 'players/good.jpg', seasonId: 1},
+    ];
+    const db = createDb(players);
+    const realUpdateMany = db.player.updateMany;
+    db.player.updateMany = vi.fn(async (args: any) => {
+      if (args.where.photoUrl === 'players/bad.jpg') throw new Error('db down');
+      return realUpdateMany(args);
+    });
+
+    const summary = await migrateLegacySeasonAssets({db, assetsRoot: root});
+
+    expect(players[1].photoUrl).toBe('seasons/2025-2026/players/good.jpg');
+    expect(exists('players/bad.jpg')).toBe(true);
+    expect(summary).toMatchObject({photosSkipped: 1, photosMoved: 2, photoUrlsUpdated: 1});
+  });
+
   it('is idempotent', async () => {
     write('players/a.jpg');
     write('team-responses/t.json');
@@ -210,6 +255,7 @@ describe('migrateLegacySeasonAssets', () => {
       photosMissing: 0,
       photosRelinked: 0,
       legacyPhotosKept: 0,
+      photosSkipped: 0,
       sharedWithPlayerImage: 0,
       teamResponsesMoved: 0,
       teamResponsesSkipped: 0,

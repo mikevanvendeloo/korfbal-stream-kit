@@ -30,6 +30,8 @@ export interface SeasonAssetMigrationSummary {
   photosRelinked: number;
   /** Legacy photo files kept because a different file with the same name already existed in the season dir. */
   legacyPhotosKept: number;
+  /** Legacy photoUrls skipped because they are unsafe, not a regular file, or failed to migrate. */
+  photosSkipped: number;
   sharedWithPlayerImage: number;
   teamResponsesMoved: number;
   teamResponsesSkipped: number;
@@ -115,47 +117,80 @@ async function migratePlayerPhotos(db: MigrationDb, assetsRoot: string, summary:
       summary.sharedWithPlayerImage++;
       continue;
     }
-    const relativeName = legacyUrl.slice(LEGACY_PLAYERS_PREFIX.length);
-    if (!relativeName || relativeName.split('/').includes('..')) continue;
-    const source = path.join(assetsRoot, LEGACY_PLAYERS_PREFIX, relativeName);
-    // The legacy file may only go once every season that references it has its own verified copy.
-    let safeToDeleteSource = true;
-    let conflict = false;
-
-    const startYears = new Map(owners.map((o) => [o.seasonId, o.season.startYear]));
-    for (const [seasonId, startYear] of startYears) {
-      let targetUrl = `${seasonAssetDir({startYear}, 'players')}/${relativeName}`;
-      const outcome = await copyIfMissing(source, path.join(assetsRoot, targetUrl));
-
-      if (outcome === 'missing') {
-        safeToDeleteSource = false;
-        const found = await findInSeasonDirs(assetsRoot, path.basename(relativeName), targetUrl);
-        if (!found) {
-          summary.photosMissing++;
-          logger.warn('Season asset migration: photo file missing, photoUrl left unchanged', {photoUrl: legacyUrl});
-          continue;
-        }
-        summary.photosRelinked++;
-        targetUrl = found;
-      } else if (outcome === 'conflict') {
-        safeToDeleteSource = false;
-        conflict = true;
-      } else if (outcome === 'copied') {
-        summary.photosMoved++;
-      }
-
-      const {count} = await db.player.updateMany({where: {photoUrl: legacyUrl, seasonId}, data: {photoUrl: targetUrl}});
-      summary.photoUrlsUpdated += count;
+    // One bad entry must not abort the whole run: log it and move on.
+    try {
+      await migrateLegacyPhoto(db, assetsRoot, legacyUrl, owners, summary);
+    } catch (err) {
+      summary.photosSkipped++;
+      logger.warn('Season asset migration: failed to migrate photo, skipped', {photoUrl: legacyUrl, error: (err as Error)?.message});
     }
-
-    if (conflict) {
-      summary.legacyPhotosKept++;
-      logger.warn('Season asset migration: a different file already exists in the season dir, legacy file kept', {
-        photoUrl: legacyUrl,
-      });
-    }
-    if (safeToDeleteSource) await fs.rm(source, {force: true});
   }
+}
+
+/** Only plain relative paths: no empty, `.` or `..` segments (so no absolute paths, dirs or traversal). */
+function isSafeRelativeName(relativeName: string): boolean {
+  return relativeName.split('/').every((seg) => seg !== '' && seg !== '.' && seg !== '..');
+}
+
+type PhotoOwner = { seasonId: number; season: { startYear: number } };
+
+async function migrateLegacyPhoto(
+  db: MigrationDb,
+  assetsRoot: string,
+  legacyUrl: string,
+  owners: PhotoOwner[],
+  summary: SeasonAssetMigrationSummary,
+) {
+  const relativeName = legacyUrl.slice(LEGACY_PLAYERS_PREFIX.length);
+  if (!isSafeRelativeName(relativeName)) {
+    summary.photosSkipped++;
+    logger.warn('Season asset migration: unsafe photoUrl, skipped', {photoUrl: legacyUrl});
+    return;
+  }
+  const source = path.join(assetsRoot, LEGACY_PLAYERS_PREFIX, relativeName);
+  const sourceStat = await fs.stat(source).catch(() => undefined);
+  if (sourceStat && !sourceStat.isFile()) {
+    summary.photosSkipped++;
+    logger.warn('Season asset migration: photoUrl is not a regular file, skipped', {photoUrl: legacyUrl});
+    return;
+  }
+  // The legacy file may only go once every season that references it has its own verified copy.
+  let safeToDeleteSource = true;
+  let conflict = false;
+
+  const startYears = new Map(owners.map((o) => [o.seasonId, o.season.startYear]));
+  for (const [seasonId, startYear] of startYears) {
+    let targetUrl = `${seasonAssetDir({startYear}, 'players')}/${relativeName}`;
+    const outcome = sourceStat ? await copyIfMissing(source, path.join(assetsRoot, targetUrl)) : 'missing';
+
+    if (outcome === 'missing') {
+      safeToDeleteSource = false;
+      const found = await findInSeasonDirs(assetsRoot, path.basename(relativeName), targetUrl);
+      if (!found) {
+        summary.photosMissing++;
+        logger.warn('Season asset migration: photo file missing, photoUrl left unchanged', {photoUrl: legacyUrl});
+        continue;
+      }
+      summary.photosRelinked++;
+      targetUrl = found;
+    } else if (outcome === 'conflict') {
+      safeToDeleteSource = false;
+      conflict = true;
+    } else if (outcome === 'copied') {
+      summary.photosMoved++;
+    }
+
+    const {count} = await db.player.updateMany({where: {photoUrl: legacyUrl, seasonId}, data: {photoUrl: targetUrl}});
+    summary.photoUrlsUpdated += count;
+  }
+
+  if (conflict) {
+    summary.legacyPhotosKept++;
+    logger.warn('Season asset migration: a different file already exists in the season dir, legacy file kept', {
+      photoUrl: legacyUrl,
+    });
+  }
+  if (safeToDeleteSource) await fs.rm(source, {force: true});
 }
 
 async function migrateTeamResponses(assetsRoot: string, summary: SeasonAssetMigrationSummary) {
@@ -172,13 +207,18 @@ async function migrateTeamResponses(assetsRoot: string, summary: SeasonAssetMigr
     if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
     const source = path.join(legacyDir, entry.name);
     const target = path.join(targetDir, entry.name);
-    if (await fileExists(target)) {
+    try {
+      if (await fileExists(target)) {
+        summary.teamResponsesSkipped++;
+        continue;
+      }
+      await fs.mkdir(targetDir, {recursive: true});
+      await fs.rename(source, target);
+      summary.teamResponsesMoved++;
+    } catch (err) {
       summary.teamResponsesSkipped++;
-      continue;
+      logger.warn('Season asset migration: failed to move team response, skipped', {file: entry.name, error: (err as Error)?.message});
     }
-    await fs.mkdir(targetDir, {recursive: true});
-    await fs.rename(source, target);
-    summary.teamResponsesMoved++;
   }
 }
 
@@ -196,6 +236,7 @@ export async function migrateLegacySeasonAssets(options: SeasonAssetMigrationOpt
     photosMissing: 0,
     photosRelinked: 0,
     legacyPhotosKept: 0,
+    photosSkipped: 0,
     sharedWithPlayerImage: 0,
     teamResponsesMoved: 0,
     teamResponsesSkipped: 0,

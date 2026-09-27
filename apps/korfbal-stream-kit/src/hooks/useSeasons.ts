@@ -1,7 +1,7 @@
 import {useEffect} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {io} from 'socket.io-client';
-import {createUrl, extractError, getSocketUrl} from '../lib/api';
+import {createUrl, extractError} from '../lib/api';
+import {getSharedSocket} from '../lib/socket';
 
 export interface SeasonDto {
   id: number;
@@ -134,7 +134,8 @@ export function useDeleteSeason() {
 export function useSeasonChangedSync() {
   const qc = useQueryClient();
   useEffect(() => {
-    const socket = io(getSocketUrl(), {transports: ['websocket', 'polling']});
+    // Reuses the app-wide socket: only our handler is removed on unmount, the connection stays open.
+    const socket = getSharedSocket();
     const onSeasonChanged = (season: SeasonDto) => {
       qc.setQueryData(seasonKeys.active, season);
       void qc.invalidateQueries();
@@ -142,7 +143,6 @@ export function useSeasonChangedSync() {
     socket.on(SEASON_CHANGED_EVENT, onSeasonChanged);
     return () => {
       socket.off(SEASON_CHANGED_EVENT, onSeasonChanged);
-      socket.disconnect();
     };
   }, [qc]);
 }

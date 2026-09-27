@@ -3,6 +3,7 @@ import app from '../main';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 import * as prismaSvc from '../services/prisma';
 import {installSeasonMocks, SeasonMockState} from '../../test-helpers';
+import {ACTIVE_SEASON_ID_KEY, getActiveSeason} from '../services/season';
 
 const prisma = (prismaSvc as any).prisma as any;
 
@@ -53,6 +54,15 @@ describe('Season scoping of existing endpoints', () => {
         date: '2031-01-10T12:00:00.000Z', homeTeamName: 'A', awayTeamName: 'B',
       });
       expect(state.seasons.some((s) => s.name === '2030/2031')).toBe(true);
+    });
+
+    it('rejects a manual match dated outside the supported season range with 400', async () => {
+      const res = await request(app).post('/api/manual-matches').send({
+        date: '9999-01-01T12:00:00.000Z', homeTeamName: 'A', awayTeamName: 'B',
+      });
+      expect(res.status).toBe(400);
+      expect(prisma.season.upsert).not.toHaveBeenCalled();
+      expect(prisma.matchSchedule.create).not.toHaveBeenCalled();
     });
   });
 
@@ -192,6 +202,77 @@ describe('Season scoping of existing endpoints', () => {
       expect(prisma.player.upsert.mock.calls[2][0].where).toEqual({seasonId_externalId: {seasonId: idOf(2026), externalId: 'x2'}});
       expect(prisma.player.findFirst.mock.calls[0][0].where).toEqual({seasonId: idOf(2026), clubId: 5, name: 'NoExt'});
       expect(prisma.player.create.mock.calls[0][0].data.seasonId).toBe(idOf(2026));
+    });
+
+    describe('settings', () => {
+      beforeEach(() => {
+        const settings = state.settings;
+        Object.assign(prisma.setting, {
+          findMany: vi.fn(async () => [...settings].map(([key, value]) => ({key, value}))),
+          update: vi.fn(async ({where, data}: any) => settings.set(where.key, data.value)),
+          create: vi.fn(async ({data}: any) => settings.set(data.key, data.value)),
+        });
+      });
+
+      it('export replaces the serial active season id by the season name', async () => {
+        state.settings.set('vmixWebUrl', 'http://vmix');
+        const res = await request(app).get('/api/backup/settings/export');
+        expect(res.body).toEqual(expect.arrayContaining([
+          {key: 'activeSeasonName', value: '2026/2027'},
+          {key: 'vmixWebUrl', value: 'http://vmix'},
+        ]));
+        expect(res.body.some((s: any) => s.key === ACTIVE_SEASON_ID_KEY)).toBe(false);
+      });
+
+      it('import resolves the season name to the local season and takes effect without restart', async () => {
+        // Warm the caches with the current active season (2026).
+        expect((await getActiveSeason()).startYear).toBe(2026);
+
+        const res = await request(app).post('/api/backup/settings/import').send([
+          {key: 'activeSeasonName', value: '2028/2029'},
+          {key: 'vmixWebUrl', value: 'http://vmix'},
+        ]);
+
+        expect(res.body).toMatchObject({ok: true, updated: 1, created: 1});
+        const local = state.seasons.find((s) => s.startYear === 2028)!;
+        expect(state.settings.get(ACTIVE_SEASON_ID_KEY)).toBe(local.id);
+        expect(state.settings.has('activeSeasonName')).toBe(false);
+        expect((await getActiveSeason()).id).toBe(local.id);
+      });
+
+      it('import skips a raw activeSeasonId from old backups and invalid season names', async () => {
+        const before = state.settings.get(ACTIVE_SEASON_ID_KEY);
+        const res = await request(app).post('/api/backup/settings/import').send([
+          {key: ACTIVE_SEASON_ID_KEY, value: 999},
+          {key: 'activeSeasonName', value: '9999/10000'},
+        ]);
+        expect(res.body).toMatchObject({ok: true, created: 0, updated: 0});
+        expect(state.settings.get(ACTIVE_SEASON_ID_KEY)).toBe(before);
+        expect(prisma.season.upsert).not.toHaveBeenCalled();
+      });
+    });
+
+    it('producties import migrates legacy player photoUrls afterwards', async () => {
+      prisma.$transaction = vi.fn(async (fn: any) => fn(prisma));
+      prisma.matchSchedule = {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async ({data}: any) => ({id: 1, ...data})),
+      };
+      prisma.production = {
+        findUnique: vi.fn(async () => null),
+        create: vi.fn(async () => ({id: 2})),
+      };
+      prisma.player = {findMany: vi.fn(async () => [])};
+      prisma.playerImage = {findMany: vi.fn(async () => [])};
+
+      const res = await request(app).post('/api/backup/producties/import').send([
+        {matchSchedule: {date: '2026-10-01T10:00:00Z', homeTeamName: 'A', awayTeamName: 'B'}, production: {}},
+      ]);
+
+      expect(res.body).toMatchObject({ok: true, created: 1});
+      expect(prisma.player.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: {photoUrl: {startsWith: 'players/'}},
+      }));
     });
 
     it('clubs export includes the season name of each player', async () => {
