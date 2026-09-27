@@ -101,6 +101,7 @@ See **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** for the full project tree a
 - **Socket.io broadcasts**: Every state change calls `broadcastState()`. Clients receive snapshots, not diffs.
 - **Zod validation**: All API inputs are validated with Zod schemas in `apps/korfbal-stream-api/src/schemas/`.
 - **Settings persistence**: App settings (vMix URL, sponsor filter types, etc.) stored as `key/value` JSON in the `Setting` table. Accessed via `/api/settings`.
+- **Seasons**: `MatchSchedule` and `Player` have a required `seasonId`. A match's season is always derived from its date (1 July–30 June, Europe/Amsterdam) via `services/season.ts` — never set it by hand. Season-bound list endpoints default to the active season (`activeSeasonId` setting) with an optional `?seasonId=` override; production-bound lookups use the production's match season. Clubs are global. KNKV downloads go to `storage/seasons/<YYYY-YYYY>/`.
 - **Seeded RNG**: Sponsor row/slide generation uses `mulberry32` seeded by a `seed` query param for reproducible randomization.
 - **Vitest test files**: DB integration guard is inside the spec file via `REQUIRE_DB` env check — not a separate file suffix.
 
