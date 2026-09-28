@@ -2,7 +2,6 @@ import {PrismaClient} from '@prisma/client';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {seedPersons, seedPositions, seedSkills, seedTitles} from './seed-data';
-import {ensureSeasonForDate} from '../src/services/season';
 
 const prisma = new PrismaClient();
 
@@ -313,7 +312,16 @@ async function main() {
 
   // Seasons: matches and players always belong to one. Seed the season containing today so
   // matches/players created afterwards (import, manual entry) have an active season to land in.
-  const currentSeason = await ensureSeasonForDate(new Date(), prisma);
+  // Kept self-contained (no import from src/): the Docker image compiles the seed with
+  // --rootDir prisma. Same rule as services/season.ts: 1 July starts a season (Europe/Amsterdam).
+  const [year, month] = new Intl.DateTimeFormat('en-CA', {timeZone: 'Europe/Amsterdam', year: 'numeric', month: '2-digit'})
+    .format(new Date()).split('-').map(Number);
+  const startYear = month >= 7 ? year : year - 1;
+  const currentSeason = await prisma.season.upsert({
+    where: {startYear},
+    update: {},
+    create: {startYear, name: `${startYear}/${startYear + 1}`},
+  });
   console.log(`Ensured season ${currentSeason.name}`);
 
   console.log('Seeding completed.');
