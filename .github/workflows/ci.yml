@@ -140,7 +140,8 @@ jobs:
       - name: Generate preview release notes
         continue-on-error: true
         env:
-          NEW_TAG: PR #${{ github.event.pull_request.number }} (preview)
+          # Quoted: an unquoted " #" starts a YAML comment, which cut the value down to "PR"
+          NEW_TAG: "PR #${{ github.event.pull_request.number }} (preview)"
           PREVIOUS_TAG: ${{ github.event.pull_request.base.sha }}
           OUTPUT_FILE: release-notes-preview.md
         run: pnpm run generate:release-notes
