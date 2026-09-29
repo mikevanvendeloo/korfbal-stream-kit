@@ -1,5 +1,9 @@
 import {describe, expect, it} from 'vitest';
-import {buildReleaseNotesPrompt, type AreaInput} from './generate-release-notes';
+import {mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {buildReleaseNotesPrompt, gitRanges, isMainModule, type AreaInput} from './generate-release-notes';
 
 const empty: AreaInput = {commitLog: '', diff: ''};
 
@@ -74,5 +78,38 @@ describe('buildReleaseNotesPrompt', () => {
     expect(user).toContain('(no commits found)');
     expect(user).toContain('(no diff available)');
     expect(user).toContain('Fix bug');
+  });
+});
+
+describe('gitRanges', () => {
+  it('uses the previous tag for both log and diff', () => {
+    expect(gitRanges('2026.08.4')).toEqual({logRange: '2026.08.4..HEAD', diffRange: '2026.08.4 HEAD'});
+  });
+
+  it('diffs against the empty tree for a first release, never the working tree', () => {
+    const {logRange, diffRange} = gitRanges(null);
+    expect(logRange).toBe('HEAD');
+    expect(diffRange).toBe('4b825dc642cb6eb9a060e54bf8d69288fbee4904 HEAD');
+  });
+});
+
+describe('isMainModule', () => {
+  it('matches a path with spaces reached through a symlink', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'release notes '));
+    mkdirSync(path.join(dir, 'real dir'));
+    const real = path.join(dir, 'real dir', 'script.ts');
+    writeFileSync(real, '');
+    const link = path.join(dir, 'link.ts');
+    symlinkSync(real, link);
+
+    // import.meta.url is the percent-encoded URL of the resolved file (tmpdir is itself a symlink on macOS)
+    const moduleUrl = pathToFileURL(realpathSync(real)).href;
+    expect(isMainModule(moduleUrl, real)).toBe(true);
+    expect(isMainModule(moduleUrl, link)).toBe(true);
+  });
+
+  it('does not match another file or a missing argv[1]', () => {
+    expect(isMainModule('file:///some/other.ts', __filename)).toBe(false);
+    expect(isMainModule('file:///some/other.ts', undefined)).toBe(false);
   });
 });

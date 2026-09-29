@@ -1,7 +1,9 @@
 import {Router} from 'express';
+import {z} from 'zod';
 import {logger} from '../utils/logger';
 import {prisma} from '../services/prisma';
-import {matchScheduleProvider} from '../services/matchSchedule';
+import {getMatchScheduleProvider, InvalidMatchScheduleResponseError} from '../services/matchSchedule';
+import {MatchScheduleImportQuerySchema} from '../schemas/matchSchedule';
 import {createSeasonIdResolver, seasonNameForStartYear, seasonStartYearForDate} from '../services/season';
 
 export const matchRouter: Router = Router();
@@ -9,33 +11,46 @@ export const matchRouter: Router = Router();
 // POST /api/match/matches/schedule/import
 matchRouter.post('/matches/schedule/import', async (req, res) => {
   try {
-    const date = (req.query.date as string) || '20-weeks';
-    const location = (req.query.location as string) || undefined;
+    const {date, location} = MatchScheduleImportQuerySchema.parse(req.query);
 
-    const items = await matchScheduleProvider.fetchMatches({date, location});
+    const items = await getMatchScheduleProvider().fetchMatches({date, location});
 
-    let inserted = 0;
-    let updated = 0;
+    // Resolve (and create when missing) each match's season, derived from the match date, before
+    // the transaction: seasons are idempotent, so one left over after a rolled-back import is harmless,
+    // and a unique-constraint retry inside the transaction would abort it.
     const seasons = createSeasonIdResolver();
-    // Imported matches per season (derived from the match date), so the UI can say where they landed.
+    // Imported matches per season, so the UI can say where they landed.
     const bySeasonStartYear = new Map<number, { seasonId: number; name: string; count: number }>();
-
+    const rows = [];
     for (const item of items) {
-      const startYear = seasonStartYearForDate(new Date(item.date));
+      const startYear = seasonStartYearForDate(item.date);
       const seasonId = await seasons.forStartYear(startYear);
       const seasonCount = bySeasonStartYear.get(startYear) ?? {seasonId, name: seasonNameForStartYear(startYear), count: 0};
       seasonCount.count++;
       bySeasonStartYear.set(startYear, seasonCount);
-      const data = {...item, seasonId};
-      const existing = await prisma.matchSchedule.findUnique({where: {externalId: data.externalId}});
-      if (existing) {
-        await prisma.matchSchedule.update({where: {externalId: data.externalId}, data});
-        updated++;
-      } else {
-        await prisma.matchSchedule.create({data});
-        inserted++;
-      }
+      rows.push({...item, seasonId});
     }
+
+    // One transaction, so a failing row can't leave a half-imported schedule behind
+    const {inserted, updated} = await prisma.$transaction(
+      async (tx) => {
+        let inserted = 0;
+        let updated = 0;
+        for (const data of rows) {
+          const existing = await tx.matchSchedule.findUnique({where: {externalId: data.externalId}});
+          if (existing) {
+            await tx.matchSchedule.update({where: {externalId: data.externalId}, data});
+            updated++;
+          } else {
+            await tx.matchSchedule.create({data});
+            inserted++;
+          }
+        }
+        return {inserted, updated};
+      },
+      // A 20-week import is a few hundred rows - well past the 5s default
+      {timeout: 60_000}
+    );
 
     const bySeason = [...bySeasonStartYear.entries()]
       .sort(([a], [b]) => b - a)
@@ -43,7 +58,9 @@ matchRouter.post('/matches/schedule/import', async (req, res) => {
     logger.info('Program import: persistence summary', {inserted, updated, total: items.length, bySeason} as any);
     return res.json({ok: true, inserted, updated, total: items.length, bySeason});
   } catch (err: any) {
+    if (err instanceof z.ZodError) return res.status(400).json({error: err.issues?.[0]?.message || 'Invalid query'});
     logger.error('Program import failed', {error: err?.message});
+    if (err instanceof InvalidMatchScheduleResponseError) return res.status(502).json({error: err.message});
     return res.status(502).json({error: 'Failed to import program'});
   }
 });

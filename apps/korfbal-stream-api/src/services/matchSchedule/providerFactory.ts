@@ -11,10 +11,7 @@ import {VrijwilligersMatchScheduleProvider} from './VrijwilligersMatchSchedulePr
 export function createMatchScheduleProvider(providerKey: string): MatchScheduleProvider {
   switch (providerKey) {
     case 'vrijwilligers':
-      return new VrijwilligersMatchScheduleProvider(
-        () => config.matchScheduleBaseUrl,
-        () => config.matchScheduleApiToken
-      );
+      return new VrijwilligersMatchScheduleProvider(config.matchScheduleBaseUrl, config.matchScheduleApiToken);
     default:
       throw new Error(
         `Unknown MATCH_SCHEDULE_PROVIDER "${providerKey}". Supported providers: vrijwilligers`

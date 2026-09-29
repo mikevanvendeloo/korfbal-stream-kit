@@ -31,3 +31,13 @@ export interface NormalizedMatchItem {
 export interface MatchScheduleProvider {
   fetchMatches(params: MatchScheduleFetchParams): Promise<NormalizedMatchItem[]>;
 }
+
+// Thrown when the upstream answers, but not with data the provider understands
+// (e.g. an HTML error page from a proxy). Lets the route report it distinctly
+// from network errors.
+export class InvalidMatchScheduleResponseError extends Error {
+  constructor(message = 'Invalid response format from program API') {
+    super(message);
+    this.name = 'InvalidMatchScheduleResponseError';
+  }
+}
