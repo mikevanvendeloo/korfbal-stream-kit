@@ -33,17 +33,8 @@ services:
       TZ: Europe/Amsterdam
       NODE_ENV: production
       DATABASE_URL: postgresql://korfbal:korfbal@db:5432/korfbal?schema=public
-    command:
-      - sh
-      - -c
-      - |
-        echo "=== Starting Prisma migration ==="
-        echo "DATABASE_URL: $$DATABASE_URL"
-        pnpm exec prisma migrate deploy --schema=/app/apps/korfbal-stream-api/prisma/schema.prisma
-        echo "=== Migration completed successfully ==="
-        echo "=== Starting seed ==="
-        node /app/seed/seed.cjs
-        echo "=== Seed completed successfully ==="
+    # Hardened runtime-image heeft geen shell: migratie + seed via een node-script.
+    command: ["node", "/app/seed/migrate-and-seed.cjs"]
     restart: "no"
 
   korfbal-streamz-api:
@@ -52,12 +43,15 @@ services:
       dockerfile: apps/korfbal-stream-api/Dockerfile
     networks:
       - korfbal-network
+    # Lokale secrets (MATCH_SCHEDULE_API_TOKEN), niet ingecheckt; zie secrets.env.example.
+    env_file:
+      - path: secrets.env
+        required: false
     environment:
       TZ: Europe/Amsterdam
       NODE_ENV: production
       DATABASE_URL: "postgresql://korfbal:korfbal@db:5432/korfbal?schema=public"
       MATCH_SCHEDULE_BASE_URL: "https://api.sportclubvrijwilligersmanagement.nl/v1"
-      MATCH_SCHEDULE_API_TOKEN: "aDvjETZ54R6T3qnhExI5gcbfDceDxqN0"
       PORT: 3333
       ASSETS_DIR: /app/storage
       UPLOADS_DIR: /app/uploads
@@ -72,7 +66,7 @@ services:
       - ./storage:/app/storage
       - ./uploads:/app/uploads
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3333/api/health"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3333/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       interval: 60s
       timeout: 5s
       retries: 5
@@ -83,7 +77,7 @@ services:
     networks:
       - korfbal-network
     ports:
-      - "80:80" # Host poort 8080 -> Container poort 80 (Nginx default)
+      - "80:8080" # Host poort 80 -> container poort 8080 (hardened nginx draait als non-root)
     environment:
       TZ: Europe/Amsterdam
     depends_on:

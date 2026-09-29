@@ -254,6 +254,15 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Base images are Docker Hardened Images (dhi.io); pulling them needs the same Docker Hub account.
+      - name: Login to Docker Hardened Images registry
+        if: matrix.app.original != 'none'
+        uses: docker/login-action@v4
+        with:
+          registry: dhi.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Determine Docker tag
         if: matrix.app.original != 'none'
         id: docker_tag

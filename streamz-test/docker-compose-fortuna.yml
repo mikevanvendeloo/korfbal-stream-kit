@@ -51,12 +51,13 @@ services:
     image: mvanvendeloo/korfbal-stream-api:2026.04.3
     networks:
       - korfbal-network2
+    # Lokale secrets (MATCH_SCHEDULE_API_TOKEN) in streamz-test/secrets.env, niet ingecheckt.
+    env_file: secrets.env
     environment:
       TZ: Europe/Amsterdam
       NODE_ENV: production
       DATABASE_URL: "postgresql://fortuna:korfbal@streamz-test-db:5432/streamz-test?schema=public"
       MATCH_SCHEDULE_BASE_URL: "https://api.sportclubvrijwilligersmanagement.nl/v1"
-      MATCH_SCHEDULE_API_TOKEN: "aDvjETZ54R6T3qnhExI5gcbfDceDxqN0"
       PORT: 3333
       ASSETS_DIR: /app/storage
       UPLOADS_DIR: /app/uploads

@@ -63,3 +63,13 @@ test-output
 
 # Claude Code local settings (secrets)
 .claude/settings.local.json
+
+# Lokale secrets en env-bestanden (nooit inchecken; zie secrets*.env.example)
+secrets.env
+secrets.*.env
+!secrets.env.example
+!secrets.*.env.example
+.env
+.env.local
+.env.*.local
+*.local.env

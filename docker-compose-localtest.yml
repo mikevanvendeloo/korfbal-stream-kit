@@ -1,0 +1,114 @@
+# Lokale testomgeving: de lokaal gebouwde (hardened) images tegen een database die bij de eerste
+# start automatisch uit een SQL-backup (pg_dump) wordt gevuld. Staat los van de dev-stack
+# (eigen projectnaam, volumes en poorten), dus beide kunnen naast elkaar draaien.
+#
+#   Starten (bouwt de images):   docker compose -f docker-compose-localtest.yml up -d --build
+#   Terug naar het startpunt:    docker compose -f docker-compose-localtest.yml down -v
+#                                docker compose -f docker-compose-localtest.yml up -d
+#   Andere backup:               LOCALTEST_SQL=/pad/naar/dump.sql docker compose -f docker-compose-localtest.yml up -d
+#
+# Frontend: http://localhost:8080   API: http://localhost:3334   Postgres: localhost:5433 (fortuna/streamz)
+# `down -v` wist alleen de volumes van deze testomgeving (database + storage/uploads), niets anders.
+name: korfbal-localtest
+
+services:
+  streamz-db:
+    image: postgres:16-alpine
+    networks:
+      - korfbal-network
+    environment:
+      TZ: Europe/Amsterdam
+      # De dump is gemaakt door gebruiker 'fortuna'; met dezelfde naam kloppen de OWNER-regels.
+      POSTGRES_USER: fortuna
+      # Alleen voor deze wegwerp-testdatabase; overschrijfbaar via LOCALTEST_DB_PASSWORD.
+      POSTGRES_PASSWORD: ${LOCALTEST_DB_PASSWORD:-localtest}
+      POSTGRES_DB: streamz
+    ports:
+      - "5433:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      # Wordt alleen ingelezen als het db-volume nog leeg is (eerste start of na `down -v`).
+      - ${LOCALTEST_SQL:-../2025-2026-backup/streamz-2025.sql}:/docker-entrypoint-initdb.d/10-restore.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fortuna -d streamz"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  # Draait de migraties die nog niet in de backup zaten (bijv. seizoenen). Geen seed: die zou de
+  # herstelde personen/sponsors/templates bijwerken.
+  migrate-streamz:
+    build:
+      context: .
+      dockerfile: apps/korfbal-stream-api/Dockerfile
+    image: korfbal-stream-api:localtest
+    networks:
+      - korfbal-network
+    depends_on:
+      streamz-db:
+        condition: service_healthy
+    environment:
+      TZ: Europe/Amsterdam
+      NODE_ENV: production
+      SKIP_SEED: "true"
+      DATABASE_URL: postgresql://fortuna:${LOCALTEST_DB_PASSWORD:-localtest}@streamz-db:5432/streamz?schema=public
+    command: ["node", "/app/seed/migrate-and-seed.cjs"]
+    restart: "no"
+
+  # De servicenaam moet korfbal-streamz-api blijven: nginx.conf proxyt daarnaartoe.
+  korfbal-streamz-api:
+    image: korfbal-stream-api:localtest
+    networks:
+      - korfbal-network
+    # Optioneel: MATCH_SCHEDULE_API_TOKEN uit je lokale, niet-ingecheckte secrets.env
+    env_file:
+      - path: secrets.env
+        required: false
+    environment:
+      TZ: Europe/Amsterdam
+      NODE_ENV: production
+      DATABASE_URL: postgresql://fortuna:${LOCALTEST_DB_PASSWORD:-localtest}@streamz-db:5432/streamz?schema=public
+      MATCH_SCHEDULE_BASE_URL: "https://api.sportclubvrijwilligersmanagement.nl/v1"
+      PORT: 3333
+      ASSETS_DIR: /app/storage
+      UPLOADS_DIR: /app/uploads
+    depends_on:
+      streamz-db:
+        condition: service_healthy
+      migrate-streamz:
+        condition: service_completed_successfully
+    ports:
+      - "3334:3333"
+    volumes:
+      # Named volumes: nemen de rechten van de image over (uid 1000), anders dan een bind-mount.
+      - storage:/app/storage
+      - uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3333/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  korfbal-streamz-kit:
+    build:
+      context: .
+      dockerfile: apps/korfbal-stream-kit/Dockerfile
+    image: korfbal-stream-kit:localtest
+    networks:
+      - korfbal-network
+    ports:
+      - "80:8080"
+    environment:
+      TZ: Europe/Amsterdam
+    depends_on:
+      - korfbal-streamz-api
+
+volumes:
+  db-data:
+  storage:
+  uploads:
+
+networks:
+  korfbal-network:
+    driver: bridge
