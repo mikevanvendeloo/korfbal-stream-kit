@@ -1,5 +1,6 @@
 import axios from 'axios';
 import {logger} from '../../utils/logger';
+import {InvalidMatchScheduleResponseError} from './MatchScheduleProvider';
 import type {MatchScheduleFetchParams, MatchScheduleProvider, NormalizedMatchItem} from './MatchScheduleProvider';
 
 type Privacy = 'FULL_NAME' | 'FIRST_NAME' | 'LAST_NAME' | 'HIDDEN';
@@ -124,9 +125,28 @@ function cleanField(name?: string | null): string | undefined {
   return trimmed;
 }
 
+function toDate(value: unknown): Date | null {
+  if (value === undefined || value === null || value === '') return null;
+  const d = new Date(value as string);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+// Returns null for items that can't satisfy the NormalizedMatchItem contract, so
+// one malformed upstream row is skipped instead of failing the whole import.
 function mapItem(item: any): NormalizedMatchItem | null {
-  const externalId: string = item?.id;
-  if (!externalId) return null;
+  const rawId = item?.id;
+  const externalId = typeof rawId === 'string' || typeof rawId === 'number' ? String(rawId).trim() : '';
+  const date = toDate(item?.date);
+  const homeTeamName = nonEmptyString(item?.homeTeamName);
+  const awayTeamName = nonEmptyString(item?.awayTeamName);
+  if (!externalId || !date || !homeTeamName || !awayTeamName) {
+    logger.warn('Program import: skipping item with missing or invalid id/date/team names', {id: rawId} as any);
+    return null;
+  }
 
   const color = colorForTeam(item?.homeTeamName) || colorForTeam(item?.homeTeam?.name) || undefined;
   const referee = pickRefereeName(item);
@@ -134,12 +154,12 @@ function mapItem(item: any): NormalizedMatchItem | null {
 
   return {
     externalId,
-    date: new Date(item.date),
-    homeTeamName: item.homeTeamName,
-    awayTeamName: item.awayTeamName,
+    date,
+    homeTeamName,
+    awayTeamName,
     accommodationName: item.accommodation?.name || null,
     accommodationRoute: item.accommodation?.route || null,
-    attendanceTime: item.attendanceTime ? new Date(item.attendanceTime) : null,
+    attendanceTime: toDate(item.attendanceTime),
     isPracticeMatch: !!item.isPracticeMatch,
     isHomeMatch: !!item.isHomeMatch,
     isCompetitiveMatch: !!item.isCompetitiveMatch,
@@ -155,16 +175,13 @@ function mapItem(item: any): NormalizedMatchItem | null {
  * (api.sportclubvrijwilligersmanagement.nl "programs" endpoint).
  */
 export class VrijwilligersMatchScheduleProvider implements MatchScheduleProvider {
-  // Read as functions (not plain values) so config changes made after
-  // construction (e.g. a token set at runtime) are honored on every call.
-  constructor(private readonly getBaseUrl: () => string, private readonly getApiToken: () => string | undefined) {
+  constructor(private readonly baseUrl: string, private readonly apiToken?: string) {
   }
 
   async fetchMatches({date, location}: MatchScheduleFetchParams): Promise<NormalizedMatchItem[]> {
-    const baseUrl = this.getBaseUrl();
-    const apiToken = this.getApiToken();
+    const {apiToken} = this;
 
-    const url = new URL(`${baseUrl.replace(/\/$/, '')}/programs`);
+    const url = new URL(`${this.baseUrl.replace(/\/$/, '')}/programs`);
     url.searchParams.set('date', date);
     url.searchParams.set('reserves', 'false');
     if (location !== undefined) url.searchParams.set('location', location);
@@ -177,18 +194,19 @@ export class VrijwilligersMatchScheduleProvider implements MatchScheduleProvider
     logger.info('Requesting match schedule using URL ' + url.toString());
     const response = await axios.get(url.toString(), {headers, timeout: 10000});
 
-    if (!response.data) {
+    // API can return either an array of items or an object keyed by ISO date with arrays as values.
+    // Anything else (empty body, an HTML error page from a proxy, plain text) is not a valid answer.
+    const isArray = Array.isArray(response.data);
+    const isObject = !!response.data && typeof response.data === 'object' && !isArray;
+
+    if (!isArray && !isObject) {
       logger.error('Invalid response format from program API', {
         status: response?.status,
         url: url.toString(),
         contentType: response?.headers?.['content-type'],
       } as any);
-      throw new Error('Invalid response format from program API');
+      throw new InvalidMatchScheduleResponseError();
     }
-
-    // API can return either an array of items or an object keyed by ISO date with arrays as values
-    const isArray = Array.isArray(response.data);
-    const isObject = !!response.data && typeof response.data === 'object' && !isArray;
 
     // Log counts per date based on the raw shape
     try {
@@ -226,9 +244,7 @@ export class VrijwilligersMatchScheduleProvider implements MatchScheduleProvider
 
     const rawItems: any[] = isArray
       ? (response.data as any[])
-      : isObject
-        ? Object.values(response.data).filter((v: any) => Array.isArray(v)).flat()
-        : [];
+      : Object.values(response.data).filter((v: any) => Array.isArray(v)).flat();
 
     return rawItems.map(mapItem).filter((item): item is NormalizedMatchItem => item !== null);
   }

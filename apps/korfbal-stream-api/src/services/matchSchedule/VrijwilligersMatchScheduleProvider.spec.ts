@@ -1,6 +1,7 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import axios from 'axios';
 import {VrijwilligersMatchScheduleProvider} from './VrijwilligersMatchScheduleProvider';
+import {InvalidMatchScheduleResponseError} from './MatchScheduleProvider';
 
 vi.mock('axios');
 const mockedAxios = axios as unknown as { get: ReturnType<typeof vi.fn> };
@@ -10,7 +11,7 @@ afterEach(() => {
 });
 
 function makeProvider(baseUrl = 'https://provider.example.com/v1', apiToken?: string) {
-  return new VrijwilligersMatchScheduleProvider(() => baseUrl, () => apiToken);
+  return new VrijwilligersMatchScheduleProvider(baseUrl, apiToken);
 }
 
 describe('VrijwilligersMatchScheduleProvider', () => {
@@ -175,6 +176,43 @@ describe('VrijwilligersMatchScheduleProvider', () => {
 
     expect(items).toHaveLength(1);
     expect(items[0].externalId).toBe('ok');
+  });
+
+  it('skips items with a missing date or team name, or an unparseable date', async () => {
+    mockedAxios.get = vi.fn().mockResolvedValue({
+      data: [
+        {id: 'no-date', homeTeamName: 'A', awayTeamName: 'B'},
+        {id: 'bad-date', date: 'not a date', homeTeamName: 'A', awayTeamName: 'B'},
+        {id: 'no-home', date: '2025-11-01T10:00:00.000Z', awayTeamName: 'B'},
+        {id: 'no-away', date: '2025-11-01T10:00:00.000Z', homeTeamName: 'A'},
+        {id: 'ok', date: '2025-11-01T10:00:00.000Z', homeTeamName: 'C', awayTeamName: 'D'},
+      ],
+    });
+    const provider = makeProvider();
+
+    const items = await provider.fetchMatches({date: '2025-11-01'});
+
+    expect(items.map((i) => i.externalId)).toEqual(['ok']);
+  });
+
+  it('converts a numeric id to a string externalId', async () => {
+    mockedAxios.get = vi.fn().mockResolvedValue({
+      data: [{id: 42, date: '2025-11-01T10:00:00.000Z', homeTeamName: 'A', awayTeamName: 'B'}],
+    });
+    const provider = makeProvider();
+
+    const items = await provider.fetchMatches({date: '2025-11-01'});
+
+    expect(items[0].externalId).toBe('42');
+  });
+
+  it('throws when the provider returns a non-JSON body (e.g. an HTML error page)', async () => {
+    mockedAxios.get = vi.fn().mockResolvedValue({data: '<html>Proxy error</html>', status: 200});
+    const provider = makeProvider();
+
+    await expect(provider.fetchMatches({date: '2025-11-01'})).rejects.toBeInstanceOf(
+      InvalidMatchScheduleResponseError
+    );
   });
 
   it('throws when the provider returns no data', async () => {
