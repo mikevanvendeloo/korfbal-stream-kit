@@ -2,6 +2,7 @@ import request from 'supertest';
 import app from '../../main';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import * as prismaSvc from '../../services/prisma';
+import {installSeasonMocks} from '../../../test-helpers';
 
 const prisma = (prismaSvc as any).prisma as any;
 
@@ -76,6 +77,8 @@ describe('Production Export/Import API', () => {
       ]
     };
 
+    installSeasonMocks(prisma);
+
     // Mock transaction
     prisma.$transaction = vi.fn(async (fn: any) => fn(prisma));
 
@@ -111,6 +114,8 @@ describe('Production Export/Import API', () => {
     prisma.club.create = vi.fn().mockResolvedValue({ id: 700 });
     prisma.player.findFirst = vi.fn().mockResolvedValue(null);
     prisma.player.create = vi.fn().mockResolvedValue({ id: 800 });
+    prisma.player.findMany = vi.fn().mockResolvedValue([]);
+    prisma.playerImage = { findMany: vi.fn().mockResolvedValue([]) };
     prisma.interviewSubject.create = vi.fn();
     prisma.titleDefinition.deleteMany = vi.fn();
     prisma.titleDefinition.create = vi.fn().mockResolvedValue({ id: 900 });
@@ -135,7 +140,9 @@ describe('Production Export/Import API', () => {
 
     // Verify calls
     expect(prisma.matchSchedule.findUnique).toHaveBeenCalled();
-    expect(prisma.matchSchedule.update).toHaveBeenCalled();
+    // 2023-10-27 lies in season 2023/2024, derived from the match date
+    expect(prisma.matchSchedule.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ seasonId: 1 }) }));
+    expect(prisma.season.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { startYear: 2023 } }));
     expect(prisma.production.create).toHaveBeenCalled();
     expect(prisma.productionReport.upsert).toHaveBeenCalled();
     expect(prisma.person.create).toHaveBeenCalledWith(expect.objectContaining({ data: { name: 'Person A', gender: 'male' } }));
@@ -146,7 +153,8 @@ describe('Production Export/Import API', () => {
     expect(prisma.productionSegment.create).toHaveBeenCalled();
     expect(prisma.segmentRoleAssignment.create).toHaveBeenCalled();
     expect(prisma.club.create).toHaveBeenCalled();
-    expect(prisma.player.create).toHaveBeenCalled();
+    expect(prisma.player.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ seasonId: 1 }) }));
+    expect(prisma.player.findFirst).toHaveBeenCalledWith({ where: expect.objectContaining({ seasonId: 1 }) });
     expect(prisma.titleDefinition.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ name: 'Title 1' })
     }));
@@ -157,6 +165,40 @@ describe('Production Export/Import API', () => {
       data: expect.objectContaining({ title: 'Event 1' })
     }));
     expect(prisma.productionEventPosition.create).toHaveBeenCalled();
+  });
+
+  it('ignores the exported season name and always derives the season from the match date', async () => {
+    productionData.matchSchedule.seasonName = '2024/2025';
+
+    const res = await request(app).post('/api/production/import').send(productionData);
+
+    expect(res.status).toBe(200);
+    expect(prisma.season.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { startYear: 2023 } }));
+    expect(prisma.season.upsert).not.toHaveBeenCalledWith(expect.objectContaining({ where: { startYear: 2024 } }));
+    const updateData = prisma.matchSchedule.update.mock.calls[0][0].data;
+    expect(updateData.seasonName).toBeUndefined();
+    expect(updateData.seasonId).toBe(1);
+  });
+
+  it('migrates legacy players/... photoUrls of imported interview players into their season dir', async () => {
+    productionData.interviews[0].playerPhotoUrl = 'players/legacy.jpg';
+
+    const res = await request(app).post('/api/production/import').send(productionData);
+
+    expect(res.status).toBe(200);
+    expect(prisma.player.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { photoUrl: { startsWith: 'players/' } },
+    }));
+  });
+
+  it('rejects a match date outside the supported season range with 400', async () => {
+    productionData.matchSchedule.date = '9999-01-01T12:00:00.000Z';
+
+    const res = await request(app).post('/api/production/import').send(productionData);
+
+    expect(res.status).toBe(400);
+    expect(prisma.season.upsert).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('returns 400 for invalid data', async () => {

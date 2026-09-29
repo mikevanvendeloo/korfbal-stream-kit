@@ -3,6 +3,7 @@ import {execSync} from 'node:child_process';
 import app from '../main';
 import {beforeAll, beforeEach, describe, expect, it} from 'vitest';
 import {PrismaClient} from '@prisma/client';
+import {currentSeasonId} from '../../test-helpers';
 
 function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
@@ -89,7 +90,7 @@ describe.runIf(runDb)('Positions & Segment Defaults API (integration)', () => {
     expect(put.body.length).toBe(2);
 
     // Create production + segment with that name
-    const match = await prisma.matchSchedule.create({ data: { externalId: 'm-sd-1', date: new Date(), homeTeamName: 'Fortuna', awayTeamName: 'Opp', isHomeMatch: true } });
+    const match = await prisma.matchSchedule.create({ data: { seasonId: await currentSeasonId(prisma), externalId: 'm-sd-1', date: new Date(), homeTeamName: 'Fortuna', awayTeamName: 'Opp', isHomeMatch: true } });
     const prod = await prisma.production.create({ data: { matchScheduleId: match.id } });
     const seg = await prisma.productionSegment.create({ data: { productionId: prod.id, naam: 'Voorbeschouwing', volgorde: 1, duurInMinuten: 10, isTimeAnchor: false } });
 
@@ -118,7 +119,7 @@ describe.runIf(runDb)('Positions & Segment Defaults API (integration)', () => {
     expect(names.body.items).toContain('__GLOBAL__');
 
     // Create production + a segment without specific config -> should use GLOBAL
-    const match = await prisma.matchSchedule.create({ data: { externalId: 'm-sd-2', date: new Date(), homeTeamName: 'Fortuna', awayTeamName: 'Opp', isHomeMatch: true } });
+    const match = await prisma.matchSchedule.create({ data: { seasonId: await currentSeasonId(prisma), externalId: 'm-sd-2', date: new Date(), homeTeamName: 'Fortuna', awayTeamName: 'Opp', isHomeMatch: true } });
     const prod = await prisma.production.create({ data: { matchScheduleId: match.id } });
     const segRust = await prisma.productionSegment.create({ data: { productionId: prod.id, naam: 'Rust', volgorde: 2, duurInMinuten: 15, isTimeAnchor: false } });
 

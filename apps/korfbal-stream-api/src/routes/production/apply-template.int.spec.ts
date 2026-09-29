@@ -4,6 +4,7 @@ import {callSheetTemplateRouter} from './callsheet-templates';
 import {productionRouter} from '../production';
 import express from 'express';
 import request from 'supertest';
+import {currentSeasonId} from '../../../test-helpers';
 
 const app = express();
 app.use(express.json());
@@ -18,7 +19,7 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Application
   beforeEach(async () => {
     // 1. Create a match schedule
     const match = await prisma.matchSchedule.create({
-      data: {
+      data: { seasonId: await currentSeasonId(prisma),
         date: matchDate,
         homeTeamName: 'Team A',
         awayTeamName: 'Team B',

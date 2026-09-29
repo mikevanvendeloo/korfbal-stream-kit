@@ -4,6 +4,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 // Mock prisma client methods used by the routes
 import * as prismaSvc from '../services/prisma';
+import {installSeasonMocks} from '../../test-helpers';
 import * as loggerMod from '../utils/logger';
 
 const prisma = (prismaSvc as any).prisma as any;
@@ -17,6 +18,7 @@ describe('Clubs import logs error on template HTTP error', () => {
   const logger = (loggerMod as any).logger as { error: (...args: any[]) => void; info: (...args: any[]) => void };
 
   beforeEach(() => {
+    installSeasonMocks(prisma, { activeStartYear: 2026 });
     clubs = [];
     players = [];
 

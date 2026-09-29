@@ -260,7 +260,17 @@ export async function fetchMatchSchedule(params: { date: string; location?: 'HOM
   return res.json();
 }
 
-export async function importMatchSchedule(params?: { date?: string; location?: 'HOME' | 'AWAY' | 'ALL' }) {
+export type MatchScheduleImportSeasonCount = { seasonId: number; name: string; count: number };
+export type MatchScheduleImportResult = {
+  ok: boolean;
+  inserted: number;
+  updated: number;
+  total: number;
+  /** Imported matches per season (derived from the match date), newest season first. */
+  bySeason: MatchScheduleImportSeasonCount[];
+};
+
+export async function importMatchSchedule(params?: { date?: string; location?: 'HOME' | 'AWAY' | 'ALL' }): Promise<MatchScheduleImportResult> {
   const url = createUrl('/api/match/matches/schedule/import');
   if (params?.date) url.searchParams.set('date', params.date);
   if (params?.location) url.searchParams.set('location', params.location);

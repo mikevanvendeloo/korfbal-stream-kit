@@ -3,6 +3,7 @@ import {prisma} from '../../services/prisma';
 import {callSheetTemplateRouter} from './callsheet-templates';
 import express from 'express';
 import request from 'supertest';
+import {currentSeasonId} from '../../../test-helpers';
 
 const app = express();
 app.use(express.json());
@@ -211,7 +212,7 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Excel Expor
     // 1. Setup template and production
     const timestamp = Date.now() + Math.random();
     const match = await prisma.matchSchedule.create({
-      data: {
+      data: { seasonId: await currentSeasonId(prisma),
         date: new Date(),
         homeTeamName: 'Home',
         awayTeamName: 'Away'

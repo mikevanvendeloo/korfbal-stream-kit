@@ -2,6 +2,7 @@ import request from 'supertest';
 import app from '../../main';
 import {describe, expect, it} from 'vitest';
 import {prisma} from '../../services/prisma';
+import {currentSeasonId} from '../../../test-helpers';
 
 
 describe.runIf(process.env.REQUIRE_DB === 'true')('Production Import API (integration)', () => {
@@ -10,7 +11,7 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('Production Import API (integr
     const suffix = Math.random().toString(36).substring(7);
     // 1. Create an initial active production
     const initialMatch = await prisma.matchSchedule.create({
-      data: {
+      data: { seasonId: await currentSeasonId(prisma),
         externalId: `match-import-1-${suffix}`,
         date: new Date(),
         homeTeamName: 'Initial Home',

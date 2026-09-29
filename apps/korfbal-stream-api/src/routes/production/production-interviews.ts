@@ -90,20 +90,26 @@ productionInterviewsRouter.put('/:id/interviews', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
-    const prod = await prisma.production.findUnique({ where: { id }, include: { matchSchedule: true } as any });
+    const prod = await prisma.production.findUnique({ where: { id }, include: { matchSchedule: true } });
     if (!prod) return res.status(404).json({ error: 'Not found' });
 
     const parsed = BulkSaveSchema.parse(req.body || {});
 
     // Helpers for validation
-    const ms: any = (prod as any).matchSchedule;
-    const homeClub = await findClubByTeamName(prisma as any, ms?.homeTeamName);
-    const awayClub = await findClubByTeamName(prisma as any, ms?.awayTeamName);
+    const ms = prod.matchSchedule;
+    const homeClub = await findClubByTeamName(prisma as any, ms.homeTeamName);
+    const awayClub = await findClubByTeamName(prisma as any, ms.awayTeamName);
     if (!homeClub && !awayClub) {
       return res.status(400).json({ error: 'Could not resolve clubs for production match' });
     }
 
     await prisma.$transaction(async (tx) => {
+      // Players already linked to this production stay valid even when they belong to another season:
+      // productions from before the season split may sit in a newer season than their linked players.
+      const linkedPlayerIds = new Set(
+        (await tx.interviewSubject.findMany({ where: { productionId: id }, select: { playerId: true } }))
+          .map((s) => s.playerId),
+      );
       if (parsed.replaceAll) {
         await (tx as any).interviewSubject.deleteMany({ where: { productionId: id } });
       }
@@ -115,6 +121,9 @@ productionInterviewsRouter.put('/:id/interviews', async (req, res, next) => {
         const clubIdForSide = it.side === 'HOME' ? homeClub?.id : it.side === 'AWAY' ? awayClub?.id : null;
         if (clubIdForSide && player.clubId !== clubIdForSide) {
           throw Object.assign(new Error(`Player does not belong to ${it.side} club`), { status: 400 });
+        }
+        if (player.seasonId !== ms.seasonId && !linkedPlayerIds.has(player.id)) {
+          throw Object.assign(new Error('Player does not belong to the season of this match'), { status: 400 });
         }
         const fn = String(player.function || '').toLowerCase();
         const isPlayerFn = player.personType === 'player' || fn.includes('speler');
@@ -183,20 +192,20 @@ productionInterviewsRouter.get('/:id/interviews/options', async (req, res, next)
     if (!InterviewRoleEnum.options.includes(role as any)) return res.status(400).json({ error: 'Invalid role' });
 
     // Load production with match schedule to derive club names
-    const prod = await prisma.production.findUnique({ where: { id }, include: { matchSchedule: true } as any });
+    const prod = await prisma.production.findUnique({ where: { id }, include: { matchSchedule: true } });
     if (!prod) return res.status(404).json({ error: 'Not found' });
-    const ms: any = (prod as any).matchSchedule;
+    const ms = prod.matchSchedule;
 
     const club = side === 'HOME'
-      ? await findClubByTeamName(prisma as any, ms?.homeTeamName)
-      : await findClubByTeamName(prisma as any, ms?.awayTeamName);
+      ? await findClubByTeamName(prisma as any, ms.homeTeamName)
+      : await findClubByTeamName(prisma as any, ms.awayTeamName);
     if (!club) {
       logger.info('🎤 interviews/options – no club resolved', {
         productionId: id,
         side,
         role,
-        homeTeamName: ms?.homeTeamName,
-        awayTeamName: ms?.awayTeamName,
+        homeTeamName: ms.homeTeamName,
+        awayTeamName: ms.awayTeamName,
       });
       return res.json({ items: [] });
     }
@@ -204,8 +213,10 @@ productionInterviewsRouter.get('/:id/interviews/options', async (req, res, next)
     const isPlayer = role === 'PLAYER';
 
     // Build role-aware filtering: many rows may not have personType set, so also use function text
+    // Players are per season: use the season of the production's match, not the active season
     const where: any = {
       clubId: club.id,
+      seasonId: ms.seasonId,
       OR: isPlayer
         ? [
             { personType: { equals: 'player' } },

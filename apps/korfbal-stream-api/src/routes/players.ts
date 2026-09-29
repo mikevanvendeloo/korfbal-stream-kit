@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import { prisma } from '../services/prisma';
 import { logger } from '../utils/logger';
 import { getAssetsRoot } from '../services/config';
+import { resolveSeasonId } from '../services/season';
 
 export const playersRouter: Router = Router();
 
@@ -127,10 +128,12 @@ playersRouter.post('/', async (req, res, next) => {
 
     const club = await prisma.club.findUnique({ where: { id: clubId } });
     if (!club) return res.status(404).json({ error: 'Club not found' });
+    const seasonId = await resolveSeasonId(req.body?.seasonId);
 
     const player = await prisma.player.create({
       data: {
         clubId,
+        seasonId,
         name,
         shirtNo,
         gender,

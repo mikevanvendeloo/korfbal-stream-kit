@@ -3,6 +3,7 @@ import {execSync} from 'node:child_process';
 import app from '../main';
 import {beforeAll, beforeEach, describe, expect, it} from 'vitest';
 import {PrismaClient} from '@prisma/client';
+import {currentSeasonId} from '../../test-helpers';
 
 function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
@@ -93,7 +94,7 @@ describe.runIf(runDb)('Persons API (integration)', () => {
     expect(role).toBeTruthy();
 
     const match = await prisma.matchSchedule.create({
-      data: {
+      data: { seasonId: await currentSeasonId(prisma),
         externalId: 'test-match-1',
         date: new Date(),
         homeTeamName: 'Fortuna/Ruitenheer J1',
@@ -158,7 +159,7 @@ describe.runIf(runDb)('Persons API (integration)', () => {
     expect(role1 && role2).toBeTruthy();
 
     const match = await prisma.matchSchedule.create({
-      data: {
+      data: { seasonId: await currentSeasonId(prisma),
         externalId: 'test-match-multi-1',
         date: new Date(),
         homeTeamName: 'Fortuna/Ruitenheer J2',

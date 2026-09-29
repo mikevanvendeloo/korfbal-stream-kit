@@ -1,6 +1,8 @@
 import {Router} from 'express';
 import {prisma} from '../../services/prisma';
 import {logger} from '../../utils/logger';
+import {ensureSeasonForDate} from '../../services/season';
+import {migrateLegacySeasonAssets} from '../../services/seasonAssetMigration';
 
 export const productionExportImportRouter: Router = Router();
 
@@ -16,7 +18,7 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
     const production = await prisma.production.findUnique({
       where: { id },
       include: {
-        matchSchedule: true,
+        matchSchedule: { include: { season: true } },
         productionReport: true,
         productionPersons: {
           include: {
@@ -110,7 +112,8 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
         reserveRefereeName: production.matchSchedule.reserveRefereeName,
         homeScore: production.matchSchedule.homeScore,
         awayScore: production.matchSchedule.awayScore,
-        color: production.matchSchedule.color
+        color: production.matchSchedule.color,
+        seasonName: production.matchSchedule.season?.name
       },
       production: {
         isActive: production.isActive,
@@ -247,6 +250,12 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
       return res.status(400).json({ error: 'Missing required fields in import data' });
     }
 
+    // seasonName is informational only: the season is always derived from the match date.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { seasonName: _seasonName, ...matchSchedule } = data.matchSchedule;
+    const matchDate = new Date(matchSchedule.date);
+    const seasonId = (await ensureSeasonForDate(matchDate)).id;
+
     const result = await prisma.$transaction(async (tx) => {
       // 0. If the imported production is active, deactivate all other productions.
       if (data.production.isActive) {
@@ -273,9 +282,10 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
       }
 
       const matchData = {
-        ...data.matchSchedule,
-        date: new Date(data.matchSchedule.date),
-        attendanceTime: data.matchSchedule.attendanceTime ? new Date(data.matchSchedule.attendanceTime) : null
+        ...matchSchedule,
+        date: matchDate,
+        seasonId,
+        attendanceTime: matchSchedule.attendanceTime ? new Date(matchSchedule.attendanceTime) : null
       };
 
       if (match) {
@@ -439,11 +449,12 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
               data: { name: intData.clubName, shortName: intData.clubShortName, slug: intData.clubSlug, logoUrl: intData.clubLogoUrl }
             });
           }
-          let player = await tx.player.findFirst({ where: { clubId: club.id, name: intData.playerName } });
+          let player = await tx.player.findFirst({ where: { seasonId, clubId: club.id, name: intData.playerName } });
           if (!player) {
             player = await tx.player.create({
               data: {
                 clubId: club.id,
+                seasonId,
                 name: intData.playerName,
                 shirtNo: intData.playerShirtNo,
                 gender: intData.playerGender,
@@ -600,6 +611,8 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
       return production;
     });
 
+    // Interview players created by the import may carry pre-season `players/...` photoUrls.
+    await migrateLegacySeasonAssets().catch((err) => logger.error('Season asset migration after production import failed', err as Error));
     return res.json({ ok: true, id: result.id });
   } catch (err) {
     logger.error('Import production failed', err);

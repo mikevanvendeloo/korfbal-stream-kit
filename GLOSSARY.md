@@ -40,6 +40,22 @@ The clock value received from the venue scoreboard hardware (e.g. the match cloc
 
 ---
 
+## Season
+
+**Season (Seizoen)**
+A korfbal season, named `YYYY/YYYY+1` (e.g. "2026/2027"). Always runs from 1 July to 30 June of the next year, in Europe/Amsterdam local time. Stored in the `Season` table with a unique `startYear`. MatchSchedules and Players belong to exactly one season; Productions belong to a season through their match. Clubs, crew (Persons), sponsors and templates are not season-bound.
+
+**Active Season (Actief seizoen)**
+The season selected in Settings (`activeSeasonId` setting). Season-bound lists (productions, candidate matches, manual matches, reports, club rosters) show only this season unless a `seasonId` is passed explicitly. When unset, it falls back to the season containing today. Not to be confused with Active Production.
+
+**Season derivation**
+A match's season is always computed from its date (month ≥ July → that year starts the season, else the previous year), never chosen by hand. A missing Season row is created automatically on import.
+
+**Roster (Selectie)**
+The players and coaches of a club for one season, imported from the KNKV league site. Stored as `Player` rows with a `seasonId`; photos and raw responses are stored under `storage/seasons/<YYYY-YYYY>/`. Production-bound lookups (vMix titles, interviews) use the roster of the production's match season, not the active season.
+
+---
+
 ## Callsheet
 
 **CallSheet**

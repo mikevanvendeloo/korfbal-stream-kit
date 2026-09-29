@@ -3,6 +3,7 @@ import {Server as HttpServer} from 'http';
 import {logger} from '../utils/logger';
 import {timeSyncService} from './timeSyncService';
 import {initializeClient} from './productionState';
+import type {SeasonDto} from './season';
 
 let io: SocketIOServer;
 
@@ -40,4 +41,12 @@ export function getIO() {
     throw new Error('Socket.io not initialized!');
   }
   return io;
+}
+
+export const SEASON_CHANGED_EVENT = 'season_changed';
+
+/** Tells every connected crew browser that the active season changed, so it can refetch season-scoped data. */
+export function emitSeasonChanged(season: SeasonDto) {
+  if (!io) return;
+  io.emit(SEASON_CHANGED_EVENT, season);
 }

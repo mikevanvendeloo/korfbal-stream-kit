@@ -41,3 +41,11 @@ coverage
 # OS files
 .DS_Store
 Thumbs.db
+
+# Lokale secrets/env-bestanden nooit in de build-context (de API-build kopieert anders
+# apps/korfbal-stream-api/.env als asset mee de image in)
+**/.env
+**/.env.local
+**/.env.*.local
+**/secrets.env
+**/secrets.*.env

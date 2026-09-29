@@ -1,6 +1,7 @@
 import {Router} from 'express';
 import {prisma} from '../../services/prisma';
 import {getCurrentState} from '../../services/productionState';
+import {resolveSeasonId} from '../../services/season';
 
 export const productionTimingRouter: Router = Router();
 
@@ -66,7 +67,8 @@ productionTimingRouter.get('/:id/clocks', async (req, res, next) => {
 });
 
 // GET /api/production/next-date
-// Returns the date of the next upcoming production (or today if none)
+// Returns the date of the next upcoming production (or today if none).
+// Deliberately not season-scoped: it looks forward from today, whichever season that falls in.
 productionTimingRouter.get('/next-date', async (req, res, next) => {
   try {
     const now = new Date();
@@ -102,11 +104,13 @@ productionTimingRouter.get('/next-date', async (req, res, next) => {
   }
 });
 
-// GET /api/production/dates
-// Returns a list of all dates that have at least one production
+// GET /api/production/dates?seasonId=
+// Returns a list of all dates that have at least one production in the season (default: active season)
 productionTimingRouter.get('/dates', async (req, res, next) => {
   try {
+    const seasonId = await resolveSeasonId(req.query.seasonId);
     const productions = await prisma.production.findMany({
+      where: { matchSchedule: { seasonId } },
       select: {
         matchSchedule: {
           select: {

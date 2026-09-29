@@ -1,10 +1,8 @@
 import {useEffect, useRef, useState} from 'react';
-import {io} from 'socket.io-client';
 import {useParams} from 'react-router-dom';
 import {EventStatus, TriggerSource} from '@prisma/client';
-import {createUrl, getSocketUrl} from "../lib/api";
-
-const API_URL = getSocketUrl();
+import {createUrl} from "../lib/api";
+import {getSharedSocket, SocketListener} from "../lib/socket";
 
 // --- Type definities ---
 type ClockMode = 'stopped' | 'counting_up' | 'counting_down';
@@ -221,12 +219,14 @@ export const useLiveState = () => {
 
     fetchData(true);
 
-    const socket = io(API_URL, {
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-      timeout: 20000,
-    });
+    // The socket is shared app-wide: register our own handlers and remove exactly those on cleanup.
+    const socket = getSharedSocket();
+    const registered: [string, SocketListener][] = [];
+    const listen = (event: string, handler: SocketListener) => {
+      socket.on(event, handler);
+      registered.push([event, handler]);
+    };
+    setIsConnected(socket.connected);
 
     const updateClocks = () => {
       setSystemTime(formatSystemTime(new Date()));
@@ -291,19 +291,19 @@ export const useLiveState = () => {
       }
     };
 
-    socket.on('production_events_update_needed', () => {
+    listen('production_events_update_needed', () => {
       fetchData();
     });
 
-    socket.on('connect', () => setIsConnected(true));
-    socket.on('disconnect', () => setIsConnected(false));
-    socket.on('connect_error', (err) => {
+    listen('connect', () => setIsConnected(true));
+    listen('disconnect', () => setIsConnected(false));
+    listen('connect_error', (err: Error) => {
       console.error('Socket Connection Error:', err.message);
       setIsConnected(false);
     });
-    socket.on('heartbeat', () => setLastSyncTime(Date.now()));
+    listen('heartbeat', () => setLastSyncTime(Date.now()));
 
-    socket.on('callsheet_state_update', (state: any) => {
+    listen('callsheet_state_update', (state: any) => {
       if (state.clocks) {
         // Update venue clock from global state if no specific time_state_update was received yet
         // or as a fallback. Format seconds to MM:SS
@@ -327,7 +327,7 @@ export const useLiveState = () => {
       }
     });
 
-    socket.on('time_state_update', (newState: TimeState) => {
+    listen('time_state_update', (newState: TimeState) => {
       timeStateRef.current = newState;
       setLastSyncTime(Date.now());
       // Triggers immediate update
@@ -336,7 +336,7 @@ export const useLiveState = () => {
       }
     });
 
-    socket.on('active_event_update', (event: ProductionEvent) => {
+    listen('active_event_update', (event: ProductionEvent) => {
       setActiveEvent(event);
       activeEventRef.current = event;
       setAutoAdvanceEventId(null); // Reset auto-advance indicator
@@ -349,15 +349,15 @@ export const useLiveState = () => {
       setActiveEventRemainingTime(null);
     });
 
-    socket.on('auto_advance_scheduled', (data: { eventId: string, delayMs: number }) => {
+    listen('auto_advance_scheduled', (data: { eventId: string, delayMs: number }) => {
       setAutoAdvanceEventId(data.eventId);
     });
 
-    socket.on('production_events_update', (data: { items: ProductionEvent[] }) => {
+    listen('production_events_update', (data: { items: ProductionEvent[] }) => {
       setAllItems(data.items);
     });
 
-    socket.on('production_stopped', () => {
+    listen('production_stopped', () => {
       setActiveEvent(null);
       activeEventRef.current = null;
       eventStartTimeRef.current = null;
@@ -371,16 +371,10 @@ export const useLiveState = () => {
       fetchData();
     });
 
-    socket.on('production_events_update_needed', () => {
-      fetchData();
-    });
-
     intervalRef.current = setInterval(updateClocks, 100);
 
     return () => {
-      if (socket) {
-        socket.disconnect();
-      }
+      for (const [event, handler] of registered) socket.off(event, handler);
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [productionId]);

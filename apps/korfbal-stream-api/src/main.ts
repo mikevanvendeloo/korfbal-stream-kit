@@ -18,6 +18,8 @@ import {playersRouter} from './routes/players';
 import {reportsRouter} from './routes/reports'; // Import reports router
 import {manualMatchesRouter} from "./routes/manual-matches";
 import {backupRouter} from './routes/backup';
+import {seasonsRouter} from './routes/seasons';
+import {migrateLegacySeasonAssets} from './services/seasonAssetMigration';
 import {prisma} from './services/prisma';
 import {config, getAssetsRoot, logConfig, requireConfig} from './services/config';
 import {errorHandler} from './middleware/error';
@@ -141,6 +143,9 @@ app.use('/api/players', playersRouter);
 
 // Settings endpoints
 app.use('/api/settings', settingsRouter);
+
+// Season endpoints
+app.use('/api/seasons', seasonsRouter);
 
 // Match endpoints
 app.use('/api/match', matchRouter);
@@ -310,15 +315,22 @@ if (process.env.NODE_ENV !== 'test') {
 
   requireConfig();
 
-  httpServer.listen(port, () => {
-    logger.info(`🚀 API Server running on http://localhost:${port}`);
-    logger.info(`📊 Health check: http://localhost:${port}/api/health`);
-    logger.info(`📚 Sponsors API: http://localhost:${port}/api/sponsors`);
-    logger.info(`📚 MatchSchedule API: http://localhost:${port}/api/matches`);
-    logger.info(`📚 Scoreboard API: http://localhost:${port}/api/scoreboard`);
-    logger.info(`Database URL: ${config.databaseUrl}`)
-    logConfig();
-  });
+  // Finish moving legacy KNKV assets before serving requests, so no client sees a half-migrated photoUrl.
+  const startServer = async () => {
+    await migrateLegacySeasonAssets().catch((err) => {
+      logger.error('Season asset migration failed', err as any);
+    });
+    httpServer.listen(port, () => {
+      logger.info(`🚀 API Server running on http://localhost:${port}`);
+      logger.info(`📊 Health check: http://localhost:${port}/api/health`);
+      logger.info(`📚 Sponsors API: http://localhost:${port}/api/sponsors`);
+      logger.info(`📚 MatchSchedule API: http://localhost:${port}/api/matches`);
+      logger.info(`📚 Scoreboard API: http://localhost:${port}/api/scoreboard`);
+      logger.info(`Database URL: ${config.databaseUrl}`)
+      logConfig();
+    });
+  };
+  void startServer();
 
   httpServer.on('error', (err) => {
     logger.error('Server listen error', err as any);

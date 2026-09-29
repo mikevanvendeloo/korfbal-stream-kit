@@ -4,8 +4,21 @@ import {logger} from '../utils/logger';
 import {PersonInputSchema} from '../schemas/person';
 import {SkillInputSchema} from '../schemas/skill';
 import {SponsorInputSchema} from '../schemas/sponsor';
+import {
+  ACTIVE_SEASON_ID_KEY,
+  clearSeasonCache,
+  createSeasonIdResolver,
+  ensureSeasonForStartYear,
+  getActiveSeason,
+  tryParseSeasonName,
+} from '../services/season';
+import {migrateLegacySeasonAssets} from '../services/seasonAssetMigration';
+import {clearSettingsCache} from '../services/appSettings';
 
 export const backupRouter: Router = Router();
+
+/** Settings-backup key for the active season, stored by name because season ids differ per database. */
+export const ACTIVE_SEASON_NAME_EXPORT_KEY = 'activeSeasonName';
 
 // Version for segment template JSON
 const SEGMENT_TEMPLATE_JSON_VERSION = 1 as const;
@@ -115,10 +128,12 @@ backupRouter.get('/positions/export', async (_req, res, next) => {
 backupRouter.get('/matches/export', async (_req, res, next) => {
   try {
     const items = await prisma.matchSchedule.findMany({
-      orderBy: { date: 'asc' }
+      orderBy: { date: 'asc' },
+      include: { season: true }
     });
 
     const exportData = items.map(m => ({
+      seasonName: m.season?.name,
       externalId: m.externalId,
       date: m.date,
       homeTeamName: m.homeTeamName,
@@ -152,7 +167,7 @@ backupRouter.get('/producties/export', async (_req, res, next) => {
   try {
     const productions = await prisma.production.findMany({
       include: {
-        matchSchedule: true,
+        matchSchedule: { include: { season: true } },
         productionReport: true,
         productionPersons: {
           include: {
@@ -245,7 +260,8 @@ backupRouter.get('/producties/export', async (_req, res, next) => {
         homeScore: p.matchSchedule.homeScore,
         awayScore: p.matchSchedule.awayScore,
         color: p.matchSchedule.color,
-        isManual: p.matchSchedule.isManual
+        isManual: p.matchSchedule.isManual,
+        seasonName: p.matchSchedule.season?.name
       },
       production: {
         isActive: p.isActive,
@@ -369,7 +385,7 @@ backupRouter.get('/producties/export', async (_req, res, next) => {
 backupRouter.get('/clubs/export', async (_req, res, next) => {
   try {
     const items = await prisma.club.findMany({
-      include: { players: true },
+      include: { players: { include: { season: true } } },
       orderBy: { name: 'asc' }
     });
 
@@ -385,7 +401,8 @@ backupRouter.get('/clubs/export', async (_req, res, next) => {
         photoUrl: p.photoUrl,
         externalId: p.externalId,
         personType: p.personType,
-        function: p.function
+        function: p.function,
+        seasonName: p.season?.name
       }))
     }));
 
@@ -430,10 +447,16 @@ backupRouter.get('/settings/export', async (_req, res, next) => {
       orderBy: { key: 'asc' }
     });
 
-    const exportData = items.map(s => ({
-      key: s.key,
-      value: s.value
-    }));
+    const exportData: { key: string; value: unknown }[] = [];
+    for (const s of items) {
+      if (s.key !== ACTIVE_SEASON_ID_KEY) {
+        exportData.push({ key: s.key, value: s.value });
+        continue;
+      }
+      // Season ids are serial per database: export the active season by name so it resolves on import.
+      const season = typeof s.value === 'number' ? await prisma.season.findUnique({ where: { id: s.value } }) : null;
+      if (season) exportData.push({ key: ACTIVE_SEASON_NAME_EXPORT_KEY, value: season.name });
+    }
 
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', 'attachment; filename=settings.json');
@@ -550,11 +573,15 @@ backupRouter.post('/matches/import', async (req, res, next) => {
     const data = req.body;
     if (!Array.isArray(data)) return res.status(400).json({ error: 'Array expected' });
     let created = 0, updated = 0;
+    // A match's season is always derived from its date; an exported seasonName is informational only.
+    const seasons = createSeasonIdResolver();
     for (const item of data) {
       try {
+        const date = new Date(item.date);
         const matchData = {
           externalId: item.externalId,
-          date: new Date(item.date),
+          date,
+          seasonId: await seasons.forDate(date),
           homeTeamName: item.homeTeamName,
           awayTeamName: item.awayTeamName,
           accommodationName: item.accommodationName,
@@ -648,9 +675,15 @@ backupRouter.post('/producties/import', async (req, res, next) => {
     const data = req.body;
     if (!Array.isArray(data)) return res.status(400).json({ error: 'Array expected' });
     let created = 0, updated = 0;
+    const seasons = createSeasonIdResolver();
     for (const item of data) {
       try {
         if (!item.matchSchedule || !item.production) continue;
+        // seasonName is informational only: the season is always derived from the match date.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { seasonName: _seasonName, ...matchSchedule } = item.matchSchedule;
+        const matchDate = new Date(matchSchedule.date);
+        const seasonId = await seasons.forDate(matchDate);
 
         await prisma.$transaction(async (tx) => {
           // 1. Find or create MatchSchedule
@@ -670,9 +703,10 @@ backupRouter.post('/producties/import', async (req, res, next) => {
           }
 
           const matchData = {
-            ...item.matchSchedule,
-            date: new Date(item.matchSchedule.date),
-            attendanceTime: item.matchSchedule.attendanceTime ? new Date(item.matchSchedule.attendanceTime) : null
+            ...matchSchedule,
+            date: matchDate,
+            seasonId,
+            attendanceTime: matchSchedule.attendanceTime ? new Date(matchSchedule.attendanceTime) : null
           };
 
           if (match) {
@@ -864,11 +898,12 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                   }
                 });
               }
-              let player = await tx.player.findFirst({ where: { clubId: club.id, name: intData.playerName } });
+              let player = await tx.player.findFirst({ where: { seasonId: match.seasonId, clubId: club.id, name: intData.playerName } });
               if (!player) {
                 player = await tx.player.create({
                   data: {
                     clubId: club.id,
+                    seasonId: match.seasonId,
                     name: intData.playerName,
                     shirtNo: intData.playerShirtNo,
                     gender: intData.playerGender,
@@ -1005,6 +1040,10 @@ backupRouter.post('/producties/import', async (req, res, next) => {
         logger.error(`Import of production failed for item`, { item, error: err });
       }
     }
+    // Interview players created by the import may carry pre-season `players/...` photoUrls.
+    if (created + updated > 0) {
+      await migrateLegacySeasonAssets().catch((err) => logger.error('Season asset migration after productions import failed', err as Error));
+    }
     return res.json({ ok: true, created, updated });
   } catch (err) {
     logger.error('POST /api/backup/producties/import failed', err as any);
@@ -1018,6 +1057,11 @@ backupRouter.post('/clubs/import', async (req, res, next) => {
     const data = req.body;
     if (!Array.isArray(data)) return res.status(400).json({ error: 'Array expected' });
     let created = 0, updated = 0;
+    const activeSeasonId = (await getActiveSeason()).id;
+    const seasons = createSeasonIdResolver();
+    // Players keep the season they were exported with; old backups without one land in the active season.
+    const seasonIdForPlayer = async (seasonName: unknown): Promise<number> =>
+      (await seasons.forSeasonName(seasonName)) ?? activeSeasonId;
     for (const item of data) {
       try {
         const clubData = {
@@ -1039,8 +1083,10 @@ backupRouter.post('/clubs/import', async (req, res, next) => {
         if (Array.isArray(item.players)) {
           for (const p of item.players) {
             try {
+              const seasonId = await seasonIdForPlayer(p.seasonName);
               const playerData = {
                 clubId: club.id,
+                seasonId,
                 name: p.name,
                 shirtNo: p.shirtNo,
                 gender: p.gender,
@@ -1052,13 +1098,13 @@ backupRouter.post('/clubs/import', async (req, res, next) => {
 
               if (p.externalId) {
                 await prisma.player.upsert({
-                  where: { externalId: p.externalId },
+                  where: { seasonId_externalId: { seasonId, externalId: p.externalId } },
                   create: playerData,
                   update: playerData
                 });
               } else {
                 const existingPlayer = await prisma.player.findFirst({
-                  where: { clubId: club.id, name: p.name }
+                  where: { seasonId, clubId: club.id, name: p.name }
                 });
                 if (existingPlayer) {
                   await prisma.player.update({
@@ -1076,6 +1122,8 @@ backupRouter.post('/clubs/import', async (req, res, next) => {
         }
       } catch (_) {}
     }
+    // Restored players may carry pre-season `players/...` photoUrls; move those files into their season dir.
+    await migrateLegacySeasonAssets().catch((err) => logger.error('Season asset migration after clubs import failed', err as any));
     return res.json({ ok: true, created, updated });
   } catch (err) {
     logger.error('POST /api/backup/clubs/import failed', err as any);
@@ -1115,26 +1163,47 @@ backupRouter.post('/settings/import', async (req, res, next) => {
     const data = req.body;
     if (!Array.isArray(data)) return res.status(400).json({ error: 'Array expected' });
     let created = 0, updated = 0;
+    const touchedKeys = new Set<string>();
     for (const item of data) {
       try {
-        if (!item.key) continue;
-        const existing = await prisma.setting.findUnique({ where: { key: item.key } });
+        if (!item?.key) continue;
+        let key: string = item.key;
+        let value = item.value ?? null;
+        if (key === ACTIVE_SEASON_ID_KEY) {
+          // Old backups carry the raw serial id, which points at a different season in this database.
+          logger.warn(`Skipping setting ${ACTIVE_SEASON_ID_KEY} from backup: season ids are not portable between databases`);
+          continue;
+        }
+        if (key === ACTIVE_SEASON_NAME_EXPORT_KEY) {
+          const startYear = tryParseSeasonName(value);
+          if (startYear === undefined) {
+            logger.warn(`Skipping setting ${ACTIVE_SEASON_NAME_EXPORT_KEY} from backup: invalid season name`, { value });
+            continue;
+          }
+          key = ACTIVE_SEASON_ID_KEY;
+          value = (await ensureSeasonForStartYear(startYear)).id;
+        }
+        const existing = await prisma.setting.findUnique({ where: { key } });
         if (existing) {
           await prisma.setting.update({
-            where: { key: item.key },
-            data: { value: item.value ?? null }
+            where: { key },
+            data: { value }
           });
           updated++;
         } else {
           await prisma.setting.create({
-            data: { key: item.key, value: item.value ?? null }
+            data: { key, value }
           });
           created++;
         }
+        touchedKeys.add(key);
       } catch (err) {
-        logger.error(`Failed to import setting ${item.key}`, err as any);
+        logger.error(`Failed to import setting ${item?.key}`, err as any);
       }
     }
+    // Imported values must take effect without a restart.
+    clearSettingsCache(touchedKeys);
+    clearSeasonCache();
     return res.json({ ok: true, created, updated });
   } catch (err) {
     logger.error('POST /api/backup/settings/import failed', err as any);

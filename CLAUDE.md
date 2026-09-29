@@ -101,6 +101,7 @@ See **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** for the full project tree a
 - **Socket.io broadcasts**: Every state change calls `broadcastState()`. Clients receive snapshots, not diffs.
 - **Zod validation**: All API inputs are validated with Zod schemas in `apps/korfbal-stream-api/src/schemas/`.
 - **Settings persistence**: App settings (vMix URL, sponsor filter types, etc.) stored as `key/value` JSON in the `Setting` table. Accessed via `/api/settings`.
+- **Seasons**: `MatchSchedule` and `Player` have a required `seasonId`. A match's season is always derived from its date (1 July–30 June, Europe/Amsterdam) via `services/season.ts` — never set it by hand. Season-bound list endpoints default to the active season (`activeSeasonId` setting) with an optional `?seasonId=` override; production-bound lookups use the production's match season. Clubs are global. KNKV downloads go to `storage/seasons/<YYYY-YYYY>/`.
 - **Seeded RNG**: Sponsor row/slide generation uses `mulberry32` seeded by a `seed` query param for reproducible randomization.
 - **Vitest test files**: DB integration guard is inside the spec file via `REQUIRE_DB` env check — not a separate file suffix.
 
@@ -240,6 +241,9 @@ Skills are invoked by reading their SKILL.md file and following the instructions
 - Local dev: `npm run db:up` then `npm run prisma:migrate` before starting the API.
 - Never edit the database directly — use migrations (`npm run prisma:migrate`).
 - `ASSETS_DIR` defaults to `storage/` in dev and `tmp/test-storage` in tests. Logo uploads go to `storage/sponsors/`.
+- **Base images are Docker Hardened Images** (`dhi.io/node`, `dhi.io/nginx`); run `docker login dhi.io` (Docker Hub account) once before building. `-dev` variants only in build stages; runtime images have no shell, no npm/pnpm and run as non-root (API as uid 1000, nginx on port 8080 → host 80). Hence: the migrate job runs `node /app/seed/migrate-and-seed.cjs`, healthchecks use `node -e fetch(...)`, Prisma engines are pinned via `PRISMA_QUERY_ENGINE_LIBRARY`/`PRISMA_SCHEMA_ENGINE_BINARY`. PostgreSQL still uses the official `postgres:16-alpine` image.
+- **Local image test against a backup**: `docker-compose-localtest.yml` (project `korfbal-localtest`, ports 8080/3334/5433) builds the images and fills its own db from a pg_dump SQL file on first start (`LOCALTEST_SQL`, default `../2025-2026-backup/streamz-2025.sql`); the migrate job runs with `SKIP_SEED=true`. Reset to the backup: `down -v` then `up -d`.
+- **No secrets in checked-in config**: compose files read them via `env_file` from local, gitignored files — `secrets.env` (dev, optional), `secrets.prod.env` (prod), `streamz-test/secrets.env`. Templates: `secrets.env.example`, `secrets.prod.env.example`. Don't use a root `.env`/`.env.local` for this: Nx loads those into every task.
 
 ## Environment Variables (API)
 

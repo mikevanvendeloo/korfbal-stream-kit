@@ -98,3 +98,12 @@ export async function getShotclockUrl(): Promise<string | null> {
 export async function setShotclockUrl(input: string): Promise<void> {
   await setSetting(SHOTCLOCK_URL_KEY, input);
 }
+
+/** Drops cached settings: only the given keys, or everything when no keys are passed. */
+export function clearSettingsCache(keys?: Iterable<string>): void {
+  if (!keys) {
+    cache.clear();
+    return;
+  }
+  for (const key of keys) cache.delete(key);
+}

@@ -1,6 +1,7 @@
 import {Router} from 'express';
 import {prisma} from '../services/prisma';
 import {z} from 'zod';
+import {resolveSeasonId} from '../services/season';
 
 export const reportsRouter: Router = Router();
 
@@ -247,7 +248,9 @@ reportsRouter.get('/daily-occupancy-by-position', async (req, res, next) => {
 // GET /api/reports/interviews
 reportsRouter.get('/interviews', async (req, res, next) => {
   try {
+    const seasonId = await resolveSeasonId(req.query.seasonId);
     const productions = await prisma.production.findMany({
+      where: { matchSchedule: { seasonId } },
       include: {
         matchSchedule: true,
         segments: {
@@ -306,8 +309,10 @@ reportsRouter.get('/crew-roles', async (req, res, next) => {
   try {
     // Define the skill codes we are interested in
     const targetSkillCodes = ['SPEAKER', 'REGISSEUR', 'PRESENTATIE', 'ANALIST'];
+    const seasonId = await resolveSeasonId(req.query.seasonId);
 
     const productions = await prisma.production.findMany({
+      where: { matchSchedule: { seasonId } },
       include: {
         matchSchedule: true,
         segments: {
@@ -382,7 +387,9 @@ reportsRouter.get('/crew-roles', async (req, res, next) => {
 // GET /api/reports/production-dates
 reportsRouter.get('/production-dates', async (req, res, next) => {
   try {
+    const seasonId = await resolveSeasonId(req.query.seasonId);
     const productions = await prisma.production.findMany({
+      where: { matchSchedule: { seasonId } },
       select: {
         matchSchedule: {
           select: {

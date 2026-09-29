@@ -9,13 +9,16 @@ const mockedAxios = axios as unknown as { get: ReturnType<typeof vi.fn> } as any
 
 // Mock prisma client methods used by the routes
 import * as prismaSvc from '../services/prisma';
+import { installSeasonMocks, SeasonMockState } from '../../test-helpers';
 
 // In-memory store to simulate DB
 let store: any[] = [];
+let seasonState: SeasonMockState;
 
 function resetPrismaMocks() {
   store = [];
   const prisma = (prismaSvc as any).prisma as any;
+  seasonState = installSeasonMocks(prisma);
   prisma.matchSchedule = {
     findUnique: vi.fn(async ({ where }: any) => store.find((m) => m.externalId === where.externalId) || null),
     create: vi.fn(async ({ data }: any) => {
@@ -73,6 +76,29 @@ afterEach(() => {
 });
 
 describe('Match schedule import and list APIs', () => {
+  it('derives the season of every imported match from its Amsterdam-local date', async () => {
+    mockedAxios.get = vi.fn().mockResolvedValue({
+      data: [
+        { id: 's1', date: '2026-06-30T21:59:00.000Z', homeTeamName: 'A', awayTeamName: 'B', isHomeMatch: true },
+        { id: 's2', date: '2026-06-30T22:00:00.000Z', homeTeamName: 'A', awayTeamName: 'B', isHomeMatch: true },
+        { id: 's3', date: '2026-10-01T18:00:00.000Z', homeTeamName: 'A', awayTeamName: 'B', isHomeMatch: true },
+      ],
+    });
+
+    const res = await request(app).post('/api/match/matches/schedule/import');
+
+    expect(res.status).toBe(200);
+    const idOf = (startYear: number) => seasonState.seasons.find((s) => s.startYear === startYear)?.id;
+    expect(store.find((m) => m.externalId === 's1')!.seasonId).toBe(idOf(2025));
+    expect(store.find((m) => m.externalId === 's2')!.seasonId).toBe(idOf(2026));
+    expect(store.find((m) => m.externalId === 's3')!.seasonId).toBe(idOf(2026));
+    expect(seasonState.seasons.map((s) => s.name).sort()).toEqual(['2025/2026', '2026/2027']);
+    expect(res.body.bySeason).toEqual([
+      { seasonId: idOf(2026), name: '2026/2027', count: 2 },
+      { seasonId: idOf(2025), name: '2025/2026', count: 1 },
+    ]);
+  });
+
   it('imports program items with color mapping and privacy handling (insert)', async () => {
     // Two matches, one with FULL_NAME referee, one with FIRST_NAME only
     const payload = [

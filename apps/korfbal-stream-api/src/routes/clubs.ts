@@ -4,6 +4,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import {logger} from "../utils/logger";
 import {getAssetsRoot} from "../services/config";
+import {Season} from '@prisma/client';
+import {resolveSeason, resolveSeasonId, seasonAssetDir} from '../services/season';
 
 export const clubsRouter: Router = Router();
 
@@ -118,7 +120,16 @@ async function ensureUniqueSlug(base: string): Promise<string> {
   }
 }
 
-async function writeFile(subfolder: string, filename: string, data: Buffer | string): Promise<void> {
+/** Asset subfolders the KNKV import may write to: global club logos or a season asset dir. */
+type ImportAssetFolder = 'clubs' | ReturnType<typeof seasonAssetDir>;
+
+const NUMERIC_ID_RE = /^\d+$/;
+
+function isNumericId(value: unknown): boolean {
+  return NUMERIC_ID_RE.test(String(value ?? ''));
+}
+
+async function writeFile(subfolder: ImportAssetFolder, filename: string, data: Buffer | string): Promise<void> {
   if (!filename) throw new Error('Filename cannot be empty');
   if (!data) throw new Error('Data cannot be empty');
   const assetsDir = getAssetsRoot();
@@ -128,7 +139,7 @@ async function writeFile(subfolder: string, filename: string, data: Buffer | str
   await fs.promises.writeFile(fullFilePath, data);
 }
 
-async function downloadFile(url: string, subfolder: 'clubs' | 'players', desiredName?: string): Promise<string | undefined> {
+async function downloadFile(url: string, subfolder: ImportAssetFolder, desiredName?: string): Promise<string | undefined> {
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`download failed: ${res.status}`);
@@ -174,7 +185,7 @@ const toNumberOrUndefined = (val: any): number | undefined => {
   return Number.isFinite(num) ? num : undefined;
 };
 // Prefer the template endpoint sportsuite_get_person_cards to get team roster
-async function fetchTeamPersonCards(teamId: string | number, poolId: string | number): Promise<{
+async function fetchTeamPersonCards(teamId: string | number, poolId: string | number, season: Season): Promise<{
   baseName?: string;
   shortName?: string;
   logoUrl?: string;
@@ -215,7 +226,7 @@ async function fetchTeamPersonCards(teamId: string | number, poolId: string | nu
       logger.warn(`Empty/invalid JSON from template response for team_id=${teamId} pool_id=${poolId}`);
       return null;
     }
-    await writeFile("team-responses", `team-${teamId}-${poolId}.json`, JSON.stringify(json, null, 2))
+    await writeFile(seasonAssetDir(season, 'team-responses'), path.basename(`team-${teamId}-${poolId}.json`), JSON.stringify(json, null, 2))
     // Log concise summary after parsing once (avoid consuming the body twice)
     try {
       const result = (json as any).data || json;
@@ -310,7 +321,7 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
     personType?: string;
     function?: string;
   }>
-}>) {
+}>, season: Season) {
   const problems: string[] = [];
   let clubsCreated = 0;
   let clubsUpdated = 0;
@@ -344,9 +355,14 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
         poolId = String((src as any).poolId);
       }
 
+      if (!isNumericId(teamId) || !isNumericId(poolId)) {
+        problems.push(`Invalid teamId/poolId (expected digits): ${JSON.stringify({teamId, poolId})}`);
+        continue;
+      }
+
       let usedCards = false;
       if (teamId && poolId) {
-        const cards = await fetchTeamPersonCards(teamId, poolId).catch(() => null);
+        const cards = await fetchTeamPersonCards(teamId, poolId, season).catch(() => null);
         if (cards && (Array.isArray(cards.players) && cards.players.length > 0)) {
           usedCards = true;
           baseName = cards.baseName || '';
@@ -355,7 +371,7 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
           players = cards.players;
           currentPoolId = poolId;
         }
-      } else { logger.warn(`Invalid teamId/poolId for source: ${JSON.stringify(src)}`);}
+      }
 
       // Fallback: when template returns no players, use legacy stream/team API
       if (!usedCards && teamId && poolId) {
@@ -432,7 +448,7 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
       if (!rawFullName) continue;
       const shirtNo: number | undefined = p.back_number ?? p.shirtNo ?? p.shirt_number ?? undefined;
       const gender: 'male' | 'female' | undefined = p.gender === 'F' || p.gender === 'female' ? 'female' : p.gender === 'M' || p.gender === 'male' ? 'male' : undefined;
-      const extId: string | undefined = String(p.id ?? p.external_id ?? '').trim() || undefined;
+      const extId: string | undefined = String(p.id ?? p.external_id ?? p.externalId ?? '').trim() || undefined;
       const photoRemote: string | undefined = p.image?.url || p.photo_url || undefined;
       // Person type and function
       const personType: string | undefined = (p.personType || '').toString() || undefined;
@@ -451,14 +467,17 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
         if (!personType && inferredType) (p as any).personType = inferredType;
       }
 
-      // Determine unique where: prefer externalId, else (clubId, name, shirtNo)
+      // Determine unique where within the season: prefer externalId, else (clubId, name)
       let existingPlayer: any = null;
       if (extId) {
-        existingPlayer = await prisma.player.findUnique({where: {externalId: extId}}).catch(() => null);
+        existingPlayer = await prisma.player.findUnique({
+          where: {seasonId_externalId: {seasonId: season.id, externalId: extId}}
+        }).catch(() => null);
       }
       if (!existingPlayer) {
         existingPlayer = await prisma.player.findFirst({
           where: {
+            seasonId: season.id,
             clubId: club.id,
             name: rawFullName
           }
@@ -468,7 +487,7 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
       let photoLocal: string | undefined;
       if (photoRemote) {
         const desired = slugify(rawFullName);
-        photoLocal = await downloadFile(photoRemote, 'players', `${slug}-${desired}`);
+        photoLocal = await downloadFile(photoRemote, seasonAssetDir(season, 'players'), `${slug}-${desired}`);
       }
 
       const playerData: any = {
@@ -499,6 +518,7 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
             ...playerData,
             // Set relation using direct foreign key for compatibility with test mocks
             clubId: club.id,
+            seasonId: season.id,
           },
         });
         playersCreated++;
@@ -506,7 +526,7 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
     }
   }
 
-  return {ok: true, clubsCreated, clubsUpdated, playersCreated, playersUpdated, problems};
+  return {ok: true, seasonId: season.id, seasonName: season.name, clubsCreated, clubsUpdated, playersCreated, playersUpdated, problems};
 }
 
 // Types for import request
@@ -516,6 +536,7 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
 // POST /api/clubs/import/league-teams { limit?: number }
 clubsRouter.post('/import/league-teams', async (req, res, next) => {
   try {
+    const season = await resolveSeason(req.body?.seasonId);
     const limit = Number(req.body?.limit) > 0 ? Number(req.body.limit) : undefined;
     const indexUrl = 'https://league.korfbal.nl/teams/';
     logger.info(`HTTP GET ${indexUrl} — fetching teams index`);
@@ -558,7 +579,7 @@ clubsRouter.post('/import/league-teams', async (req, res, next) => {
       return res.status(400).json({error: 'No team pages with extractable ids found', problems});
     }
 
-    const result = await processImportSources(sources);
+    const result = await processImportSources(sources, season);
     // Merge problems from scraping phase
     result.problems = [...(result.problems || []), ...problems];
     return res.json(result);
@@ -591,19 +612,30 @@ clubsRouter.post('/import', async (req, res, next) => {
     if (sources.length === 0) {
       return res.status(400).json({error: 'Provide sources array or an object with teamId+poolId or apiUrl or name'});
     }
+    const invalidIds = sources.some((src) =>
+      ('teamId' in src || 'poolId' in src) && !('name' in src) && !('apiUrl' in src)
+        && (!isNumericId(src.teamId) || !isNumericId(src.poolId)));
+    if (invalidIds) {
+      return res.status(400).json({error: 'teamId and poolId must be numeric'});
+    }
 
-    const result = await processImportSources(sources);
+    const season = await resolveSeason(body.seasonId);
+    const result = await processImportSources(sources, season);
     return res.json(result);
   } catch (err) {
     return next(err);
   }
 });
 
-// List clubs
-clubsRouter.get('/', async (_req, res, next) => {
+// List clubs (global) with the player count of the requested season
+clubsRouter.get('/', async (req, res, next) => {
   try {
-    const items = await prisma.club.findMany({orderBy: {name: 'asc'}});
-    return res.json(items);
+    const seasonId = await resolveSeasonId(req.query.seasonId);
+    const items = await prisma.club.findMany({
+      orderBy: {name: 'asc'},
+      include: {_count: {select: {players: {where: {seasonId}}}}},
+    });
+    return res.json(items.map(({_count, ...club}) => ({...club, playerCount: _count?.players ?? 0})));
   } catch (err) {
     return next(err);
   }
@@ -631,15 +663,17 @@ clubsRouter.get('/:id/teams', async (req, res, next) => {
       return res.json([]);
     }
 
+    const seasonId = await resolveSeasonId(req.query.seasonId);
+
     // Find all unique team names from matches where the team name starts with the club name.
     const homeTeams = await prisma.matchSchedule.findMany({
-      where: { homeTeamName: { startsWith: club.name, mode: 'insensitive' } },
+      where: { seasonId, homeTeamName: { startsWith: club.name, mode: 'insensitive' } },
       select: { homeTeamName: true },
       distinct: ['homeTeamName'],
     });
 
     const awayTeams = await prisma.matchSchedule.findMany({
-      where: { awayTeamName: { startsWith: club.name, mode: 'insensitive' } },
+      where: { seasonId, awayTeamName: { startsWith: club.name, mode: 'insensitive' } },
       select: { awayTeamName: true },
       distinct: ['awayTeamName'],
     });
@@ -680,8 +714,9 @@ clubsRouter.get('/:slug/players', async (req, res, next) => {
     const slug = String(req.params.slug);
     const club = await prisma.club.findUnique({where: {slug}});
     if (!club) return res.status(404).json({error: 'Club not found'});
+    const seasonId = await resolveSeasonId(req.query.seasonId);
     const items = await prisma.player.findMany({
-      where: {clubId: club.id},
+      where: {clubId: club.id, seasonId},
       orderBy: [{shirtNo: 'asc' as const}, {name: 'asc' as const}]
     });
     return res.json(items);

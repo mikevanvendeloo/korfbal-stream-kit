@@ -58,6 +58,21 @@ import {ErrorBoundary} from "../components/ErrorBoundary";
 import SegmentTemplatesPage from "../pages/SegmentTemplatesPage";
 import {FontSizeProvider} from '../hooks/useFontSize';
 import ProductionTimingReportPage from "../pages/ProductionTimingReportPage";
+import {useActiveSeason, useSeasonChangedSync} from "../hooks/useSeasons";
+
+function ActiveSeasonBadge() {
+  // Mounted once in the nav: refetch everything when another browser switches the active season.
+  useSeasonChangedSync();
+  const {data: season} = useActiveSeason();
+  if (!season) return null;
+  return (
+    <Link to="/settings"
+          title="Actief seizoen wijzigen"
+          className="text-xs px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 whitespace-nowrap">
+      Seizoen {season.name}
+    </Link>
+  );
+}
 
 function Nav() {
   const {theme, toggle} = useTheme();
@@ -350,6 +365,7 @@ function Nav() {
           </details>
         </nav>
         <div className="flex items-center gap-2">
+          <ActiveSeasonBadge/>
           <Link to="/about" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Over deze app">
             <MdInfo className="w-5 h-5" />
           </Link>

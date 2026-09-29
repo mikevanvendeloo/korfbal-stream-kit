@@ -4,6 +4,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 // Mock prisma client methods used by the routes
 import * as prismaSvc from '../services/prisma';
+import {installSeasonMocks, SeasonMockState} from '../../test-helpers';
 
 const prisma = (prismaSvc as any).prisma as any;
 
@@ -13,17 +14,22 @@ const g: any = globalThis as any;
 describe('Clubs import and listing API', () => {
   let clubs: any[];
   let players: any[];
+  let seasonState: SeasonMockState;
 
   beforeEach(() => {
+    seasonState = installSeasonMocks(prisma, { startYears: [2025], activeStartYear: 2026 });
     clubs = [];
     players = [];
 
     prisma.club = {
       findUnique: vi.fn(async ({ where }: any) => clubs.find((c) => c.slug === where.slug || c.id === where.id) || null),
-      findMany: vi.fn(async ({ orderBy }: any) => {
+      findMany: vi.fn(async ({ orderBy, include }: any) => {
         const rows = [...clubs];
         if (orderBy?.name === 'asc') rows.sort((a, b) => a.name.localeCompare(b.name));
-        return rows;
+        const seasonId = include?._count?.select?.players?.where?.seasonId;
+        return rows.map((c) => include?._count
+          ? { ...c, _count: { players: players.filter((p) => p.clubId === c.id && p.seasonId === seasonId).length } }
+          : c);
       }),
       create: vi.fn(async ({ data }: any) => {
         const id = (clubs.at(-1)?.id || 0) + 1;
@@ -40,10 +46,14 @@ describe('Clubs import and listing API', () => {
     };
 
     prisma.player = {
-      findUnique: vi.fn(async ({ where }: any) => players.find((p) => p.externalId && p.externalId === where.externalId) || null),
-      findFirst: vi.fn(async ({ where }: any) => players.find((p) => p.clubId === where.clubId && p.name === where.name && (p.shirtNo ?? null) === (where.shirtNo ?? null)) || null),
+      findUnique: vi.fn(async ({ where }: any) => {
+        const key = where.seasonId_externalId;
+        return players.find((p) => key && p.externalId === key.externalId && p.seasonId === key.seasonId) || null;
+      }),
+      findFirst: vi.fn(async ({ where }: any) => players.find((p) => p.seasonId === where.seasonId && p.clubId === where.clubId && p.name === where.name) || null),
       findMany: vi.fn(async ({ where, orderBy }: any) => {
-        let rows = players.filter((p) => (where?.clubId != null ? p.clubId === where.clubId : true));
+        let rows = players.filter((p) => (where?.clubId != null ? p.clubId === where.clubId : true)
+          && (where?.seasonId != null ? p.seasonId === where.seasonId : true));
         if (Array.isArray(orderBy)) {
           for (const o of orderBy) {
             const [[k, dir]] = Object.entries(o) as any;
@@ -216,5 +226,66 @@ describe('Clubs import and listing API', () => {
 
     const list = await request(app).get('/api/clubs');
     expect(list.body.length).toBe(1);
+  });
+
+  describe('season scoping', () => {
+    const seasonId = (startYear: number) => seasonState.seasons.find((s) => s.startYear === startYear)!.id;
+
+    it('writes imported players into the active season and stores photos in the season asset dir', async () => {
+      const res = await request(app).post('/api/clubs/import').send({ teamId: '9', poolId: '95865' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.seasonId).toBe(seasonId(2026));
+      expect(res.body.seasonName).toBe('2026/2027');
+      expect(players.every((p) => p.seasonId === seasonId(2026))).toBe(true);
+      expect(players.map((p) => p.photoUrl)).toEqual([
+        'seasons/2026-2027/players/ldodk-jan-jansen.jpg',
+        'seasons/2026-2027/players/ldodk-pietje-puk.jpg',
+      ]);
+    });
+
+    it('creates a separate roster when importing into another season and keeps the old one intact', async () => {
+      await request(app).post('/api/clubs/import').send({ teamId: '9', poolId: '95865', seasonId: seasonId(2025) });
+      const res = await request(app).post('/api/clubs/import').send({ teamId: '9', poolId: '95865' });
+
+      expect(res.body.playersCreated).toBe(2);
+      expect(res.body.playersUpdated).toBe(0);
+      expect(players.filter((p) => p.seasonId === seasonId(2025))).toHaveLength(2);
+      expect(players.filter((p) => p.seasonId === seasonId(2026))).toHaveLength(2);
+    });
+
+    it('scopes club players and playerCount to the active season unless seasonId is given', async () => {
+      await request(app).post('/api/clubs/import').send({ teamId: '9', poolId: '95865', seasonId: seasonId(2025) });
+
+      const active = await request(app).get('/api/clubs/ldodk/players');
+      const old = await request(app).get(`/api/clubs/ldodk/players?seasonId=${seasonId(2025)}`);
+      const clubsActive = await request(app).get('/api/clubs');
+      const clubsOld = await request(app).get(`/api/clubs?seasonId=${seasonId(2025)}`);
+
+      expect(active.body).toHaveLength(0);
+      expect(old.body).toHaveLength(2);
+      expect(clubsActive.body[0].playerCount).toBe(0);
+      expect(clubsOld.body[0].playerCount).toBe(2);
+      expect(clubsOld.body[0]._count).toBeUndefined();
+    });
+
+    it('rejects an invalid or unknown seasonId', async () => {
+      const invalid = await request(app).get('/api/clubs?seasonId=abc');
+      const unknown = await request(app).post('/api/clubs/import').send({ teamId: '9', poolId: '95865', seasonId: 999 });
+
+      expect(invalid.status).toBe(400);
+      expect(unknown.status).toBe(404);
+      expect(players).toHaveLength(0);
+    });
+  });
+
+  it.each([
+    { teamId: '../../etc', poolId: '95865' },
+    { teamId: '9', poolId: '1/../../x' },
+    { sources: [{ teamId: '9', poolId: '95865' }, { teamId: '9a', poolId: '1' }] },
+  ])('rejects non-numeric teamId/poolId with 400 (%j)', async (body) => {
+    const res = await request(app).post('/api/clubs/import').send(body);
+    expect(res.status).toBe(400);
+    expect(players).toHaveLength(0);
   });
 });

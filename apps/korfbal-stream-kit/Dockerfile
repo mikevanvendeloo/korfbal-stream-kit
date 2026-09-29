@@ -1,10 +1,14 @@
-# GEEN --platform=linux/amd64 nodig
-FROM node:24-alpine3.23 AS builder
+# Base images zijn Docker Hardened Images (DHI) van dhi.io. Daarvoor eerst eenmalig inloggen met je
+# Docker Hub-account:  docker login dhi.io
+# - de -dev variant (shell, npm) alleen in de build-stage
+# - de nginx runtime-variant heeft geen shell en draait als non-root (luistert daarom op 8080)
+ARG NODE_DEV_IMAGE=dhi.io/node:24-alpine3.23-dev
+ARG NGINX_RUNTIME_IMAGE=dhi.io/nginx:1.31-alpine3.24
+
+FROM ${NODE_DEV_IMAGE} AS builder
+USER root
 ENV CI=true
 WORKDIR /app
-
-# Haal de laatste security-patches voor Alpine-systeempakketten (openssl, libc, etc.) op
-RUN apk update && apk upgrade --no-cache
 
 # Accepteer APP_VERSION als build argument
 ARG APP_VERSION=0.0.0-dev
@@ -17,8 +21,6 @@ RUN npm i -g pnpm
 # Kopieer de pnpm-specifieke bestanden
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY nx.json ./
-# pnpm heeft de .npmrc nodig voor workspace settings
-#COPY .npmrc .npmrc
 
 # Draai de installatie met pnpm
 RUN pnpm install
@@ -27,24 +29,20 @@ COPY . .
 RUN pnpm nx build korfbal-stream-kit --prod
 # ----------------------------------------------------------------
 
-# STAGE 2: De Productie-Image
-# Gebruik een lichtgewicht Nginx-server
-FROM nginx:1.25-alpine
+# STAGE 2: De Productie-Image (hardened nginx: geen shell, non-root)
+FROM ${NGINX_RUNTIME_IMAGE}
 
-# Haal de laatste security-patches voor Alpine-systeempakketten op
-RUN apk update && apk upgrade --no-cache
-
-# Verwijder de default Nginx content
-RUN rm -rf /usr/share/nginx/html/*
+# Eigen hoofdconfig (pid/logs/includes) + de server-config met React Router- en API-proxyregels
+COPY apps/korfbal-stream-kit/nginx.main.conf /etc/nginx/nginx.conf
+COPY apps/korfbal-stream-kit/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Kopieer de gebouwde bestanden van de 'builder' stage
 COPY --from=builder /app/dist/apps/korfbal-stream-kit /usr/share/nginx/html
 
-# LET OP: Als je React Router gebruikt, moet je een nginx.conf
-# bestand kopiëren om 404-fouten op subpagina's te voorkomen.
-# Haal de commentaar-regels hieronder weg als dat zo is.
-COPY apps/korfbal-stream-kit/nginx.conf /etc/nginx/conf.d/default.conf
+# Build-time check (exec-form, er is geen shell): faalt de build bij een ongeldige nginx-config
+RUN ["nginx", "-t", "-c", "/etc/nginx/nginx.conf"]
 
-EXPOSE 80
+EXPOSE 8080
 
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT []
+CMD ["nginx", "-c", "/etc/nginx/nginx.conf", "-g", "daemon off;"]

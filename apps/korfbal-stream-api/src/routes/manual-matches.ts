@@ -1,6 +1,7 @@
 import {Router} from 'express';
 import {prisma} from '../services/prisma';
 import {z} from 'zod';
+import {ensureSeasonForDate, resolveSeasonId} from '../services/season';
 
 export const manualMatchesRouter: Router = Router();
 
@@ -15,8 +16,9 @@ const ManualMatchSchema = z.object({
 // GET /api/manual-matches
 manualMatchesRouter.get('/', async (req, res, next) => {
   try {
+    const seasonId = await resolveSeasonId(req.query.seasonId);
     const matches = await prisma.matchSchedule.findMany({
-      where: { isManual: true },
+      where: { isManual: true, seasonId },
       orderBy: { date: 'desc' },
     });
     return res.json(matches);
@@ -29,8 +31,9 @@ manualMatchesRouter.get('/', async (req, res, next) => {
 manualMatchesRouter.post('/', async (req, res, next) => {
   try {
     const data = ManualMatchSchema.parse(req.body);
+    const season = await ensureSeasonForDate(new Date(data.date));
     const newMatch = await prisma.matchSchedule.create({
-      data: { ...data, isManual: true },
+      data: { ...data, isManual: true, seasonId: season.id },
     });
     return res.status(201).json(newMatch);
   } catch (err) {
@@ -43,9 +46,10 @@ manualMatchesRouter.put('/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const data = ManualMatchSchema.parse(req.body);
+    const season = await ensureSeasonForDate(new Date(data.date));
     const updatedMatch = await prisma.matchSchedule.update({
       where: { id },
-      data,
+      data: { ...data, seasonId: season.id },
     });
     return res.json(updatedMatch);
   } catch (err) {

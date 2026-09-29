@@ -4,6 +4,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 // Mock prisma client methods used by the routes
 import * as prismaSvc from '../services/prisma';
+import {installSeasonMocks} from '../../test-helpers';
 
 const prisma = (prismaSvc as any).prisma as any;
 
@@ -12,6 +13,7 @@ describe('Players API', () => {
   let clubs: any[];
 
   beforeEach(() => {
+    installSeasonMocks(prisma, { startYears: [2026, 2025], activeStartYear: 2026 });
     players = [
       { id: 1, clubId: 1, name: 'Existing Player', shirtNo: 5, gender: 'female', personType: 'player', function: 'Speelster', photoUrl: null }
     ];
@@ -62,7 +64,19 @@ describe('Players API', () => {
     expect(res.status).toBe(201);
     expect(res.body.name).toBe('New Player');
     expect(res.body.clubId).toBe(1);
+    expect(res.body.seasonId).toBe(1);
     expect(players.length).toBe(2);
+  });
+
+  it('creates a player in an explicit season', async () => {
+    const res = await request(app).post('/api/players').send({ clubId: 1, name: 'Old Season', seasonId: 2 });
+    expect(res.status).toBe(201);
+    expect(res.body.seasonId).toBe(2);
+  });
+
+  it('returns 404 for an unknown seasonId', async () => {
+    const res = await request(app).post('/api/players').send({ clubId: 1, name: 'X', seasonId: 99 });
+    expect(res.status).toBe(404);
   });
 
   it('returns 400 if clubId is invalid', async () => {

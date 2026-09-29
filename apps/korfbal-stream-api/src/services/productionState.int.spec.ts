@@ -1,6 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {PrismaClient} from '@prisma/client';
 import * as productionState from './productionState';
+import {currentSeasonId} from '../../test-helpers';
 
 const prisma = new PrismaClient();
 
@@ -22,7 +23,7 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('ProductionState Service Auto-
 
     // Create test data
     const match = await prisma.matchSchedule.create({
-      data: {
+      data: { seasonId: await currentSeasonId(prisma),
         externalId: 'test-match-' + Date.now(),
         date: new Date(),
         homeTeamName: 'Home',
