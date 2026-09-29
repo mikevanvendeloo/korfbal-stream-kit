@@ -60,6 +60,8 @@ function resetPrismaMocks() {
       return res;
     }),
   };
+  // Interactive transaction: run the callback against the same mocked client
+  prisma.$transaction = vi.fn(async (fn: any) => fn(prisma));
 }
 
 beforeEach(() => {
@@ -113,13 +115,19 @@ describe('Match schedule import and list APIs', () => {
   });
 
   it('uses Authorization Bearer token and accept header when importing', async () => {
-    // Set token in config to simulate real auth
+    // Set token in config to simulate real auth (restored below so it can't leak into other tests)
     const token = 'TEST_TOKEN_123';
+    const originalToken = config.matchScheduleApiToken;
     (config as any).matchScheduleApiToken = token;
 
     mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
 
-    const res = await request(app).post('/api/match/matches/schedule/import');
+    let res;
+    try {
+      res = await request(app).post('/api/match/matches/schedule/import');
+    } finally {
+      (config as any).matchScheduleApiToken = originalToken;
+    }
     expect(res.status).toBe(200);
 
     expect(mockedAxios.get).toHaveBeenCalledTimes(1);
@@ -188,6 +196,73 @@ describe('Match schedule import and list APIs', () => {
     expect(resAway.status).toBe(200);
     expect(resAway.body.items.length).toBe(1);
     expect(resAway.body.items[0].externalId).toBe('b');
+  });
+
+  it('includes manually entered matches regardless of the location filter', async () => {
+    // Manually entered matches must show up next to imported matches for both HOME and AWAY,
+    // whatever their isHomeMatch value. One manual match of each kind, so each filter only
+    // returns the "wrong side" manual match through the isManual clause.
+    store.push(
+      { id: 1, externalId: 'a', date: '2025-11-01T08:00:00.000Z', isHomeMatch: true, homeTeamName: 'H', awayTeamName: 'A' },
+      { id: 2, externalId: null, date: '2025-11-01T09:00:00.000Z', isManual: true, isHomeMatch: false, homeTeamName: 'Manual H', awayTeamName: 'Manual A' },
+      { id: 3, externalId: null, date: '2025-11-01T10:00:00.000Z', isManual: true, isHomeMatch: true, homeTeamName: 'Manual H2', awayTeamName: 'Manual A2' },
+    );
+
+    const resHome = await request(app).get('/api/match/matches/schedule?date=2025-11-01');
+    expect(resHome.status).toBe(200);
+    // Manual match 2 is not a home match, so it can only appear through isManual
+    expect(resHome.body.items.map((m: any) => m.id).sort()).toEqual([1, 2, 3]);
+
+    const resAway = await request(app).get('/api/match/matches/schedule?date=2025-11-01&location=AWAY');
+    expect(resAway.status).toBe(200);
+    // Manual match 3 is a home match, so it can only appear through isManual
+    expect(resAway.body.items.map((m: any) => m.id).sort()).toEqual([2, 3]);
+  });
+
+  it('forwards an empty location param upstream (no location filter)', async () => {
+    mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
+
+    const res = await request(app).post('/api/match/matches/schedule/import?location=');
+    expect(res.status).toBe(200);
+
+    const url = new URL(mockedAxios.get.mock.calls[0][0]);
+    expect(url.searchParams.has('location')).toBe(true);
+    expect(url.searchParams.get('location')).toBe('');
+  });
+
+  it('rejects a repeated location param with 400 without calling upstream', async () => {
+    mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
+
+    const res = await request(app).post('/api/match/matches/schedule/import?location=HOME&location=AWAY');
+    expect(res.status).toBe(400);
+    expect(mockedAxios.get).not.toHaveBeenCalled();
+  });
+
+  it('rejects a malformed date with 400', async () => {
+    mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
+
+    const res = await request(app).post('/api/match/matches/schedule/import?date=../../etc');
+    expect(res.status).toBe(400);
+    expect(mockedAxios.get).not.toHaveBeenCalled();
+  });
+
+  it('returns a specific 502 when upstream answers with something other than JSON', async () => {
+    mockedAxios.get = vi.fn().mockResolvedValue({ data: '<html>Proxy error</html>', status: 200 });
+
+    const res = await request(app).post('/api/match/matches/schedule/import');
+    expect(res.status).toBe(502);
+    expect(res.body.error).toBe('Invalid response format from program API');
+  });
+
+  it('returns 502 for an unknown MATCH_SCHEDULE_PROVIDER instead of failing at startup', async () => {
+    const originalKey = config.matchScheduleProviderKey;
+    (config as any).matchScheduleProviderKey = 'does-not-exist';
+    try {
+      const res = await request(app).post('/api/match/matches/schedule/import');
+      expect(res.status).toBe(502);
+    } finally {
+      (config as any).matchScheduleProviderKey = originalKey;
+    }
   });
 });
 

@@ -20,6 +20,9 @@ const EnvSchema = z.object({
   SHOTCLOCK_BASE_URL: z.string().url().default('http://10.12.0.61/shotclock'),
   MATCH_SCHEDULE_BASE_URL: z.string().url().default('https://api.sportclubvrijwilligersmanagement.nl/v1'),
   MATCH_SCHEDULE_API_TOKEN: z.string().optional().or(z.literal('')).default(''),
+  // Selects which MatchScheduleProvider adapter to use (see services/matchSchedule/providerFactory.ts).
+  // A deploy-time setting on purpose - swap the match source without touching code.
+  MATCH_SCHEDULE_PROVIDER: z.string().trim().toLowerCase().default('vrijwilligers'),
   // Root directory where binary assets (logos, player photos, uploads) are stored within the container/app.
   // Default: "storage". In tests, if not set, falls back to tmp/test-storage under cwd to avoid polluting real data.
   ASSETS_DIR: z.string().optional().default(''),
@@ -52,6 +55,7 @@ const env = parsed.success
     SHOTCLOCK_BASE_URL: process.env.SHOTCLOCK_BASE_URL || 'http://10.12.0.61/shotclock',
     MATCH_SCHEDULE_BASE_URL: process.env.MATCH_SCHEDULE_BASE_URL || 'https://api.sportclubvrijwilligersmanagement.nl/v1',
     MATCH_SCHEDULE_API_TOKEN: process.env.MATCH_SCHEDULE_API_TOKEN || '',
+    MATCH_SCHEDULE_PROVIDER: (process.env.MATCH_SCHEDULE_PROVIDER || 'vrijwilligers').trim().toLowerCase(),
     ASSETS_DIR: process.env.ASSETS_DIR || '',
     APP_VERSION: process.env.APP_VERSION || '0.0.0-test',
   } as any);
@@ -65,6 +69,7 @@ export const config = {
   shotClockBaseUrl: env.SHOTCLOCK_BASE_URL as string,
   matchScheduleBaseUrl: env.MATCH_SCHEDULE_BASE_URL as string,
   matchScheduleApiToken: ((env.MATCH_SCHEDULE_API_TOKEN || '') as string),
+  matchScheduleProviderKey: (env.MATCH_SCHEDULE_PROVIDER as string) || 'vrijwilligers',
   assetsDir: (env.ASSETS_DIR || '') as string,
   appVersion: (env.APP_VERSION || '0.0.0-dev') as string,
 };
