@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
     inputs:
       docker_tag:
-        description: 'Custom Docker tag (e.g., feature-xyz, test-1.0)'
-        required: true
+        description: 'Custom Docker tag (optional; defaults to yyyy-mm-<branch>-nn)'
+        required: false
         type: string
       skip_ci_checks:
         description: 'Skip CI checks (lint, test, typecheck)'
@@ -167,17 +167,23 @@ jobs:
   calculate-version:
     name: Calculate Next Version
     runs-on: ubuntu-latest
-    # This job only runs on push events to main/master, not on PRs
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    # Runs for everything that builds images: pushes to main/master (releases) and manual dispatches
+    if: |
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
+      github.event_name == 'workflow_dispatch'
     outputs:
-      new_tag: ${{ steps.versioner.outputs.new_tag }}
+      # Release (yyyy.mm.n) on a push to main/master, branch build (yyyy-mm-<branch>-nn) otherwise
+      new_tag: ${{ steps.versioner.outputs.new_tag || steps.branch_versioner.outputs.new_tag }}
+      is_release: ${{ steps.versioner.outputs.new_tag != '' }}
     steps:
       - name: Checkout
+        if: github.event_name == 'push'
         uses: actions/checkout@v5
         with:
           fetch-depth: 0 # Required to fetch all tags
 
       - name: Calculate new version tag
+        if: github.event_name == 'push'
         id: versioner
         run: |
           # 1. Set the year.month prefix (e.g., 2025.10)
@@ -207,6 +213,43 @@ jobs:
           echo "New tag: $NEW_TAG"
 
           # 6. Set the output for other jobs
+          echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+
+      # Branch builds never become a release or 'latest'. Their dashed yyyy-mm-<branch>-nn tag
+      # can't collide with a release tag (yyyy.mm.n). nn continues from the highest number
+      # already published to Docker Hub for this month and branch, across all app images.
+      - name: Calculate branch version tag
+        if: github.event_name == 'workflow_dispatch' && inputs.docker_tag == ''
+        id: branch_versioner
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # Docker tags allow [A-Za-z0-9_.-]; lowercase and replace the rest (e.g. 'feature/x' -> 'feature-x')
+          SAFE_BRANCH=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^[-.]+//; s/-+$//' | cut -c1-100)
+          PREFIX="$(date +'%Y-%m')-${SAFE_BRANCH}-"
+          echo "Branch tag prefix: $PREFIX"
+
+          LATEST_INC=0
+          for APP in korfbal-stream-api korfbal-stream-kit; do
+            # A repository without tags (or not created yet) counts as no tags
+            TAGS=$(skopeo list-tags --creds "$DOCKERHUB_USERNAME:$DOCKERHUB_TOKEN" "docker://docker.io/$DOCKERHUB_USERNAME/$APP" 2>/dev/null | jq -r '.Tags[]' || true)
+            for TAG in $TAGS; do
+              case "$TAG" in "$PREFIX"*) ;; *) continue ;; esac
+              INC="${TAG#"$PREFIX"}"
+              # Only prefix + digits, so branch 'foo' doesn't count tags of branch 'foo-bar'
+              [[ "$INC" =~ ^[0-9]+$ ]] || continue
+              if [ "$((10#$INC))" -gt "$LATEST_INC" ]; then
+                LATEST_INC=$((10#$INC))
+              fi
+            done
+          done
+          echo "Highest number already published: $LATEST_INC"
+
+          NEW_TAG="${PREFIX}$(printf '%02d' $((LATEST_INC + 1)))"
+          echo "New branch tag: $NEW_TAG"
           echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
 
   build:
@@ -273,12 +316,22 @@ jobs:
         if: matrix.app.original != 'none'
         id: docker_tag
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ -n "${{ inputs.docker_tag }}" ]; then
             TAG="${{ inputs.docker_tag }}"
           else
             TAG="${{ needs.calculate-version.outputs.new_tag }}"
           fi
+          if [ -z "$TAG" ]; then
+            echo "::error::No Docker tag determined"
+            exit 1
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # Only releases get a GitHub Release page; branch builds link to their commit instead
+          if [ "${{ needs.calculate-version.outputs.is_release }}" = "true" ]; then
+            echo "info_url=${{ github.server_url }}/${{ github.repository }}/releases/tag/$TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "info_url=${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build and push by digest
         if: matrix.app.original != 'none'
@@ -301,14 +354,14 @@ jobs:
             APP_VERSION=${{ steps.docker_tag.outputs.tag }}
 
           # Standard OCI labels, visible on the Docker Hub tag page - points at the
-          # GitHub Release for this tag, which carries the actual changelog.
+          # GitHub Release for this tag (the actual changelog), or the commit for a branch build.
           labels: |
             org.opencontainers.image.title=${{ matrix.app.sanitized }}
             org.opencontainers.image.version=${{ steps.docker_tag.outputs.tag }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.docker_tag.outputs.tag }}
-            org.opencontainers.image.description=Release notes: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.docker_tag.outputs.tag }}
+            org.opencontainers.image.url=${{ steps.docker_tag.outputs.info_url }}
+            org.opencontainers.image.description=${{ needs.calculate-version.outputs.is_release == 'true' && 'Release notes' || 'Branch build' }}: ${{ steps.docker_tag.outputs.info_url }}
 
           # Cache is per-platform now that each architecture builds in its own job
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:buildcache-${{ env.PLATFORM_PAIR }}
@@ -370,19 +423,30 @@ jobs:
         if: matrix.app.original != 'none'
         id: docker_tag
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ -n "${{ inputs.docker_tag }}" ]; then
             TAG="${{ inputs.docker_tag }}"
           else
             TAG="${{ needs.calculate-version.outputs.new_tag }}"
           fi
+          if [ -z "$TAG" ]; then
+            echo "::error::No Docker tag determined"
+            exit 1
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # Only releases get a GitHub Release page; branch builds link to their commit instead
+          if [ "${{ needs.calculate-version.outputs.is_release }}" = "true" ]; then
+            echo "info_url=${{ github.server_url }}/${{ github.repository }}/releases/tag/$TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "info_url=${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create and push multi-arch manifest
         if: matrix.app.original != 'none'
         working-directory: /tmp/digests
         run: |
           TAGS="-t ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:${{ steps.docker_tag.outputs.tag }}"
-          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+          # Only releases from main/master move 'latest'
+          if [ "${{ needs.calculate-version.outputs.is_release }}" = "true" ]; then
             TAGS="$TAGS -t ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:latest"
           fi
           docker buildx imagetools create $TAGS \
