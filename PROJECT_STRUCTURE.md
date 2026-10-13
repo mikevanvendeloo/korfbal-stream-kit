@@ -32,7 +32,7 @@ apps/korfbal-stream-api/
     │   ├── scoreboard.ts      # Proxy to venue scoreboard / shotclock
     │   ├── settings.ts        # App settings (vMix URL, sponsor/scoreboard/club config)
     │   ├── seasons.ts         # Seasons (seizoenen): list, create, delete, active season
-    │   ├── vmix.ts            # vMix data sources (sponsors, staff, titles) + admin title templates
+    │   ├── vmix.ts            # vMix data sources (sponsors, staff, titles, callsheet timing) + admin title templates
     │   ├── reports.ts         # Cross-production reports (occupancy, interviews, crew roles)
     │   ├── backup.ts          # Per-entity JSON backup export/import
     │   ├── show-control.ts    # Live show control (start/next/previous/reset/stop, clock)
@@ -339,6 +339,7 @@ No authentication: all endpoints are open (internal LAN tool). Swagger UI at `/a
 | DELETE | /api/production/:id/titles/:titleId | Delete title definition |
 | PATCH | /api/production/:id/titles:reorder | Reorder title definitions |
 | GET | /api/production/:id/interviews | List interview subjects |
+| GET | /api/production/:id/interview-names | Selected interview names per side/role + own club side (for `{coach-uit}` placeholders) |
 | PUT | /api/production/:id/interviews | Replace interview subjects |
 | GET | /api/production/:id/interviews/options | Interview subject options |
 | GET | /api/production/:id/report | Get production report |
@@ -393,6 +394,8 @@ No authentication: all endpoints are open (internal LAN tool). Swagger UI at `/a
 | GET | /api/settings/version | App version |
 | GET | /api/settings/vmix-url | Get vMix URL |
 | PUT | /api/settings/vmix-url | Set vMix URL |
+| GET | /api/settings/vmix-callsheet-push | Get callsheet → vMix push config (title, fields, colours, positions) |
+| PUT | /api/settings/vmix-callsheet-push | Set callsheet → vMix push config |
 | GET | /api/settings/sponsor-config | Get sponsor config |
 | PUT | /api/settings/sponsor-config | Set sponsor config |
 | GET | /api/settings/scoreboard-config | Get scoreboard config |
@@ -420,6 +423,8 @@ Season-bound endpoints (`GET /api/production`, `/api/production/matches`, `/api/
 | GET | /api/vmix/sync/activate-event | Activate event from vMix |
 | POST | /api/vmix/production/trigger-manual | Manually trigger production event |
 | POST | /api/vmix/set-timer | Set vMix timer |
+| GET | /api/vmix/callsheet/timing?position=A,B | Current + next callsheet item for positions (remaining time, vMix timer format, start times, colour state) |
+| POST | /api/vmix/callsheet/push | Push current/next item to the configured vMix title now |
 | POST | /api/vmix/sponsor-rows | Sponsor rows data source (seeded) |
 | GET | /api/vmix/sponsor-slides | Sponsor slides data source (seeded) |
 | GET | /api/vmix/sponsor-names | Sponsor names data source |

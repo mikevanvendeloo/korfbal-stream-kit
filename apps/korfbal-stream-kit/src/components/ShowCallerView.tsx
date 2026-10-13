@@ -285,9 +285,10 @@ export const ShowCallerView = () => {
                         <div className="pt-4 border-t border-gray-200 dark:border-white/5 space-y-3">
                           <button
                             onClick={() => {
-                              const currentPath = window.location.pathname;
-                              const newPath = currentPath.replace('/show-caller/', '/view/');
-                              navigate(newPath);
+                              // The callsheet view always needs one position: without one ('all') let the crew pick it
+                              navigate(positionSlug && positionSlug !== 'all'
+                                ? `/callsheet/${productionId}/${positionSlug}`
+                                : `/callsheet/${productionId}`);
                               setShowSettings(false);
                             }}
                             className="w-full px-4 py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-gray-200 dark:border-white/5 text-gray-600 dark:text-white/70"
@@ -295,7 +296,7 @@ export const ShowCallerView = () => {
                             Callsheet view
                           </button>
                           <button
-                            onClick={() => navigate(`/live/${productionId}/positions/show-caller`)}
+                            onClick={() => navigate(`/show-caller/${productionId}`)}
                             className="w-full px-4 py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-gray-200 dark:border-white/5 text-gray-600 dark:text-white/70"
                           >
                             Wissel Positie

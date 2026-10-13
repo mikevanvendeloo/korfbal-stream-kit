@@ -1,4 +1,4 @@
-import {beforeEach, describe, expect, it} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it} from 'vitest';
 import {prisma} from '../../services/prisma';
 import {callSheetTemplateRouter} from './callsheet-templates';
 import {productionRouter} from '../production';
@@ -13,10 +13,24 @@ app.use('/api/production', productionRouter);
 
 describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Application and Timing', () => {
   let productionId: number;
+  let matchId: number;
   let templateId: number;
   const matchDate = new Date('2026-05-01T20:00:00Z');
 
+  async function cleanup() {
+    // Productions reference the template, so they go first
+    if (productionId) await prisma.production.deleteMany({where: {id: productionId}});
+    if (matchId) await prisma.matchSchedule.deleteMany({where: {id: matchId}});
+    await prisma.production.deleteMany({where: {callSheetTemplate: {name: 'Test Timing Template'}}});
+    await prisma.callSheetTemplate.deleteMany({where: {name: 'Test Timing Template'}});
+  }
+
+  afterEach(cleanup);
+
   beforeEach(async () => {
+    // Leftovers from an earlier, interrupted run
+    await cleanup();
+
     // 1. Create a match schedule
     const match = await prisma.matchSchedule.create({
       data: { seasonId: await currentSeasonId(prisma),
@@ -26,6 +40,7 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Application
         isHomeMatch: true,
       }
     });
+    matchId = match.id;
 
     // 2. Create a production
     const production = await prisma.production.create({

@@ -168,15 +168,12 @@ describe.runIf(runDb)('Production API (integration)', () => {
     await prisma.productionPerson.create({ data: { productionId: prod.id, personId: assignedPerson.id } });
     await prisma.productionPerson.create({ data: { productionId: prod.id, personId: unassignedPerson.id } });
 
-    // Create a segment and a position
-    const segment = await prisma.productionSegment.create({
-      data: { productionId: prod.id, naam: 'Segment 1', duurInMinuten: 10, volgorde: 1 },
-    });
+    // Create a position
     const position = await prisma.position.create({ data: { name: 'Camera Operator' } });
 
-    // Assign 'Assigned Person' to a position in a segment
-    await prisma.segmentRoleAssignment.create({
-      data: { productionSegmentId: segment.id, personId: assignedPerson.id, positionId: position.id },
+    // Assign 'Assigned Person' to a crew position of the production (the report's notion of "assigned")
+    await prisma.productionPersonPosition.create({
+      data: { productionId: prod.id, personId: assignedPerson.id, positionId: position.id },
     });
 
     // Fetch the production report
@@ -200,7 +197,7 @@ describe.runIf(runDb)('Production API (integration)', () => {
     const pdfRes = await request(app).get(`/api/production/${prod.id}/report/pdf`);
     expect(pdfRes.status).toBe(200);
     expect(pdfRes.header['content-type']).toBe('application/pdf');
-    expect(pdfRes.header['content-disposition']).toMatch(/^attachment; filename="Productie_Positie_Overzicht_/);
+    expect(pdfRes.header['content-disposition']).toMatch(/^attachment; filename="Productie_Rapport_/);
 
     // Test WhatsApp generation (basic check for status, content-type and disposition)
     const whatsappRes = await request(app).get(`/api/production/${prod.id}/report/whatsapp`);

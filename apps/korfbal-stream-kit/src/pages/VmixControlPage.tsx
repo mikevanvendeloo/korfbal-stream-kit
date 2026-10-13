@@ -1,5 +1,6 @@
 import {useEffect, useState} from 'react';
 import {getVmixSettings, setVmixSettings, vmixSetTimer} from '../lib/api';
+import VmixCallsheetPushSettings from '../components/VmixCallsheetPushSettings';
 
 export default function VmixControlPage() {
   const [vmixUrl, setVmixUrl] = useState('');
@@ -92,6 +93,12 @@ export default function VmixControlPage() {
           <button onClick={() => sendTimer(30)} className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">30s</button>
           <button onClick={() => sendTimer(60)} className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">1m</button>
         </div>
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Callsheet naar vMix (presentator & analist)</h2>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Huidig en volgend callsheet item met resterende tijd naar een vMix title, met oranje/rode achtergrond als de tijd (bijna) op is.</p>
+        <VmixCallsheetPushSettings/>
       </div>
 
       {message && (

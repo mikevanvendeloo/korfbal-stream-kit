@@ -67,12 +67,12 @@ test.describe('Seizoen instellingen', () => {
   });
 
   test('shows the active season badge in the nav and opens the Seizoen tab', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/admin');
     const badge = page.getByRole('link', { name: 'Seizoen 2025/2026' });
     await expect(badge).toBeVisible();
     await badge.click();
 
-    await expect(page).toHaveURL(/\/settings$/);
+    await expect(page).toHaveURL(/\/admin\/settings$/);
     await expect(page.getByRole('heading', { name: 'Actief seizoen' })).toBeVisible();
     await expect(page.getByTestId('season-row-1')).toContainText('Actief');
 
@@ -85,7 +85,7 @@ test.describe('Seizoen instellingen', () => {
   });
 
   test('starts a new season, runs imports and switches back', async ({ page }) => {
-    await page.goto('/settings');
+    await page.goto('/admin/settings');
 
     // Validation
     const name = page.getByLabel('Naam');

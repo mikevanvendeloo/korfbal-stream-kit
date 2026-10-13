@@ -24,6 +24,12 @@ export default defineConfig(() => ({
         target: 'http://localhost:3333',
         changeOrigin: true,
       },
+      // Live state (Socket.io), incl. websocket upgrade
+      '/socket.io': {
+        target: 'http://localhost:3333',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
   preview: {

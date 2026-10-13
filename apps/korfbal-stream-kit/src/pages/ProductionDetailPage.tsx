@@ -282,7 +282,7 @@ export default function ProductionDetailPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex flex-wrap items-center gap-2">
-          <Link to={`/live/${id}/positions/view`} className="px-3 py-1 border rounded inline-flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 transition-colors">
+          <Link to={`/callsheet/${id}`} className="px-3 py-1 border rounded inline-flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 transition-colors">
             <MdLiveTv className="w-5 h-5" />
             <span>Open Callsheet View</span>
           </Link>

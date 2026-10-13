@@ -58,12 +58,21 @@ function sanitizeEvent(event: any) {
   return sanitized;
 }
 
+/**
+ * The state as sent to clients. Leaves out the auto-advance timer: a Node Timeout has circular
+ * references, which make socket.io-parser (hasBinary) fail with 'Maximum call stack size exceeded'.
+ */
+function stateSnapshot(): Omit<LiveProductionState, 'autoAdvanceTimer'> {
+  const {productionId, activeEventId, clocks, isClockRunning} = currentState;
+  return {productionId, activeEventId, clocks, isClockRunning};
+}
+
 export async function broadcastState() {
   const io = getIO();
   if (!io) return;
 
   // Stuur de globale state
-  io.emit('callsheet_state_update', currentState);
+  io.emit('callsheet_state_update', stateSnapshot());
 
   // Als er een actieve productie is, stuur dan ook de geüpdatete events mee
   if (currentState.productionId) {
@@ -253,19 +262,12 @@ export async function setActiveEvent(eventId: string, productionId: number) {
     return;
   }
 
-  // Set previous active event to COMPLETED
-  if (currentState.activeEventId) {
-    await prisma.productionEvent.update({
-      where: { id: currentState.activeEventId },
-      data: { status: 'COMPLETED' },
-    });
-  } else if (productionId) {
-    // Fail-safe: als currentState leeg is, zet alle andere ACTIVE events voor deze productie op COMPLETED
-    await prisma.productionEvent.updateMany({
-      where: { productionId, status: 'ACTIVE', id: { not: eventId } },
-      data: { status: 'COMPLETED' }
-    });
-  }
+  // Set every other ACTIVE event of this production to COMPLETED - not just the one in memory, so a
+  // leftover ACTIVE event (e.g. from a restored backup or a restart) can't linger next to the new one
+  await prisma.productionEvent.updateMany({
+    where: { productionId, status: 'ACTIVE', id: { not: eventId } },
+    data: { status: 'COMPLETED' }
+  });
 
   // Set the new event to ACTIVE
   const activeEvent = await prisma.productionEvent.update({
@@ -334,13 +336,9 @@ export async function setActiveEvent(eventId: string, productionId: number) {
           try {
             const checkProdId = currentState.productionId || currentProdId;
 
-            // Check of dit event nog steeds het actieve event is
-            const currentActiveDb = await prisma.productionEvent.findFirst({
-              where: { productionId: checkProdId, status: 'ACTIVE' }
-            });
-
-            if (currentActiveDb && currentActiveDb.id !== activeEvent.id) {
-              logger.info(`Auto-advance aborted: current active event in DB (${currentActiveDb.id}) is different from the one that started the timer (${activeEvent.id})`);
+            // Check of dit event nog steeds het actieve event is (in-memory state is leidend)
+            if (currentState.activeEventId !== activeEvent.id) {
+              logger.info(`Auto-advance aborted: current active event (${currentState.activeEventId}) is different from the one that started the timer (${activeEvent.id})`);
               return;
             }
 
@@ -594,14 +592,14 @@ export async function stopProduction(productionId: number) {
   if (io) {
     io.emit('production_stopped', { productionId });
     io.emit('active_event_update', null);
-    io.emit('callsheet_state_update', currentState);
+    io.emit('callsheet_state_update', stateSnapshot());
   }
 
   logger.info(`Production ${productionId} stopped and websocket broadcasts halted.`);
 }
 
 export function initializeClient(socket: any) {
-  socket.emit('callsheet_state_update', currentState);
+  socket.emit('callsheet_state_update', stateSnapshot());
 
   // Als we een actief event hebben, stuur die dan ook direct mee
   if (currentState.activeEventId) {

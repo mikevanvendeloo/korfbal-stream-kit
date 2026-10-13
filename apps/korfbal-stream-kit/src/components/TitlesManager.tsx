@@ -10,13 +10,8 @@ import {
   useUpdateProductionTitle,
   useVmixTitles,
 } from '../hooks/useTitles';
-import {
-  InterviewRole,
-  InterviewSide,
-  useInterviewOptions,
-  useInterviewSelections,
-  useSaveInterviewSelections
-} from '../hooks/useInterviews';
+import {useInterviewSelections} from '../hooks/useInterviews';
+import InterviewSelector from './InterviewSelector';
 
 type TitlesManagerProps = { productionId: number };
 
@@ -185,80 +180,8 @@ export default function TitlesManager({ productionId }: TitlesManagerProps) {
   const reorder = useReorderProductionTitles(productionId);
   const applyDefault = useApplyDefaultTitles(productionId);
 
-  // Interviews state
+  // Saved interview selection; the preview stays empty until someone is chosen
   const interviews = useInterviewSelections(productionId);
-  const saveInterviews = useSaveInterviewSelections(productionId);
-  type SelKey = `${InterviewSide}-${InterviewRole}`;
-  const keys: SelKey[] = ['HOME-PLAYER', 'AWAY-PLAYER', 'HOME-COACH', 'AWAY-COACH'];
-  const [localSel, setLocalSel] = React.useState<Record<SelKey, { playerId: number | null }>>({
-    'HOME-PLAYER': { playerId: null },
-    'AWAY-PLAYER': { playerId: null },
-    'HOME-COACH': { playerId: null },
-    'AWAY-COACH': { playerId: null },
-  });
-
-  // Load options for each combination
-  const optHomePlayer = useInterviewOptions(productionId, 'HOME', 'PLAYER');
-  const optAwayPlayer = useInterviewOptions(productionId, 'AWAY', 'PLAYER');
-  const optHomeCoach = useInterviewOptions(productionId, 'HOME', 'COACH');
-  const optAwayCoach = useInterviewOptions(productionId, 'AWAY', 'COACH');
-
-  React.useEffect(() => {
-    if (!interviews.data) return;
-    const map: Record<SelKey, { playerId: number | null }> = {
-      'HOME-PLAYER': { playerId: null },
-      'AWAY-PLAYER': { playerId: null },
-      'HOME-COACH': { playerId: null },
-      'AWAY-COACH': { playerId: null },
-    };
-    // Prefer title-agnostic selection for each key; if multiple exist, pick the one without titleDefinitionId.
-    for (const it of interviews.data) {
-      const k = `${it.side}-${it.role}` as SelKey;
-      if (!map[k].playerId || it.titleDefinitionId == null) {
-        map[k] = { playerId: it.playerId };
-      }
-    }
-    setLocalSel(map);
-  }, [interviews.data]);
-
-  // Auto-select behavior:
-  // - Zowel coaches als spelers: geen automatische voorselectie. Alles blijft leeg totdat de gebruiker kiest.
-
-  function OptionSelect({ k, label, options, side, role, loading }: { k: SelKey; label: string; options: Array<{ id: number; name: string; function?: string | null }>; side: InterviewSide; role: InterviewRole; loading?: boolean }) {
-    const value = localSel[k]?.playerId ?? '';
-    return (
-      <div className="flex items-end gap-2">
-        <label className="text-xs">
-          <div className="mb-1">{label}</div>
-          <select
-            className="px-2 py-1 border rounded min-w-[16rem] disabled:opacity-60"
-            value={value}
-            disabled={loading}
-            onChange={(e) => setLocalSel((s) => ({ ...s, [k]: { playerId: e.target.value ? Number(e.target.value) : null } }))}
-          >
-            <option value="">— kies —</option>
-            {options.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}{o.function ? ` – ${o.function}` : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-    );
-  }
-
-  async function handleSaveInterviews() {
-    const items: Array<{ side: InterviewSide; role: InterviewRole; playerId: number; titleDefinitionId: null }> = [];
-    for (const k of keys) {
-      const sel = localSel[k];
-      if (sel?.playerId) {
-        const [side, role] = k.split('-') as [InterviewSide, InterviewRole];
-        items.push({ side, role, playerId: sel.playerId, titleDefinitionId: null });
-      }
-    }
-    await saveInterviews.mutateAsync(items);
-  }
 
   const [modal, setModal] = React.useState<null | { mode: 'create' | 'edit'; def?: TitleDefinition }>(null);
   const [err, setErr] = React.useState<string | null>(null);
@@ -341,28 +264,10 @@ export default function TitlesManager({ productionId }: TitlesManagerProps) {
         </ul>
       </div>
       <div>
-        <div className="mt-6 p-3 border rounded bg-gray-50 dark:bg-gray-900/30">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold">Interview selectie</h3>
-            <button
-              className="px-3 py-1 border rounded"
-              onClick={handleSaveInterviews}
-              disabled={saveInterviews.isPending || optHomePlayer.isLoading || optAwayPlayer.isLoading || optHomeCoach.isLoading || optAwayCoach.isLoading}
-              aria-label="save-interviews"
-            >{saveInterviews.isPending ? 'Interview opslaan…' : 'Interview opslaan'}</button>
-          </div>
-          {(interviews.isError) && <div role="alert" className="mb-2 text-sm text-red-600">{(interviews.error as any)?.message || 'Interview selectie laden mislukt'}</div>}
-          <div className="space-y-2">
-            <OptionSelect k="HOME-PLAYER" label="Thuis – speler/speelster" options={optHomePlayer.data?.items || []} side="HOME" role="PLAYER" loading={optHomePlayer.isLoading} />
-            <OptionSelect k="AWAY-PLAYER" label="Uit – speler/speelster" options={optAwayPlayer.data?.items || []} side="AWAY" role="PLAYER" loading={optAwayPlayer.isLoading} />
-            <OptionSelect k="HOME-COACH" label="Thuis – coach" options={optHomeCoach.data?.items || []} side="HOME" role="COACH" loading={optHomeCoach.isLoading} />
-            <OptionSelect k="AWAY-COACH" label="Uit – coach" options={optAwayCoach.data?.items || []} side="AWAY" role="COACH" loading={optAwayCoach.isLoading} />
-          </div>
-          <div className="text-xs text-gray-500 mt-2">Kies per team een speler/speelster en coach. De selectie geldt automatisch voor alle relevante titels.</div>
-        </div>
+        <InterviewSelector productionId={productionId} className="mt-6 mb-4 p-3 border rounded bg-gray-50 dark:bg-gray-900/30" />
         <h3 className="font-semibold mb-2">Live preview</h3>
         {(() => {
-          const hasAnySelection = Object.values(localSel).some((v) => !!v?.playerId);
+          const hasAnySelection = (interviews.data?.length ?? 0) > 0;
           if (!hasAnySelection) {
             return <div className="text-sm text-gray-500">Geen output</div>;
           }

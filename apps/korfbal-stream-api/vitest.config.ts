@@ -1,17 +1,27 @@
+import {fileURLToPath} from 'node:url';
 import {defineConfig} from 'vitest/config';
 
 export default defineConfig({
   test: {
     name: 'korfbal-stream-api-tests',
+    // Only this app's tests, wherever vitest is started from. Run it from the repo root: some
+    // integration specs call prisma with repo-root relative paths.
+    root: fileURLToPath(new URL('.', import.meta.url)),
+    environment: 'node',
     testTimeout: 30000,
     globals: true,
-    // This file is executed once before all test suites.
+    // Once before everything: guard, create and migrate the separate test database (see src/test-database.ts)
+    globalSetup: ['./src/test-global-setup.ts'],
+    // Before every spec file
     setupFiles: ['./src/test-setup.ts'],
-    // Run tests in a single thread to avoid race conditions on the database.
+    // All integration tests share one database: run the files one after another in a single process.
+    // (Vitest's default pool is 'forks', so a threads-only option has no effect.)
+    pool: 'forks',
     poolOptions: {
-      threads: {
-        singleThread: true,
+      forks: {
+        singleFork: true,
       },
     },
+    fileParallelism: false,
   },
 });

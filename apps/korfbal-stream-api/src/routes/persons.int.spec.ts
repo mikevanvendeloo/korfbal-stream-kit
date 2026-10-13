@@ -61,7 +61,7 @@ describe.runIf(runDb)('Persons API (integration)', () => {
   it('adds and removes capabilities, validates duplicates', async () => {
     // Create a person and use seeded production functions
     const p = await request(app).post('/api/persons').send({ name: 'Bob', gender: 'male' }).then(r => r.body);
-    const cap = await prisma.skill.findFirst({ where: { code: 'COACH' } });
+    const cap = await prisma.skill.findFirst({ where: { code: 'REGISSEUR' } });
     expect(cap).toBeTruthy();
 
     // Add skill
@@ -90,7 +90,7 @@ describe.runIf(runDb)('Persons API (integration)', () => {
   it('creates, lists, updates and deletes match role assignments with skill enforcement', async () => {
     // Arrange data
     const person = await request(app).post('/api/persons').send({ name: 'Cara', gender: 'female' }).then(r => r.body);
-    const role = await prisma.skill.findFirst({ where: { code: 'COMMENTATOR' } });
+    const role = await prisma.skill.findFirst({ where: { code: 'COMMENTAAR' } });
     expect(role).toBeTruthy();
 
     const match = await prisma.matchSchedule.create({
@@ -137,7 +137,7 @@ describe.runIf(runDb)('Persons API (integration)', () => {
     expect(list.body.length).toBe(2);
 
     // Update: switch to another role after adding skill
-    const otherRole = await prisma.skill.findFirst({ where: { code: 'PRESENTATOR' } });
+    const otherRole = await prisma.skill.findFirst({ where: { code: 'PRESENTATIE' } });
     expect(otherRole).toBeTruthy();
     await request(app).post(`/api/persons/${person.id}/skills`).send({ skillId: otherRole!.id });
 
@@ -154,8 +154,8 @@ describe.runIf(runDb)('Persons API (integration)', () => {
 
   it('allows same person to have multiple roles in the same match', async () => {
     const person = await request(app).post('/api/persons').send({ name: 'Daan', gender: 'male' }).then(r => r.body);
-    const role1 = await prisma.skill.findFirst({ where: { code: 'COACH' } });
-    const role2 = await prisma.skill.findFirst({ where: { code: 'COMMENTATOR' } });
+    const role1 = await prisma.skill.findFirst({ where: { code: 'REGISSEUR' } });
+    const role2 = await prisma.skill.findFirst({ where: { code: 'COMMENTAAR' } });
     expect(role1 && role2).toBeTruthy();
 
     const match = await prisma.matchSchedule.create({
@@ -190,8 +190,8 @@ describe.runIf(runDb)('Persons API (integration)', () => {
 
   it('exports and imports persons via JSON', async () => {
     // Create some test persons
-    const person1 = { name: 'Export Person 1', gender: 'male', email: 'export1@test.com', phone: '123' };
-    const person2 = { name: 'Export Person 2', gender: 'female', email: 'export2@test.com', phone: '456' };
+    const person1 = { name: 'Export Person 1', gender: 'male' };
+    const person2 = { name: 'Export Person 2', gender: 'female' };
     await request(app).post('/api/persons').send(person1);
     await request(app).post('/api/persons').send(person2);
 
@@ -203,11 +203,11 @@ describe.runIf(runDb)('Persons API (integration)', () => {
 
     // Modify exported data
     const exportData = exportRes.body.map((p: any) =>
-      p.name === 'Export Person 1' ? { ...p, email: 'modified@test.com' } : p
+      p.name === 'Export Person 1' ? { ...p, gender: 'female' } : p
     );
 
     // Add a new person in export
-    exportData.push({ name: 'Import New Person', gender: 'male', email: 'new@test.com', phone: '789' });
+    exportData.push({ name: 'Import New Person', gender: 'male' });
 
     // Import
     const importRes = await request(app).post('/api/persons/import-json').send(exportData);
@@ -219,7 +219,7 @@ describe.runIf(runDb)('Persons API (integration)', () => {
     // Verify updated person
     const listRes = await request(app).get('/api/persons?q=Export Person 1');
     const updated = listRes.body.items.find((p: any) => p.name === 'Export Person 1');
-    expect(updated.email).toBe('modified@test.com');
+    expect(updated.gender).toBe('female');
 
     // Verify new person
     const listRes2 = await request(app).get('/api/persons?q=Import New Person');

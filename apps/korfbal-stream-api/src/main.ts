@@ -29,6 +29,7 @@ import {timeRouter} from './routes/time';
 import {initializeProductionState} from './services/productionState';
 import {callSheetTemplateRouter} from './routes/production/callsheet-templates'
 import {venueClockSyncService} from "./services/venueClockSyncService";
+import {vmixCallsheetPushService} from './services/vmixCallsheetPush';
 
 const app: Express = express();
 const httpServer = createServer(app);
@@ -36,13 +37,18 @@ const httpServer = createServer(app);
 // Initialize Socket.io
 initSocket(httpServer);
 
-// Initialize Production State from DB
-initializeProductionState().then(() => {
-  // Start venue clock sync after production state is initialized
-  venueClockSyncService.start();
-}).catch(err => {
-  logger.error('Failed to initialize production state:', err);
-});
+// Initialize Production State from DB. Not under Vitest: every spec file imports this module, and
+// restoring an active production there starts clocks and auto-advance timers in the background of
+// unrelated tests. Specs that need the live state initialize it themselves.
+if (!process.env.VITEST) {
+  initializeProductionState().then(() => {
+    // Start venue clock sync after production state is initialized
+    venueClockSyncService.start();
+    vmixCallsheetPushService.start();
+  }).catch(err => {
+    logger.error('Failed to initialize production state:', err);
+  });
+}
 
 // Middlewares
 app.use(express.json({ limit: '10mb' }));

@@ -13,8 +13,12 @@ const toSlug = (name: string) => {
   return name.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
 };
 
-export const PositionSelector = () => {
-  const { productionId, viewType } = useParams<{ productionId: string, viewType: string }>();
+interface Props {
+  viewType: 'callsheet' | 'show-caller';
+}
+
+export const PositionSelector = ({ viewType }: Props) => {
+  const { productionId } = useParams<{ productionId: string }>();
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,8 +62,6 @@ export const PositionSelector = () => {
     );
   }
 
-  const baseViewUrl = viewType === 'show-caller' ? 'show-caller' : 'view';
-
   return (
     <div className="bg-white dark:bg-gray-950 min-h-screen flex flex-col items-center justify-center p-8 transition-colors">
       {productionId && (
@@ -75,7 +77,7 @@ export const PositionSelector = () => {
           {positions.map((pos) => (
             <Link
               key={pos.id}
-              to={`/live/${productionId}/${baseViewUrl}/${toSlug(pos.name)}`}
+              to={`/${viewType}/${productionId}/${toSlug(pos.name)}`}
               className="group relative overflow-hidden bg-white dark:bg-white/5 hover:bg-orange-500 dark:hover:bg-orange-600 p-8 rounded-2xl text-center transition-all border border-gray-200 dark:border-white/10 hover:border-orange-500 dark:hover:border-orange-600 shadow-sm hover:shadow-xl hover:-translate-y-1"
             >
               <span className="relative z-10 text-xl font-bold text-gray-900 dark:text-white group-hover:text-white transition-colors">
@@ -85,16 +87,18 @@ export const PositionSelector = () => {
             </Link>
           ))}
 
-          {/* Special case: All items view (alleen voor show-caller of als overzicht) */}
-          <Link
-            to={`/live/${productionId}/${baseViewUrl}/all`}
-            className="group relative overflow-hidden bg-gray-100 dark:bg-white/5 hover:bg-blue-600 p-8 rounded-2xl text-center transition-all border border-gray-200 dark:border-white/10 hover:border-blue-600 shadow-sm hover:shadow-xl hover:-translate-y-1"
-          >
-            <span className="relative z-10 text-xl font-bold text-gray-600 dark:text-white group-hover:text-white transition-colors">
-              Alle Items
-            </span>
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-700 opacity-0 group-hover:opacity-100 transition-opacity" />
-          </Link>
+          {/* All items: only the show caller has an all-positions view; the callsheet always shows one position */}
+          {viewType === 'show-caller' && (
+            <Link
+              to={`/${viewType}/${productionId}/all`}
+              className="group relative overflow-hidden bg-gray-100 dark:bg-white/5 hover:bg-blue-600 p-8 rounded-2xl text-center transition-all border border-gray-200 dark:border-white/10 hover:border-blue-600 shadow-sm hover:shadow-xl hover:-translate-y-1"
+            >
+              <span className="relative z-10 text-xl font-bold text-gray-600 dark:text-white group-hover:text-white transition-colors">
+                Alle Items
+              </span>
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-700 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Link>
+          )}
         </div>
       )}
     </div>
