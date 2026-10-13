@@ -13,5 +13,5 @@
     "rootDir": "."
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.spec.ts"]
+  "exclude": ["src/**/*.spec.ts", "src/test-setup.ts", "src/test-global-setup.ts", "src/test-database.ts"]
 }

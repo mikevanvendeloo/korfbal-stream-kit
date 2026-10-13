@@ -5,12 +5,28 @@ import {currentSeasonId} from '../../test-helpers';
 
 const prisma = new PrismaClient();
 
-// Mock socket.io
+// Mock socket.io; one shared emit so tests can inspect what was broadcast
+const emit = vi.hoisted(() => vi.fn());
 vi.mock('./socket', () => ({
   getIO: vi.fn(() => ({
-    emit: vi.fn(),
+    emit,
   })),
 }));
+
+/** Lets the async auto-advance callback finish its DB work after the fake timers fired. */
+async function waitForStatus(prisma: PrismaClient, eventId: string, status: string) {
+  for (let i = 0; i < 20; i++) {
+    await new Promise(resolve => {
+      vi.useRealTimers();
+      setTimeout(() => {
+        vi.useFakeTimers();
+        resolve(null);
+      }, 50);
+    });
+    const e = await prisma.productionEvent.findUnique({ where: { id: eventId } });
+    if (e?.status === status) return;
+  }
+}
 
 describe.runIf(process.env.REQUIRE_DB === 'true')('ProductionState Service Auto-Advance', () => {
   let productionId: number;
@@ -70,8 +86,14 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('ProductionState Service Auto-
     // we rely on the fact that setActiveEvent will overwrite it.
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Stop the clock and any pending auto-advance, and remove the active production: later spec
+    // files would otherwise restore it and run its timers in the background.
+    await productionState.stopProduction(productionId);
     vi.useRealTimers();
+    const production = await prisma.production.findUnique({ where: { id: productionId } });
+    await prisma.production.delete({ where: { id: productionId } });
+    if (production) await prisma.matchSchedule.delete({ where: { id: production.matchScheduleId } });
   });
 
   it('should automatically advance to the next event after duration expires', async () => {
@@ -122,5 +144,38 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('ProductionState Service Auto-
     // Check if event 1 is now completed
     e1 = await prisma.productionEvent.findUnique({ where: { id: event1Id } });
     expect(e1?.status).toBe('COMPLETED');
+  });
+
+  it('advances even when another event of the production was left ACTIVE', async () => {
+    // E.g. a restored backup: an ACTIVE event further down the callsheet
+    const stray = await prisma.productionEvent.create({
+      data: {
+        id: 'event-stray-' + Date.now(),
+        productionId,
+        title: 'Leftover active event',
+        order: 99,
+        status: 'ACTIVE',
+      },
+    });
+
+    await productionState.setActiveEvent(event1Id, productionId);
+    expect((await prisma.productionEvent.findUnique({ where: { id: stray.id } }))?.status).toBe('COMPLETED');
+
+    vi.advanceTimersByTime(1500);
+    await waitForStatus(prisma, event2Id, 'ACTIVE');
+
+    expect((await prisma.productionEvent.findUnique({ where: { id: event2Id } }))?.status).toBe('ACTIVE');
+  });
+
+  it('broadcasts a serializable state while an auto-advance timer is pending', async () => {
+    emit.mockClear();
+    await productionState.setActiveEvent(event1Id, productionId);
+
+    const stateUpdates = emit.mock.calls.filter(([event]) => event === 'callsheet_state_update');
+    expect(stateUpdates.length).toBeGreaterThan(0);
+    for (const [, payload] of stateUpdates) {
+      expect(payload).not.toHaveProperty('autoAdvanceTimer');
+      expect(() => JSON.stringify(payload)).not.toThrow();
+    }
   });
 });

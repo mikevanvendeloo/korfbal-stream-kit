@@ -18,9 +18,9 @@ export default function LiveCallsheetEntry({ viewType }: Props) {
     if (active) {
       if (viewType === 'show-caller') {
         // Show Caller view gaat direct naar alle items (geen specifieke positie-slug nodig)
-        navigate(`/live/${active.id}/show-caller/all`, { replace: true });
+        navigate(`/show-caller/${active.id}/all`, { replace: true });
       } else {
-        navigate(`/live/${active.id}/positions/${viewType}`, { replace: true });
+        navigate(`/callsheet/${active.id}`, { replace: true });
       }
     }
   }, [data, isLoading, error, navigate, viewType]);
@@ -43,7 +43,7 @@ export default function LiveCallsheetEntry({ viewType }: Props) {
 
   return (
     <div className="min-h-screen flex items-center justify-center text-gray-800 dark:text-gray-100">
-      Geen actieve productie gevonden. Ga naar /admin/productions om er een te activeren.
+      Geen actieve productie gevonden.
     </div>
   );
 }

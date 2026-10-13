@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {prisma} from '../../services/prisma';
 import {findClubByTeamName} from '../../utils/clubs';
 import {logger} from '../../utils/logger';
+import {loadInterviewNames} from '../../services/interviewPlaceholders';
 
 export const productionInterviewsRouter: Router = Router();
 
@@ -17,6 +18,19 @@ const InterviewSubjectInputSchema = z.object({
   playerId: z.number().int().positive(),
   titleDefinitionId: z.number().int().positive().optional().nullable(),
   titleOrder: z.number().int().positive().optional().nullable(),
+});
+
+// Selected interview names per side/role plus the own club's side, for the {coach-uit} placeholders in callsheets
+productionInterviewsRouter.get('/:id/interview-names', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+    const names = await loadInterviewNames(id);
+    if (!names) return res.status(404).json({ error: 'Not found' });
+    return res.json(names);
+  } catch (err) {
+    return next(err);
+  }
 });
 
 // List interview subjects for a production

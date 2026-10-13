@@ -2,7 +2,7 @@ import {Router} from 'express';
 import {z} from 'zod';
 import {logger} from '../utils/logger';
 import {prisma} from '../services/prisma';
-import {getMatchScheduleProvider, InvalidMatchScheduleResponseError} from '../services/matchSchedule';
+import {getMatchScheduleProvider, InvalidMatchScheduleResponseError, type NormalizedMatchItem} from '../services/matchSchedule';
 import {MatchScheduleImportQuerySchema} from '../schemas/matchSchedule';
 import {createSeasonIdResolver, seasonNameForStartYear, seasonStartYearForDate} from '../services/season';
 
@@ -21,7 +21,7 @@ matchRouter.post('/matches/schedule/import', async (req, res) => {
     const seasons = createSeasonIdResolver();
     // Imported matches per season, so the UI can say where they landed.
     const bySeasonStartYear = new Map<number, { seasonId: number; name: string; count: number }>();
-    const rows = [];
+    const rows: Array<NormalizedMatchItem & {seasonId: number}> = [];
     for (const item of items) {
       const startYear = seasonStartYearForDate(item.date);
       const seasonId = await seasons.forStartYear(startYear);

@@ -137,7 +137,7 @@ export const CallSheetView = () => {
                 const other = allPositions.find(p => p.id !== posId && p.id !== primaryPositionId && p.id !== secondaryPositionId);
                 setTertiaryPositionId(other ? other.id : null);
             }
-            navigate(`/live/${productionId}/view/${toSlug(pos.name)}`);
+            navigate(`/callsheet/${productionId}/${toSlug(pos.name)}`);
         }
     };
 
@@ -147,7 +147,7 @@ export const CallSheetView = () => {
         // dan moeten we de primaire naar de oude secundaire verplaatsen
         if (posId === primaryPositionId) {
             if (secondaryPosition) {
-                navigate(`/live/${productionId}/view/${toSlug(secondaryPosition.name)}`);
+                navigate(`/callsheet/${productionId}/${toSlug(secondaryPosition.name)}`);
             }
         } else if (posId === tertiaryPositionId) {
             // Als deze al tertiair was, wissel ze om
@@ -162,7 +162,7 @@ export const CallSheetView = () => {
         // dan moeten we de primaire naar de oude tertiaire verplaatsen
         if (posId === primaryPositionId) {
             if (tertiaryPosition) {
-                navigate(`/live/${productionId}/view/${toSlug(tertiaryPosition.name)}`);
+                navigate(`/callsheet/${productionId}/${toSlug(tertiaryPosition.name)}`);
             }
         } else if (posId === secondaryPositionId) {
             // Als deze al secundair was, wissel ze om
@@ -322,7 +322,7 @@ export const CallSheetView = () => {
                                                         className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-white/30">Positie</span>
                                                     <button
                                                         onClick={() => {
-                                                            navigate(`/live/${productionId}/positions/view`);
+                                                            navigate(`/callsheet/${productionId}`);
                                                             setShowSettings(false);
                                                         }}
                                                         className="px-3 py-1.5 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border border-gray-200 dark:border-white/10 text-gray-600 dark:text-white/60"
@@ -370,8 +370,7 @@ export const CallSheetView = () => {
 
                                                     <button
                                                         onClick={() => {
-                                                            const currentPath = window.location.pathname;
-                                                            const newPath = currentPath.replace('/view/', '/show-caller/');
+                                                            const newPath = `/show-caller/${productionId}/${positionSlug}`;
                                                             navigate(newPath);
                                                             setShowSettings(false);
                                                         }}
@@ -383,7 +382,7 @@ export const CallSheetView = () => {
 
                                                     <button
                                                         onClick={() => {
-                                                            navigate(`/live/${productionId}/positions/view`);
+                                                            navigate(`/callsheet/${productionId}`);
                                                             setShowSettings(false);
                                                         }}
                                                         className="w-full px-4 py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-gray-200 dark:border-white/5 text-gray-600 dark:text-white/70 text-center"

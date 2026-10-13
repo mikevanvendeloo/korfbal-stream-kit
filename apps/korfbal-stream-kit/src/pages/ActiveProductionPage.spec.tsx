@@ -11,6 +11,9 @@ vi.mock('../hooks/useProductions');
 vi.mock('../components/ProductionHeader', () => ({
   default: () => <div data-testid="production-header">Header</div>
 }));
+vi.mock('../components/InterviewSelector', () => ({
+  default: () => <div data-testid="interview-selector">Interview selectie</div>
+}));
 
 const mockUseProductions = useProductions as any;
 const mockUseProductionInterviews = useProductionInterviews as any;

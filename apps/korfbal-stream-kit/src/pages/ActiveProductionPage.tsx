@@ -1,9 +1,9 @@
-import {Link} from 'react-router-dom';
 import {useProductionCrew, useProductionInterviews, useProductions, useProductionTiming} from '../hooks/useProductions';
 import ProductionHeader from '../components/ProductionHeader';
-import {MdAnchor, MdEdit} from 'react-icons/md';
+import {MdAnchor} from 'react-icons/md';
 import {PositionCategory} from "../hooks/usePositions";
 import PlayerCard from "../components/PlayerCard";
+import InterviewSelector from "../components/InterviewSelector";
 
 const categoryLabels: Record<PositionCategory, string> = {
   [PositionCategory.GENERAL]: 'Algemeen',
@@ -21,7 +21,7 @@ export default function ActiveProductionPage() {
 
   if (isLoading) return <div className="container py-6 text-gray-800 dark:text-gray-100">Laden…</div>;
   if (error) return <div className="container py-6 text-red-700">{String((error as any)?.message || error)}</div>;
-  if (!active) return <div className="container py-6 text-gray-800 dark:text-gray-100">Geen actieve productie. Ga naar <Link className="underline" to="/admin/productions">Productions</Link>.</div>;
+  if (!active) return <div className="container py-6 text-gray-800 dark:text-gray-100">Geen actieve productie.</div>;
 
   const gatheringTime = active.liveTime ? new Date(new Date(active.liveTime).getTime() - 30 * 60000) : null;
   const totalDuration = (timing.data || []).reduce((sum, s) => sum + s.duurInMinuten, 0);
@@ -29,19 +29,7 @@ export default function ActiveProductionPage() {
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">Actieve productie #{active.id}</h1>
-        <div className="flex gap-2">
-          <Link
-            to={`/admin/productions/${active.id}`}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium"
-          >
-            <MdEdit className="w-4 h-4" />
-            Bewerken
-          </Link>
-          <Link className="underline" to={`/admin/productions/${active.id}/callsheets`}>Callsheet</Link>
-        </div>
-      </div>
+      <h1 className="text-xl font-semibold mb-4">Actieve productie #{active.id}</h1>
 
       <ProductionHeader productionId={active.id} />
 
@@ -111,8 +99,8 @@ export default function ActiveProductionPage() {
           ))}
         </div>
 
-        {/* Right Column: Interviews */}
-        <div>
+        {/* Right Column: Interviews - the only thing that can be changed during a live production */}
+        <div className="space-y-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 font-semibold">
               Interviews
@@ -131,6 +119,7 @@ export default function ActiveProductionPage() {
               {!interviews.data?.length && <div className="p-8 text-gray-500 text-center italic">Geen interviews gepland</div>}
             </div>
           </div>
+          <InterviewSelector productionId={active.id} className="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4" />
         </div>
       </div>
     </div>

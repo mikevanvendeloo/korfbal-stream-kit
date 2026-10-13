@@ -66,20 +66,21 @@ npm run api:test           # All API tests (requires running DB)
 npm run api:test-no-db     # Unit tests only (REQUIRE_DB=false)
 ```
 
-**Run a single test file:**
+**Run a single test file** (from the repo root; paths are relative to `apps/korfbal-stream-api`):
 ```bash
-# With database
-dotenv -e apps/korfbal-stream-api/.env -- vitest run apps/korfbal-stream-api/src/routes/sponsors.spec.ts
+# With database (always the separate test database from .env.test)
+REQUIRE_DB=true npx vitest run --config apps/korfbal-stream-api/vitest.config.ts src/routes/sponsors.int.spec.ts
 
 # Without database (unit tests only)
-REQUIRE_DB=false vitest run apps/korfbal-stream-api/src/routes/sponsors.spec.ts
+REQUIRE_DB=false npx vitest run --config apps/korfbal-stream-api/vitest.config.ts src/routes/sponsors.spec.ts
 ```
 
 ## Testing
 
-- Vitest runs **single-threaded** (`singleFork: true`) to avoid DB race conditions.
-- `REQUIRE_DB=false` skips integration tests; `REQUIRE_DB=true` (or having `DATABASE_URL` set) enables them.
-- Test setup in `apps/korfbal-stream-api/src/test-setup.ts` — loads `.env.test`, manages Prisma lifecycle.
+- **Separate test database**: tests always use `korfbal_stream_test` from `apps/korfbal-stream-api/.env.test` (overriding `.env`), and refuse to start when the database name doesn't end in `_test` (`src/test-database.ts`). The global setup creates and migrates it, so `npm run db:up` is all you need.
+- Vitest runs spec files **one after another in a single fork** (`pool: 'forks'`, `singleFork`, `fileParallelism: false`) because they share that database. Config: `apps/korfbal-stream-api/vitest.config.ts`, run from the repo root.
+- `REQUIRE_DB=true` enables the integration tests (`npm run api:test:integration`); without it they are skipped.
+- Integration specs must clean up what they create (especially active productions: they'd be restored by later spec files).
 - After fixing a bug, verify no regressions before moving on.
 
 ## Project Structure
@@ -93,6 +94,7 @@ See **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** for the full project tree a
 ## Project-Specific Conventions
 
 - **No authentication**: This is an internal LAN tool — no login/roles system.
+- **Two apps, one frontend build**: LIVE (`app/LiveApp.tsx`) is served from the root (`/`, `/scoreboard`, `/callsheet/...`, `/show-caller/...`) and is read-only except the interview selection; it has no links to Beheer. Beheer (`app/AdminApp.tsx`, lazy-loaded) lives under `/admin/*`. Both share the same pages/components; no redirects from old URLs.
 - **Single active production**: Only one production can be active at a time. `POST /api/production/:id/activate` deactivates all others.
 - **Event status flow**: WAITING → ACTIVE → COMPLETED (unidirectional). Never revert status in code.
 - **Segment ordering**: `volgorde` is unique per production. Reorders use a 2-phase transaction (bump to 1000+, re-insert, renumber) to avoid unique constraint collisions.
@@ -102,6 +104,8 @@ See **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** for the full project tree a
 - **Zod validation**: All API inputs are validated with Zod schemas in `apps/korfbal-stream-api/src/schemas/`.
 - **Settings persistence**: App settings (vMix URL, sponsor filter types, etc.) stored as `key/value` JSON in the `Setting` table. Accessed via `/api/settings`.
 - **Seasons**: `MatchSchedule` and `Player` have a required `seasonId`. A match's season is always derived from its date (1 July–30 June, Europe/Amsterdam) via `services/season.ts` — never set it by hand. Season-bound list endpoints default to the active season (`activeSeasonId` setting) with an optional `?seasonId=` override; production-bound lookups use the production's match season. Clubs are global. KNKV downloads go to `storage/seasons/<YYYY-YYYY>/`.
+- **Callsheet → vMix**: `services/callsheetTiming.ts` derives the current/next item per position (same rule as the Show Caller: items without positions count for everyone). `services/vmixCallsheetPush.ts` pushes it every second (when enabled in the `vmixCallsheetPush` setting) with SetText/SetColor/SetTextColour, sending only changed fields plus a full resend every 15s.
+- **Interview placeholders**: callsheet titles/notes may contain `{speler|coach-thuis|uit|eigen|tegenstander[:kort|:achternaam]}`. They're stored as typed and only filled in when shown (LIVE callsheet/Show Caller via `InterviewNamesProvider`, vMix timing). The parser exists twice — `apps/korfbal-stream-api/src/services/interviewPlaceholders.ts` and `apps/korfbal-stream-kit/src/lib/interviewPlaceholders.ts` — keep them in sync.
 - **Seeded RNG**: Sponsor row/slide generation uses `mulberry32` seeded by a `seed` query param for reproducible randomization.
 - **Vitest test files**: DB integration guard is inside the spec file via `REQUIRE_DB` env check — not a separate file suffix.
 
@@ -243,6 +247,7 @@ Skills are invoked by reading their SKILL.md file and following the instructions
 - `ASSETS_DIR` defaults to `storage/` in dev and `tmp/test-storage` in tests. Logo uploads go to `storage/sponsors/`.
 - **Base images are Docker Hardened Images** (`dhi.io/node`, `dhi.io/nginx`); run `docker login dhi.io` (Docker Hub account) once before building. `-dev` variants only in build stages; runtime images have no shell, no npm/pnpm and run as non-root (API as uid 1000, nginx on port 8080 → host 80). Hence: the migrate job runs `node /app/seed/migrate-and-seed.cjs`, healthchecks use `node -e fetch(...)`, Prisma engines are pinned via `PRISMA_QUERY_ENGINE_LIBRARY`/`PRISMA_SCHEMA_ENGINE_BINARY`. PostgreSQL still uses the official `postgres:16-alpine` image.
 - **Local image test against a backup**: `docker-compose-localtest.yml` (project `korfbal-localtest`, ports 8080/3334/5433) builds the images and fills its own db from a pg_dump SQL file on first start (`LOCALTEST_SQL`, default `../2025-2026-backup/streamz-2025.sql`); the migrate job runs with `SKIP_SEED=true`. Reset to the backup: `down -v` then `up -d`.
+- **Docker Hub overview**: `apps/<app>/DOCKERHUB.md` is published as the repository description on Docker Hub by the `merge` job in `ci.yml`, on releases only. Keep it up to date when env vars, ports or the purpose change.
 - **No secrets in checked-in config**: compose files read them via `env_file` from local, gitignored files — `secrets.env` (dev, optional), `secrets.prod.env` (prod), `streamz-test/secrets.env`. Templates: `secrets.env.example`, `secrets.prod.env.example`. Don't use a root `.env`/`.env.local` for this: Nx loads those into every task.
 
 ## Environment Variables (API)

@@ -20,6 +20,8 @@ import {
 } from '../services/appSettings';
 import {shuffle} from "../utils/array-utils";
 import os from 'node:os';
+import {loadCallsheetTiming, parsePositions} from '../services/callsheetTiming';
+import {getCallsheetPushConfig, pushCallsheetToVmix} from '../services/vmixCallsheetPush';
 
 export const vmixRouter: Router = Router();
 export const adminVmixRouter: Router = Router();
@@ -93,6 +95,33 @@ vmixRouter.post('/production/trigger-manual', async (req, res, next) => {
   }
 });
 
+
+// ---------------- Callsheet timing (presentator / analist) ----------------
+// GET /api/vmix/callsheet/timing?position=Presentatie,Analist
+// The current and next callsheet item for these positions, with the remaining time as text ("04:32", "-00:12")
+// and in the vMix countdown format ("00:04:32"). Without ?position the positions from the push settings are used.
+// Returned as a one-element array, like the other vMix data sources.
+vmixRouter.get('/callsheet/timing', async (req, res, next) => {
+  try {
+    const config = await getCallsheetPushConfig();
+    const positions = req.query.position !== undefined ? parsePositions(req.query.position) : config.positions;
+    const timing = await loadCallsheetTiming(positions, config.warningSeconds);
+    return res.json([timing]);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// POST /api/vmix/callsheet/push
+// Sends all configured fields to vMix right away (also when automatic push is off)
+vmixRouter.post('/callsheet/push', async (_req, res, next) => {
+  try {
+    const result = await pushCallsheetToVmix(true);
+    return res.status(result.errors.length > 0 && result.sent === 0 ? 502 : 200).json(result);
+  } catch (err) {
+    return next(err);
+  }
+});
 
 // ---------------- vMix control endpoints ----------------
 // POST /api/vmix/set-timer  { seconds: number }
@@ -746,6 +775,11 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
         name: 'Sponsor Slides',
         url: `${baseUrl}/sponsor-slides`,
         description: 'Returns sponsor slides for pause screen.'
+      },
+      {
+        name: 'Callsheet Timing (Presentatie & Analist)',
+        url: `${baseUrl}/callsheet/timing?position=Presentatie,Analist`,
+        description: 'Current and next callsheet item for these positions, with remaining time and start times.'
       }
     ];
 

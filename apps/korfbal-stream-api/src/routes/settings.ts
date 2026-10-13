@@ -17,6 +17,8 @@ import {
 } from '../services/appSettings';
 import {config} from '../services/config';
 import {z} from 'zod';
+import {VmixCallsheetPushSchema} from '../schemas/vmixCallsheet';
+import {getCallsheetPushConfig, setCallsheetPushConfig} from '../services/vmixCallsheetPush';
 
 export const settingsRouter: Router = Router();
 
@@ -47,6 +49,27 @@ settingsRouter.put('/vmix-url', async (req, res, next) => {
     return res.json({ vmixWebUrl: url });
   } catch (err: any) {
     return res.status(400).json({ error: err.message });
+  }
+});
+
+// GET /api/settings/vmix-callsheet-push
+settingsRouter.get('/vmix-callsheet-push', async (_req, res, next) => {
+  try {
+    return res.json(await getCallsheetPushConfig());
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// PUT /api/settings/vmix-callsheet-push
+settingsRouter.put('/vmix-callsheet-push', async (req, res, next) => {
+  try {
+    const parsed = VmixCallsheetPushSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({error: 'Invalid callsheet push settings', details: parsed.error.flatten()});
+    await setCallsheetPushConfig(parsed.data);
+    return res.json(parsed.data);
+  } catch (err) {
+    return next(err);
   }
 });
 

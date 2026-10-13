@@ -62,10 +62,10 @@
       }
     },
     "test": {
-      "executor": "@nx/vite:test",
+      "executor": "nx:run-commands",
       "options": {
-        "passWithNoTests": false,
-        "reportsDirectory": "apps/korfbal-stream-api/test-results"
+        "command": "vitest run --config apps/korfbal-stream-api/vitest.config.ts",
+        "cwd": "{workspaceRoot}"
       }
     },
     "lint": {

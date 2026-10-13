@@ -14,19 +14,19 @@ const runDb = process.env.REQUIRE_DB === 'true';
 const prisma = new PrismaClient();
 
 async function resetDb() {
-  await prisma.$transaction([
-    prisma.segmentRoleAssignment.deleteMany({}),
-    prisma.callSheetItemPosition.deleteMany({}).catch(() => Promise.resolve()),
-    prisma.callSheetItem.deleteMany({}).catch(() => Promise.resolve()),
-    prisma.callSheet.deleteMany({}).catch(() => Promise.resolve()),
-    prisma.productionSegment.deleteMany({}),
-    prisma.matchRoleAssignment.deleteMany({}),
-    prisma.personSkill.deleteMany({}),
-    prisma.person.deleteMany({}),
-    prisma.position.deleteMany({}),
-    prisma.production.deleteMany({}),
-    prisma.matchSchedule.deleteMany({}),
-  ] as any);
+  // Children before parents. Sequential instead of $transaction([...]): a `.catch()` turns a Prisma
+  // call into a plain Promise, which $transaction rejects.
+  await prisma.segmentRoleAssignment.deleteMany({});
+  await prisma.callSheetItemPosition.deleteMany({});
+  await prisma.callSheetItem.deleteMany({});
+  await prisma.callSheet.deleteMany({});
+  await prisma.productionSegment.deleteMany({});
+  await prisma.matchRoleAssignment.deleteMany({});
+  await prisma.personSkill.deleteMany({});
+  await prisma.person.deleteMany({});
+  await prisma.position.deleteMany({});
+  await prisma.production.deleteMany({});
+  await prisma.matchSchedule.deleteMany({});
 }
 
 describe.runIf(runDb)('Position -> Skill mapping (integration)', () => {
@@ -58,8 +58,8 @@ describe.runIf(runDb)('Position -> Skill mapping (integration)', () => {
     const res = await request(app).get(`/api/production/segments/${seg.id}/positions`);
     expect(res.status).toBe(200);
     const items: Array<{ name: string; requiredSkillCode: string | null }> = res.body;
-    // find ledscherm regie -> must be SCHERM_REGISSEUR
-    const led = items.find((i) => i.name === 'ledscherm regie');
+    // find scherm regie (in DEFAULT_SEGMENT_POSITIONS) -> must be SCHERM_REGISSEUR
+    const led = items.find((i) => i.name === 'scherm regie');
     expect(led).toBeTruthy();
     expect(led!.requiredSkillCode).toBe('SCHERM_REGISSEUR');
   });

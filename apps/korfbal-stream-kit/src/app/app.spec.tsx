@@ -1,5 +1,5 @@
 import {render, screen} from '@testing-library/react';
-import {BrowserRouter} from 'react-router-dom';
+import {MemoryRouter} from 'react-router-dom';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {vi} from 'vitest';
 
@@ -15,13 +15,13 @@ const activeSeason = {
   isActive: true, matchCount: 0, playerCount: 0, createdAt: '2026-07-01T00:00:00.000Z',
 };
 
-function renderApp() {
+function renderApp(path = '/') {
   const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
   return render(
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <MemoryRouter initialEntries={[path]}>
         <App />
-      </BrowserRouter>
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }
@@ -41,15 +41,29 @@ describe('App', () => {
     expect(baseElement).toBeTruthy();
   });
 
-  it('shows navigation with Sponsors link', () => {
-    renderApp();
-    expect(screen.getByText('Korfbal Streamz Kit')).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Sponsors' }).length).toBeGreaterThan(0);
+  it('shows the LIVE app on the root, without links to Beheer', () => {
+    renderApp('/');
+    expect(screen.getByText('LIVE')).toBeInTheDocument();
+    expect(screen.getByRole('link', {name: 'Scoreboard'})).toHaveAttribute('href', '/scoreboard');
+    expect(screen.getByRole('link', {name: 'Show Caller'})).toHaveAttribute('href', '/show-caller');
+    expect(screen.queryByRole('link', {name: 'Sponsors'})).not.toBeInTheDocument();
+    expect(document.querySelector('a[href^="/admin"]')).toBeNull();
+  });
+
+  it('shows the Beheer app under /admin with Sponsors link', async () => {
+    renderApp('/admin');
+    expect(await screen.findByText('Korfbal Streamz Kit')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Sponsors' })[0]).toHaveAttribute('href', '/admin/sponsors');
   });
 
   it('shows the active season badge linking to settings', async () => {
-    renderApp();
+    renderApp('/admin');
     const badge = await screen.findByRole('link', {name: 'Seizoen 2026/2027'});
-    expect(badge).toHaveAttribute('href', '/settings');
+    expect(badge).toHaveAttribute('href', '/admin/settings');
+  });
+
+  it('no longer serves Beheer pages outside /admin', () => {
+    renderApp('/sponsors');
+    expect(screen.getByText('Pagina niet gevonden')).toBeInTheDocument();
   });
 });
