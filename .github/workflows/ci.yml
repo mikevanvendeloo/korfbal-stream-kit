@@ -456,6 +456,25 @@ jobs:
         if: matrix.app.original != 'none'
         run: docker buildx imagetools inspect ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:${{ steps.docker_tag.outputs.tag }}
 
+      # The Docker Hub overview belongs to the repository, not a tag: only releases update it,
+      # so a branch build can't overwrite it. Needs a token with the 'Read, Write, Delete' scope.
+      - name: Checkout Docker Hub description
+        if: matrix.app.original != 'none' && needs.calculate-version.outputs.is_release == 'true'
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: apps/${{ matrix.app.original }}/DOCKERHUB.md
+          sparse-checkout-cone-mode: false
+
+      - name: Update Docker Hub description
+        if: matrix.app.original != 'none' && needs.calculate-version.outputs.is_release == 'true'
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}
+          readme-filepath: apps/${{ matrix.app.original }}/DOCKERHUB.md
+          short-description: ${{ matrix.app.original == 'korfbal-stream-api' && 'Korfbal StreamKit API – producties, callsheets, live show control en vMix-databronnen' || 'Korfbal StreamKit webapp – LIVE callsheet en Show Caller, plus Beheer voor producties' }}
+
   create-git-tag:
     name: Create Git Tag
     runs-on: ubuntu-latest
