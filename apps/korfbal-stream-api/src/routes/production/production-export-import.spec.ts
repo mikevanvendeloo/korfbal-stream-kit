@@ -103,7 +103,8 @@ describe('Production Export/Import API', () => {
     prisma.skill.upsert = vi.fn().mockResolvedValue({ id: 400 });
     prisma.personSkill.upsert = vi.fn();
     prisma.productionPerson.upsert = vi.fn();
-    prisma.position.findUnique = vi.fn().mockResolvedValue(null);
+    // Positions are matched by name in memory (findOrCreatePosition), so the import lists them first
+    prisma.position.findMany = vi.fn().mockResolvedValue([]);
     prisma.position.create = vi.fn().mockResolvedValue({ id: 500 });
     prisma.productionPersonPosition.upsert = vi.fn();
     prisma.productionSegment.deleteMany = vi.fn();
