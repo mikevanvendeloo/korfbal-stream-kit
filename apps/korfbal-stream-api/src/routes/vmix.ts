@@ -16,12 +16,13 @@ import {
   getSponsorNamesTypes,
   getSponsorRowsTypes,
   getSponsorSlidesTypes,
-  getVmixUrl
 } from '../services/appSettings';
+import {resolveVmixInstance} from '../services/vmixInstances';
 import {shuffle} from "../utils/array-utils";
 import os from 'node:os';
 import {loadCallsheetTiming, parsePositions} from '../services/callsheetTiming';
 import {getCallsheetPushConfig, pushCallsheetToVmix} from '../services/vmixCallsheetPush';
+import {buildVmixMatchInfo, loadActiveMatchInput} from '../services/vmixMatchInfo';
 
 export const vmixRouter: Router = Router();
 export const adminVmixRouter: Router = Router();
@@ -124,7 +125,7 @@ vmixRouter.post('/callsheet/push', async (_req, res, next) => {
 });
 
 // ---------------- vMix control endpoints ----------------
-// POST /api/vmix/set-timer  { seconds: number }
+// POST /api/vmix/set-timer  { seconds: number, instanceId?: string }
 vmixRouter.post('/set-timer', async (req, res, next) => {
   try {
     const secondsRaw = Number(req.body?.seconds);
@@ -136,15 +137,18 @@ vmixRouter.post('/set-timer', async (req, res, next) => {
     const ss = String(secs % 60).padStart(2, '0');
     const value = `${mm}:${ss}`;
 
-    const base = await getVmixUrl();
-    if (!base) {
-      return res.status(400).json({ error: 'vMix Web URL is not configured' });
+    // Goes to the vMix chosen for the countdown, unless the request names one
+    const instanceId = typeof req.body?.instanceId === 'string' ? req.body.instanceId : undefined;
+    const target = await resolveVmixInstance('countdown', instanceId);
+    if ('error' in target) {
+      return res.status(400).json({ error: target.error });
     }
+    const base = target.instance.url;
     // vMix Web Controller API: SetCountdown expects Value=mm:ss
     const url = buildVmixApiUrl(base, `Function=SetCountdown&Value=${encodeURIComponent(value)}`);
     const response = await axios.get(url, { timeout: 2000 });
 
-    return res.json({ ok: true, seconds: secs, vmixResponse: typeof response.data === 'string' ? response.data : undefined });
+    return res.json({ ok: true, seconds: secs, instance: target.instance.name, vmixResponse: typeof response.data === 'string' ? response.data : undefined });
   } catch (err) {
     if (axios.isAxiosError(err)) { return res.status(err.response?.status ?? 500).json({ message: err.message, url: err.config?.url});}
     return next(err);
@@ -589,6 +593,20 @@ vmixRouter.get('/sponsor-carrousel', async (_req, res, next) => {
   }
 });
 
+// GET /api/vmix/active-production/match
+// One row with the match of the active production (teams, logos, times, venue, referees, score, sponsors),
+// for vMix title fields. Without an active production all fields are empty, so the title clears.
+vmixRouter.get('/active-production/match', async (req, res, next) => {
+  try {
+    // Images as full URLs on the address vMix used to reach us
+    const assetBaseUrl = `${req.protocol}://${req.get('host')}/uploads`;
+    return res.json([buildVmixMatchInfo(await loadActiveMatchInput(), assetBaseUrl)]);
+  } catch (err) {
+    logger.error('GET /vmix/active-production/match failed', err as any);
+    return next(err);
+  }
+});
+
 vmixRouter.get('/active-production/staff', async (req, res, next) => {
   try {
     // === Stap 1: Vind de "actieve" productie ===
@@ -760,6 +778,11 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
         name: 'Sponsor Carrousel',
         url: `${baseUrl}/sponsor-carrousel`,
         description: 'Returns list of sponsors for carousel.'
+      },
+      {
+        name: 'Wedstrijdinformatie (actieve productie)',
+        url: `${baseUrl}/active-production/match`,
+        description: 'Teams, clublogo\'s, datum, aanvangs-, verzamel- en livetijd, zaal, veld, scheidsrechters, score, wedstrijd- en balsponsor (met logo).'
       },
       {
         name: 'Active Production Staff',

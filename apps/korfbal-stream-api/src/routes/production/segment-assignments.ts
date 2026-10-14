@@ -1,6 +1,6 @@
 import {Router} from 'express';
 import {prisma} from '../../services/prisma';
-import {DEFAULT_SEGMENT_POSITIONS, getRequiredSkillCodeForPosition} from '../../domain/positionSkill';
+import {DEFAULT_SEGMENT_POSITIONS, findPositionByName, getRequiredSkillCodeForPosition} from '../../domain/positionSkill';
 
 export const segmentAssignmentsRouter: Router = Router();
 
@@ -164,17 +164,18 @@ segmentAssignmentsRouter.get('/segments/:segmentId/positions', async (req, res, 
       return res.json(mapped);
     }
 
-    // Fallback to creating defaults from constant list (compatible with previous behavior)
-    const positions = await Promise.all(
-      DEFAULT_SEGMENT_POSITIONS.map(async (name, order) => {
-        let p = await prisma.position.findUnique({ where: { name } });
-        if (!p) p = await prisma.position.create({ data: { name, skillId: null } });
-        const requiredSkillCode = p.skillId
-          ? (await prisma.skill.findUnique({ where: { id: p.skillId } }))?.code || null
-          : getRequiredSkillCodeForPosition(name);
-        return { id: p.id, name: p.name, order, requiredSkillCode };
-      })
-    );
+    // Fall back to the standard list, matched to the existing positions. Never create positions here:
+    // a slightly different spelling used to add duplicates (e.g. "regie" next to "Regie livestream").
+    const all = await prisma.position.findMany({ include: { skill: true } });
+    const positions = DEFAULT_SEGMENT_POSITIONS
+      .map((name) => findPositionByName(all, name))
+      .filter((p): p is (typeof all)[number] => !!p)
+      .map((p, order) => ({
+        id: p.id,
+        name: p.name,
+        order,
+        requiredSkillCode: p.skill?.code ?? getRequiredSkillCodeForPosition(p.name),
+      }));
 
     return res.json(positions);
   } catch (err) {

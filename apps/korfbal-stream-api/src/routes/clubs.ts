@@ -50,7 +50,8 @@ function extractIdsFromTeamPage(html: string): { teamId?: string; poolId?: strin
         const ctx = JSON.parse(raw);
         const teamId = ctx?.team_id || ctx?.data_entity_id;
         const poolId = Array.isArray(ctx?.pool_ids) && ctx.pool_ids[0] ? String(ctx.pool_ids[0]) : undefined;
-        if (teamId && poolId) return {teamId: String(teamId), poolId};
+        // pool_ids is empty until the season's pools are set; the roster is available without it
+        if (teamId) return {teamId: String(teamId), poolId};
       } catch {
         // fallthrough
       }
@@ -60,7 +61,7 @@ function extractIdsFromTeamPage(html: string): { teamId?: string; poolId?: strin
   }
 
   // Try to find the api stream/team URL with encoded context
-  const urlMatch = html.match(/https:\/\/api-saas-site-prod-[^\s"']+\/general\/api\/stream\/team\?context=([^\"'\s]+)/i);
+  const urlMatch = html.match(/https:\/\/api-saas-site-prod-[^\s"']+\/general\/api\/stream\/team\?context=([^"'\s]+)/i);
   if (urlMatch) {
     try {
       const ctxEnc = urlMatch[1];
@@ -77,12 +78,12 @@ function extractIdsFromTeamPage(html: string): { teamId?: string; poolId?: strin
   try {
     const jsonLike = html.match(/\{[^]*?\}/g) || [];
     for (const blob of jsonLike) {
-      if (/team_id\"?\s*:\s*\"?\d+\"?/i.test(blob) && /pool_ids\"?\s*:\s*\[[^\]]+\]/i.test(blob)) {
+      if (/team_id"?\s*:\s*"?\d+"?/i.test(blob) && /pool_ids"?\s*:\s*\[[^\]]*\]/i.test(blob)) {
         try {
           const maybe = JSON.parse(blob);
           const teamId = maybe?.team_id || maybe?.data_entity_id;
           const poolId = Array.isArray(maybe?.pool_ids) && maybe.pool_ids[0] ? String(maybe.pool_ids[0]) : undefined;
-          if (teamId && poolId) return {teamId: String(teamId), poolId};
+          if (teamId) return {teamId: String(teamId), poolId};
         } catch {
           // ignore parse error and continue
         }
@@ -164,11 +165,11 @@ async function downloadFile(url: string, subfolder: ImportAssetFolder, desiredNa
 }
 
 // External API URL builder (Korfbal League) - legacy stream endpoint (kept as fallback)
-function buildKorfbalApiUrl(teamId: string | number, poolId: string | number): string {
+function buildKorfbalApiUrl(teamId: string | number, poolId?: string | number): string {
   const context = {
     'preferred-group': null,
     tenant: 'league',
-    pool_ids: [String(poolId)],
+    pool_ids: poolId ? [String(poolId)] : [],
     team_id: String(teamId),
     language: 'nl',
     data_channel: 'team',
@@ -185,7 +186,7 @@ const toNumberOrUndefined = (val: any): number | undefined => {
   return Number.isFinite(num) ? num : undefined;
 };
 // Prefer the template endpoint sportsuite_get_person_cards to get team roster
-async function fetchTeamPersonCards(teamId: string | number, poolId: string | number, season: Season): Promise<{
+async function fetchTeamPersonCards(teamId: string | number, poolId: string | number | undefined, season: Season): Promise<{
   baseName?: string;
   shortName?: string;
   logoUrl?: string;
@@ -197,7 +198,7 @@ async function fetchTeamPersonCards(teamId: string | number, poolId: string | nu
       context: {
         'preferred-group': null,
         tenant: 'league',
-        pool_ids: [String(poolId)],
+        pool_ids: poolId ? [String(poolId)] : [],
         team_id: String(teamId),
         language: 'nl',
         'banner-size': 'fullwidth',
@@ -226,7 +227,7 @@ async function fetchTeamPersonCards(teamId: string | number, poolId: string | nu
       logger.warn(`Empty/invalid JSON from template response for team_id=${teamId} pool_id=${poolId}`);
       return null;
     }
-    await writeFile(seasonAssetDir(season, 'team-responses'), path.basename(`team-${teamId}-${poolId}.json`), JSON.stringify(json, null, 2))
+    await writeFile(seasonAssetDir(season, 'team-responses'), path.basename(`team-${teamId}${poolId ? `-${poolId}` : ''}.json`), JSON.stringify(json, null, 2))
     // Log concise summary after parsing once (avoid consuming the body twice)
     try {
       const result = (json as any).data || json;
@@ -305,7 +306,7 @@ function extractIdsFromApiUrl(apiUrl: string): { teamId?: string; poolId?: strin
 }
 
 // Internal: process a list of sources using the existing logic
-async function processImportSources(sources: Array<{ teamId: string | number; poolId: string | number } | {
+async function processImportSources(sources: Array<{ teamId: string | number; poolId?: string | number } | {
   apiUrl: string
 } | {
   name: string;
@@ -352,16 +353,18 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
         poolId = ids.poolId;
       } else {
         teamId = String((src as any).teamId);
-        poolId = String((src as any).poolId);
+        const rawPool = (src as any).poolId;
+        poolId = rawPool == null || rawPool === '' ? undefined : String(rawPool);
       }
 
-      if (!isNumericId(teamId) || !isNumericId(poolId)) {
+      // The pool is optional: before the season's pools are set the team pages have none
+      if (!isNumericId(teamId) || (poolId !== undefined && !isNumericId(poolId))) {
         problems.push(`Invalid teamId/poolId (expected digits): ${JSON.stringify({teamId, poolId})}`);
         continue;
       }
 
       let usedCards = false;
-      if (teamId && poolId) {
+      if (teamId) {
         const cards = await fetchTeamPersonCards(teamId, poolId, season).catch(() => null);
         if (cards && (Array.isArray(cards.players) && cards.players.length > 0)) {
           usedCards = true;
@@ -374,7 +377,7 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
       }
 
       // Fallback: when template returns no players, use legacy stream/team API
-      if (!usedCards && teamId && poolId) {
+      if (!usedCards && teamId) {
         try {
           const apiUrl = buildKorfbalApiUrl(teamId, poolId);
           logger.info(`Now requesting team ${apiUrl}`)
@@ -549,7 +552,7 @@ clubsRouter.post('/import/league-teams', async (req, res, next) => {
     logger.info(`$links[1] = ${links[1]}`);
     const picked = typeof limit === 'number' ? links.slice(0, limit) : links;
 
-    const sources: Array<{ teamId: string; poolId: string }> = [];
+    const sources: Array<{ teamId: string; poolId?: string }> = [];
     const problems: string[] = [];
 
     for (const url of picked) {
@@ -565,10 +568,10 @@ clubsRouter.post('/import/league-teams', async (req, res, next) => {
         logger.info(`Scraped team page ${url}`);
         const ids = extractIdsFromTeamPage(page);
         logger.info(`Extracted ids from team page ${url}: ${JSON.stringify(ids)}`);
-        if (ids.teamId && ids.poolId) {
+        if (ids.teamId) {
           sources.push({teamId: ids.teamId, poolId: ids.poolId});
         } else {
-          problems.push(`Could not extract teamId/poolId: ${url}`);
+          problems.push(`Could not extract teamId: ${url}`);
         }
       } catch (e: any) {
         problems.push(`Error fetching team page ${url}: ${e?.message || 'unknown'}`);
@@ -576,7 +579,7 @@ clubsRouter.post('/import/league-teams', async (req, res, next) => {
     }
 
     if (sources.length === 0) {
-      return res.status(400).json({error: 'No team pages with extractable ids found', problems});
+      return res.status(400).json({error: 'No team pages with a team id found', problems});
     }
 
     const result = await processImportSources(sources, season);
@@ -591,7 +594,7 @@ clubsRouter.post('/import/league-teams', async (req, res, next) => {
 clubsRouter.post('/import', async (req, res, next) => {
   try {
     const body = req.body || {};
-    const sources: Array<{ teamId: string | number; poolId: string | number } | { apiUrl: string } | {
+    const sources: Array<{ teamId: string | number; poolId?: string | number } | { apiUrl: string } | {
       name: string;
       shortName?: string;
       logoUrl?: string;
@@ -605,16 +608,16 @@ clubsRouter.post('/import', async (req, res, next) => {
       }>
     }> = Array.isArray(body.sources)
       ? body.sources
-      : (body.teamId && body.poolId) || body.apiUrl || body.name
+      : body.teamId || body.apiUrl || body.name
         ? [body]
         : [];
 
     if (sources.length === 0) {
-      return res.status(400).json({error: 'Provide sources array or an object with teamId+poolId or apiUrl or name'});
+      return res.status(400).json({error: 'Provide sources array or an object with teamId (and optional poolId) or apiUrl or name'});
     }
     const invalidIds = sources.some((src) =>
       ('teamId' in src || 'poolId' in src) && !('name' in src) && !('apiUrl' in src)
-        && (!isNumericId(src.teamId) || !isNumericId(src.poolId)));
+        && (!isNumericId(src.teamId) || (src.poolId != null && src.poolId !== '' && !isNumericId(src.poolId))));
     if (invalidIds) {
       return res.status(400).json({error: 'teamId and poolId must be numeric'});
     }

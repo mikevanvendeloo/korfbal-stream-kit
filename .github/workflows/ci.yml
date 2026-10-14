@@ -457,7 +457,8 @@ jobs:
         run: docker buildx imagetools inspect ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:${{ steps.docker_tag.outputs.tag }}
 
       # The Docker Hub overview belongs to the repository, not a tag: only releases update it,
-      # so a branch build can't overwrite it. Needs a token with the 'Read, Write, Delete' scope.
+      # so a branch build can't overwrite it. Needs a personal access token with the 'Read, Write, Delete'
+      # scope: DOCKERHUB_DESCRIPTION_TOKEN, so the push token can keep fewer rights (falls back to DOCKERHUB_TOKEN).
       - name: Checkout Docker Hub description
         if: matrix.app.original != 'none' && needs.calculate-version.outputs.is_release == 'true'
         uses: actions/checkout@v5
@@ -467,10 +468,13 @@ jobs:
 
       - name: Update Docker Hub description
         if: matrix.app.original != 'none' && needs.calculate-version.outputs.is_release == 'true'
+        # The image is already pushed: a failing description must not fail the job, or create-git-tag is
+        # skipped and the next build reuses (and overwrites) this version
+        continue-on-error: true
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          password: ${{ secrets.DOCKERHUB_DESCRIPTION_TOKEN || secrets.DOCKERHUB_TOKEN }}
           repository: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}
           readme-filepath: apps/${{ matrix.app.sanitized }}/DOCKERHUB.md
           short-description: ${{ matrix.app.sanitized == 'korfbal-stream-api' && 'Korfbal StreamKit API – producties, callsheets, live show control en vMix-databronnen' || 'Korfbal StreamKit webapp – LIVE callsheet en Show Caller, plus Beheer voor producties' }}

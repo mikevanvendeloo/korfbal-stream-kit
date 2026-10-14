@@ -36,8 +36,10 @@ export type PushResult = { sent: number; skipped: number; errors: string[] };
 
 const CONFIG_KEY = ['vmix-callsheet-push'];
 
-export function useVmixCallsheetPushConfig() {
+/** `refetchInterval` for read-only views (LIVE), so changes made in Beheer show up there. */
+export function useVmixCallsheetPushConfig(refetchInterval?: number) {
   return useQuery({
+    refetchInterval,
     queryKey: CONFIG_KEY,
     queryFn: async (): Promise<VmixCallsheetPushConfig> => {
       const res = await fetch(createUrl('/api/settings/vmix-callsheet-push'));

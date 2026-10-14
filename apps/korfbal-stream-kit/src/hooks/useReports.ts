@@ -46,6 +46,7 @@ export type InterviewsReport = Array<{
   awayInterviews: Array<{ name: string; role: string; photoUrl?: string }>;
   remarks?: string | null;
   matchSponsor?: string | null;
+  ballSponsor?: string | null;
 }>;
 
 export type CrewRolesReport = Array<{
@@ -57,6 +58,7 @@ export type CrewRolesReport = Array<{
   regisseur: string[];
   presentator: string[];
   analist: string[];
+  commentaar: string[];
 }>;
 
 export function useDailyOccupancyReport(date: string) {

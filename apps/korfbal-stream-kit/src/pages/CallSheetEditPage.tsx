@@ -11,6 +11,7 @@ import {
 } from '../hooks/useCallsheet';
 import {useProductionSegments} from '../hooks/useProductions';
 import {usePositionsCatalog} from '../hooks/usePositions';
+import {adminPaths} from '../lib/adminPaths';
 
 function uuid8() {
   // not cryptographically secure, but sufficient for UI id suggestion
@@ -145,11 +146,11 @@ export default function CallSheetEditPage() {
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Callsheet: {data.name}</h1>
           <div className="flex gap-4">
-            <Link className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1" to={`/admin/productions/${productionId}/callsheets`}>
+            <Link className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1" to={adminPaths.callSheets(productionId)}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
               Terug naar overzicht
             </Link>
-            <Link className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1" to={`/admin/productions/${productionId}/crew-report`}>
+            <Link className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1" to={adminPaths.crewReport(productionId)}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               Crew report
             </Link>

@@ -100,11 +100,11 @@ function renderWithRoute() {
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter
-        initialEntries={["/admin/productions/1"]}
+        initialEntries={["/admin/producties/1"]}
         future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
       >
         <Routes>
-          <Route path="/admin/productions/:id" element={<ProductionDetailPage />} />
+          <Route path="/admin/producties/:id" element={<ProductionDetailPage />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>

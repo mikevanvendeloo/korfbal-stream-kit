@@ -8,6 +8,7 @@ import {
 } from '../hooks/useProductions';
 import {usePersons} from '../hooks/usePersons';
 import {MdCheck, MdSave} from 'react-icons/md';
+import {adminPaths} from '../lib/adminPaths';
 
 export default function ProductionAttendancePage() {
   const {id} = useParams<{ id: string }>();
@@ -41,7 +42,7 @@ export default function ProductionAttendancePage() {
   function onSave() {
     setSuccessMsg('Aanwezigheid opgeslagen!');
     setTimeout(() => {
-      navigate(`/admin/productions/${productionId}`);
+      navigate(adminPaths.production(productionId));
     }, 1000);
   }
 
@@ -129,7 +130,7 @@ export default function ProductionAttendancePage() {
                 Opslaan
               </button>
               <button
-                onClick={() => navigate(`/admin/productions/${productionId}`)}
+                onClick={() => navigate(adminPaths.production(productionId))}
                 className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Annuleren

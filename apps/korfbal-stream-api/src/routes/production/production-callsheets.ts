@@ -6,6 +6,7 @@ import ExcelJS from 'exceljs';
 import {prisma} from '../../services/prisma';
 import {logger} from '../../utils/logger';
 import {broadcastState} from '../../services/productionState';
+import {findPositionByName, positionKey, SHOWCALLER_POSITION} from '../../domain/positionSkill';
 
 export const productionCallsheetsRouter: Router = Router();
 
@@ -216,7 +217,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async
       // We doen dit in twee stappen om parentId correct te kunnen zetten (foreign key naar ProductionEvent.id)
       const callSheetToEventIdMap = new Map<string, string>();
       const positions = await tx.position.findMany();
-      const showcallerId = positions.find(p => p.name.toLowerCase() === 'showcaller')?.id;
+      const showcallerId = findPositionByName(positions, SHOWCALLER_POSITION)?.id;
 
       for (const item of cs.items) {
         const createdEvent = await tx.productionEvent.create({
@@ -527,8 +528,8 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem.single
     ]);
     const segByName = new Map<string, { id: number; naam: string; volgorde: number }>();
     for (const s of segments as any[]) segByName.set((s.naam || '').toString().trim().toLowerCase(), s);
-    const posByName = new Map<string, { id: number; name: string }>();
-    for (const p of allPositions as any[]) posByName.set((p.name || '').toString().trim().toLowerCase(), p);
+    // Matched like findPositionByName, so "regie" or "Show caller" never become a second position
+    const knownPositions: Array<{ id: number; name: string }> = [...allPositions];
 
     const normKey = (k: string) => k.toString().trim().toLowerCase().replace(/\s+|[_-]+/g, '');
 
@@ -654,33 +655,30 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem.single
         });
 
         const ids: number[] = [];
-        // Ensure "Showcaller" position exists and is added
-        const scName = "Showcaller";
-        const scKey = scName.toLowerCase();
-        let scPos = posByName.get(scKey);
+        // Ensure the show caller position exists and is added
+        let scPos = findPositionByName(knownPositions, SHOWCALLER_POSITION);
         if (!scPos) {
           scPos = await tx.position.upsert({
-            where: { name: scName },
+            where: { name: SHOWCALLER_POSITION },
             update: {},
-            create: { name: scName }
-          }) as any;
-          posByName.set(scKey, scPos!);
+            create: { name: SHOWCALLER_POSITION }
+          });
+          knownPositions.push(scPos);
         }
-        ids.push(scPos!.id);
+        ids.push(scPos.id);
 
         if (it.positionNames.length > 0) {
           for (const name of it.positionNames) {
-            const key = name.trim().toLowerCase();
-            if (key === scKey) continue; // already added
+            if (positionKey(name) === positionKey(scPos.name)) continue; // already added
 
-            let p = posByName.get(key);
+            let p = findPositionByName(knownPositions, name);
             if (!p) {
               p = await tx.position.upsert({
                 where: { name: name.trim() },
                 update: {},
                 create: { name: name.trim() }
-              }) as any;
-              posByName.set(key, p!);
+              });
+              knownPositions.push(p);
             }
             ids.push(p!.id);
           }

@@ -1,6 +1,7 @@
 import {Router} from 'express';
 import {z} from 'zod';
 import {prisma} from '../../services/prisma';
+import {findExistingPosition} from '../../services/positions';
 import {PositionCategory} from '@prisma/client';
 
 export const positionsRouter: Router = Router();
@@ -36,6 +37,9 @@ positionsRouter.post('/positions', async (req, res, next) => {
       const cap = await prisma.skill.findUnique({ where: { id: skillId } });
       if (!cap) return res.status(422).json({ error: 'Skill not found' });
     }
+    // Also "camera links" next to "Camera links" would be the same position twice
+    const existing = await findExistingPosition(prisma, parsed.name);
+    if (existing) return res.status(409).json({ error: `Position already exists: ${existing.name}` });
     const created = await prisma.position.create({
       data: {
         name: parsed.name,
@@ -146,7 +150,7 @@ positionsRouter.post('/import/positions', async (req, res, next) => {
         skillId: skillId
       };
 
-      const existing = await prisma.position.findFirst({ where: { name: item.name } });
+      const existing = await findExistingPosition(prisma, item.name);
       if (existing) {
         await prisma.position.update({
           where: { id: existing.id },

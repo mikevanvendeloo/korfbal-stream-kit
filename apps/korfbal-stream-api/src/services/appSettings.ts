@@ -35,16 +35,9 @@ export const SHOTCLOCK_URL_KEY = 'shotclockUrl';
 export const OWN_CLUB_ID_KEY = 'ownClubId';
 export const PRODUCTION_TEAM_NAMES_KEY = 'productionTeamNames';
 
+/** The first vMix instance; services/vmixInstances.ts keeps it in step with the list of instances. */
 export async function getVmixUrl(): Promise<string | null> {
   return getSetting<string>(VMIX_URL_KEY);
-}
-
-export async function setVmixUrl(input: string): Promise<void> {
-  const parsed = VmixUrlSchema.safeParse(input);
-  if (!parsed.success) {
-    throw new Error('Invalid URL for vMix Web URL');
-  }
-  await setSetting(VMIX_URL_KEY, parsed.data);
 }
 
 export function buildVmixApiUrl(base: string, query: string): string {

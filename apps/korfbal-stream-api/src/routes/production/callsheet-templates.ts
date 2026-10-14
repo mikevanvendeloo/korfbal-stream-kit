@@ -2,6 +2,7 @@ import {Router} from 'express';
 import multer from 'multer';
 import ExcelJS from 'exceljs';
 import {prisma} from '../../services/prisma';
+import {findPositionByName, SHOWCALLER_POSITION} from '../../domain/positionSkill';
 
 export const callSheetTemplateRouter: Router = Router();
 const uploadMem = multer({ storage: multer.memoryStorage() });
@@ -325,7 +326,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
       });
 
       const positions = await tx.position.findMany();
-      const showcallerId = positions.find(p => p.name.toLowerCase() === 'showcaller')?.id;
+      const showcallerId = findPositionByName(positions, SHOWCALLER_POSITION)?.id;
 
       const itemsToCreate = [];
       const eventsToCreate = [];
@@ -739,8 +740,7 @@ callSheetTemplateRouter.post('/import-json', uploadMem.single('file'), async (re
     });
 
     const positions = await prisma.position.findMany();
-    const positionsByName = Object.fromEntries(positions.map(p => [p.name.toLowerCase(), p.id] as const));
-    const showcallerId = positionsByName['showcaller'];
+    const showcallerId = findPositionByName(positions, SHOWCALLER_POSITION)?.id;
 
     const idMapping: Record<string, string> = {};
 
@@ -773,7 +773,7 @@ callSheetTemplateRouter.post('/import-json', uploadMem.single('file'), async (re
       }
 
       for (const posName of itemPositionNames) {
-        const positionId = positionsByName[posName.toLowerCase()];
+        const positionId = findPositionByName(positions, posName)?.id;
         if (positionId) {
           positionIdsToCreate.add(positionId);
         }

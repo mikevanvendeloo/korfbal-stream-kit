@@ -4,14 +4,10 @@ import {
   ProductionSegment,
   useCreateSegment,
   useDeleteSegment,
-  usePositions,
   useProduction,
-  useProductionPersonPositions,
-  useProductionPersons,
   useProductionSegments,
   useProductionTiming,
   useUpdateProduction,
-  useUpdateProductionPersonPositions,
   useUpdateSegment,
 } from '../hooks/useProductions';
 import {useCallSheets} from '../hooks/useCallsheet';
@@ -21,123 +17,24 @@ import IconButton from '../components/IconButton';
 import {
   MdAdd,
   MdAnchor,
-  MdArrowBack,
   MdArrowDownward,
   MdArrowUpward,
   MdDelete,
   MdDownload,
   MdEdit,
-  MdGroups,
-  MdLiveTv,
   MdSave
 } from 'react-icons/md';
-import SegmentOverridesManager from '../components/SegmentOverridesManager';
-import {MatchHeader} from '../components/MatchHeader';
-import MultiSelect from '../components/MultiSelect';
 import {CallSheetTemplateSelector} from '../components/CallSheetTemplateSelector';
 import {createUrl} from '../lib/api';
 import {SegmentTemplateSelector} from "../components/SegmentTemplateSelector";
+import {adminPaths} from '../lib/adminPaths';
+import TimeInput24 from '../components/TimeInput24';
 
 function timeLocal(iso: string) {
   const d = new Date(iso);
   const h = d.getHours().toString().padStart(2, '0');
   const m = d.getMinutes().toString().padStart(2, '0');
   return `${h}:${m}`;
-}
-
-// Component voor productie-brede toewijzingen
-function ProductionWideAssignmentsCard({ productionId }: { productionId: number }) {
-  const { data: productionPersons } = useProductionPersons(productionId);
-  const { data: allPositions } = usePositions();
-  const { data: productionPersonPositions } = useProductionPersonPositions(productionId);
-  const updateProductionPersonPositions = useUpdateProductionPersonPositions(productionId);
-
-  const [error, setError] = React.useState<string | null>(null);
-  const [personSkills, setPersonSkills] = React.useState<Record<number, number[]>>({});
-
-  // Fetch skills for all production persons
-  React.useEffect(() => {
-    if (!productionPersons || productionPersons.length === 0) return;
-
-    const fetchSkills = async () => {
-      const skillsMap: Record<number, number[]> = {};
-      await Promise.all(
-        productionPersons.map(async (pp) => {
-          try {
-            const res = await fetch(`/api/persons/${pp.person.id}/skills`);
-            if (res.ok) {
-              const skills = await res.json();
-              skillsMap[pp.person.id] = skills.map((s: any) => s.skillId);
-            } else {
-              skillsMap[pp.person.id] = [];
-            }
-          } catch {
-            skillsMap[pp.person.id] = [];
-          }
-        })
-      );
-      setPersonSkills(skillsMap);
-    };
-
-    fetchSkills();
-  }, [productionPersons]);
-
-  const handlePositionChange = async (personId: number, selectedPositionIds: number[]) => {
-    setError(null);
-    try {
-      await updateProductionPersonPositions.mutateAsync({ personId, positionIds: selectedPositionIds });
-    } catch (e: any) {
-      setError(e?.message || 'Opslaan mislukt');
-    }
-  };
-
-  if (!productionPersons || !allPositions || !productionPersonPositions) {
-    return <div>Laden productie-brede toewijzingen...</div>;
-  }
-
-  return (
-    <div className="border rounded p-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-      <h2 className="text-lg font-semibold mb-3">Productie-brede Positietoewijzingen</h2>
-      {error && (
-        <div role="alert" className="mb-3 rounded-md border border-red-300 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300 px-3 py-2">{error}</div>
-      )}
-      {productionPersons.length === 0 ? (
-        <p className="text-sm text-gray-500">Geen personen aanwezig voor deze productie.</p>
-      ) : (
-        <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-          {productionPersons.map(pp => {
-            const assignedPositions = productionPersonPositions.filter(ppp => ppp.personId === pp.person.id);
-            const currentSelectedPositionIds = assignedPositions.map(p => p.positionId);
-
-            // Filter positions based on person's skills
-            const personSkillIds = personSkills[pp.person.id] || [];
-            const availablePositions = allPositions.filter(pos => {
-              // If position has no skill requirement, include it
-              if (!pos.skill) return true;
-              // Otherwise, check if person has the required skill
-              return personSkillIds.includes(pos.skill.id);
-            });
-
-            const positionOptions = availablePositions.map(pos => ({ label: pos.name, value: pos.id }));
-
-            return (
-              <li key={pp.person.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="font-medium w-48">{pp.person.name}</div>
-                <div className="flex-grow">
-                  <MultiSelect
-                    options={positionOptions}
-                    value={currentSelectedPositionIds}
-                    onChange={(selected: number[]) => handlePositionChange(pp.person.id, selected)}
-                    placeholder="Selecteer posities"
-                  />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
 }
 
 export default function ProductionDetailPage() {
@@ -156,9 +53,6 @@ export default function ProductionDetailPage() {
   const { createTemplateFromProduction } = useSegmentTemplates();
   const [modal, setModal] = React.useState<null | { mode: 'create' | 'edit'; seg?: ProductionSegment }>(null);
   const [err, setErr] = React.useState<string | null>(null);
-  const { data: productionPersonPositions } = useProductionPersonPositions(id);
-  const { data: productionPersons } = useProductionPersons(id);
-  const { data: allPositions } = usePositions();
 
   const refetch = async () => {
     await Promise.all([
@@ -224,8 +118,7 @@ export default function ProductionDetailPage() {
     }
   }
 
-  async function handleLiveTimeChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = e.target.value;
+  async function handleLiveTimeChange(value: string) {
     setErr(null);
     try {
       // Combine date from match with new time
@@ -273,28 +166,11 @@ export default function ProductionDetailPage() {
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
-      <div className="flex items-center gap-4 mb-6">
-        <Link to="/admin/productions" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors" title="Terug naar overzicht">
-          <MdArrowBack className="w-6 h-6" />
-        </Link>
-        <MatchHeader productionId={id} showLogos={true} />
-      </div>
-
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex flex-wrap items-center gap-2">
-          <Link to={`/callsheet/${id}`} className="px-3 py-1 border rounded inline-flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 transition-colors">
-            <MdLiveTv className="w-5 h-5" />
-            <span>Open Callsheet View</span>
-          </Link>
-          <Link to={`/admin/productions/${id}/attendance`} className="px-3 py-1 border rounded inline-flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-            <MdGroups className="w-5 h-5" />
-            <span>Aanwezigheid</span>
-          </Link>
-          <Link to={`/admin/productions/${id}/titles`} className="px-3 py-1 border rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" aria-label="vmix-titles-link">vMix titels</Link>
-          <Link to={`/admin/productions/${id}/production-report`} className="px-3 py-1 border rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Productie rapport</Link>
           {callSheets && callSheets.length > 0 ? (
             <Link
-              to={`/admin/productions/${id}/callsheets/${callSheets[callSheets.length - 1].id}`}
+              to={adminPaths.callSheet(id, callSheets[callSheets.length - 1].id)}
               className="px-3 py-1 border rounded flex items-center gap-1 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
               <MdEdit /> Bewerk Draaiboek
@@ -320,8 +196,7 @@ export default function ProductionDetailPage() {
         <div className="mb-4 p-3 border rounded border-gray-200 dark:border-gray-800 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <label htmlFor="liveTime" className="text-sm font-medium">Livestream start:</label>
-            <input
-              type="time"
+            <TimeInput24
               id="liveTime"
               className="px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-700"
               value={
@@ -331,15 +206,13 @@ export default function ProductionDetailPage() {
                       ? new Date(new Date(prod.matchSchedule.date).getTime() - 5 * 60 * 1000).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
                       : '')
               }
-              onChange={handleLiveTimeChange}
+              onCommit={handleLiveTimeChange}
             />
           </div>
         </div>
       )}
 
-      {/* Productie-brede Positietoewijzingen */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <ProductionWideAssignmentsCard productionId={id} />
+      <div className="mb-8 max-w-xl">
         <CallSheetTemplateSelector
           productionId={id}
           currentTemplateId={prod?.callSheetTemplateId}
@@ -447,17 +320,6 @@ export default function ProductionDetailPage() {
             </table>
           )}
         </div>
-      </div>
-
-      {/* Segment Overrides Manager */}
-      <div className="mt-8">
-        <SegmentOverridesManager
-          productionId={id}
-          segments={segments.data || []}
-          productionPersons={productionPersons || []}
-          allPositions={allPositions || []}
-          productionPersonPositions={productionPersonPositions || []}
-        />
       </div>
 
       {modal && (

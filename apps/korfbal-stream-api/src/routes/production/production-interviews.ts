@@ -266,7 +266,7 @@ productionInterviewsRouter.get('/:id/interviews/options', async (req, res, next)
       club: { id: club.id, name: club.name, shortName: club.shortName },
       counts: { raw: rows.length, returned: items.length },
     });
-    return res.json({ items: items.map((p: any) => ({ id: p.id, name: p.name, function: p.function ?? null, image: p.image ?? null })) });
+    return res.json({ items: items.map((p: any) => ({ id: p.id, name: p.name, function: p.function ?? null, image: p.photoUrl ?? null })) });
   } catch (err) {
     console.error('Error in GET /:id/interviews/options:', err); // Added logging
     return next(err);

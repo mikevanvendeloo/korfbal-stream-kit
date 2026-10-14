@@ -10,7 +10,8 @@ import {createColumnHelper, flexRender, getCoreRowModel, useReactTable,} from '@
 import {downloadAsPng} from '../lib/download';
 import {MdClose, MdDownload, MdSchedule} from 'react-icons/md';
 import PlayerCard from '../components/PlayerCard';
-import {Link, useLocation} from "react-router-dom";
+import {Link, Navigate, NavLink, useParams} from "react-router-dom";
+import {adminPaths, REPORT_TABS, ReportTab} from "../lib/adminPaths";
 
 function formatDate(date: string | Date) {
   return new Date(date).toLocaleDateString('nl-NL', {
@@ -205,7 +206,7 @@ function DailyOccupancyReport() {
       const pDate = new Date(p.date).toISOString().split('T')[0];
       const hasInterviews = p.homeInterviews.length > 0 || p.awayInterviews.length > 0;
       const hasRemarks = !!p.remarks;
-      const hasSponsor = !!p.matchSponsor;
+      const hasSponsor = !!p.matchSponsor || !!p.ballSponsor;
       return pDate === date && (hasInterviews || hasRemarks || hasSponsor);
     });
   }, [interviewsData, date]);
@@ -279,6 +280,9 @@ function DailyOccupancyReport() {
                         )}
                         {prod.matchSponsor && (
                           <span className="text-xs text-blue-600 dark:text-blue-400 italic">Sponsor: {prod.matchSponsor}</span>
+                        )}
+                        {prod.ballSponsor && (
+                          <span className="text-xs text-blue-600 dark:text-blue-400 italic">Balsponsor: {prod.ballSponsor}</span>
                         )}
                       </div>
                     </div>
@@ -409,6 +413,10 @@ function InterviewsReport() {
       }),
       helper.accessor('matchSponsor', {
         header: 'Sponsor',
+        cell: info => <span className="text-sm font-medium">{info.getValue() || '-'}</span>,
+      }),
+      helper.accessor('ballSponsor', {
+        header: 'Balsponsor',
         cell: info => <span className="text-sm font-medium">{info.getValue() || '-'}</span>,
       }),
     ];
@@ -632,6 +640,10 @@ function CrewRolesReport() {
         header: 'Analist',
         cell: info => info.getValue().join(', ') || <span className="text-gray-400">-</span>,
       }),
+      helper.accessor('commentaar', {
+        header: 'Commentaar',
+        cell: info => (info.getValue() ?? []).join(', ') || <span className="text-gray-400">-</span>,
+      }),
     ];
   }, []);
 
@@ -674,7 +686,7 @@ function TimingAnalysisReport() {
         header: 'Acties',
         cell: info => (
           <Link
-            to={`/admin/productions/${info.getValue()}/timing-report`}
+            to={adminPaths.timingReport(info.getValue())}
             className="text-blue-600 hover:underline flex items-center gap-1"
           >
             <MdSchedule /> Tijdsanalyse Bekijken
@@ -694,63 +706,34 @@ function TimingAnalysisReport() {
   );
 }
 
+const REPORTS: Record<ReportTab, () => React.JSX.Element> = {
+  dagbezetting: DailyOccupancyReport,
+  posities: OccupancyByPositionReport,
+  interviews: InterviewsReport,
+  crew: CrewRolesReport,
+  tijdsanalyse: TimingAnalysisReport,
+};
+
 export default function ReportsPage() {
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const initialTab = (queryParams.get('tab') as any) || 'occupancy';
-
-  const [activeTab, setActiveTab] = React.useState<'occupancy' | 'positions' | 'interviews' | 'crew' | 'timing'>(initialTab);
-
-  React.useEffect(() => {
-    const tab = queryParams.get('tab');
-    if (tab && (tab === 'occupancy' || tab === 'positions' || tab === 'interviews' || tab === 'crew' || tab === 'timing')) {
-      setActiveTab(tab as any);
-    }
-  }, [location.search]);
+  const {tab} = useParams<{ tab: string }>();
+  if (!tab || !(tab in REPORTS)) return <Navigate to={adminPaths.report('dagbezetting')} replace/>;
+  const Report = REPORTS[tab as ReportTab];
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
       <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">Rapportages</h1>
 
       <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6 overflow-x-auto">
-        <button
-          className={`px-6 py-3 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === 'occupancy' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
-          onClick={() => setActiveTab('occupancy')}
-        >
-          Dagbezetting
-        </button>
-        <button
-          className={`px-6 py-3 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === 'positions' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
-          onClick={() => setActiveTab('positions')}
-        >
-          Positieoverzicht
-        </button>
-        <button
-          className={`px-6 py-3 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === 'interviews' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
-          onClick={() => setActiveTab('interviews')}
-        >
-          Interviews
-        </button>
-        <button
-          className={`px-6 py-3 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === 'crew' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
-          onClick={() => setActiveTab('crew')}
-        >
-          Crew Rollen
-        </button>
-        <button
-          className={`px-6 py-3 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === 'timing' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
-          onClick={() => setActiveTab('timing')}
-        >
-          Tijdsanalyse
-        </button>
+        {REPORT_TABS.map(({tab: t, label}) => (
+          <NavLink key={t} to={adminPaths.report(t)}
+                   className={({isActive}) => `px-6 py-3 font-medium text-sm transition-colors whitespace-nowrap ${isActive ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}>
+            {label}
+          </NavLink>
+        ))}
       </div>
 
       <div className="print:block">
-        {activeTab === 'occupancy' && <DailyOccupancyReport />}
-        {activeTab === 'positions' && <OccupancyByPositionReport />}
-        {activeTab === 'interviews' && <InterviewsReport />}
-        {activeTab === 'crew' && <CrewRolesReport />}
-        {activeTab === 'timing' && <TimingAnalysisReport />}
+        <Report/>
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import {
 import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdDownload, MdEdit, MdGroups, MdInfo, MdPlayCircle, MdUpload} from 'react-icons/md';
 import {createUrl} from '../lib/api';
+import {adminPaths} from '../lib/adminPaths';
 
 function formatMatchDate(date: string): string {
   const d = new Date(date);
@@ -153,7 +154,7 @@ export default function ProductionsAdminPage() {
                       {p.isActive ? (
                         <span aria-label="active-badge" className="inline-flex items-center text-xs px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Active</span>
                       ) : null}
-                      <a href={`/admin/productions/${p.id}`} className="underline">
+                      <a href={adminPaths.production(p.id)} className="underline">
                         {p.matchSchedule?.homeTeamName || ''} vs {p.matchSchedule?.awayTeamName || ''}
                       </a>
                     </div>
@@ -184,14 +185,14 @@ export default function ProductionsAdminPage() {
                       <IconButton
                         ariaLabel="Toon details"
                         title="Details"
-                        onClick={() => window.location.href = `/admin/productions/${p.id}`}
+                        onClick={() => window.location.href = adminPaths.production(p.id)}
                       >
                         <MdInfo className="w-5 h-5" />
                       </IconButton>
                       <IconButton
                         ariaLabel="Aanwezigheid beheren"
                         title="Aanwezigheid"
-                        onClick={() => window.location.href = `/admin/productions/${p.id}/attendance`}
+                        onClick={() => window.location.href = adminPaths.production(p.id, 'beschikbaarheid')}
                       >
                         <MdGroups className="w-5 h-5" />
                       </IconButton>

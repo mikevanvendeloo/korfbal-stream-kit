@@ -5,8 +5,9 @@ import {Position, PositionCategory} from "./usePositions";
 export type CrewReport = {
   segments: Array<{ id: number; naam: string; volgorde: number }>;
   groupedPositions: Array<{ category: PositionCategory, positions: Position[] }>;
-  cells: Array<{ segmentId: number; positionId: number; personName: string }>;
-  callsheets: Array<CallSheet & { items: Array<CallSheetItem & { productionSegment: { naam: string } }> }>;
+  /** Effective crew per segment: production-wide positions plus the ones for that segment only. */
+  cells: Array<{ segmentId: number; positionId: number; personName: string; type: 'segment' | 'production' }>;
+  callsheets: Array<CallSheet & { items: Array<CallSheetItem & { productionSegment: { naam: string } | null; positionIds: number[] }> }>;
   productionEvents?: Array<{
     callSheetItemId?: string | null;
     actualStartTime?: string | null;

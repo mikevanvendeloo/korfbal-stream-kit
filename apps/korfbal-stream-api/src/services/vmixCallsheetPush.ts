@@ -1,6 +1,7 @@
 import axios from 'axios';
 import {Prisma} from '@prisma/client';
-import {buildVmixApiUrl, getSetting, getVmixUrl, setSetting} from './appSettings';
+import {buildVmixApiUrl, getSetting, setSetting} from './appSettings';
+import {resolveVmixInstance} from './vmixInstances';
 import {CallsheetTiming, loadCallsheetTiming, TimingState} from './callsheetTiming';
 import {CallsheetColors, VmixCallsheetPushConfig, VmixCallsheetPushSchema} from '../schemas/vmixCallsheet';
 import {logger} from '../utils/logger';
@@ -72,16 +73,17 @@ export type PushResult = { sent: number; skipped: number; errors: string[]; timi
 /** Sends the current/next item to vMix. With force, every field is sent, not only the changed ones. */
 export async function pushCallsheetToVmix(force = false, now = new Date()): Promise<PushResult> {
   const config = await getCallsheetPushConfig();
-  const base = await getVmixUrl();
-  if (!base) return {sent: 0, skipped: 0, errors: ['vMix Web URL is not configured'], timing: null};
+  const target = await resolveVmixInstance('callsheet');
+  if ('error' in target) return {sent: 0, skipped: 0, errors: [target.error], timing: null};
+  const base = target.instance.url;
   if (!config.input) return {sent: 0, skipped: 0, errors: ['No vMix title input configured'], timing: null};
 
   const timing = await loadCallsheetTiming(config.positions, config.warningSeconds, now);
   const commands = buildVmixCommands(timing, config);
-  const target = `${base}|${config.input}`;
-  if (force || target !== lastTarget || now.getTime() - lastFullPush > FULL_PUSH_INTERVAL_MS) {
+  const targetKey = `${base}|${config.input}`;
+  if (force || targetKey !== lastTarget || now.getTime() - lastFullPush > FULL_PUSH_INTERVAL_MS) {
     lastSent.clear();
-    lastTarget = target;
+    lastTarget = targetKey;
     lastFullPush = now.getTime();
   }
 

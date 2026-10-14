@@ -15,6 +15,9 @@ const activeSeason = {
   isActive: true, matchCount: 0, playerCount: 0, createdAt: '2026-07-01T00:00:00.000Z',
 };
 
+// Beheer is lazy loaded: the first test that opens it also waits for the import
+const LAZY = {timeout: 5000};
+
 function renderApp(path = '/') {
   const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
   return render(
@@ -41,25 +44,79 @@ describe('App', () => {
     expect(baseElement).toBeTruthy();
   });
 
-  it('shows the LIVE app on the root, without links to Beheer', () => {
+  it('shows the LIVE app on the root, with a single link to Beheer', () => {
     renderApp('/');
     expect(screen.getByText('LIVE')).toBeInTheDocument();
     expect(screen.getByRole('link', {name: 'Scoreboard'})).toHaveAttribute('href', '/scoreboard');
     expect(screen.getByRole('link', {name: 'Show Caller'})).toHaveAttribute('href', '/show-caller');
     expect(screen.queryByRole('link', {name: 'Sponsors'})).not.toBeInTheDocument();
-    expect(document.querySelector('a[href^="/admin"]')).toBeNull();
+    expect(screen.getByRole('link', {name: 'Beheer'})).toHaveAttribute('href', '/admin');
+    expect(document.querySelectorAll('a[href^="/admin"]')).toHaveLength(1);
   });
 
   it('shows the Beheer app under /admin with Sponsors link', async () => {
     renderApp('/admin');
-    expect(await screen.findByText('Korfbal Streamz Kit')).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Sponsors' })[0]).toHaveAttribute('href', '/admin/sponsors');
+    expect(await screen.findByText('Korfbal Streamz Kit', {}, LAZY)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Sponsors' })[0]).toHaveAttribute('href', '/admin/stamgegevens/sponsors');
   });
 
   it('shows the active season badge linking to settings', async () => {
     renderApp('/admin');
-    const badge = await screen.findByRole('link', {name: 'Seizoen 2026/2027'});
-    expect(badge).toHaveAttribute('href', '/admin/settings');
+    const badge = await screen.findByRole('link', {name: 'Seizoen 2026/2027'}, LAZY);
+    expect(badge).toHaveAttribute('href', '/admin/instellingen');
+  });
+
+  it('shows the about page in LIVE', () => {
+    renderApp('/');
+    expect(screen.getByRole('link', {name: 'Over deze app'})).toHaveAttribute('href', '/over');
+  });
+
+  it('operates vMix from LIVE', async () => {
+    renderApp('/vmix');
+    expect(screen.getByRole('link', {name: 'vMix'})).toHaveAttribute('href', '/vmix');
+    expect(await screen.findByRole('heading', {name: /^Countdown timer/})).toBeInTheDocument();
+  });
+
+  it('groups the Beheer menu by when you need it', async () => {
+    renderApp('/admin');
+    await screen.findByText('Korfbal Streamz Kit', {}, LAZY);
+    for (const menu of ['Producties', 'Draaiboeken', 'Stamgegevens', 'Rapportages', 'Overig']) {
+      expect(screen.getByText(menu, {selector: 'summary'})).toBeInTheDocument();
+    }
+    expect(screen.getByRole('link', {name: 'Personen'})).toHaveAttribute('href', '/admin/stamgegevens/personen');
+    expect(screen.getByRole('link', {name: 'Standaardbezetting per segment'})).toHaveAttribute('href', '/admin/draaiboeken/standaardbezetting');
+    expect(screen.getByRole('link', {name: 'QR-generator'})).toHaveAttribute('href', '/admin/overig/qr');
+    expect(screen.getByRole('link', {name: 'Instellingen'})).toHaveAttribute('href', '/admin/instellingen');
+    expect(screen.queryByRole('link', {name: /vMix control/})).not.toBeInTheDocument();
+  });
+
+  it('shows the tabs of a production, from draaiboek to rapport', async () => {
+    renderApp('/admin/producties/5/bezetting');
+    const tabs = await screen.findByRole('navigation', {name: 'Productie'}, LAZY);
+    const hrefs = Array.from(tabs.querySelectorAll('a')).map((a) => [a.textContent, a.getAttribute('href')]);
+    expect(hrefs).toEqual([
+      ['Draaiboek', '/admin/producties/5'],
+      ['Beschikbaarheid', '/admin/producties/5/beschikbaarheid'],
+      ['Bezetting', '/admin/producties/5/bezetting'],
+      ['vMix-titels', '/admin/producties/5/vmix-titels'],
+      ['Rapport', '/admin/producties/5/rapport'],
+    ]);
+    expect(screen.getByRole('link', {name: 'Bezetting'})).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('navigation', {name: 'Rapport'})).not.toBeInTheDocument();
+  });
+
+  it('shows the report sub tabs under Rapport', async () => {
+    renderApp('/admin/producties/5/rapport/crew');
+    const sub = await screen.findByRole('navigation', {name: 'Rapport'}, LAZY);
+    expect(sub).toHaveTextContent('ProductierapportCrewrapportTijdsanalyse');
+    expect(screen.getByRole('link', {name: 'Rapport'})).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('opens a report by its URL', async () => {
+    renderApp('/admin/rapportages');
+    expect(await screen.findByRole('heading', {name: 'Rapportages'}, LAZY)).toBeInTheDocument();
+    const tab = screen.getAllByRole('link', {name: 'Dagbezetting'}).find((a) => a.getAttribute('aria-current') === 'page');
+    expect(tab).toHaveAttribute('href', '/admin/rapportages/dagbezetting');
   });
 
   it('no longer serves Beheer pages outside /admin', () => {

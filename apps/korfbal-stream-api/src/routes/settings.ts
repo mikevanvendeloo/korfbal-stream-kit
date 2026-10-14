@@ -13,12 +13,14 @@ import {
   setSponsorNamesTypes,
   setSponsorRowsTypes,
   setSponsorSlidesTypes,
-  setVmixUrl
+  VmixUrlSchema
 } from '../services/appSettings';
 import {config} from '../services/config';
 import {z} from 'zod';
 import {VmixCallsheetPushSchema} from '../schemas/vmixCallsheet';
 import {getCallsheetPushConfig, setCallsheetPushConfig} from '../services/vmixCallsheetPush';
+import {VmixInstancesConfigSchema} from '../schemas/vmixInstances';
+import {getVmixInstancesConfig, setFirstVmixUrl, setVmixInstancesConfig} from '../services/vmixInstances';
 
 export const settingsRouter: Router = Router();
 
@@ -30,7 +32,7 @@ settingsRouter.get('/version', async (_req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// GET /api/settings/vmix-url
+// GET /api/settings/vmix-url (the first vMix instance; see /vmix-instances for all of them)
 settingsRouter.get('/vmix-url', async (_req, res, next) => {
   try {
     const url = await getVmixUrl();
@@ -45,10 +47,31 @@ settingsRouter.put('/vmix-url', async (req, res, next) => {
   try {
     const url = req.body?.vmixWebUrl;
     if (!url) return res.status(400).json({ error: 'Missing vmixWebUrl' });
-    await setVmixUrl(url);
+    if (!VmixUrlSchema.safeParse(url).success) return res.status(400).json({ error: 'Invalid URL for vMix Web URL' });
+    await setFirstVmixUrl(url);
     return res.json({ vmixWebUrl: url });
-  } catch (err: any) {
-    return res.status(400).json({ error: err.message });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// GET /api/settings/vmix-instances
+settingsRouter.get('/vmix-instances', async (_req, res, next) => {
+  try {
+    return res.json(await getVmixInstancesConfig());
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// PUT /api/settings/vmix-instances  { instances: [{id?, name, url}], targets: {countdown, callsheet} }
+settingsRouter.put('/vmix-instances', async (req, res, next) => {
+  try {
+    const parsed = VmixInstancesConfigSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({error: 'Invalid vMix instances', details: parsed.error.flatten()});
+    return res.json(await setVmixInstancesConfig(parsed.data));
+  } catch (err) {
+    return next(err);
   }
 });
 

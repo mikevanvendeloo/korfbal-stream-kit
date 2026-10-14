@@ -1,7 +1,7 @@
 import React from 'react';
-import {Link, useParams} from 'react-router-dom';
+import {useParams} from 'react-router-dom';
 import {useCrewReport} from '../hooks/useCallsheet';
-import {useProduction, useProductionInterviews, useProductionPersonPositions} from '../hooks/useProductions';
+import {useProduction, useProductionInterviews} from '../hooks/useProductions';
 import {usePositionsCatalog} from '../hooks/usePositions';
 import PlayerCard from '../components/PlayerCard';
 import html2canvas from 'html2canvas';
@@ -13,7 +13,6 @@ export default function CrewReportPage() {
   const { data, isLoading, error } = useCrewReport(productionId);
   const interviews = useProductionInterviews(productionId);
   const production = useProduction(productionId);
-  const personPositions = useProductionPersonPositions(productionId);
   const positionsCatalog = usePositionsCatalog();
 
   const [selectedPositionId, setSelectedPositionId] = React.useState<number | null>(null);
@@ -60,10 +59,12 @@ export default function CrewReportPage() {
   const linkedSourceIds = selectedPosition?.linkedToPositions?.map(lp => lp.sourcePosition.id) || [];
   const allLinkedIds = [...linkedTargetIds, ...linkedSourceIds];
 
+  // Same rule as the Show Caller: an item without positions is for everyone
   const filterItems = (items: any[]) => {
     if (!selectedPositionId) return items;
     return items.filter(it =>
-      it.positionIds?.includes(selectedPositionId) ||
+      !it.positionIds?.length ||
+      it.positionIds.includes(selectedPositionId) ||
       it.positionIds?.some((pid: number) => allLinkedIds.includes(pid))
     );
   };
@@ -95,7 +96,6 @@ export default function CrewReportPage() {
             <MdDownload className="text-lg" />
             <span>Download PNG</span>
           </button>
-          <Link className="px-3 py-2 border rounded" to={`/admin/productions/${productionId}`}>Terug naar productie</Link>
         </div>
       </div>
 
@@ -214,7 +214,7 @@ export default function CrewReportPage() {
                         <PlayerCard
                           key={i.id}
                           name={i.player?.name || 'Onbekend'}
-                          photoUrl={i.player?.image ? `/uploads/players/${i.player.image}` : undefined}
+                          photoUrl={i.player?.photoUrl}
                           function={i.player?.function || 'Coach'}
                         />
                       ))}
@@ -225,7 +225,7 @@ export default function CrewReportPage() {
                         <PlayerCard
                           key={i.id}
                           name={i.player?.name || 'Onbekend'}
-                          photoUrl={i.player?.image ? `/uploads/players/${i.player.image}` : undefined}
+                          photoUrl={i.player?.photoUrl}
                           // Assuming shirtNo isn't directly on interview object but might be on player object if extended,
                           // currently using function as fallback or empty if not available in this context without extra fetch
                           function={i.player?.function || 'Speler'}
@@ -247,7 +247,7 @@ export default function CrewReportPage() {
                         <PlayerCard
                           key={i.id}
                           name={i.player?.name || 'Onbekend'}
-                          photoUrl={i.player?.image ? `/uploads/players/${i.player.image}` : undefined}
+                          photoUrl={i.player?.photoUrl}
                           function={i.player?.function || 'Coach'}
                         />
                       ))}
@@ -258,7 +258,7 @@ export default function CrewReportPage() {
                         <PlayerCard
                           key={i.id}
                           name={i.player?.name || 'Onbekend'}
-                          photoUrl={i.player?.image ? `/uploads/players/${i.player.image}` : undefined}
+                          photoUrl={i.player?.photoUrl}
                           function={i.player?.function || 'Speler'}
                         />
                       ))}

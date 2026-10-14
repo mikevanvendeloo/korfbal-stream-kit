@@ -1,5 +1,6 @@
 import {Router} from 'express';
 import {prisma} from '../../services/prisma';
+import {buildCrewCells, groupPositions} from '../../services/crewReport';
 
 export const productionCrewReportRouter: Router = Router();
 
@@ -12,9 +13,12 @@ productionCrewReportRouter.get('/:id/crew-report', async (req, res, next) => {
     const prod = await prisma.production.findUnique({ where: { id } });
     if (!prod) return res.status(404).json({ error: 'Not found' });
 
-    const [segments, positions, assignments, callsheets, productionReport, productionEvents] = await Promise.all([
+    const [segments, productionWide, assignments, callsheets, productionReport, productionEvents] = await Promise.all([
       prisma.productionSegment.findMany({ where: { productionId: id }, orderBy: { volgorde: 'asc' } }),
-      prisma.position.findMany({ orderBy: { name: 'asc' } }),
+      prisma.productionPersonPosition.findMany({
+        where: { productionId: id },
+        include: { person: true, position: true },
+      }),
       prisma.segmentRoleAssignment.findMany({
         where: { productionSegment: { productionId: id } },
         include: { person: true, position: true },
@@ -26,6 +30,7 @@ productionCrewReportRouter.get('/:id/crew-report', async (req, res, next) => {
             orderBy: { orderIndex: 'asc' },
             include: {
               productionSegment: true,
+              positions: { select: { positionId: true } },
             }
           }
         },
@@ -44,13 +49,25 @@ productionCrewReportRouter.get('/:id/crew-report', async (req, res, next) => {
       })
     ]);
 
-    const cells = assignments.map((a) => ({
-      segmentId: a.productionSegmentId,
-      positionId: a.positionId,
-      personName: a.person.name,
-    }));
+    const cells = buildCrewCells(
+      segments.map((s) => s.id),
+      productionWide.map((a) => ({ personId: a.personId, personName: a.person.name, position: a.position })),
+      assignments.map((a) => ({ segmentId: a.productionSegmentId, personId: a.personId, personName: a.person.name, position: a.position })),
+    );
+    // Only the positions someone fills, so the table doesn't get a column for every position there is
+    const filled = new Map([...productionWide, ...assignments].map((a) => [a.position.id, a.position]));
 
-    return res.json({ segments, positions, cells, callsheets, productionReport, productionEvents });
+    return res.json({
+      segments,
+      groupedPositions: groupPositions([...filled.values()]),
+      cells,
+      callsheets: callsheets.map(({ items, ...cs }) => ({
+        ...cs,
+        items: items.map(({ positions, ...item }) => ({ ...item, positionIds: positions.map((p) => p.positionId) })),
+      })),
+      productionReport,
+      productionEvents,
+    });
   } catch (err) {
     return next(err);
   }

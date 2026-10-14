@@ -64,6 +64,7 @@ apps/korfbal-stream-api/
     │   ├── season.ts                  # Season derivation (1 Jul–30 Jun), active season, seasonId resolution, asset dirs
     │   ├── seasonAssetMigration.ts    # Startup job: moves legacy player photos/team-responses into storage/seasons/<YYYY-YYYY>/
     │   ├── production.ts              # Production report data loading
+    │   ├── reportSponsors.ts          # Match/ball sponsor name → sponsor logo (report page + PDF)
     │   ├── productionState.ts         # In-memory live state (active production/event, clocks)
     │   ├── socket.ts                  # Socket.io server + broadcastState()
     │   ├── timeSyncService.ts         # Production time / countdown
@@ -92,7 +93,9 @@ apps/korfbal-stream-kit/src/
 ├── main.tsx                   # React entry
 ├── styles.css, styles/        # Tailwind entry + extra CSS (calendar)
 ├── app/
-│   ├── app.tsx                # App shell, navigation, React Router routes
+│   ├── app.tsx                # Splits LIVE (/) and Beheer (/admin/*)
+│   ├── LiveApp.tsx            # LIVE nav + routes (incl. /vmix)
+│   ├── AdminApp.tsx           # Beheer menu (Producties, Draaiboeken, Stamgegevens, Rapportages, Overig) + routes
 │   ├── pages/CallsheetPage.tsx
 │   ├── components/callsheet/GlobalClocks.tsx
 │   └── hooks/useCallsheetSync.ts
@@ -100,11 +103,11 @@ apps/korfbal-stream-kit/src/
 │   ├── ProductionsAdminPage.tsx, ProductionDetailPage.tsx, ActiveProductionPage.tsx
 │   ├── CallSheetsPage.tsx, CallSheetEditPage.tsx, LiveCallsheetEntry.tsx
 │   ├── CallSheetTemplatesPage.tsx, CallSheetTemplateDetailsPage.tsx
-│   ├── SegmentTemplatesPage.tsx, SegmentDefaultsAdminPage.tsx, SegmentAssignmentsPage.tsx
+│   ├── SegmentTemplatesPage.tsx, SegmentDefaultsAdminPage.tsx
 │   ├── PersonsAdminPage.tsx, SkillsAdminPage.tsx, PositionsAdminPage.tsx
-│   ├── ProductionAttendancePage.tsx, CrewReportPage.tsx
-│   ├── ProductionReportPage.tsx, ProductionTimingReportPage.tsx, ReportsPage.tsx
-│   ├── ProductionTitlesPage.tsx, VmixControlPage.tsx, VmixDatasourcesPage.tsx, VmixTemplatesPage.tsx
+│   ├── ProductionAttendancePage.tsx, ProductionStaffingPage.tsx, CrewReportPage.tsx
+│   ├── ProductionReportPage.tsx, ProductionTimingReportPage.tsx, ReportsPage.tsx (/admin/rapportages/:tab)
+│   ├── ProductionTitlesPage.tsx, LiveVmixPage.tsx (LIVE), VmixConnectionPage.tsx, VmixDatasourcesPage.tsx, VmixTemplatesPage.tsx
 │   ├── SponsorsPage.tsx, SponsorSlidesPage.tsx
 │   ├── ClubsPage.tsx, MatchSchedulePage.tsx, ManualMatchesAdminPage.tsx, MatchProgramPage.tsx
 │   ├── ScoreboardPage.tsx, QRAdminPage.tsx, AboutPage.tsx
@@ -122,6 +125,8 @@ apps/korfbal-stream-kit/src/
 │   │   SegmentTemplateSelector.tsx, CopyAssignmentsModal.tsx, PositionSelector.tsx
 │   ├── PersonsTable.tsx, PlayerCard.tsx, TitlesManager.tsx
 │   ├── SponsorsTable.tsx, SponsorFormModal.tsx
+│   ├── ProductionLayout.tsx   # Tabs of one production: Draaiboek, Beschikbaarheid, Bezetting, vMix-titels, Rapport
+│   ├── ProductionWideAssignmentsCard.tsx
 │   ├── MatchHeader.tsx, ProductionHeader.tsx, ClubLogo.tsx, AppLogo.tsx, AppIcon.tsx
 │   ├── IconButton.tsx, MultiSelect.tsx, SimpleCalendar.tsx, ErrorBoundary.tsx
 │   └── ui/                    # Base UI primitives (button, card, input)
@@ -250,7 +255,7 @@ No authentication: all endpoints are open (internal LAN tool). Swagger UI at `/a
 | PUT | /api/production/:id/person-positions | Replace person-position assignments |
 | DELETE | /api/production/:id/person-positions/:personPositionId | Delete person-position assignment |
 | GET | /api/production/:id/crew | Crew overview |
-| GET | /api/production/:id/crew-report | Crew report |
+| GET | /api/production/:id/crew-report | Crew report: effective crew per segment (production-wide + per segment, `services/crewReport.ts`), filled positions per category, callsheets with `positionIds` |
 | GET | /api/production/positions | List positions |
 | POST | /api/production/positions | Create position |
 | PUT | /api/production/positions/:id | Update position |
@@ -343,7 +348,7 @@ No authentication: all endpoints are open (internal LAN tool). Swagger UI at `/a
 | PUT | /api/production/:id/interviews | Replace interview subjects |
 | GET | /api/production/:id/interviews/options | Interview subject options |
 | GET | /api/production/:id/report | Get production report |
-| POST | /api/production/:id/report | Save production report |
+| POST | /api/production/:id/report | Save production report (match sponsor, ball sponsor, rationale, remarks) |
 | DELETE | /api/production/:id/report | Delete production report |
 | GET | /api/production/:id/report/pdf | Report as PDF |
 | GET | /api/production/:id/report/markdown | Report as Markdown |
@@ -392,8 +397,10 @@ No authentication: all endpoints are open (internal LAN tool). Swagger UI at `/a
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/settings/version | App version |
-| GET | /api/settings/vmix-url | Get vMix URL |
-| PUT | /api/settings/vmix-url | Set vMix URL |
+| GET | /api/settings/vmix-url | Get the URL of the first vMix instance |
+| PUT | /api/settings/vmix-url | Set the URL of the first vMix instance |
+| GET | /api/settings/vmix-instances | Get the vMix instances (name, URL) and which one each function (countdown, callsheet) uses |
+| PUT | /api/settings/vmix-instances | Set the vMix instances and function targets |
 | GET | /api/settings/vmix-callsheet-push | Get callsheet → vMix push config (title, fields, colours, positions) |
 | PUT | /api/settings/vmix-callsheet-push | Set callsheet → vMix push config |
 | GET | /api/settings/sponsor-config | Get sponsor config |
@@ -422,13 +429,14 @@ Season-bound endpoints (`GET /api/production`, `/api/production/matches`, `/api/
 |--------|------|-------------|
 | GET | /api/vmix/sync/activate-event | Activate event from vMix |
 | POST | /api/vmix/production/trigger-manual | Manually trigger production event |
-| POST | /api/vmix/set-timer | Set vMix timer |
+| POST | /api/vmix/set-timer | Set the countdown in the vMix chosen for it (`instanceId` overrides) |
 | GET | /api/vmix/callsheet/timing?position=A,B | Current + next callsheet item for positions (remaining time, vMix timer format, start times, colour state) |
 | POST | /api/vmix/callsheet/push | Push current/next item to the configured vMix title now |
 | POST | /api/vmix/sponsor-rows | Sponsor rows data source (seeded) |
 | GET | /api/vmix/sponsor-slides | Sponsor slides data source (seeded) |
 | GET | /api/vmix/sponsor-names | Sponsor names data source |
 | GET | /api/vmix/sponsor-carrousel | Sponsor carrousel data source |
+| GET | /api/vmix/active-production/match | Match of the active production as one vMix row: teams, club logos, date/kickoff/attendance/live time, venue, referees, score, match + ball sponsor with logo (`services/vmixMatchInfo.ts`) |
 | GET | /api/vmix/active-production/staff | Staff of active production |
 | GET | /api/vmix/endpoints | List vMix data-source endpoints |
 | GET | /api/vmix/production/active/titles | Titles of active production |
@@ -447,7 +455,7 @@ Season-bound endpoints (`GET /api/production`, `/api/production/matches`, `/api/
 | GET | /api/reports/daily-occupancy | Daily crew occupancy |
 | GET | /api/reports/daily-occupancy-by-position | Daily occupancy per position |
 | GET | /api/reports/interviews | Interview report |
-| GET | /api/reports/crew-roles | Crew roles report |
+| GET | /api/reports/crew-roles | Crew roles per production: speaker, regisseur, presentator, analist, commentaar |
 | GET | /api/reports/production-dates | Production dates |
 | GET | /api/reports/next-production-date | Next production date |
 

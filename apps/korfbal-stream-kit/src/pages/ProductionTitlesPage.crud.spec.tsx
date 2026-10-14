@@ -99,9 +99,9 @@ describe('ProductionTitlesPage CRUD', () => {
     });
 
     renderWithProviders(
-      <MemoryRouter initialEntries={[`/admin/productions/123/titles`]}>
+      <MemoryRouter initialEntries={[`/admin/producties/123/vmix-titels`]}>
         <Routes>
-          <Route path="/admin/productions/:id/titles" element={<ProductionTitlesPage />} />
+          <Route path="/admin/producties/:id/vmix-titels" element={<ProductionTitlesPage />} />
         </Routes>
       </MemoryRouter>
     );

@@ -2,14 +2,16 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import axios from 'axios';
 import * as appSettings from './appSettings';
 import * as timing from './callsheetTiming';
+import * as instances from './vmixInstances';
 import {VmixCallsheetPushSchema} from '../schemas/vmixCallsheet';
 import {buildVmixCommands, buildVmixCommandUrl, pushCallsheetToVmix} from './vmixCallsheetPush';
 
 vi.mock('axios');
 vi.mock('./appSettings', async (importOriginal) => {
   const actual = await importOriginal<typeof appSettings>();
-  return {...actual, getSetting: vi.fn(), setSetting: vi.fn(), getVmixUrl: vi.fn()};
+  return {...actual, getSetting: vi.fn(), setSetting: vi.fn()};
 });
+vi.mock('./vmixInstances', () => ({resolveVmixInstance: vi.fn()}));
 vi.mock('./callsheetTiming', async (importOriginal) => {
   const actual = await importOriginal<typeof timing>();
   return {...actual, loadCallsheetTiming: vi.fn()};
@@ -56,7 +58,7 @@ describe('buildVmixCommands', () => {
 describe('pushCallsheetToVmix', () => {
   beforeEach(() => {
     vi.mocked(appSettings.getSetting).mockResolvedValue(config);
-    vi.mocked(appSettings.getVmixUrl).mockResolvedValue('http://vmix:8088');
+    vi.mocked(instances.resolveVmixInstance).mockResolvedValue({instance: {id: 'scherm', name: 'Scherm-PC', url: 'http://vmix:8088'}});
     vi.mocked(axios.get).mockResolvedValue({data: ''});
   });
 
@@ -87,8 +89,15 @@ describe('pushCallsheetToVmix', () => {
     expect(second.sent).toBe(1);
   });
 
-  it('does nothing without a vMix URL or title input', async () => {
-    vi.mocked(appSettings.getVmixUrl).mockResolvedValue(null);
+  it('sends to the vMix chosen for the callsheet', async () => {
+    vi.mocked(timing.loadCallsheetTiming).mockResolvedValue(timingWith({currentTitle: 'Opening'}));
+    await pushCallsheetToVmix(true, NOW);
+    expect(instances.resolveVmixInstance).toHaveBeenCalledWith('callsheet');
+    expect(vi.mocked(axios.get).mock.calls[0][0]).toMatch(/^http:\/\/vmix:8088\/api\?/);
+  });
+
+  it('does nothing without a vMix instance', async () => {
+    vi.mocked(instances.resolveVmixInstance).mockResolvedValue({error: 'vMix Web URL is not configured'});
     expect((await pushCallsheetToVmix(true, NOW)).errors).toEqual(['vMix Web URL is not configured']);
     expect(axios.get).not.toHaveBeenCalled();
   });

@@ -72,7 +72,7 @@ test.describe('Seizoen instellingen', () => {
     await expect(badge).toBeVisible();
     await badge.click();
 
-    await expect(page).toHaveURL(/\/admin\/settings$/);
+    await expect(page).toHaveURL(/\/admin\/instellingen$/);
     await expect(page.getByRole('heading', { name: 'Actief seizoen' })).toBeVisible();
     await expect(page.getByTestId('season-row-1')).toContainText('Actief');
 
@@ -85,7 +85,7 @@ test.describe('Seizoen instellingen', () => {
   });
 
   test('starts a new season, runs imports and switches back', async ({ page }) => {
-    await page.goto('/admin/settings');
+    await page.goto('/admin/instellingen');
 
     // Validation
     const name = page.getByLabel('Naam');

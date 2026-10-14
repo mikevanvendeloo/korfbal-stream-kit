@@ -1,8 +1,9 @@
 import React, {useEffect, useState} from 'react';
-import {getScoreboardConfig, getVmixSettings, setScoreboardConfig, setVmixSettings} from '../../lib/api';
+import {Link} from 'react-router-dom';
+import {getScoreboardConfig, setScoreboardConfig} from '../../lib/api';
+import {adminPaths} from '../../lib/adminPaths';
 
 export default function ConnectionSettingsTab() {
-  const [vmixUrl, setVmixUrl] = useState('');
   const [scoreboardUrl, setScoreboardUrl] = useState('');
   const [shotclockUrl, setShotclockUrl] = useState('');
   const [loading, setLoading] = useState(true);
@@ -17,11 +18,7 @@ export default function ConnectionSettingsTab() {
   async function loadSettings() {
     try {
       setLoading(true);
-      const [vmix, scoreboard] = await Promise.all([
-        getVmixSettings(),
-        getScoreboardConfig(),
-      ]);
-      setVmixUrl(vmix.vmixWebUrl || '');
+      const scoreboard = await getScoreboardConfig();
       setScoreboardUrl(scoreboard.scoreboardUrl || '');
       setShotclockUrl(scoreboard.shotclockUrl || '');
     } catch (err: any) {
@@ -37,10 +34,7 @@ export default function ConnectionSettingsTab() {
       setSaving(true);
       setError(null);
       setSuccess(null);
-      await Promise.all([
-        setVmixSettings(vmixUrl),
-        setScoreboardConfig({ scoreboardUrl, shotclockUrl }),
-      ]);
+      await setScoreboardConfig({ scoreboardUrl, shotclockUrl });
       setSuccess('Verbindingsinstellingen opgeslagen');
     } catch (err: any) {
       setError(err.message || 'Opslaan mislukt');
@@ -58,19 +52,10 @@ export default function ConnectionSettingsTab() {
 
       <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
         <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-100 dark:border-gray-700 pb-2">vMix Koppeling</h2>
-        <div>
-          <label htmlFor="vmixUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">vMix Web Controller URL</label>
-          <input
-            id="vmixUrl"
-            type="url"
-            required
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="http://192.168.1.10:8088"
-            value={vmixUrl}
-            onChange={(e) => setVmixUrl(e.target.value)}
-          />
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">URL van de vMix Web Controller API (bijv. http://localhost:8088)</p>
-        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          De vMix-pc's (bijvoorbeeld een stream- en een scherm-pc) en welke functie naar welke vMix gaat stel je in onder{' '}
+          <Link to={adminPaths.vmixConnection} className="text-blue-600 dark:text-blue-400 underline">Stamgegevens → vMix-koppeling</Link>.
+        </p>
       </section>
 
       <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
