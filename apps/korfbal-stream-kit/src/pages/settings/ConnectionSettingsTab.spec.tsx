@@ -1,6 +1,7 @@
 import React from 'react';
 import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {MemoryRouter} from 'react-router-dom';
 import ConnectionSettingsTab from './ConnectionSettingsTab';
 import {vi} from 'vitest';
 
@@ -18,9 +19,6 @@ describe('ConnectionSettingsTab', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     (fetch as any).mockImplementation((url: string) => {
-      if (url.includes('/api/settings/vmix-url')) {
-        return Promise.resolve(createFetchResponse({ vmixWebUrl: 'http://vmix.test:8088' }));
-      }
       if (url.includes('/api/settings/scoreboard-config')) {
         return Promise.resolve(createFetchResponse({ scoreboardUrl: 'http://score.test', shotclockUrl: 'http://shot.test' }));
       }
@@ -31,14 +29,16 @@ describe('ConnectionSettingsTab', () => {
   const renderComponent = () =>
     render(
       <QueryClientProvider client={queryClient}>
-        <ConnectionSettingsTab />
+        <MemoryRouter>
+          <ConnectionSettingsTab />
+        </MemoryRouter>
       </QueryClientProvider>
     );
 
   it('loads and displays existing settings', async () => {
     renderComponent();
     await waitFor(() => {
-      expect(screen.getByLabelText(/vmix web controller url/i)).toHaveValue('http://vmix.test:8088');
+      expect(screen.getByRole('link', {name: /vMix-koppeling/})).toHaveAttribute('href', '/admin/stamgegevens/vmix-koppeling');
       expect(screen.getByLabelText(/scoreboard base url/i)).toHaveValue('http://score.test');
       expect(screen.getByLabelText(/shotclock base url/i)).toHaveValue('http://shot.test');
     });
@@ -48,20 +48,18 @@ describe('ConnectionSettingsTab', () => {
     renderComponent();
     await waitFor(() => expect(screen.getByRole('button', { name: /instellingen opslaan/i })).toBeInTheDocument());
 
-    const vmixInput = screen.getByLabelText(/vmix web controller url/i);
-    fireEvent.change(vmixInput, { target: { value: 'http://new-vmix.url' } });
-
-    const saveButton = screen.getByRole('button', { name: /instellingen opslaan/i });
-    fireEvent.click(saveButton);
+    fireEvent.change(screen.getByLabelText(/scoreboard base url/i), { target: { value: 'http://new-score.url' } });
+    fireEvent.click(screen.getByRole('button', { name: /instellingen opslaan/i }));
 
     await waitFor(() => {
-      const vmixCall = (fetch as any).mock.calls.find((call: any) =>
-        call[0].toString().includes('/api/settings/vmix-url') && call[1]?.method === 'PUT'
+      const call = (fetch as any).mock.calls.find((c: any) =>
+        c[0].toString().includes('/api/settings/scoreboard-config') && c[1]?.method === 'PUT'
       );
-      if (!vmixCall) throw new Error('vmix PUT call not found yet');
-      const vmixFetch = vmixCall[1];
-      expect(JSON.parse(vmixFetch.body)).toEqual({ vmixWebUrl: 'http://new-vmix.url' });
+      if (!call) throw new Error('scoreboard PUT call not found yet');
+      expect(JSON.parse(call[1].body)).toEqual({ scoreboardUrl: 'http://new-score.url', shotclockUrl: 'http://shot.test' });
       expect(screen.getByText(/verbindingsinstellingen opgeslagen/i)).toBeInTheDocument();
     });
+    // vMix is no longer saved here
+    expect((fetch as any).mock.calls.some((c: any) => c[0].toString().includes('vmix'))).toBe(false);
   });
 });

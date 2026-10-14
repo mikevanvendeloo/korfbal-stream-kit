@@ -1,7 +1,9 @@
-import {NavLink, Route, Routes} from 'react-router-dom';
-import {MdPlayCircleFilled, MdRecordVoiceOver, MdTableChart, MdViewList} from 'react-icons/md';
+import {Link, NavLink, Route, Routes} from 'react-router-dom';
+import {MdInfo, MdPlayCircleFilled, MdRecordVoiceOver, MdSettings, MdTableChart, MdVideocam, MdViewList} from 'react-icons/md';
 import ActiveProductionPage from '../pages/ActiveProductionPage';
 import ScoreboardPage from '../pages/ScoreboardPage';
+import LiveVmixPage from '../pages/LiveVmixPage';
+import AboutPage from '../pages/AboutPage';
 import LiveCallsheetEntry from '../pages/LiveCallsheetEntry';
 import {PositionSelector} from '../components/PositionSelector';
 import {CallSheetView} from '../components/CallSheetView';
@@ -17,6 +19,7 @@ const links = [
   {to: '/scoreboard', label: 'Scoreboard', icon: MdTableChart, end: false},
   {to: '/callsheet', label: 'Callsheet', icon: MdViewList, end: false},
   {to: '/show-caller', label: 'Show Caller', icon: MdRecordVoiceOver, end: false},
+  {to: '/vmix', label: 'vMix', icon: MdVideocam, end: false},
 ];
 
 function LiveNav() {
@@ -37,7 +40,16 @@ function LiveNav() {
             </NavLink>
           ))}
         </nav>
-        <ThemeToggle/>
+        <div className="flex items-center gap-4">
+          <Link to="/admin" className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:underline">
+            <MdSettings/>
+            <span>Beheer</span>
+          </Link>
+          <Link to="/over" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Over deze app" aria-label="Over deze app">
+            <MdInfo className="w-5 h-5"/>
+          </Link>
+          <ThemeToggle/>
+        </div>
       </div>
     </header>
   );
@@ -45,7 +57,7 @@ function LiveNav() {
 
 /**
  * LIVE: what the crew uses during a production, served from the root. Everything is read-only
- * except the interview selection; preparing and configuring productions happens in /admin.
+ * except the interview selection and operating vMix; preparing and configuring productions happens in /admin (linked in the nav).
  */
 export default function LiveApp() {
   return (
@@ -62,6 +74,8 @@ export default function LiveApp() {
             <Route path="show-caller" element={<LiveCallsheetEntry viewType="show-caller"/>}/>
             <Route path="show-caller/:productionId" element={<PositionSelector viewType="show-caller"/>}/>
             <Route path="show-caller/:productionId/:positionSlug" element={<InterviewNamesProvider><ShowCallerView/></InterviewNamesProvider>}/>
+            <Route path="vmix" element={<LiveVmixPage/>}/>
+            <Route path="over" element={<AboutPage/>}/>
             <Route path="*" element={<NotFound/>}/>
           </Routes>
         </ErrorBoundary>

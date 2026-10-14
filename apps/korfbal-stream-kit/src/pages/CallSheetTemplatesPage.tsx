@@ -6,6 +6,7 @@ import {Download, FileSpreadsheet, Plus, Trash2, Upload} from 'lucide-react';
 import {Input} from '../components/ui/input';
 import {Link} from 'react-router-dom';
 import {createUrl} from "../lib/api";
+import {adminPaths} from '../lib/adminPaths';
 
 export default function CallSheetTemplatesPage() {
   const { fetchTemplates, createTemplate, deleteTemplate, importTemplate, importTemplateJson, loading } = useCallSheetTemplates();
@@ -183,7 +184,7 @@ export default function CallSheetTemplatesPage() {
                 <span className="text-gray-500 dark:text-white/40 text-sm font-medium">
                   {template._count?.items || 0} items
                 </span>
-                <Link to={`/admin/callsheets/templates/${template.id}`}>
+                <Link to={adminPaths.callSheetTemplate(template.id)}>
                   <Button variant="outline" size="sm" className="border-gray-200 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-white/80">
                     Bekijken / Bewerken
                   </Button>

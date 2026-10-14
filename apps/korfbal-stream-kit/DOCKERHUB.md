@@ -6,8 +6,8 @@ Webapp van **Korfbal StreamKit**, een systeem voor het produceren van livestream
 
 De Kit is wat de crew tijdens en rond een uitzending op scherm heeft. Het zijn twee apps in één image:
 
-- **LIVE** (`/`) – voor tijdens de uitzending: de actieve productie, het scorebord, de **callsheet** per positie en de **Show Caller** met klokken en het actieve item. Alleen de interviewkeuze (speler/coach) is hier aan te passen.
-- **Beheer** (`/admin`) – voor de voorbereiding: producties, crew en posities, callsheets en templates, sponsors, clubs en spelers, seizoenen, vMix-titles en instellingen.
+- **LIVE** (`/`) – voor tijdens de uitzending: de actieve productie, het scorebord, de **callsheet** per positie, de **Show Caller** met klokken en het actieve item, en de vMix-bediening (countdown, callsheet naar vMix). Verder is alleen de interviewkeuze (speler/coach) hier aan te passen.
+- **Beheer** (`/admin`) – voor de voorbereiding: producties (draaiboek, beschikbaarheid, bezetting), draaiboek-templates, stamgegevens (crew, competitie, sponsors, vMix), rapportages en instellingen.
 
 Alle schermen blijven via Socket.io realtime gelijk met de API.
 

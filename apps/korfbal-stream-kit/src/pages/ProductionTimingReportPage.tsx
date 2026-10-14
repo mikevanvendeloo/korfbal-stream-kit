@@ -1,7 +1,7 @@
-import {Link, useParams} from 'react-router-dom';
+import {useParams} from 'react-router-dom';
 import {useCrewReport} from '../hooks/useCallsheet';
 import {useProduction} from '../hooks/useProductions';
-import {MdArrowBack, MdDownload} from 'react-icons/md';
+import {MdDownload} from 'react-icons/md';
 
 export default function ProductionTimingReportPage() {
   const params = useParams<{ id: string }>();
@@ -67,9 +67,6 @@ export default function ProductionTimingReportPage() {
     <div className="container py-6 max-w-6xl mx-auto px-4 text-gray-800 dark:text-gray-100">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <Link to={`/admin/productions/${productionId}`} className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 mb-2">
-            <MdArrowBack /> Terug naar productie
-          </Link>
           <h1 className="text-2xl font-bold">{matchTitle}</h1>
           <p className="text-gray-500 dark:text-gray-400">Tijdsverloop en analyse rapportage</p>
         </div>

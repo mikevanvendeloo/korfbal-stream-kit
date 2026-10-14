@@ -1,5 +1,5 @@
 import React from 'react';
-import {Link, useParams} from 'react-router-dom';
+import {useParams} from 'react-router-dom';
 import {useCrewReport} from '../hooks/useCallsheet';
 import {useProduction, useProductionInterviews, useProductionPersonPositions} from '../hooks/useProductions';
 import {usePositionsCatalog} from '../hooks/usePositions';
@@ -95,7 +95,6 @@ export default function CrewReportPage() {
             <MdDownload className="text-lg" />
             <span>Download PNG</span>
           </button>
-          <Link className="px-3 py-2 border rounded" to={`/admin/productions/${productionId}`}>Terug naar productie</Link>
         </div>
       </div>
 

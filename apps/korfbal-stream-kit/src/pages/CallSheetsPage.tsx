@@ -1,6 +1,7 @@
 import React from 'react';
 import {Link, useParams} from 'react-router-dom';
 import {useCallSheets, useCreateCallSheet, useDeleteCallSheet} from '../hooks/useCallsheet';
+import {adminPaths} from '../lib/adminPaths';
 
 export default function CallSheetsPage() {
   const params = useParams<{ id: string }>();
@@ -43,7 +44,7 @@ export default function CallSheetsPage() {
     <div className="container py-6 text-gray-800 dark:text-gray-100">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold">Callsheets</h1>
-        <Link className="underline" to={`/admin/productions/${productionId}`}>Terug naar productie</Link>
+        <Link className="underline" to={adminPaths.production(productionId)}>Terug naar productie</Link>
       </div>
 
       <form onSubmit={handleCreate} className="mb-4 flex gap-2 items-end">
@@ -67,7 +68,7 @@ export default function CallSheetsPage() {
               {cs.color && <div className="text-sm text-gray-500">{cs.color}</div>}
             </div>
             <div className="flex gap-3 items-center">
-              <Link className="underline" to={`/admin/productions/${productionId}/callsheets/${cs.id}`}>Open</Link>
+              <Link className="underline" to={adminPaths.callSheet(productionId, cs.id)}>Open</Link>
               <button className="text-red-700 underline" onClick={() => handleDelete(cs.id)}>Verwijder</button>
             </div>
           </div>

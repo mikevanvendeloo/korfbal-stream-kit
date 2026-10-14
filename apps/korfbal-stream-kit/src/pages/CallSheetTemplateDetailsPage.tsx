@@ -24,6 +24,7 @@ import {
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
+import {adminPaths} from '../lib/adminPaths';
 
 
 export default function CallSheetTemplateDetailsPage() {
@@ -135,7 +136,7 @@ export default function CallSheetTemplateDetailsPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center gap-4 mb-8">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/admin/callsheets/templates')} className="text-gray-600 dark:text-white">
+        <Button variant="ghost" size="icon" onClick={() => navigate(adminPaths.callSheetTemplates)} className="text-gray-600 dark:text-white">
           <MdArrowBack />
         </Button>
         {isEditingName ? (

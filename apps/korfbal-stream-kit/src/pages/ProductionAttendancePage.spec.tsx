@@ -6,7 +6,7 @@ import {ThemeProvider} from '../theme/ThemeProvider';
 import ProductionAttendancePage from './ProductionAttendancePage';
 import React from 'react';
 
-function renderWithProviders(ui: React.ReactNode, {route = '/admin/productions/1/attendance'} = {}) {
+function renderWithProviders(ui: React.ReactNode, {route = '/admin/producties/1/beschikbaarheid'} = {}) {
   const qc = new QueryClient({
     defaultOptions: {
       queries: {retry: false},
@@ -18,7 +18,7 @@ function renderWithProviders(ui: React.ReactNode, {route = '/admin/productions/1
       <QueryClientProvider client={qc}>
         <MemoryRouter initialEntries={[route]}>
           <Routes>
-            <Route path="/admin/productions/:id/attendance" element={ui} />
+            <Route path="/admin/producties/:id/beschikbaarheid" element={ui} />
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>

@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react';
-import {Link, useParams} from 'react-router-dom';
+import {useParams} from 'react-router-dom';
 import {
   getProductionReportMarkdownUrl,
   getProductionReportPdfUrl,
@@ -154,9 +154,6 @@ export default function ProductionReportPage() {
               </>
             )}
           </button>
-          <Link className="px-3 py-1 border rounded hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm" to={`/admin/productions/${productionId}`}>
-            Terug naar productie
-          </Link>
         </div>
       </div>
 

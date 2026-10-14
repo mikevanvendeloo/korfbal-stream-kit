@@ -70,7 +70,7 @@ services:
 | `LOG_LEVEL` | nee | `error`, `warn`, `info` (standaard) of `debug` |
 | `SKIP_SEED` | nee | `true` bij de migratiejob: alleen migreren, niet seeden (bijv. na het terugzetten van een backup) |
 
-De vMix Web URL en andere instellingen stel je in via de Beheer-pagina van de Kit.
+De vMix-pc's (één of meer, bijvoorbeeld een stream- en een scherm-pc) en andere instellingen stel je in via Beheer in de Kit.
 
 ## Image
 

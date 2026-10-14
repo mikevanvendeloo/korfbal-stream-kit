@@ -53,7 +53,7 @@ function PreviewBox({label, title, lines, state, colors}: {
   label: string; title: string; lines: string[]; state: TimingState; colors: CallsheetColors;
 }) {
   return (
-    <div className="rounded-md p-3 min-w-[14rem]" style={{background: colors[state].background, color: colors[state].text}}>
+    <div data-testid={`preview-${label}`} data-state={state} className="rounded-md p-3 w-full max-w-md" style={{background: colors[state].background, color: colors[state].text}}>
       <div className="text-xs uppercase tracking-wider opacity-80">{label}</div>
       <div className="font-semibold">{title || '—'}</div>
       {lines.filter(Boolean).map((line) => <div key={line} className="text-sm tabular-nums">{line}</div>)}
@@ -61,12 +61,72 @@ function PreviewBox({label, title, lines, state, colors}: {
   );
 }
 
+/**
+ * What vMix gets right now, with a button to push it immediately. Shown in LIVE during the broadcast and
+ * under the settings (there with the colours being edited, before they are saved).
+ */
+// Shown when there's no active production, so the colours can still be checked
+const EXAMPLE = {
+  currentTitle: 'Voorbeeld: opening', currentRemaining: '04:32', currentStartTime: '19:55',
+  nextTitle: 'Voorbeeld: interview', nextDuration: '02:00', nextStartsIn: '04:32', nextStartTime: '20:00',
+};
+
+export function CallsheetPushPreview({colors}: { colors: Pick<VmixCallsheetPushConfig, 'current' | 'next'> }) {
+  const push = usePushCallsheetToVmix();
+  const timing = useCallsheetTiming();
+  // 'live' follows the real timing; the others show a state's colours right away, also the ones not reached yet
+  const [shown, setShown] = React.useState<'live' | TimingState>('live');
+  const live = timing.data?.productionId ? timing.data : null;
+  const t = live ?? EXAMPLE;
+  const stateOf = (real: TimingState | undefined) => shown === 'live' ? (real ?? 'normal') : shown;
+
+  return (
+    <section>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100">Voorbeeld</h3>
+        <div role="radiogroup" aria-label="Kleur in voorbeeld" className="inline-flex rounded-md border border-gray-300 dark:border-gray-700 overflow-hidden text-xs">
+          {([['live', 'Live'], ...Object.entries(stateLabels)] as Array<['live' | TimingState, string]>).map(([value, label]) => (
+            <button key={value} type="button" role="radio" aria-checked={shown === value} onClick={() => setShown(value)}
+                    className={`px-2 py-1 ${shown === value ? 'bg-blue-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {!live && (
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {timing.isLoading ? 'Laden…' : 'Geen actieve productie: voorbeeldtekst.'}
+        </p>
+      )}
+      <div className="mt-2 flex flex-col gap-3">
+        <PreviewBox label="Nu" title={t.currentTitle} state={stateOf(live?.currentState)} colors={colors.current.colors}
+                    lines={[t.currentRemaining && `Nog ${t.currentRemaining}`, t.currentStartTime && `Gestart ${t.currentStartTime}`]}/>
+        <PreviewBox label="Straks" title={t.nextTitle} state={stateOf(live?.nextState)} colors={colors.next.colors}
+                    lines={[t.nextDuration && `Duur ${t.nextDuration}`, t.nextStartsIn && `Over ${t.nextStartsIn}`, t.nextStartTime && `Om ${t.nextStartTime}`]}/>
+      </div>
+      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+        Het voorbeeld gebruikt de opgeslagen posities. Data source voor vMix: <code>/api/vmix/callsheet/timing?position=Presentatie,Analist</code>
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button type="button" disabled={push.isPending} onClick={() => push.mutate()}
+                className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
+          {push.isPending ? 'Pushen…' : 'Nu pushen'}
+        </button>
+        {push.data && (
+          <div role={push.data.errors.length ? 'alert' : 'status'} className={`text-sm ${push.data.errors.length ? 'text-red-600' : 'text-green-700 dark:text-green-400'}`}>
+            {push.data.sent} velden naar vMix gestuurd{push.data.errors.length ? `, fouten: ${push.data.errors.join('; ')}` : ''}
+          </div>
+        )}
+        {push.isError && <div role="alert" className="text-sm text-red-600">{(push.error as Error).message}</div>}
+      </div>
+    </section>
+  );
+}
+
 /** Settings for pushing the current/next callsheet item (presentator & analist) to a vMix title. */
 export default function VmixCallsheetPushSettings() {
   const configQuery = useVmixCallsheetPushConfig();
   const save = useSaveVmixCallsheetPushConfig();
-  const push = usePushCallsheetToVmix();
-  const timing = useCallsheetTiming();
   const positions = usePositionsCatalog();
   const [config, setConfig] = React.useState<VmixCallsheetPushConfig | null>(null);
 
@@ -90,8 +150,6 @@ export default function VmixCallsheetPushSettings() {
     e.preventDefault();
     if (config) save.mutate(config);
   }
-
-  const t = timing.data;
 
   return (
     <form onSubmit={handleSave} className="mt-4 space-y-6 max-w-3xl">
@@ -159,42 +217,17 @@ export default function VmixCallsheetPushSettings() {
         <ColorsEditor prefix="Volgend" colors={config.next.colors} onChange={(colors) => setNext({colors})}/>
       </section>
 
-      <section>
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100">Voorbeeld (live)</h3>
-        {t ? (
-          <div className="mt-2 flex flex-wrap gap-3">
-            <PreviewBox label="Nu" title={t.currentTitle} state={t.currentState} colors={config.current.colors}
-                        lines={[t.currentRemaining && `Nog ${t.currentRemaining}`, t.currentStartTime && `Gestart ${t.currentStartTime}`]}/>
-            <PreviewBox label="Straks" title={t.nextTitle} state={t.nextState} colors={config.next.colors}
-                        lines={[t.nextDuration && `Duur ${t.nextDuration}`, t.nextStartsIn && `Over ${t.nextStartsIn}`, t.nextStartTime && `Om ${t.nextStartTime}`]}/>
-          </div>
-        ) : (
-          <div className="mt-2 text-sm text-gray-500">{timing.isError ? 'Geen actieve productie of timing niet beschikbaar' : 'Laden…'}</div>
-        )}
-        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          Het voorbeeld gebruikt de opgeslagen posities. Data source voor vMix: <code>/api/vmix/callsheet/timing?position=Presentatie,Analist</code>
-        </p>
-      </section>
+      <CallsheetPushPreview colors={config}/>
 
       <div className="flex items-center gap-2">
         <button type="submit" disabled={save.isPending}
                 className="px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20">
           {save.isPending ? 'Opslaan…' : 'Opslaan'}
         </button>
-        <button type="button" disabled={push.isPending} onClick={() => push.mutate()}
-                className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
-          {push.isPending ? 'Pushen…' : 'Nu pushen'}
-        </button>
       </div>
 
       {save.isSuccess && <div role="status" className="text-sm text-green-700 dark:text-green-400">Instellingen opgeslagen</div>}
       {save.isError && <div role="alert" className="text-sm text-red-600">{(save.error as Error).message}</div>}
-      {push.data && (
-        <div role={push.data.errors.length ? 'alert' : 'status'} className={`text-sm ${push.data.errors.length ? 'text-red-600' : 'text-green-700 dark:text-green-400'}`}>
-          {push.data.sent} velden naar vMix gestuurd{push.data.errors.length ? `, fouten: ${push.data.errors.join('; ')}` : ''}
-        </div>
-      )}
-      {push.isError && <div role="alert" className="text-sm text-red-600">{(push.error as Error).message}</div>}
     </form>
   );
 }

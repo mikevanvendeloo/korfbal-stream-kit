@@ -16,8 +16,8 @@ import {
   getSponsorNamesTypes,
   getSponsorRowsTypes,
   getSponsorSlidesTypes,
-  getVmixUrl
 } from '../services/appSettings';
+import {resolveVmixInstance} from '../services/vmixInstances';
 import {shuffle} from "../utils/array-utils";
 import os from 'node:os';
 import {loadCallsheetTiming, parsePositions} from '../services/callsheetTiming';
@@ -124,7 +124,7 @@ vmixRouter.post('/callsheet/push', async (_req, res, next) => {
 });
 
 // ---------------- vMix control endpoints ----------------
-// POST /api/vmix/set-timer  { seconds: number }
+// POST /api/vmix/set-timer  { seconds: number, instanceId?: string }
 vmixRouter.post('/set-timer', async (req, res, next) => {
   try {
     const secondsRaw = Number(req.body?.seconds);
@@ -136,15 +136,18 @@ vmixRouter.post('/set-timer', async (req, res, next) => {
     const ss = String(secs % 60).padStart(2, '0');
     const value = `${mm}:${ss}`;
 
-    const base = await getVmixUrl();
-    if (!base) {
-      return res.status(400).json({ error: 'vMix Web URL is not configured' });
+    // Goes to the vMix chosen for the countdown, unless the request names one
+    const instanceId = typeof req.body?.instanceId === 'string' ? req.body.instanceId : undefined;
+    const target = await resolveVmixInstance('countdown', instanceId);
+    if ('error' in target) {
+      return res.status(400).json({ error: target.error });
     }
+    const base = target.instance.url;
     // vMix Web Controller API: SetCountdown expects Value=mm:ss
     const url = buildVmixApiUrl(base, `Function=SetCountdown&Value=${encodeURIComponent(value)}`);
     const response = await axios.get(url, { timeout: 2000 });
 
-    return res.json({ ok: true, seconds: secs, vmixResponse: typeof response.data === 'string' ? response.data : undefined });
+    return res.json({ ok: true, seconds: secs, instance: target.instance.name, vmixResponse: typeof response.data === 'string' ? response.data : undefined });
   } catch (err) {
     if (axios.isAxiosError(err)) { return res.status(err.response?.status ?? 500).json({ message: err.message, url: err.config?.url});}
     return next(err);

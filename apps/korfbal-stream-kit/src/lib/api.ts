@@ -95,28 +95,8 @@ export type MatchSchedule = {
   color?: string | null;
 };
 
-// -------- Settings: vMix Web URL --------
-export type VmixSettings = { vmixWebUrl: string | null };
-
-export async function getVmixSettings(): Promise<VmixSettings> {
-  const url = createUrl('/api/settings/vmix-url');
-  const res = await fetch(url.toString());
-  if (!res.ok) throw new Error(`Failed to load vMix settings: ${res.status}`);
-  return res.json();
-}
-
-export async function setVmixSettings(vmixWebUrl: string): Promise<VmixSettings> {
-  const url = createUrl('/api/settings/vmix-url');
-  const res = await fetch(url.toString(), {
-    method: 'PUT',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({vmixWebUrl}),
-  });
-  if (!res.ok) throw new Error(`Failed to save vMix settings: ${res.status}`);
-  return res.json();
-}
-
-export async function vmixSetTimer(seconds: number): Promise<{ ok: boolean; seconds: number }> {
+// -------- vMix --------
+export async function vmixSetTimer(seconds: number): Promise<{ ok: boolean; seconds: number; instance: string }> {
 
   const url = createUrl('/api/vmix/set-timer');
   logger.info(`Setting vMix timer to ${JSON.stringify({seconds: seconds})} seconds`);

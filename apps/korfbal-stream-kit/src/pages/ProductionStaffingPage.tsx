@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import SegmentAssignmentsCard from '../components/SegmentAssignmentsCard';
 import {
   useProductionSegments,
@@ -9,7 +9,8 @@ import {
   useProduction,
 } from '../hooks/useProductions';
 import { usePersons } from '../hooks/usePersons';
-import ProductionHeader from '../components/ProductionHeader';
+import ProductionWideAssignmentsCard from '../components/ProductionWideAssignmentsCard';
+import SegmentOverridesManager from '../components/SegmentOverridesManager';
 
 function PersonFilterControlInner({ value, onChange, persons }: { value: number | null; onChange: (v: number | null) => void; persons: Array<{ id: number; name: string }>; }) {
   return (
@@ -30,10 +31,10 @@ function PersonFilterControlInner({ value, onChange, persons }: { value: number 
   );
 }
 
-export default function SegmentAssignmentsPage() {
+/** Bezetting tab: who does what during the production, overall and per segment. */
+export default function ProductionStaffingPage() {
   const params = useParams<{ id: string }>();
   const id = Number(params.id);
-  const navigate = useNavigate();
 
   const { data: prod, isError: isProdError, error: prodError } = useProduction(id);
   const segments = useProductionSegments(id);
@@ -45,12 +46,7 @@ export default function SegmentAssignmentsPage() {
   const [personFilterId, setPersonFilterId] = React.useState<number | null>(null);
 
   if (!Number.isInteger(id) || id <= 0) {
-    return (
-      <div className="container py-6 text-gray-800 dark:text-gray-100">
-        <div>Ongeldige productie id</div>
-        <button className="mt-3 px-3 py-1 border rounded" onClick={() => navigate(-1)}>Terug</button>
-      </div>
-    );
+    return <div className="container py-6 text-gray-800 dark:text-gray-100">Ongeldige productie id</div>;
   }
 
   if (isProdError) {
@@ -71,10 +67,18 @@ export default function SegmentAssignmentsPage() {
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
-      <ProductionHeader productionId={id} showLogos={false} />
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-lg font-semibold">Segment Toewijzingen</h1>
-        <button className="px-3 py-1 border rounded" onClick={() => navigate(`/admin/productions/${id}`)}>Terug naar productiedetails</button>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ProductionWideAssignmentsCard productionId={id} />
+      </div>
+
+      <div className="mt-8">
+        <SegmentOverridesManager
+          productionId={id}
+          segments={segments.data || []}
+          productionPersons={productionPersons || []}
+          allPositions={allPositions || []}
+          productionPersonPositions={productionPersonPositions || []}
+        />
       </div>
 
       <div className="mt-8">
