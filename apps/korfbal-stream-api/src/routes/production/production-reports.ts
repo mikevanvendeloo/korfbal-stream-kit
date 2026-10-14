@@ -7,6 +7,7 @@ import {PositionCategory} from '@prisma/client';
 import {getProductionReportData, ProductionWithData} from "../../services/production";
 import {logger} from "../../utils/logger";
 import fs from "node:fs";
+import {getAssetsRoot} from "../../services/config";
 
 export const productionReportsRouter: Router = Router();
 
@@ -383,7 +384,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
 
         // Foto eronder
         if (person.photoUrl) {
-          const imagePath = path.join(process.cwd(), 'uploads', person.photoUrl);
+          const imagePath = path.join(getAssetsRoot(), person.photoUrl);
 
           if (fs.existsSync(imagePath)) {
             try {

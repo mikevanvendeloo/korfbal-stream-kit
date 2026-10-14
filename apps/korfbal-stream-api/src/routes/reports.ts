@@ -308,7 +308,7 @@ reportsRouter.get('/interviews', async (req, res, next) => {
 reportsRouter.get('/crew-roles', async (req, res, next) => {
   try {
     // Define the skill codes we are interested in
-    const targetSkillCodes = ['SPEAKER', 'REGISSEUR', 'PRESENTATIE', 'ANALIST'];
+    const targetSkillCodes = ['SPEAKER', 'REGISSEUR', 'PRESENTATIE', 'ANALIST', 'COMMENTAAR'];
     const seasonId = await resolveSeasonId(req.query.seasonId);
 
     const productions = await prisma.production.findMany({
@@ -350,7 +350,8 @@ reportsRouter.get('/crew-roles', async (req, res, next) => {
         SPEAKER: [],
         REGISSEUR: [],
         PRESENTATIE: [],
-        ANALIST: []
+        ANALIST: [],
+        COMMENTAAR: []
       };
 
       for (const pp of p.productionPositions) {
@@ -374,6 +375,7 @@ reportsRouter.get('/crew-roles', async (req, res, next) => {
         regisseur: roles['REGISSEUR'],
         presentator: roles['PRESENTATIE'],
         analist: roles['ANALIST'],
+        commentaar: roles['COMMENTAAR'],
       };
     });
 

@@ -633,6 +633,10 @@ function CrewRolesReport() {
         header: 'Analist',
         cell: info => info.getValue().join(', ') || <span className="text-gray-400">-</span>,
       }),
+      helper.accessor('commentaar', {
+        header: 'Commentaar',
+        cell: info => (info.getValue() ?? []).join(', ') || <span className="text-gray-400">-</span>,
+      }),
     ];
   }, []);
 

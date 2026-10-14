@@ -57,6 +57,7 @@ export type CrewRolesReport = Array<{
   regisseur: string[];
   presentator: string[];
   analist: string[];
+  commentaar: string[];
 }>;
 
 export function useDailyOccupancyReport(date: string) {

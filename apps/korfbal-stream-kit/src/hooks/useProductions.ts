@@ -70,7 +70,6 @@ export type ProductionInterview = {
     shirtNo?: number;
     function?: string;
     photoUrl?: string;
-    image?: string;
   }
 }
 

@@ -254,7 +254,7 @@ No authentication: all endpoints are open (internal LAN tool). Swagger UI at `/a
 | PUT | /api/production/:id/person-positions | Replace person-position assignments |
 | DELETE | /api/production/:id/person-positions/:personPositionId | Delete person-position assignment |
 | GET | /api/production/:id/crew | Crew overview |
-| GET | /api/production/:id/crew-report | Crew report |
+| GET | /api/production/:id/crew-report | Crew report: effective crew per segment (production-wide + per segment, `services/crewReport.ts`), filled positions per category, callsheets with `positionIds` |
 | GET | /api/production/positions | List positions |
 | POST | /api/production/positions | Create position |
 | PUT | /api/production/positions/:id | Update position |
@@ -453,7 +453,7 @@ Season-bound endpoints (`GET /api/production`, `/api/production/matches`, `/api/
 | GET | /api/reports/daily-occupancy | Daily crew occupancy |
 | GET | /api/reports/daily-occupancy-by-position | Daily occupancy per position |
 | GET | /api/reports/interviews | Interview report |
-| GET | /api/reports/crew-roles | Crew roles report |
+| GET | /api/reports/crew-roles | Crew roles per production: speaker, regisseur, presentator, analist, commentaar |
 | GET | /api/reports/production-dates | Production dates |
 | GET | /api/reports/next-production-date | Next production date |
 
