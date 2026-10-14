@@ -2,6 +2,7 @@ import {PrismaClient} from '@prisma/client';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {seedPersons, seedPositions, seedSkills, seedTitles} from './seed-data';
+import {findPositionByName} from '../src/domain/positionSkill';
 
 const prisma = new PrismaClient();
 
@@ -50,34 +51,39 @@ async function main() {
   }
 
   console.log('Seeding skills catalog...');
+  // Match codes without underscores too: an existing SHOW_CALLER becomes SHOWCALLER (same id, so people
+  // and positions keep it) instead of a second skill being added next to it
+  const skillKey = (code: string) => code.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const existingSkills = await prisma.skill.findMany();
   for (const s of seedSkills) {
-    await prisma.skill.upsert({
-      where: {code: s.code},
-      update: {name: s.name, nameMale: s.nameMale, nameFemale: s.nameFemale, type: s.type},
-      create: {code: s.code, name: s.name, nameMale: s.nameMale, nameFemale: s.nameFemale, type: s.type},
-    });
+    const existing = existingSkills.find((e) => e.code === s.code)
+      ?? existingSkills.find((e) => skillKey(e.code) === skillKey(s.code));
+    const data = {code: s.code, name: s.name, nameMale: s.nameMale, nameFemale: s.nameFemale, type: s.type};
+    if (existing) Object.assign(existing, await prisma.skill.update({where: {id: existing.id}, data}));
+    else existingSkills.push(await prisma.skill.create({data}));
     console.log(`Ensured skill: ${s.code}`);
   }
 
   console.log('Seeding positions catalog...');
   const skills = await prisma.skill.findMany();
-  const skillsByCode = Object.fromEntries(skills.map((s) => [s.code, s.id] as const));
+  const skillIdFor = (code: string) => skills.find((s) => skillKey(s.code) === skillKey(code))?.id ?? null;
 
+  // Match names like the application does (case, spacing, aliases): an existing position keeps its name
+  const existingPositions = await prisma.position.findMany();
   for (const pos of seedPositions) {
-    const skillId = pos.skillCode ? skillsByCode[pos.skillCode] : null;
-    await prisma.position.upsert({
-      where: {name: pos.name},
-      update: {isStudio: pos.isStudio, category: pos.category, sortOrder: pos.sortOrder, skillId},
-      create: {name: pos.name, isStudio: pos.isStudio, category: pos.category, sortOrder: pos.sortOrder, skillId},
-    });
-    console.log(`Ensured position: ${pos.name}`);
+    const skillId = pos.skillCode ? skillIdFor(pos.skillCode) : null;
+    const data = {isStudio: pos.isStudio, category: pos.category, sortOrder: pos.sortOrder, skillId};
+    const existing = findPositionByName(existingPositions, pos.name);
+    if (existing) await prisma.position.update({where: {id: existing.id}, data});
+    else existingPositions.push(await prisma.position.create({data: {...data, name: pos.name}}));
+    console.log(`Ensured position: ${existing?.name ?? pos.name}`);
   }
 
   console.log('Seeding position links...');
-  const posRegie = await prisma.position.findFirst({where: {name: 'Regie livestream'}});
+  const posRegie = findPositionByName(existingPositions, 'Regie livestream');
   if (posRegie) {
     const targets = ['Regie LEDscherm', 'Muziek', 'Oplopen geluid', 'Speaker'];
-    const targetPositions = await prisma.position.findMany({where: {name: {in: targets}}});
+    const targetPositions = targets.map((t) => findPositionByName(existingPositions, t)).filter((p): p is NonNullable<typeof p> => !!p);
     for (const targetPos of targetPositions) {
       await (prisma as any).positionLink.upsert({
         where: {
@@ -171,7 +177,7 @@ async function main() {
     if (!skillsMatch) {
       await prisma.personSkill.deleteMany({where: {personId: person.id}});
       for (const code of p.skillCodes) {
-        const skillId = skillsByCode[code];
+        const skillId = skillIdFor(code);
         if (skillId) {
           await prisma.personSkill.create({
             data: {personId: person.id, skillId: skillId},

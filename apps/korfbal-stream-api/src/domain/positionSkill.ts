@@ -47,15 +47,46 @@ export const POSITION_TO_SKILL: Record<string, string> = {
 
 export function getRequiredSkillCodeForPosition(name: string): string | null {
   const key = normalizePositionName(name);
-  return POSITION_TO_SKILL[key] || null;
+  if (POSITION_TO_SKILL[key]) return POSITION_TO_SKILL[key];
+  const found = findPositionByName(Object.keys(POSITION_TO_SKILL).map((n) => ({name: n})), name);
+  return found ? POSITION_TO_SKILL[found.name] : null;
 }
 
 // Default ordered list of positions to suggest for each segment
 export const DEFAULT_SEGMENT_POSITIONS: string[] = [
-  'overzicht camera',
-  'camera links',
-  'camera rechts',
-  'regie',
-  'scherm regie',
-  'commentaar',
+  'Camera overzicht',
+  'Camera links',
+  'Camera rechts',
+  'Regie livestream',
+  'Regie LEDscherm',
+  'Commentaar',
 ];
+
+/** The show caller position that every callsheet item gets; the seed creates it under this name. */
+export const SHOWCALLER_POSITION = 'Showcaller';
+
+/** Compares position names ignoring case, spaces and punctuation: "Show caller" = "Showcaller". */
+export function positionKey(name: string): string {
+  return name.toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '');
+}
+
+/** Other names in use for the same position (keys as positionKey gives them). */
+export const POSITION_ALIASES: Record<string, string> = {
+  overzichtcamera: 'cameraoverzicht',
+  regie: 'regielivestream',
+  schermregie: 'regieledscherm',
+  ledschermregie: 'regieledscherm',
+};
+
+/**
+ * The existing position meant by `name`, matching case, spacing and known aliases. Use this instead of
+ * an exact name lookup, so a slightly different spelling never creates a second position.
+ */
+export function findPositionByName<T extends { name: string }>(positions: T[], name: string): T | undefined {
+  const key = positionKey(name);
+  const byKey = (k: string) => positions.find((p) => positionKey(p.name) === k);
+  const alias = POSITION_ALIASES[key];
+  return byKey(key) ?? (alias ? byKey(alias) : undefined)
+    // Also the other way round: "Regie livestream" finds a position that is still called "regie"
+    ?? Object.entries(POSITION_ALIASES).filter(([, canonical]) => canonical === key).map(([a]) => byKey(a)).find(Boolean);
+}

@@ -5,6 +5,7 @@ import {beforeAll, beforeEach, describe, expect, it} from 'vitest';
 import {PrismaClient} from '@prisma/client';
 import {POSITION_TO_SKILL} from './positionSkill';
 import {currentSeasonId} from '../../test-helpers';
+import {findOrCreatePosition} from '../services/positions';
 
 function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
@@ -47,21 +48,60 @@ describe.runIf(runDb)('Position -> Skill mapping (integration)', () => {
     }
   });
 
-  it('GET /segments/:id/positions uses centralized mapping for requiredSkillCode', async () => {
+  it('GET /segments/:id/positions suggests existing positions and never creates any', async () => {
     // Create minimal production + segment
     const match = await prisma.matchSchedule.create({
       data: { seasonId: await currentSeasonId(prisma), externalId: 'm-map', date: new Date(), homeTeamName: 'Home', awayTeamName: 'Away', isHomeMatch: true },
     });
     const prod = await prisma.production.create({ data: { matchScheduleId: match.id } });
     const seg = await prisma.productionSegment.create({ data: { productionId: prod.id, naam: 'Intro', volgorde: 1, duurInMinuten: 5, isTimeAnchor: false } });
+    // Spelled differently from the standard list, without a skill
+    await prisma.position.create({ data: { name: 'scherm regie' } });
+    await prisma.position.create({ data: { name: 'Camera Links' } });
+    const before = await prisma.position.count();
 
     const res = await request(app).get(`/api/production/segments/${seg.id}/positions`);
     expect(res.status).toBe(200);
     const items: Array<{ name: string; requiredSkillCode: string | null }> = res.body;
-    // find scherm regie (in DEFAULT_SEGMENT_POSITIONS) -> must be SCHERM_REGISSEUR
-    const led = items.find((i) => i.name === 'scherm regie');
-    expect(led).toBeTruthy();
-    expect(led!.requiredSkillCode).toBe('SCHERM_REGISSEUR');
+    expect(items.map((i) => i.name)).toEqual(['Camera Links', 'scherm regie']);
+    // The skill comes from the central mapping
+    expect(items.find((i) => i.name === 'scherm regie')!.requiredSkillCode).toBe('SCHERM_REGISSEUR');
+    expect(await prisma.position.count()).toBe(before);
+  });
+
+  it('the seed matches existing positions and skills instead of adding a second one', async () => {
+    const skill = await prisma.skill.create({ data: { code: 'SHOW_CALLER', name: 'Show caller', nameMale: 'Show caller', nameFemale: 'Show caller' } });
+    await prisma.skill.deleteMany({ where: { code: 'SHOWCALLER' } });
+    await prisma.position.create({ data: { name: 'Show caller', skillId: skill.id } });
+    await prisma.position.create({ data: { name: 'regie' } });
+
+    run('npx prisma db seed --schema=apps/korfbal-stream-api/prisma/schema.prisma');
+
+    const names = (await prisma.position.findMany()).map((p) => p.name);
+    expect(names.filter((n) => n.toLowerCase().replace(/\s/g, '') === 'showcaller')).toEqual(['Show caller']);
+    expect(names).toContain('regie');
+    expect(names).not.toContain('Regie livestream');
+    // The old code is renamed, so the position keeps its skill under the code the application uses
+    expect((await prisma.skill.findMany({ where: { code: { in: ['SHOWCALLER', 'SHOW_CALLER'] } } })).map((s) => [s.id, s.code])).toEqual([[skill.id, 'SHOWCALLER']]);
+    // The existing position got the seed's settings
+    const regie = await prisma.position.findUnique({ where: { name: 'regie' }, include: { skill: true } });
+    expect(regie?.skill?.code).toBe('REGISSEUR');
+  });
+
+  it('POST /positions refuses a name that already exists in another spelling', async () => {
+    await prisma.position.create({ data: { name: 'Camera links' } });
+    const res = await request(app).post('/api/production/positions').send({ name: 'camera  Links' });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('Position already exists: Camera links');
+  });
+
+  it('imports reuse an existing position under another spelling', async () => {
+    const regie = await prisma.position.create({ data: { name: 'Regie livestream' } });
+    expect((await findOrCreatePosition(prisma, 'regie')).id).toBe(regie.id);
+    expect((await findOrCreatePosition(prisma, 'REGIE LIVESTREAM')).id).toBe(regie.id);
+    const created = await findOrCreatePosition(prisma, 'Camera studio', { isStudio: true });
+    expect(created).toMatchObject({ name: 'Camera studio', isStudio: true });
+    expect(await prisma.position.count()).toBe(2);
   });
 
   it('POST /segments/:id/assignments enforces required skill from centralized mapping', async () => {

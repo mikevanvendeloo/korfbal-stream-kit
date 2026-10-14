@@ -1,4 +1,5 @@
 import {Router} from 'express';
+import {findExistingPosition, findOrCreatePosition} from '../services/positions';
 import {prisma} from '../services/prisma';
 import {logger} from '../utils/logger';
 import {PersonInputSchema} from '../schemas/person';
@@ -551,7 +552,7 @@ backupRouter.post('/positions/import', async (req, res, next) => {
           isStudio: !!item.isStudio,
           skillId: skill?.id || null
         };
-        const existing = await prisma.position.findFirst({ where: { name: item.name } });
+        const existing = await findExistingPosition(prisma, item.name);
         if (existing) {
           await prisma.position.update({ where: { id: existing.id }, data: input as any });
           updated++;
@@ -800,12 +801,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
           if (Array.isArray(item.positions)) {
             for (const cData of item.positions) {
               const person = await tx.person.findFirst({ where: { name: cData.personName } });
-              let position = await tx.position.findFirst({ where: { name: cData.positionName } });
-              if (!position) {
-                position = await tx.position.create({
-                  data: { name: cData.positionName, isStudio: !!cData.isStudio }
-                });
-              }
+              let position = await findOrCreatePosition(tx, cData.positionName, { isStudio: !!cData.isStudio });
               if (person) {
                 await tx.productionPersonPosition.upsert({
                   where: {
@@ -844,12 +840,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
               if (Array.isArray(sData.assignments)) {
                 for (const bData of sData.assignments) {
                   const person = await tx.person.findFirst({ where: { name: bData.personName } });
-                  let position = await tx.position.findFirst({ where: { name: bData.positionName } });
-                  if (!position) {
-                    position = await tx.position.create({
-                      data: { name: bData.positionName, isStudio: !!bData.isStudio }
-                    });
-                  }
+                  let position = await findOrCreatePosition(tx, bData.positionName, { isStudio: !!bData.isStudio });
                   if (person) {
                     await tx.segmentRoleAssignment.create({
                       data: {
@@ -973,12 +964,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
 
                   if (Array.isArray(iData.positions)) {
                     for (const posName of iData.positions) {
-                      let position = await tx.position.findUnique({ where: { name: posName } });
-                      if (!position) {
-                        position = await tx.position.create({
-                          data: { name: posName }
-                        });
-                      }
+                      let position = await findOrCreatePosition(tx, posName);
                       await tx.callSheetItemPosition.create({
                         data: {
                           callSheetItemId: callSheetItem.id,
@@ -1020,12 +1006,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
 
               if (Array.isArray(evData.positions)) {
                 for (const posName of evData.positions) {
-                  let position = await tx.position.findUnique({ where: { name: posName } });
-                  if (!position) {
-                    position = await tx.position.create({
-                      data: { name: posName }
-                    });
-                  }
+                  let position = await findOrCreatePosition(tx, posName);
                   await tx.productionEventPosition.create({
                     data: {
                       eventId: event.id,
