@@ -4,6 +4,8 @@ import ActiveProductionPage from '../pages/ActiveProductionPage';
 import ScoreboardPage from '../pages/ScoreboardPage';
 import LiveVmixPage from '../pages/LiveVmixPage';
 import AboutPage from '../pages/AboutPage';
+import ManualView from '../handleiding/ManualView';
+import HelpButton from '../handleiding/HelpButton';
 import LiveCallsheetEntry from '../pages/LiveCallsheetEntry';
 import {PositionSelector} from '../components/PositionSelector';
 import {CallSheetView} from '../components/CallSheetView';
@@ -45,6 +47,7 @@ function LiveNav() {
             <MdSettings/>
             <span>Beheer</span>
           </Link>
+          <HelpButton/>
           <Link to="/over" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Over deze app" aria-label="Over deze app">
             <MdInfo className="w-5 h-5"/>
           </Link>
@@ -76,6 +79,8 @@ export default function LiveApp() {
             <Route path="show-caller/:productionId/:positionSlug" element={<InterviewNamesProvider><ShowCallerView/></InterviewNamesProvider>}/>
             <Route path="vmix" element={<LiveVmixPage/>}/>
             <Route path="over" element={<AboutPage/>}/>
+            <Route path="handleiding" element={<ManualView part="live"/>}/>
+            <Route path="handleiding/:chapter" element={<ManualView part="live"/>}/>
             <Route path="*" element={<NotFound/>}/>
           </Routes>
         </ErrorBoundary>

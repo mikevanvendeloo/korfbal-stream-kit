@@ -50,6 +50,7 @@
     "express": "^4.22.2",
     "html2canvas": "^1.4.1",
     "lucide-react": "^1.35.0",
+    "marked": "18.0.14",
     "multer": "^2.3.0",
     "pdfkit": "^0.17.2",
     "prisma": "^6.19.3",

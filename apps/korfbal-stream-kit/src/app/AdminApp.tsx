@@ -61,6 +61,8 @@ import ProductionTimingReportPage from "../pages/ProductionTimingReportPage";
 import {useActiveSeason, useSeasonChangedSync} from "../hooks/useSeasons";
 import ThemeToggle from "../components/ThemeToggle";
 import NotFound from "../components/NotFound";
+import ManualView from '../handleiding/ManualView';
+import HelpButton from '../handleiding/HelpButton';
 
 function AdminHome() {
   return (
@@ -214,6 +216,7 @@ function Nav() {
           <Link to={adminPaths.settings} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Instellingen" aria-label="Instellingen">
             <MdSettings className="w-5 h-5" />
           </Link>
+          <HelpButton/>
           <Link to={adminPaths.about} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Over deze app">
             <MdInfo className="w-5 h-5" />
           </Link>
@@ -271,6 +274,8 @@ export default function AdminApp() {
 
             <Route path="instellingen" element={<SettingsPage/>}/>
             <Route path="over" element={<AboutPage/>}/>
+            <Route path="handleiding" element={<ManualView part="beheer"/>}/>
+            <Route path="handleiding/:chapter" element={<ManualView part="beheer"/>}/>
             <Route path="*" element={<NotFound/>}/>
           </Routes>
         </ErrorBoundary>

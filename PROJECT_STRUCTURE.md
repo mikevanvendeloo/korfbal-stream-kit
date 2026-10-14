@@ -118,6 +118,7 @@ apps/korfbal-stream-kit/src/
 │       ├── SponsorSettingsTab.tsx     # Sponsor filter config
 │       ├── ClubSettingsTab.tsx        # Own club config
 │       └── BackupSettingsTab.tsx      # Backup export/import
+├── handleiding/               # User manual: live/*.md and beheer/*.md, ManualView, HelpButton, helpTopics (route → chapter)
 ├── components/                # Feature components
 │   ├── CallSheetView.tsx, CallSheetColumn.tsx, CallSheetItem.tsx, CallSheetTemplateSelector.tsx
 │   ├── ShowControl.tsx, ShowCallerView.tsx, TimeControls.tsx, TimeDisplay.tsx
