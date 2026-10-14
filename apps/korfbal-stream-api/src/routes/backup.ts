@@ -268,6 +268,7 @@ backupRouter.get('/producties/export', async (_req, res, next) => {
         liveTime: p.liveTime,
         report: p.productionReport ? {
           matchSponsor: p.productionReport.matchSponsor,
+          ballSponsor: p.productionReport.ballSponsor,
           interviewRationale: p.productionReport.interviewRationale,
           remarks: p.productionReport.remarks
         } : null

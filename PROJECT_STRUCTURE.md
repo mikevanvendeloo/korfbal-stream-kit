@@ -64,6 +64,7 @@ apps/korfbal-stream-api/
     │   ├── season.ts                  # Season derivation (1 Jul–30 Jun), active season, seasonId resolution, asset dirs
     │   ├── seasonAssetMigration.ts    # Startup job: moves legacy player photos/team-responses into storage/seasons/<YYYY-YYYY>/
     │   ├── production.ts              # Production report data loading
+    │   ├── reportSponsors.ts          # Match/ball sponsor name → sponsor logo (report page + PDF)
     │   ├── productionState.ts         # In-memory live state (active production/event, clocks)
     │   ├── socket.ts                  # Socket.io server + broadcastState()
     │   ├── timeSyncService.ts         # Production time / countdown
@@ -435,6 +436,7 @@ Season-bound endpoints (`GET /api/production`, `/api/production/matches`, `/api/
 | GET | /api/vmix/sponsor-slides | Sponsor slides data source (seeded) |
 | GET | /api/vmix/sponsor-names | Sponsor names data source |
 | GET | /api/vmix/sponsor-carrousel | Sponsor carrousel data source |
+| GET | /api/vmix/active-production/match | Match of the active production as one vMix row: teams, club logos, date/kickoff/attendance/live time, venue, referees, score, match + ball sponsor with logo (`services/vmixMatchInfo.ts`) |
 | GET | /api/vmix/active-production/staff | Staff of active production |
 | GET | /api/vmix/endpoints | List vMix data-source endpoints |
 | GET | /api/vmix/production/active/titles | Titles of active production |

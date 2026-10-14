@@ -2,6 +2,8 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {createUrl, extractError} from '../lib/api';
 import {PositionCategory} from './usePositions';
 
+export type ReportSponsor = { id: number; name: string; displayName?: string | null; logoUrl: string };
+
 export type ProductionReportData = {
   production: {
     id: number;
@@ -13,6 +15,7 @@ export type ProductionReportData = {
   };
   report: {
     matchSponsor?: string | null;
+    ballSponsor?: string | null;
     interviewRationale?: string | null;
     remarks?: string | null;
   } | null;
@@ -24,7 +27,7 @@ export type ProductionReportData = {
       away: { players: any[]; coaches: any[] };
     };
   };
-  sponsors: { id: number; name: string }[];
+  sponsors: ReportSponsor[];
 };
 
 export function useProductionReport(productionId: number) {
@@ -42,7 +45,7 @@ export function useProductionReport(productionId: number) {
 export function useSaveProductionReport(productionId: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { matchSponsor: string | null; interviewRationale: string | null; remarks: string | null }) => {
+    mutationFn: async (data: { matchSponsor: string | null; ballSponsor: string | null; interviewRationale: string | null; remarks: string | null }) => {
       const res = await fetch(createUrl(`/api/production/${productionId}/report`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

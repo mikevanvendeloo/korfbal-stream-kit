@@ -120,6 +120,7 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
         liveTime: production.liveTime,
         report: production.productionReport ? {
           matchSponsor: production.productionReport.matchSponsor,
+          ballSponsor: production.productionReport.ballSponsor,
           interviewRationale: production.productionReport.interviewRationale,
           remarks: production.productionReport.remarks
         } : null

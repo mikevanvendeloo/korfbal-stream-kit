@@ -8,7 +8,7 @@ De API is de centrale bron voor alles wat een productieteam tijdens een uitzendi
 
 - **Producties en callsheets** – wedstrijden, crew, posities en het draaiboek per productie.
 - **Live show control** – het actieve callsheet-item, klokken en auto-advance, realtime gedeeld via Socket.io.
-- **vMix-integratie** – databronnen voor titles (crew, sponsors, interviews, callsheet-timing) en het direct pushen van tekst en kleuren naar vMix.
+- **vMix-integratie** – databronnen voor titles (crew, sponsors, interviews, wedstrijdinformatie, callsheet-timing) en het direct pushen van tekst en kleuren naar vMix, per functie naar de gekozen vMix-pc.
 - **Sponsors, clubs en spelers** – beheer, import uit de KNKV en sponsorrotaties.
 - **Wedstrijdplanning** – import uit de wedstrijdplanning-API, ingedeeld per seizoen.
 

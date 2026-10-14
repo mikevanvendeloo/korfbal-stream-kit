@@ -465,6 +465,7 @@ model ProductionReport {
   id                 Int        @id @default(autoincrement())
   productionId       Int        @unique
   matchSponsor       String?
+  ballSponsor        String?
   interviewRationale String?
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt

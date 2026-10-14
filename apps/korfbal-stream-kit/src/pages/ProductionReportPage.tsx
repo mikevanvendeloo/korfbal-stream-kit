@@ -14,6 +14,7 @@ import {Club, useClubs} from '../hooks/useClubs';
 import ClubLogo from '../components/ClubLogo';
 import {useProductionTiming} from '../hooks/useProductions';
 import {PositionCategory} from "../hooks/usePositions";
+import SponsorField from '../components/SponsorField';
 
 const categoryLabels: Record<PositionCategory, string> = {
   [PositionCategory.ENTERTAINMENT]: 'Entertainment',
@@ -58,6 +59,7 @@ export default function ProductionReportPage() {
   const timing = useProductionTiming(productionId);
 
   const [matchSponsor, setMatchSponsor] = useState('');
+  const [ballSponsor, setBallSponsor] = useState('');
   const [interviewRationale, setInterviewRationale] = useState('');
   const [remarks, setRemarks] = useState('');
   const [whatsappCopied, setWhatsappCopied] = useState(false);
@@ -65,6 +67,7 @@ export default function ProductionReportPage() {
   useEffect(() => {
     if (data?.report) {
       setMatchSponsor(data.report.matchSponsor || '');
+      setBallSponsor(data.report.ballSponsor || '');
       setInterviewRationale(data.report.interviewRationale || '');
       setRemarks(data.report.remarks || '');
     }
@@ -79,6 +82,7 @@ export default function ProductionReportPage() {
     try {
       await saveMutation.mutateAsync({
         matchSponsor: matchSponsor || null,
+        ballSponsor: ballSponsor || null,
         interviewRationale: interviewRationale || null,
         remarks: remarks || null,
       });
@@ -353,29 +357,9 @@ export default function ProductionReportPage() {
           )}
         </div>
 
-        <div className="border rounded p-4 dark:border-gray-700">
-          <label className="block text-sm font-medium mb-2">Wedstrijdsponsor:</label>
-          <div className="flex gap-2">
-            <select
-              value={matchSponsor}
-              onChange={(e) => setMatchSponsor(e.target.value)}
-              className="flex-1 px-3 py-2 border rounded dark:bg-gray-900 dark:border-gray-700"
-            >
-              <option value="">-- Selecteer een sponsor of typ hieronder --</option>
-              {data.sponsors.map((sponsor) => (
-                <option key={sponsor.id} value={sponsor.name}>
-                  {sponsor.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <input
-            type="text"
-            value={matchSponsor}
-            onChange={(e) => setMatchSponsor(e.target.value)}
-            className="w-full mt-2 px-3 py-2 border rounded dark:bg-gray-900 dark:border-gray-700"
-            placeholder="Of typ hier een vrije tekst sponsor naam"
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <SponsorField id="match-sponsor" label="Wedstrijdsponsor" value={matchSponsor} onChange={setMatchSponsor} sponsors={data.sponsors}/>
+          <SponsorField id="ball-sponsor" label="Balsponsor" value={ballSponsor} onChange={setBallSponsor} sponsors={data.sponsors}/>
         </div>
 
         <div className="border rounded p-4 dark:border-gray-700">

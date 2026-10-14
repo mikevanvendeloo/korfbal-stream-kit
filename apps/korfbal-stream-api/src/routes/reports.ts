@@ -294,6 +294,7 @@ reportsRouter.get('/interviews', async (req, res, next) => {
         awayInterviews,
         remarks: p.productionReport?.remarks,
         matchSponsor: p.productionReport?.matchSponsor,
+        ballSponsor: p.productionReport?.ballSponsor,
       };
     });
 

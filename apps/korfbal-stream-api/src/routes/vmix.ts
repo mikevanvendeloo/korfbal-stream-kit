@@ -22,6 +22,7 @@ import {shuffle} from "../utils/array-utils";
 import os from 'node:os';
 import {loadCallsheetTiming, parsePositions} from '../services/callsheetTiming';
 import {getCallsheetPushConfig, pushCallsheetToVmix} from '../services/vmixCallsheetPush';
+import {buildVmixMatchInfo, loadActiveMatchInput} from '../services/vmixMatchInfo';
 
 export const vmixRouter: Router = Router();
 export const adminVmixRouter: Router = Router();
@@ -592,6 +593,20 @@ vmixRouter.get('/sponsor-carrousel', async (_req, res, next) => {
   }
 });
 
+// GET /api/vmix/active-production/match
+// One row with the match of the active production (teams, logos, times, venue, referees, score, sponsors),
+// for vMix title fields. Without an active production all fields are empty, so the title clears.
+vmixRouter.get('/active-production/match', async (req, res, next) => {
+  try {
+    // Images as full URLs on the address vMix used to reach us
+    const assetBaseUrl = `${req.protocol}://${req.get('host')}/uploads`;
+    return res.json([buildVmixMatchInfo(await loadActiveMatchInput(), assetBaseUrl)]);
+  } catch (err) {
+    logger.error('GET /vmix/active-production/match failed', err as any);
+    return next(err);
+  }
+});
+
 vmixRouter.get('/active-production/staff', async (req, res, next) => {
   try {
     // === Stap 1: Vind de "actieve" productie ===
@@ -763,6 +778,11 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
         name: 'Sponsor Carrousel',
         url: `${baseUrl}/sponsor-carrousel`,
         description: 'Returns list of sponsors for carousel.'
+      },
+      {
+        name: 'Wedstrijdinformatie (actieve productie)',
+        url: `${baseUrl}/active-production/match`,
+        description: 'Teams, clublogo\'s, datum, aanvangs-, verzamel- en livetijd, zaal, veld, scheidsrechters, score, wedstrijd- en balsponsor (met logo).'
       },
       {
         name: 'Active Production Staff',

@@ -206,7 +206,7 @@ function DailyOccupancyReport() {
       const pDate = new Date(p.date).toISOString().split('T')[0];
       const hasInterviews = p.homeInterviews.length > 0 || p.awayInterviews.length > 0;
       const hasRemarks = !!p.remarks;
-      const hasSponsor = !!p.matchSponsor;
+      const hasSponsor = !!p.matchSponsor || !!p.ballSponsor;
       return pDate === date && (hasInterviews || hasRemarks || hasSponsor);
     });
   }, [interviewsData, date]);
@@ -280,6 +280,9 @@ function DailyOccupancyReport() {
                         )}
                         {prod.matchSponsor && (
                           <span className="text-xs text-blue-600 dark:text-blue-400 italic">Sponsor: {prod.matchSponsor}</span>
+                        )}
+                        {prod.ballSponsor && (
+                          <span className="text-xs text-blue-600 dark:text-blue-400 italic">Balsponsor: {prod.ballSponsor}</span>
                         )}
                       </div>
                     </div>
@@ -410,6 +413,10 @@ function InterviewsReport() {
       }),
       helper.accessor('matchSponsor', {
         header: 'Sponsor',
+        cell: info => <span className="text-sm font-medium">{info.getValue() || '-'}</span>,
+      }),
+      helper.accessor('ballSponsor', {
+        header: 'Balsponsor',
         cell: info => <span className="text-sm font-medium">{info.getValue() || '-'}</span>,
       }),
     ];

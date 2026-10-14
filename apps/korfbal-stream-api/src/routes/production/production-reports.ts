@@ -8,6 +8,7 @@ import {getProductionReportData, ProductionWithData} from "../../services/produc
 import {logger} from "../../utils/logger";
 import fs from "node:fs";
 import {getAssetsRoot} from "../../services/config";
+import {findSponsorByName, sponsorLogoFile, sponsorLogoPath} from "../../services/reportSponsors";
 
 export const productionReportsRouter: Router = Router();
 
@@ -16,6 +17,7 @@ export const productionReportsRouter: Router = Router();
 // Schema's voor validatie
 const CreateUpdateProductionReportSchema = z.object({
   matchSponsor: z.string().max(200).optional().nullable(),
+  ballSponsor: z.string().max(200).optional().nullable(),
   interviewRationale: z.string().max(5000).optional().nullable(),
   remarks: z.string().max(5000).optional().nullable(),
 });
@@ -124,12 +126,12 @@ productionReportsRouter.post('/:id/report', async (req, res, next) => {
       return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid payload' });
     }
 
-    const { matchSponsor, interviewRationale, remarks } = parsed.data;
+    const { matchSponsor, ballSponsor, interviewRationale, remarks } = parsed.data;
 
     const report = await prisma.productionReport.upsert({
       where: { productionId: id },
-      create: { productionId: id, matchSponsor, interviewRationale, remarks },
-      update: { matchSponsor, interviewRationale, remarks },
+      create: { productionId: id, matchSponsor, ballSponsor, interviewRationale, remarks },
+      update: { matchSponsor, ballSponsor, interviewRationale, remarks },
     });
 
     return res.json(report);
@@ -162,7 +164,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
 
-    const { production, attendees, crewByCategory, interviews } = await getProductionReportData(id);
+    const { production, attendees, crewByCategory, interviews, sponsors } = await getProductionReportData(id);
     const { matchSchedule, productionReport } = production;
 
     let doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -344,11 +346,26 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
     doc.moveDown(1);
     doc.x = doc.page.margins.left;
 
-    if (productionReport?.matchSponsor) {
-      doc.fontSize(12).font('Helvetica-Bold').text('Wedstrijdsponsor');
-      doc.font('Helvetica').fontSize(10).text(productionReport.matchSponsor);
-      doc.moveDown(1.5);
-    }
+    // Sponsors, each with its logo when the name matches a sponsor that has a PNG/JPEG logo
+    const renderSponsor = (label: string, name: string | null | undefined) => {
+      if (!name) return;
+      doc.fontSize(12).font('Helvetica-Bold').text(label);
+      doc.font('Helvetica').fontSize(10).text(name);
+      const logo = sponsorLogoFile(sponsorLogoPath(findSponsorByName(name, sponsors)));
+      if (logo) {
+        const top = doc.y + 4;
+        try {
+          doc.image(logo, doc.page.margins.left, top, { fit: [140, 50] });
+          doc.y = top + 54;
+        } catch (err) {
+          logger.warn('Sponsor logo could not be drawn in the report', { logo, err } as any);
+        }
+      }
+      doc.x = doc.page.margins.left;
+      doc.moveDown(1);
+    };
+    renderSponsor('Wedstrijdsponsor', productionReport?.matchSponsor);
+    renderSponsor('Balsponsor', productionReport?.ballSponsor);
 
     if (productionReport?.remarks) {
       doc.fontSize(12).font('Helvetica-Bold').text('Opmerkingen');
@@ -617,6 +634,10 @@ productionReportsRouter.get('/:id/report/markdown', async (req, res, next) => {
       markdown += `## Wedstrijdsponsor\n\n`;
       markdown += `${report.matchSponsor}\n\n`;
     }
+    if (report?.ballSponsor) {
+      markdown += `## Balsponsor\n\n`;
+      markdown += `${report.ballSponsor}\n\n`;
+    }
 
     // Positie bezetting
     markdown += `## Positie bezetting\n\n`;
@@ -863,6 +884,10 @@ productionReportsRouter.get('/:id/report/whatsapp', async (req, res, next) => {
     if (report?.matchSponsor) {
       text += `*🤝 Wedstrijdsponsor*\n`;
       text += `${report.matchSponsor}\n\n`;
+    }
+    if (report?.ballSponsor) {
+      text += `*🏐 Balsponsor*\n`;
+      text += `${report.ballSponsor}\n\n`;
     }
 
     // Positie bezetting
