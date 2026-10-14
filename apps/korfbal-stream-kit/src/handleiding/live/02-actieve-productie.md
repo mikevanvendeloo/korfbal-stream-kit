@@ -27,11 +27,7 @@ De lijsten tonen de spelers en coaches van de club van die ploeg, voor dit seizo
 
 Druk daarna op **Interview opslaan**. Pas dan is de keuze bewaard. De kaart **Interviews** toont dan de gekozen personen met foto, en de namen verschijnen binnen ongeveer 10 seconden op de callsheets en in de vMix-titels.
 
-> **Let op:** opslaan vervangt de hele interviewkeuze van deze productie.
-> - Een lijst die op **— kies —** staat, wist dat interview.
-> - Keuzes die in Beheer per titel zijn gemaakt, worden ook overschreven.
->
-> Kies daarom altijd alle vier opnieuw voordat je opslaat.
+> **Let op:** opslaan vervangt de hele interviewkeuze van deze productie. Een lijst die op **— kies —** staat, wist dat interview. Kies daarom altijd alle vier opnieuw voordat je opslaat.
 
 ## Namen in de callsheet
 

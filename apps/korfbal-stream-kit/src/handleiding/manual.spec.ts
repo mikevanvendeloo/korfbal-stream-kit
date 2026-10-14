@@ -41,7 +41,37 @@ describe('manual files', () => {
   });
 });
 
+describe('links in the manual', () => {
+  it('only point at chapters and sections that exist', () => {
+    const all = [...manualChapters('live'), ...manualChapters('beheer')];
+    for (const chapter of all) {
+      for (const [, base, slug, section] of chapter.markdown.matchAll(/\]\((\/(?:admin\/)?handleiding)\/([a-z0-9-]+)(?:#([a-z0-9-]+))?\)/g)) {
+        const part = base === '/handleiding' ? 'live' : 'beheer';
+        const target = manualChapters(part).find((c) => c.slug === slug);
+        expect(target, `${chapter.slug} → ${base}/${slug}`).toBeTruthy();
+        // Every heading gets an anchor, also the ### ones that the table of contents leaves out
+        const anchors = [...(target?.markdown ?? '').matchAll(/^#{2,6} (.+)$/gm)].map(([, t]) => headingId(t.trim()));
+        if (section) expect(anchors, `${chapter.slug} → #${section}`).toContain(section);
+      }
+    }
+  });
+});
+
 describe('help topics', () => {
+  it('every Beheer screen points at an existing chapter and section', () => {
+    const paths = ['/admin', '/admin/producties', '/admin/producties/5', '/admin/producties/5/callsheets/2', '/admin/producties/5/beschikbaarheid',
+      '/admin/producties/5/bezetting', '/admin/producties/5/vmix-titels', '/admin/producties/5/rapport/crew', '/admin/draaiboeken/templates',
+      '/admin/stamgegevens/personen', '/admin/stamgegevens/clubs', '/admin/stamgegevens/sponsors', '/admin/stamgegevens/vmix-koppeling',
+      '/admin/stamgegevens/vmix-datasources', '/admin/rapportages/crew', '/admin/instellingen', '/admin/overig/qr'];
+    const chapters = manualChapters('beheer');
+    for (const path of paths) {
+      const topic = helpTopicFor(path);
+      const chapter = chapters.find((c) => c.slug === topic.chapter);
+      expect(chapter, path).toBeTruthy();
+      if (topic.section) expect(chapter?.sections.map((s) => s.id), path).toContain(topic.section);
+    }
+  });
+
   it('opens the chapter about the current screen', () => {
     expect(manualPath(helpTopicFor('/show-caller/7/regie'))).toBe('/handleiding/show-caller');
     expect(manualPath(helpTopicFor('/admin/producties/5/beschikbaarheid'))).toBe('/admin/handleiding/bezetting#beschikbaarheid');

@@ -29,6 +29,7 @@ const RULES: Array<[RegExp, HelpTopic]> = [
   [/^\/admin\/stamgegevens/, {part: 'beheer', chapter: 'stamgegevens', section: 'crew'}],
   [/^\/admin\/rapportages/, {part: 'beheer', chapter: 'rapportages'}],
   [/^\/admin\/instellingen/, {part: 'beheer', chapter: 'instellingen'}],
+  [/^\/admin\/overig\/qr/, {part: 'beheer', chapter: 'aan-de-slag', section: 'qr-generator'}],
   [/^\/admin/, {part: 'beheer', chapter: 'aan-de-slag'}],
 ];
 
