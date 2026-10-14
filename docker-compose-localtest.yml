@@ -6,9 +6,11 @@
 #   Terug naar het startpunt:    docker compose -f docker-compose-localtest.yml down -v
 #                                docker compose -f docker-compose-localtest.yml up -d
 #   Andere backup:               LOCALTEST_SQL=/pad/naar/dump.sql docker compose -f docker-compose-localtest.yml up -d
+#   Andere afbeeldingenmap:      LOCALTEST_STORAGE=/pad/naar/storage docker compose -f docker-compose-localtest.yml up -d
 #
-# Frontend: http://localhost:8080   API: http://localhost:3334   Postgres: localhost:5433 (fortuna/streamz)
-# `down -v` wist alleen de volumes van deze testomgeving (database + storage/uploads), niets anders.
+# Frontend: http://localhost   API: http://localhost:3334   Postgres: localhost:5433 (fortuna/streamz)
+# `down -v` wist alleen de database van deze testomgeving. Afbeeldingen (spelers, sponsors, clubs) staan op je
+# eigen schijf in ./storage, dus die blijven bij down/up en stroomuitval gewoon staan.
 name: korfbal-localtest
 
 services:
@@ -72,7 +74,6 @@ services:
       MATCH_SCHEDULE_BASE_URL: "https://api.sportclubvrijwilligersmanagement.nl/v1"
       PORT: 3333
       ASSETS_DIR: /app/storage
-      UPLOADS_DIR: /app/uploads
     depends_on:
       streamz-db:
         condition: service_healthy
@@ -81,9 +82,9 @@ services:
     ports:
       - "3334:3333"
     volumes:
-      # Named volumes: nemen de rechten van de image over (uid 1000), anders dan een bind-mount.
-      - storage:/app/storage
-      - uploads:/app/uploads
+      # Bind-mount naar je eigen schijf; de API (uid 1000) moet erin kunnen schrijven. Op macOS regelt
+      # Docker Desktop dat; op Linux eenmalig: sudo chown -R 1000:1000 storage
+      - ${LOCALTEST_STORAGE:-./storage}:/app/storage
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3333/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       interval: 10s
@@ -106,8 +107,6 @@ services:
 
 volumes:
   db-data:
-  storage:
-  uploads:
 
 networks:
   korfbal-network:
