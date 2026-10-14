@@ -222,6 +222,43 @@ describe('Clubs import from league teams index', () => {
     expect(res.body.playersCreated).toBe(1);
   });
 
+  it('imports a team whose page has no pool yet (start of a season)', async () => {
+    const g: any = globalThis as any;
+    const templateBodies: any[] = [];
+    (g.fetch as any)
+      .mockImplementationOnce(async () => new Response('<a href="/team/blauw-wit-a/">Blauw-Wit</a>', { status: 200 }))
+      // Team page as league.korfbal.nl serves it before the pools are set: pool_ids is empty
+      .mockImplementationOnce(async () => {
+        const ctx = { 'preferred-group': '{cookie.keycloak_token--preferred-group}', tenant: 'league', pool_ids: [], team_id: '10', language: 'nl' };
+        const html = `<div class="page-wrapper" data-layout_context="${JSON.stringify(ctx).replace(/"/g, '&quot;')}">Team</div>`;
+        return new Response(html, { status: 200 }) as any;
+      })
+      // The roster (person cards) request, answered like the real API does without a pool
+      .mockImplementationOnce(async (_url: any, init: any) => {
+        templateBodies.push(JSON.parse(init.body));
+        return new Response(JSON.stringify({ found: true, statusCode: 200, data: { cards: [
+          { status: 'active', ref_id: 'NHJ13W7', full_name: 'Jessica Jansen', gender: 'F', shirt_number: '7',
+            team: { club_name: 'Blauw-Wit (A)', team_name_short: 'Blauw-Wit', logo: { url: 'https://example.com/bw.png' } } },
+          { status: 'inactive', ref_id: 'OLD1', full_name: 'Oud Lid', gender: 'M' },
+        ] } }), { status: 200, headers: { 'content-type': 'application/json' } }) as any;
+      })
+      .mockImplementation(async () => new Response(new Uint8Array([137, 80, 78, 71]), { status: 200, headers: { 'content-type': 'image/png' } }) as any);
+
+    const res = await request(app).post('/api/clubs/import/league-teams').send({ limit: 1 });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ ok: true, clubsCreated: 1, playersCreated: 1 });
+    expect(templateBodies[0].context).toMatchObject({ team_id: '10', pool_ids: [] });
+    expect(players.map((p) => p.name)).toEqual(['Jessica Jansen']);
+  });
+
+  it('accepts a single team without a pool on the plain import', async () => {
+    const g: any = globalThis as any;
+    (g.fetch as any).mockImplementation(async () => new Response(JSON.stringify({ data: { cards: [] } }), { status: 200 }) as any);
+    const res = await request(app).post('/api/clubs/import').send({ teamId: '10' });
+    expect(res.status).toBe(200);
+  });
+
   it('returns 400 when no team pages yield ids', async () => {
     // Override fetch for index to include a bad team page that doesn't contain an API URL
     (g.fetch as any).mockImplementationOnce(async () => new Response('<a href="/team/bad/">Bad</a>', { status: 200 }))

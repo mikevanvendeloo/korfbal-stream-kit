@@ -101,10 +101,11 @@ export default function ClubsPage() {
     try {
       if (apiUrl.trim()) {
         await importClubs.mutateAsync({apiUrl: apiUrl.trim()});
-      } else if (teamId.trim() && poolId.trim()) {
-        await importClubs.mutateAsync({teamId: teamId.trim(), poolId: poolId.trim()});
+      } else if (teamId.trim()) {
+        // The pool is optional: at the start of a season the teams don't have one yet
+        await importClubs.mutateAsync({teamId: teamId.trim(), poolId: poolId.trim() || undefined});
       } else {
-        setMsg('Vul een API URL in of zowel teamId als poolId.');
+        setMsg('Vul een API URL of een teamId in.');
         return;
       }
       setMsg('Import voltooid. Gegevens bijgewerkt.');
@@ -470,7 +471,7 @@ export default function ClubsPage() {
             <details>
               <summary className="cursor-pointer text-sm mb-2">Handmatige import (optioneel)</summary>
               <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">Voer een Korfbal League team API URL in, of
-                geef teamId + poolId op voor een specifieke club.</p>
+                geef een teamId op (poolId alleen als de club in een poule is ingedeeld).</p>
               <form className="space-y-3" onSubmit={onImport}>
                 <div>
                   <label className="block text-sm mb-1">Team API URL</label>
@@ -494,7 +495,7 @@ export default function ClubsPage() {
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-sm mb-1">poolId</label>
+                    <label className="block text-sm mb-1">poolId (optioneel)</label>
                     <input
                       type="text"
                       className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-950"
