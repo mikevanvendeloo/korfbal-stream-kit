@@ -120,6 +120,18 @@ describe.runIf(runDb)('vMix callsheet timing (integration)', () => {
     expect(timing.body[0].nextTitle).toBe('Interview J. de Coach & speler thuis');
   });
 
+  it('reads settings saved with several positions as the first one', async () => {
+    // As stored before only one position was allowed
+    await setSetting(VMIX_CALLSHEET_PUSH_KEY, {enabled: false, input: 'Callsheet', positions: ['Callsheet Int Camera', 'Callsheet Int Presentatie']});
+    const res = await request(app).get('/api/settings/vmix-callsheet-push');
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({input: 'Callsheet', positions: ['Callsheet Int Camera']});
+
+    // The timing follows that one position
+    const timing = await request(app).get('/api/vmix/callsheet/timing');
+    expect(timing.body[0].positions).toBe('Callsheet Int Camera');
+  });
+
   it('refuses more than one position in the push settings', async () => {
     const res = await request(app).put('/api/settings/vmix-callsheet-push').send({positions: ['Callsheet Int Presentatie', 'Callsheet Int Camera']});
     expect(res.status).toBe(400);
