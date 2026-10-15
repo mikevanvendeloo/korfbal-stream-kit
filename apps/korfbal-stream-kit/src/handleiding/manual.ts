@@ -58,6 +58,10 @@ const md = new Marked({
     heading({tokens, depth, text}) {
       return `<h${depth} id="${headingId(text)}">${this.parser.parseInline(tokens)}</h${depth}>\n`;
     },
+    // Checklists ("- [ ] …") can be ticked off while you work through them; nothing is saved
+    checkbox({checked}) {
+      return `<input type="checkbox" class="manual-check"${checked ? ' checked' : ''}> `;
+    },
   },
 });
 

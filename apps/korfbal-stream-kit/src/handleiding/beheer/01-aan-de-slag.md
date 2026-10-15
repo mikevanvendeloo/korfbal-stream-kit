@@ -28,7 +28,7 @@ Rechtsboven:
 3. Richt vMix in ([vMix koppelen](/admin/handleiding/vmix)).
 4. Maak of controleer de draaiboek- en segment-templates ([Draaiboek-templates](/admin/handleiding/draaiboek-templates)).
 
-**Per wedstrijd**
+**Per wedstrijd** (verkort als afvinklijst in [De week voor de livestream](/admin/handleiding/week-voor-de-livestream))
 
 1. Maak de productie aan en zet hem **actief** ([Producties](/admin/handleiding/producties)).
 2. Kies het draaiboek en controleer de tijden ([Het draaiboek](/admin/handleiding/draaiboek)).

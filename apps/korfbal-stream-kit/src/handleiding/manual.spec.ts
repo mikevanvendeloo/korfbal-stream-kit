@@ -18,6 +18,13 @@ describe('manual files', () => {
     expect(renderManual('## Kleuren & tijden')).toContain('<h2 id="kleuren-tijden">Kleuren &amp; tijden</h2>');
   });
 
+  it('renders checklists with boxes you can tick', () => {
+    const html = renderManual('- [ ] Aanwezigheid invullen\n- [x] Klaar');
+    expect(html).toContain('<input type="checkbox" class="manual-check"> Aanwezigheid invullen');
+    expect(html).toContain('<input type="checkbox" class="manual-check" checked> Klaar');
+    expect(html).not.toContain('disabled');
+  });
+
   it('bundles both parts, in file order', () => {
     const live = manualChapters('live');
     expect(live.length).toBeGreaterThan(0);
