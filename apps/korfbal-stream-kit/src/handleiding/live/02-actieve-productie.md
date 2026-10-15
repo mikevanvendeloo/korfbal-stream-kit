@@ -1,0 +1,34 @@
+# Actieve productie
+
+De startpagina van LIVE (`/`) laat de wedstrijd zien die in Beheer actief is gezet. Staat er **Geen actieve productie.**, dan is er nog geen productie actief gemaakt; dat gebeurt in Beheer.
+
+Bovenaan staan de ploegen met hun logo, de datum, het tijdstip en de zaal.
+
+## Tijdschema
+
+Het tijdschema laat zien wanneer wat begint:
+
+- **Verzamelen**: altijd 30 minuten voor de start van de livestream.
+- Elk **segment** met zijn volgorde, naam, duur en begintijd. Het segment met het blauwe anker is het tijdanker: daar wordt het hele schema op uitgerekend.
+- **Einde Livestream**: de start van de livestream plus de duur van alle segmenten.
+
+## Crew
+
+Per groep (**Algemeen**, **Techniek**, **Entertainment**) zie je wie er staat en op welke positie. Staat er **Geen crew toegewezen**, dan is de bezetting voor die groep nog niet ingevuld in Beheer.
+
+## Interviews kiezen
+
+Rechts staan de interviews. In het blok **Interview selectie** kies je per ploeg wie er geïnterviewd wordt:
+
+- **Thuis – speler/speelster** en **Uit – speler/speelster**
+- **Thuis – coach** en **Uit – coach**
+
+De lijsten tonen de spelers en coaches van de club van die ploeg, voor dit seizoen. Is een lijst leeg, dan herkent de app de club bij de teamnaam niet, of zijn de spelers van dat seizoen nog niet geïmporteerd (beide in Beheer).
+
+Druk daarna op **Interview opslaan**. Pas dan is de keuze bewaard. De kaart **Interviews** toont dan de gekozen personen met foto, en de namen verschijnen binnen ongeveer 10 seconden op de callsheets en in de vMix-titels.
+
+> **Let op:** opslaan vervangt de hele interviewkeuze van deze productie. Een lijst die op **— kies —** staat, wist dat interview. Kies daarom altijd alle vier opnieuw voordat je opslaat.
+
+## Namen in de callsheet
+
+Callsheet-items kunnen een plek voor een interviewnaam bevatten, zoals *Interview {coach-uit}*. Na het opslaan staat daar de gekozen naam. Zolang er nog niemand gekozen is, zie je een lichtere tekst als **coach uit** of **speler tegenstander**. Meer daarover in [De callsheet](/handleiding/callsheet#interviewnamen).
