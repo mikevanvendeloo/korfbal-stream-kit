@@ -91,6 +91,18 @@ export function useProductions() {
   });
 }
 
+/** The production LIVE follows, independent of the active season. */
+export function useActiveProduction() {
+  return useQuery({
+    queryKey: ['productions', 'active'],
+    queryFn: async (): Promise<Production | null> => {
+      const res = await fetch(createUrl('/api/production/active'));
+      if (!res.ok) throw new Error(await extractError(res));
+      return (await res.json()).item;
+    },
+  });
+}
+
 export function useProduction(id: number) {
   return useQuery({
     queryKey: ['production', id],

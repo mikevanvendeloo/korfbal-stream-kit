@@ -179,6 +179,22 @@ productionRouter.post('/', async (req, res, next) => {
   }
 });
 
+// GET /api/production/active -> the active production, whatever the active season.
+// LIVE follows it: when a new season is made active while last season's production still runs,
+// the season-bound list above would not contain it.
+productionRouter.get('/active', async (_req, res, next) => {
+  try {
+    const item = await prisma.production.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+      include: { matchSchedule: true },
+    });
+    return res.json({ item });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // GET /api/production -> list productions with match details
 productionRouter.get('/', async (req, res, next) => {
   try {

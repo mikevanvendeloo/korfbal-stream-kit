@@ -1,4 +1,4 @@
-import {useProductionCrew, useProductionInterviews, useProductions, useProductionTiming} from '../hooks/useProductions';
+import {useActiveProduction, useProductionCrew, useProductionInterviews, useProductionTiming} from '../hooks/useProductions';
 import ProductionHeader from '../components/ProductionHeader';
 import {MdAnchor} from 'react-icons/md';
 import {PositionCategory} from "../hooks/usePositions";
@@ -12,9 +12,8 @@ const categoryLabels: Record<PositionCategory, string> = {
 };
 
 export default function ActiveProductionPage() {
-  const { data, isLoading, error } = useProductions();
+  const { data: active, isLoading, error } = useActiveProduction();
 
-  const active = data?.items.find((p) => p.isActive);
   const timing = useProductionTiming(active?.id || 0);
   const crew = useProductionCrew(active?.id || 0);
   const interviews = useProductionInterviews(active?.id || 0);

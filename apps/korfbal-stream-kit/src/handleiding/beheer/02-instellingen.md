@@ -17,7 +17,6 @@ Doe het in deze volgorde:
 > - Spelers komen in het **actieve** seizoen. Activeer het nieuwe seizoen dus vóór je spelers importeert.
 > - Wedstrijden komen in het seizoen van hun **speeldatum**, wat het actieve seizoen ook is. Begint het seizoen pas over een tijd, dan komen de latere wedstrijden pas binnen als je de import later herhaalt.
 > - Een import kun je gerust herhalen: nieuwe gegevens worden toegevoegd, bestaande bijgewerkt. Afgelaste wedstrijden en vertrokken spelers worden niet verwijderd.
-> - Zet ook een productie van het nieuwe seizoen op **actief**. LIVE toont alleen een actieve productie uit het actieve seizoen.
 
 ## Seizoen
 

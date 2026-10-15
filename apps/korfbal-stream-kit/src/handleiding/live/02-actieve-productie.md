@@ -1,6 +1,6 @@
 # Actieve productie
 
-De startpagina van LIVE (`/`) laat de wedstrijd zien die in Beheer actief is gezet. Staat er **Geen actieve productie.**, dan is er nog geen productie actief gemaakt; dat gebeurt in Beheer.
+De startpagina van LIVE (`/`) laat de wedstrijd zien die in Beheer actief is gezet, ook als die bij een ander seizoen hoort dan het actieve seizoen. Staat er **Geen actieve productie.**, dan is er nog geen productie actief gemaakt; dat gebeurt in Beheer.
 
 Bovenaan staan de ploegen met hun logo, de datum, het tijdstip en de zaal.
 

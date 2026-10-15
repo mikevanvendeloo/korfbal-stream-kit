@@ -4,7 +4,7 @@ import ScoreboardPage from './ScoreboardPage';
 
 // Mock react-query powered hooks used by ScoreboardPage to avoid needing a QueryClientProvider
 vi.mock('../hooks/useProductions', () => ({
-  useProductions: () => ({ data: { items: [] } }),
+  useActiveProduction: () => ({ data: null }),
 }));
 vi.mock('../hooks/useClubs', () => ({
   useClubs: () => ({ data: [] }),

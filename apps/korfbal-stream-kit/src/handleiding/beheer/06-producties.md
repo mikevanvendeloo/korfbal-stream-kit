@@ -27,8 +27,6 @@ Daarna kies je op het tabblad **Draaiboek** het draaiboek (zie [Het draaiboek](/
 LIVE volgt altijd de **actieve** productie. Klik bij de juiste productie op **Activeren**. Er is altijd maar één actieve productie: de vorige wordt automatisch uitgezet.
 
 > Loopt er op dat moment een show in LIVE van een andere productie, dan wordt die gestopt. Activeer dus niet tijdens een uitzending.
->
-> Laat bij de start van een nieuw seizoen niet de productie van vorig seizoen actief staan: LIVE toont alleen producties uit het actieve seizoen.
 
 ## Wijzigen en verwijderen
 
