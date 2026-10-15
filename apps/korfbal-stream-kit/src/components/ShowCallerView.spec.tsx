@@ -86,9 +86,46 @@ describe('ShowCallerView', () => {
     expect(controls.reset).toHaveBeenCalledOnce();
 
     openMenu();
-    fireEvent.click(screen.getByRole('button', {name: /Einde Show/i}));
+    fireEvent.click(screen.getByRole('button', {name: /Stream Stoppen/i}));
     expect(controls.stop).toHaveBeenCalledOnce();
     expect(confirm).toHaveBeenCalledTimes(2);
+    confirm.mockRestore();
+  });
+
+  it('sets the remaining time of the current item with Zet 15s / 30s / 60s', () => {
+    renderView();
+    const presets = screen.getByRole('group', {name: 'Resterend instellen'});
+    expect(presets.textContent).toBe('Zet15s30s60s');
+    fireEvent.click(screen.getByRole('button', {name: 'Resterend 60 seconden'}));
+    expect(controls.setRemaining).toHaveBeenCalledWith(60);
+  });
+
+  it('stops the show with the red button, after confirming', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    renderView();
+    fireEvent.click(screen.getByRole('button', {name: 'Einde show'}));
+    expect(controls.stop).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', {name: 'Einde show'}));
+    expect(controls.stop).toHaveBeenCalledOnce();
+    confirm.mockRestore();
+  });
+
+  it('asks before restarting a running show, but starts a new one right away', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const {unmount} = renderView();
+    fireEvent.click(screen.getByTitle('Herstart Show'));
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(controls.start).not.toHaveBeenCalled();
+    unmount();
+
+    live = {...live, activeEvent: null, activeEventRemainingTime: null};
+    renderView();
+    fireEvent.click(screen.getByTitle('Start Show'));
+    expect(controls.start).toHaveBeenCalledOnce();
+    expect(confirm).toHaveBeenCalledOnce();
+    // Nothing to stop or shorten before the start
+    expect(screen.queryByRole('button', {name: 'Einde show'})).toBeNull();
+    expect((screen.getByRole('button', {name: 'Resterend 30 seconden'}) as HTMLButtonElement).disabled).toBe(true);
     confirm.mockRestore();
   });
 
