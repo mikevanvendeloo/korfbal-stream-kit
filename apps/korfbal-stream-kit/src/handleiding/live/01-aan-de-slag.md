@@ -14,6 +14,8 @@ Bovenin staat altijd dezelfde balk:
 | **Show Caller** | Het hele draaiboek, en de knoppen om de show door te zetten |
 | **vMix** | Countdown-timer en de callsheet naar vMix voor presentator en analist |
 
+Op een telefoon of tablet staat in de balk alleen het logo, **LIVE** en de naam van het scherm waar je bent. Met de **menuknop** (drie streepjes) open je de onderdelen, **Beheer**, **Over deze app** en het donkere thema.
+
 Rechts in de balk:
 
 - **Beheer** opent het deel waarin de productie wordt voorbereid (zie de *Handleiding Beheer*).

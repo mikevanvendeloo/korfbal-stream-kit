@@ -6,7 +6,10 @@ import {TimeDisplay} from "./TimeDisplay";
 import {CallSheetItem} from "./CallSheetItem";
 import {LucideTvMinimalPlay, Play, Settings, SkipBack, SkipForward, Spotlight} from 'lucide-react';
 import {useFontSize} from "../hooks/useFontSize";
-import {createUrl} from "../lib/api";
+import {useShowControls} from "../hooks/useShowControls";
+import {PHONE_QUERY, useMediaQuery} from "../hooks/useMediaQuery";
+import {useWakeLock} from "../hooks/useWakeLock";
+import {ShowCallerPhone} from "./ShowCallerPhone";
 
 // Helper om een naam om te zetten naar een URL-vriendelijke slug
 const toSlug = (name: string) => {
@@ -38,36 +41,19 @@ export const ShowCallerView = () => {
   const settingsRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const controls = useShowControls(productionId);
+  const {isProcessing} = controls;
+  const isPhone = useMediaQuery(PHONE_QUERY);
+  // Keep the screen on while the Show Caller is open (phones and tablets go to sleep otherwise)
+  useWakeLock(true);
 
-  const handleApiCall = async (endpoint: string) => {
-    if (isProcessing) return;
-    setIsProcessing(true);
-    try {
-      const response = await fetch(createUrl(`/api/show/${endpoint}`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error(`Failed to trigger ${endpoint}:`, errorData.error || 'Unknown error');
-      }
-    } catch (error) {
-      console.error(`API call to ${endpoint} failed:`, error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleStart = () => handleApiCall(`start/${productionId}`);
-  const handleNext = () => handleApiCall('next');
-  const handlePrevious = () => handleApiCall('previous');
-  const handleRecalculate = () => handleApiCall(`recalculate/${productionId}`);
-  const handleReset = () => handleApiCall(`reset/${productionId}`);
-  const handleStop = () => handleApiCall(`stop/${productionId}`);
+  const handleApiCall = (endpoint: 'next' | 'previous') => (endpoint === 'next' ? controls.next() : controls.previous());
+  const handleStart = controls.start;
+  const handleNext = controls.next;
+  const handlePrevious = controls.previous;
+  const handleRecalculate = controls.recalculate;
+  const handleReset = controls.reset;
+  const handleStop = controls.stop;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -194,6 +180,24 @@ export const ShowCallerView = () => {
     if (selectedPositionId === -1) return true;
     return event.positions.length === 0 || event.positions.some(p => p.position.id === selectedPositionId);
   };
+
+  if (isPhone) {
+    return (
+      <ShowCallerPhone
+        productionId={productionId ?? ''}
+        positionSlug={positionSlug ?? 'all'}
+        positionName={selectedPosition?.name ?? null}
+        items={[...calculateEventTimes(allItems)].sort((a, b) => a.order - b.order)}
+        activeEventId={activeEvent?.id ?? null}
+        remaining={activeEventRemainingTime}
+        autoAdvanceEventId={autoAdvanceEventId}
+        isConnected={isConnected}
+        systemTime={systemTime}
+        isRelevant={isRelevantForMe}
+        controls={controls}
+      />
+    );
+  }
 
   return (
     <div className="bg-white dark:bg-gray-950 min-h-screen text-gray-900 dark:text-white flex flex-col font-sans selection:bg-blue-500/30">
@@ -403,6 +407,12 @@ export const ShowCallerView = () => {
             </div>
           </div>
         </div>
+        {controls.error && (
+          <button type="button" role="alert" onClick={controls.clearError}
+                  className="mx-auto mt-2 block rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-3 py-1.5 text-sm">
+            {controls.error}
+          </button>
+        )}
       </header>
 
       {/* Rows */}

@@ -29,7 +29,7 @@ Wat er bij **Volgend item** gebeurt:
 
 Volgend en vorig gaan door **alle** items van de productie, ook die van andere posities.
 
-> Gaat er iets mis met een knop (bijvoorbeeld *volgend* aan het einde van de show), dan zie je geen foutmelding. Kijk op de klok en de rand om het actieve item of het gelukt is.
+> Gaat er iets mis met een knop (bijvoorbeeld *volgend* aan het einde van de show), dan zie je een melding onder de knoppen. Tik erop om hem weg te halen.
 
 ## Wat je ziet
 
@@ -37,6 +37,20 @@ Volgend en vorig gaan door **alle** items van de productie, ook die van andere p
 - Twee banen: **Zaal draaiboek** (groen, links) en **Stream draaiboek** (blauw, rechts). Een item dat voor beide geldt, staat over de hele breedte.
 - Per regel het hoofditem, met de items die eraan gekoppeld zijn ernaast.
 - Het actieve item is iets groter. Kleuren zijn hetzelfde als op [de callsheet](/handleiding/callsheet#kleuren).
+
+## Op je telefoon
+
+Op een telefoon krijgt de Show Caller een eigen, eenvoudige weergave, gemaakt om met één hand te bedienen:
+
+- **Nu**: het item dat nu loopt, met de resterende tijd in grote cijfers. De balk is groen, oranje in de laatste 10 seconden en rood als het item over tijd is.
+- **Volgende**: het item dat start als je op **Volgend** drukt, met de begintijd en duur. Is het niet voor jouw positie, dan staat dat erbij.
+- **Daarna voor jou**: de items die daarna komen voor je positie (en items voor iedereen), met tijd en duur. Via het menu (de drie puntjes) wissel je naar **alle items**.
+- Onderaan, onder je duim: **Vorig** en een grote knop **Volgend**. Voor de start staat daar **Start show**.
+- In het menu (drie puntjes): **Wissel positie**, **Callsheet view**, **Tijden herberekenen**, **Herstart show**, **Draaiboek resetten** en **Einde show**. Herstarten, resetten en stoppen vragen eerst om bevestiging.
+
+Lukt een actie niet, bijvoorbeeld *volgend* bij het laatste item, dan zie je bovenaan een melding. Tik erop om hem weg te halen.
+
+> **Scherm aan houden.** De Show Caller vraagt de telefoon het scherm aan te laten. Dat lukt alleen als de app via **https** wordt geopend. Via een gewoon `http://`-adres in de zaal gaat het scherm na de ingestelde tijd toch uit: zet die tijd op je telefoon dan tijdelijk langer.
 
 ## Automatisch doorgaan
 

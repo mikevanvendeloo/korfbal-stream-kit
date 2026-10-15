@@ -1,4 +1,4 @@
-import {render, screen} from '@testing-library/react';
+import {fireEvent, render, screen, within} from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {vi} from 'vitest';
@@ -46,7 +46,7 @@ describe('App', () => {
 
   it('shows the LIVE app on the root, with a single link to Beheer', () => {
     renderApp('/');
-    expect(screen.getByText('LIVE')).toBeInTheDocument();
+    expect(screen.getAllByText('LIVE').length).toBeGreaterThan(0);
     expect(screen.getByRole('link', {name: 'Scoreboard'})).toHaveAttribute('href', '/scoreboard');
     expect(screen.getByRole('link', {name: 'Show Caller'})).toHaveAttribute('href', '/show-caller');
     expect(screen.queryByRole('link', {name: 'Sponsors'})).not.toBeInTheDocument();
@@ -64,6 +64,18 @@ describe('App', () => {
     renderApp('/admin');
     const badge = await screen.findByRole('link', {name: 'Seizoen 2026/2027'}, LAZY);
     expect(badge).toHaveAttribute('href', '/admin/instellingen');
+  });
+
+  it('folds the LIVE menu behind a button on small screens', () => {
+    renderApp('/scoreboard');
+    expect(screen.queryByRole('navigation', {name: 'LIVE'})).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: 'Menu openen'}));
+    const menu = screen.getByRole('navigation', {name: 'LIVE'});
+    expect(within(menu).getByRole('link', {name: 'Show Caller'})).toHaveAttribute('href', '/show-caller');
+    expect(within(menu).getByRole('link', {name: /Beheer/})).toHaveAttribute('href', '/admin');
+    // Choosing a screen closes the menu again
+    fireEvent.click(within(menu).getByRole('link', {name: 'Callsheet'}));
+    expect(screen.queryByRole('navigation', {name: 'LIVE'})).not.toBeInTheDocument();
   });
 
   it('shows the about page in LIVE', () => {

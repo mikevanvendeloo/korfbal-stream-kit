@@ -65,7 +65,7 @@ export const PositionSelector = ({ viewType }: Props) => {
   return (
     <div className="bg-white dark:bg-gray-950 min-h-screen flex flex-col items-center justify-center p-8 transition-colors">
       {productionId && (
-        <div className="mb-12">
+        <div className="mb-12 max-w-full min-w-0 flex justify-center">
           <MatchHeader productionId={Number(productionId)} size="medium" />
         </div>
       )}
