@@ -33,26 +33,27 @@ export const MatchHeader = ({
   }) : '';
 
   const logoSize = size === 'small' ? 'small' : 'medium';
-  const fontSize = size === 'small' ? 'text-lg' : 'text-xl';
+  // Smaller on phones, and long team names are cut off instead of making the page wider than the screen
+  const fontSize = size === 'small' ? 'text-sm sm:text-lg' : 'text-base sm:text-xl';
 
   return (
-    <div className={`flex items-center gap-4 ${className}`}>
-      <div className="flex items-center gap-2">
+    <div className={`flex items-center gap-2 sm:gap-4 min-w-0 max-w-full ${className}`}>
+      <div className="flex items-center gap-2 min-w-0">
         {showLogos && (
           <TeamLogo teamName={homeTeamName} size={logoSize} />
         )}
-        <span className={`${fontSize} font-bold whitespace-nowrap`}>
+        <span className={`${fontSize} font-bold whitespace-nowrap truncate`} title={homeTeamName}>
           {homeTeamName}
         </span>
       </div>
 
-      <div className="flex flex-col items-center px-3 py-1 bg-gray-100 dark:bg-black/40 rounded border border-gray-300 dark:border-gray-700">
+      <div className="shrink-0 flex flex-col items-center px-2 sm:px-3 py-1 bg-gray-100 dark:bg-black/40 rounded border border-gray-300 dark:border-gray-700">
         <span className="text-xs uppercase text-gray-500 dark:text-gray-400 font-bold">Aanvang</span>
         <span className="font-mono font-bold text-amber-600 dark:text-orange-500">{startTime}</span>
       </div>
 
-      <div className="flex items-center gap-2">
-        <span className={`${fontSize} font-bold whitespace-nowrap`}>
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={`${fontSize} font-bold whitespace-nowrap truncate`} title={awayTeamName}>
           {awayTeamName}
         </span>
         {showLogos && (

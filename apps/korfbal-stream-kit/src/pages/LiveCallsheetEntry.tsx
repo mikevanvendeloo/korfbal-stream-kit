@@ -1,6 +1,6 @@
 import {useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {useProductions} from '../hooks/useProductions';
+import {useActiveProduction} from '../hooks/useProductions';
 
 interface Props {
   viewType: 'standard' | 'show-caller';
@@ -8,13 +8,12 @@ interface Props {
 
 export default function LiveCallsheetEntry({ viewType }: Props) {
   const navigate = useNavigate();
-  const { data, isLoading, error } = useProductions();
+  const { data: active, isLoading, error } = useActiveProduction();
 
   useEffect(() => {
     if (isLoading) return;
     if (error) return;
 
-    const active = data?.items.find(p => p.isActive);
     if (active) {
       if (viewType === 'show-caller') {
         // Show Caller view gaat direct naar alle items (geen specifieke positie-slug nodig)
@@ -23,7 +22,7 @@ export default function LiveCallsheetEntry({ viewType }: Props) {
         navigate(`/callsheet/${active.id}`, { replace: true });
       }
     }
-  }, [data, isLoading, error, navigate, viewType]);
+  }, [active, isLoading, error, navigate, viewType]);
 
   if (isLoading) {
     return (

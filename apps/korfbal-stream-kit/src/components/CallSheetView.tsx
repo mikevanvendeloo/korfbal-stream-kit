@@ -296,10 +296,10 @@ export const CallSheetView = () => {
                     {/* Background accent */}
                     <div className="absolute top-0 left-0 w-1 bg-blue-500 h-full"></div>
 
-                    <div className="w-full relative flex flex-col items-center gap-4 z-10 py-2">
+                    <div className="w-full relative flex flex-col items-center gap-2 md:gap-4 z-10 py-1 md:py-2">
                         {/* Bovenste rij: Knoppen links, MatchHeader midden */}
-                        <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0">
-                            <div className="flex items-center gap-4 flex-1 w-full md:w-auto justify-end md:justify-start order-2 md:order-1">
+                        <div className="w-full flex flex-row items-center justify-between gap-2 md:gap-0">
+                            <div className="flex items-center gap-4 shrink-0 md:flex-1 justify-end md:justify-start order-2 md:order-1">
                                 <div className="relative" ref={settingsRef}>
                                     <button
                                         onClick={() => setShowSettings(!showSettings)}
@@ -315,7 +315,7 @@ export const CallSheetView = () => {
 
                                     {showSettings && (
                                         <div
-                                            className="absolute top-full left-0 mt-2 flex flex-col gap-6 bg-white dark:bg-black/95 p-6 rounded-2xl border border-gray-200 dark:border-white/20 animate-in fade-in slide-in-from-top-2 duration-300 shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[360px] z-[100] backdrop-blur-xl">
+                                            className="absolute top-full right-0 md:right-auto md:left-0 mt-2 flex flex-col gap-6 bg-white dark:bg-black/95 p-6 rounded-2xl border border-gray-200 dark:border-white/20 animate-in fade-in slide-in-from-top-2 duration-300 shadow-[0_20px_50px_rgba(0,0,0,0.5)] w-[min(360px,calc(100vw-2rem))] z-[100] backdrop-blur-xl">
                                             <div className="space-y-4">
                                                 <div className="flex items-center justify-between">
                                                     <span
@@ -527,7 +527,7 @@ export const CallSheetView = () => {
                                 </div>
                             </div>
 
-                            <div className="flex justify-center flex-2 order-1 md:order-2">
+                            <div className="flex justify-center flex-1 md:flex-2 order-1 md:order-2 min-w-0 max-w-full">
                                 {productionId && (
                                     <MatchHeader
                                         productionId={parseInt(productionId)}

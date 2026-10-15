@@ -1,7 +1,7 @@
 import {useMemo} from 'react';
 import {useMatchClock, useScoreboard, useShotclock} from '../hooks/useMatch';
 import {labels} from '../config/scoreboardLabels';
-import {useProductions} from '../hooks/useProductions';
+import {useActiveProduction} from '../hooks/useProductions';
 import {Club, useClubs} from '../hooks/useClubs';
 import ClubLogo from '../components/ClubLogo';
 
@@ -43,10 +43,9 @@ function useMatchData() {
 }
 export default function ScoreboardPage() {
   const { home, guest, shot, matchClock, loading, error } = useMatchData();
-  const { data: productions } = useProductions();
+  const { data: active } = useActiveProduction();
   const { data: clubs } = useClubs();
 
-  const active = productions?.items.find((p) => p.isActive);
   const homeTeamName: string | undefined = (active as any)?.matchSchedule?.homeTeamName || undefined;
   const awayTeamName: string | undefined = (active as any)?.matchSchedule?.awayTeamName || undefined;
 

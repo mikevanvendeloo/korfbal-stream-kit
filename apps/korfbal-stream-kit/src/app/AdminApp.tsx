@@ -47,7 +47,7 @@ import VmixTemplatesPage from '../pages/VmixTemplatesPage';
 import VmixConnectionPage from '../pages/VmixConnectionPage';
 import ProductionStaffingPage from '../pages/ProductionStaffingPage';
 import ProductionLayout from '../components/ProductionLayout';
-import {useProductions} from '../hooks/useProductions';
+import {useActiveProduction} from '../hooks/useProductions';
 import {adminPaths, REPORT_TABS} from '../lib/adminPaths';
 import VmixDatasourcesPage from '../pages/VmixDatasourcesPage';
 import AppLogo from '../components/AppLogo';
@@ -182,8 +182,7 @@ function DropdownMenu({menu, open, onToggle}: { menu: Menu; open: boolean; onTog
 function Nav() {
   const location = useLocation();
   const [openMenu, setOpenMenu] = React.useState<string | null>(null);
-  const {data: productions} = useProductions();
-  const active = productions?.items.find((p) => p.isActive);
+  const {data: active} = useActiveProduction();
 
   // Close any open menu on route change
   React.useEffect(() => setOpenMenu(null), [location.pathname]);

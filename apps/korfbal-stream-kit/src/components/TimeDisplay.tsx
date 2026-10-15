@@ -25,11 +25,15 @@ export const TimeDisplay = ({
   variant = 'compact'
 }: Props) => {
 
+  // On phones only the coloured dot is shown; the text stays available as its label
+  const status = (className: string, text: string) => (
+    <span className={className} title={text} aria-label={text}>● <span className="hidden sm:inline">{text}</span></span>
+  );
   const getStatusIndicator = () => {
-    if (!isConnected) return <span className="text-red-500 animate-pulse">● Verbinding verbroken</span>;
-    if (timeSinceLastSync === null) return <span className="text-yellow-500">● Synchroniseren...</span>;
-    if (timeSinceLastSync > 5) return <span className="text-yellow-500">● Sync &gt;5s</span>;
-    return <span className="text-green-500">● Verbonden</span>;
+    if (!isConnected) return status('text-red-500 animate-pulse', 'Verbinding verbroken');
+    if (timeSinceLastSync === null) return status('text-yellow-500', 'Synchroniseren...');
+    if (timeSinceLastSync > 5) return status('text-yellow-500', 'Sync >5s');
+    return status('text-green-500', 'Verbonden');
   };
 
   const getProductionClockStyle = (isLarge: boolean) => {
@@ -100,25 +104,25 @@ export const TimeDisplay = ({
   }
 
   return (
-    <div className="flex items-center gap-4 text-lg font-mono">
+    <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-base sm:text-lg font-mono">
       {/* Status Indicator */}
       <div className="text-xs self-center">{getStatusIndicator()}</div>
 
       {/* Zaal Klok */}
-      <div className={`flex flex-col items-center p-2 rounded-lg transition-colors ${getVenueClockStyle(false)}`}>
-        <span className="text-xs uppercase opacity-80">Zaal</span>
+      <div className={`flex flex-col items-center px-2 py-1 sm:p-2 rounded-lg transition-colors ${getVenueClockStyle(false)}`}>
+        <span className="text-[10px] sm:text-xs uppercase opacity-80">Zaal</span>
         <span className="font-bold">{venueClock}</span>
       </div>
 
       {/* Systeem Tijd */}
-      <div className={`flex flex-col items-center p-2 rounded-lg transition-colors ${getSystemTimeStyle(false)}`}>
-        <span className="text-xs uppercase opacity-80">Tijd</span>
+      <div className={`flex flex-col items-center px-2 py-1 sm:p-2 rounded-lg transition-colors ${getSystemTimeStyle(false)}`}>
+        <span className="text-[10px] sm:text-xs uppercase opacity-80">Tijd</span>
         <span className="font-bold">{systemTime}</span>
       </div>
 
       {/* Productie Klok */}
-      <div className={`flex flex-col items-center p-2 rounded-lg transition-colors ${getProductionClockStyle(false)}`}>
-        <span className="text-xs uppercase opacity-80">{activeEventRemainingTime ? 'Resterend' : 'Productie'}</span>
+      <div className={`flex flex-col items-center px-2 py-1 sm:p-2 rounded-lg transition-colors ${getProductionClockStyle(false)}`}>
+        <span className="text-[10px] sm:text-xs uppercase opacity-80">{activeEventRemainingTime ? 'Resterend' : 'Productie'}</span>
         <div className="font-bold">
           <span>{displayClock.isNegative && '-'}</span>
           <span>{displayClock.minutes}</span>

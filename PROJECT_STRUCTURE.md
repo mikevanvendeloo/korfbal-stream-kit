@@ -118,6 +118,7 @@ apps/korfbal-stream-kit/src/
 │       ├── SponsorSettingsTab.tsx     # Sponsor filter config
 │       ├── ClubSettingsTab.tsx        # Own club config
 │       └── BackupSettingsTab.tsx      # Backup export/import
+├── components/ShowCallerPhone.tsx # Show Caller on phones (< 768 px): now, next, later, controls at the bottom
 ├── handleiding/               # User manual: live/*.md and beheer/*.md, ManualView, HelpButton, helpTopics (route → chapter)
 ├── components/                # Feature components
 │   ├── CallSheetView.tsx, CallSheetColumn.tsx, CallSheetItem.tsx, CallSheetTemplateSelector.tsx
@@ -256,6 +257,7 @@ No authentication: all endpoints are open (internal LAN tool). Swagger UI at `/a
 | PUT | /api/production/:id/person-positions | Replace person-position assignments |
 | DELETE | /api/production/:id/person-positions/:personPositionId | Delete person-position assignment |
 | GET | /api/production/:id/crew | Crew overview |
+| GET | /api/production/active | The active production with its match, independent of the active season (`{item}` or `{item: null}`) |
 | GET | /api/production/:id/crew-report | Crew report: effective crew per segment (production-wide + per segment, `services/crewReport.ts`), filled positions per category, callsheets with `positionIds` |
 | GET | /api/production/positions | List positions |
 | POST | /api/production/positions | Create position |
