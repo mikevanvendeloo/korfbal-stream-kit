@@ -87,7 +87,7 @@ REQUIRE_DB=false npx vitest run --config apps/korfbal-stream-api/vitest.config.t
   - e2e (`apps/korfbal-stream-kit-e2e/src/support/`): the `liveShow` / `makeShow` fixtures (fresh active production per test, stopped and removed afterwards) and page objects (`LiveNav`, `ShowCallerPhone`, `ShowCallerWide`). Find screens through the page objects, so a changed label is fixed in one place.
   - Kit component tests: shared data in `apps/korfbal-stream-kit/src/test/` (e.g. `showCaller.ts`: items, `fakeControls()`).
 - **e2e**: `npm run e2e` starts its own API on port 3335 against the test database (refuses a database whose name doesn't end in `_test`) and a dev server on 4300 pointed at it (`API_PROXY_TARGET`); it never reuses a running server. Needs `npm run db:up` and once `npx playwright install chromium`. Tests run one at a time (one live show state).
-- **CI**: the `db-tests` job in `.github/workflows/ci.yml` runs the integration tests and the e2e tests on a `postgres:16-alpine` service with the `korfbal_stream_test` database (on failure the Playwright report is uploaded as an artifact). The `ci-checks` job only runs the tests without a database.
+- **CI**: the `db-tests` job in `.github/workflows/ci.yml` runs the integration tests and the e2e tests on a `postgres:16-alpine` service with the `korfbal_stream_test` database (on failure the Playwright report is uploaded as an artifact). The Docker build waits for it, so failing integration or e2e tests block a release. The `ci-checks` job only runs the tests without a database.
 - After fixing a bug, verify no regressions before moving on.
 
 ## Project Structure

@@ -321,11 +321,12 @@ jobs:
     # Native runner per architecture instead of QEMU emulation - the arm64 leg
     # used to take 20-30 min under emulation, this builds it natively instead.
     runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    # This job only runs if checks pass AND (it's a push to main/master OR manual dispatch)
-    needs: [ci-checks, calculate-version]
+    # This job only runs if the checks and the integration/e2e tests pass AND (it's a push to main/master OR manual dispatch)
+    needs: [ci-checks, db-tests, calculate-version]
     if: |
       always() &&
       (needs.ci-checks.result == 'success' || needs.ci-checks.result == 'skipped') &&
+      (needs.db-tests.result == 'success' || needs.db-tests.result == 'skipped') &&
       (
         (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
         github.event_name == 'workflow_dispatch'
