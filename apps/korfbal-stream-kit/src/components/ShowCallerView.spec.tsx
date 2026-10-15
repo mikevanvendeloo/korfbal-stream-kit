@@ -4,17 +4,15 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {ShowCallerView} from './ShowCallerView';
 import {useMediaQuery} from '../hooks/useMediaQuery';
 import {useWakeLock} from '../hooks/useWakeLock';
+import {fakeControls, REGIE, remaining, showItem} from '../test/showCaller';
 
-const controls = {
-  isProcessing: false, error: null as string | null, clearError: vi.fn(),
-  start: vi.fn(), next: vi.fn(), previous: vi.fn(), recalculate: vi.fn(), reset: vi.fn(), stop: vi.fn(), setRemaining: vi.fn(),
-};
-const regie = {id: 5, name: 'Regie livestream'};
-const item = (id: string, order: number, title: string, status = 'WAITING') => ({
-  id, order, title, status, note: null, durationSec: 60, positions: [{position: regie}], isInVenue: false, isInLivestream: true,
-  autoAdvance: false, isTimeAnchor: false, parentId: null, plannedStartTime: new Date(2026, 9, 17, 19, 50 + order).toISOString(), actualStartTime: null,
-});
-const items = [item('a', 1, 'Livestream starten', 'COMPLETED'), item('b', 2, 'Welkom', 'ACTIVE'), item('c', 3, 'Opkomst spelers')];
+const controls = fakeControls();
+const regie = REGIE;
+const items = [
+  showItem('a', 1, 'Livestream starten', {status: 'COMPLETED'}),
+  showItem('b', 2, 'Welkom', {status: 'ACTIVE'}),
+  showItem('c', 3, 'Opkomst spelers'),
+];
 let live: Record<string, unknown>;
 
 vi.mock('../hooks/useShowControls', async (importOriginal) => ({...(await importOriginal<object>()), useShowControls: () => controls}));
@@ -40,7 +38,7 @@ describe('ShowCallerView', () => {
     live = {
       allItems: items, allPositions: [regie], activeEvent: items[1], activeEventElapsedTime: 10,
       productionClock: {minutes: '05', seconds: '00', isNegative: false, rawSeconds: 300}, venueClock: '00:00', systemTime: '19:52:10',
-      activeEventRemainingTime: {minutes: '00', seconds: '50', isNegative: false, rawSeconds: 50},
+      activeEventRemainingTime: remaining(50),
       isLoading: false, autoAdvanceEventId: null, isConnected: true, timeSinceLastSync: 1,
     };
   });
@@ -86,9 +84,46 @@ describe('ShowCallerView', () => {
     expect(controls.reset).toHaveBeenCalledOnce();
 
     openMenu();
-    fireEvent.click(screen.getByRole('button', {name: /Einde Show/i}));
+    fireEvent.click(screen.getByRole('button', {name: /Stream Stoppen/i}));
     expect(controls.stop).toHaveBeenCalledOnce();
     expect(confirm).toHaveBeenCalledTimes(2);
+    confirm.mockRestore();
+  });
+
+  it('sets the remaining time of the current item with Zet 15s / 30s / 60s', () => {
+    renderView();
+    const presets = screen.getByRole('group', {name: 'Resterend instellen'});
+    expect(presets.textContent).toBe('Zet15s30s60s');
+    fireEvent.click(screen.getByRole('button', {name: 'Resterend 60 seconden'}));
+    expect(controls.setRemaining).toHaveBeenCalledWith(60);
+  });
+
+  it('stops the show with the red button, after confirming', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    renderView();
+    fireEvent.click(screen.getByRole('button', {name: 'Einde show'}));
+    expect(controls.stop).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', {name: 'Einde show'}));
+    expect(controls.stop).toHaveBeenCalledOnce();
+    confirm.mockRestore();
+  });
+
+  it('asks before restarting a running show, but starts a new one right away', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const {unmount} = renderView();
+    fireEvent.click(screen.getByTitle('Herstart Show'));
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(controls.start).not.toHaveBeenCalled();
+    unmount();
+
+    live = {...live, activeEvent: null, activeEventRemainingTime: null};
+    renderView();
+    fireEvent.click(screen.getByTitle('Start Show'));
+    expect(controls.start).toHaveBeenCalledOnce();
+    expect(confirm).toHaveBeenCalledOnce();
+    // Nothing to stop or shorten before the start
+    expect(screen.queryByRole('button', {name: 'Einde show'})).toBeNull();
+    expect((screen.getByRole('button', {name: 'Resterend 30 seconden'}) as HTMLButtonElement).disabled).toBe(true);
     confirm.mockRestore();
   });
 

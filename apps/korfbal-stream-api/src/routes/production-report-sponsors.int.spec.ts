@@ -5,7 +5,7 @@ import app from '../main';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {prisma} from '../services/prisma';
 import {getAssetsRoot} from '../services/config';
-import {currentSeasonId} from '../../test-helpers';
+import {createProductionScenario, ProductionScenario} from '../../test-scenarios';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 
@@ -25,23 +25,19 @@ describe.runIf(runDb)('production report sponsors (integration)', () => {
   const logoName = `report-ball-sponsor-${Date.now()}.png`;
   const logoFile = path.join(getAssetsRoot(), 'sponsors', logoName);
   let productionId: number;
-  let matchId: number;
+  let show: ProductionScenario;
   let sponsorId: number;
 
   beforeAll(async () => {
     fs.mkdirSync(path.dirname(logoFile), {recursive: true});
     fs.writeFileSync(logoFile, PNG);
     sponsorId = (await prisma.sponsor.create({data: {name: 'Report Int Balsponsor', type: 'goud', logoUrl: logoName, websiteUrl: 'https://example.org'}})).id;
-    const match = await prisma.matchSchedule.create({
-      data: {seasonId: await currentSeasonId(prisma), externalId: `report-sponsor-int-${Date.now()}`, date: new Date(), homeTeamName: 'Thuis', awayTeamName: 'Uit', isHomeMatch: true},
-    });
-    matchId = match.id;
-    productionId = (await prisma.production.create({data: {matchScheduleId: match.id}})).id;
+    show = await createProductionScenario(prisma, {items: []});
+    productionId = show.productionId;
   });
 
   afterAll(async () => {
-    await prisma.production.deleteMany({where: {id: productionId}});
-    await prisma.matchSchedule.deleteMany({where: {id: matchId}});
+    await show.cleanup();
     await prisma.sponsor.deleteMany({where: {id: sponsorId}});
     fs.rmSync(logoFile, {force: true});
   });

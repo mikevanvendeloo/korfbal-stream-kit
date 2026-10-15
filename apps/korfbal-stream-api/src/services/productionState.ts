@@ -372,6 +372,44 @@ export async function setActiveEvent(eventId: string, productionId: number) {
 }
 
 /**
+ * Sets the remaining time of the active item to `seconds` from now: its duration becomes the time it has
+ * run so far plus `seconds`. Auto-advance is rescheduled and the following items move along. The item's
+ * planned duration in the callsheet stays as it was, so the timing report still compares with the plan.
+ * Returns null when no item is active.
+ */
+export async function setActiveEventRemaining(seconds: number) {
+  const eventId = currentState.activeEventId;
+  const productionId = currentState.productionId;
+  if (!eventId || !productionId) return null;
+
+  const event = await prisma.productionEvent.findUnique({where: {id: eventId}});
+  if (!event) return null;
+  const start = event.actualStartTime ?? new Date();
+  const elapsedSec = Math.max(0, Math.round((Date.now() - start.getTime()) / 1000));
+  const durationSec = elapsedSec + seconds;
+
+  const updated = await prisma.productionEvent.update({
+    where: {id: eventId},
+    data: {durationSec, actualStartTime: start, plannedEndTime: new Date(start.getTime() + durationSec * 1000)},
+    include: {positions: {include: {position: true}}},
+  });
+  logger.info(`Remaining time of event ${eventId} ("${updated.title}") set to ${seconds}s (duration ${durationSec}s)`);
+
+  setupAutoAdvance(updated);
+  // The items after this one start earlier or later now
+  await recalculateProductionTimes(productionId, start, eventId, true);
+
+  const io = getIO();
+  if (io) {
+    io.emit('active_event_update', sanitizeEvent(updated));
+    if (updated.autoAdvance) io.emit('auto_advance_scheduled', {eventId, delayMs: seconds * 1000, scheduledAt: new Date().toISOString()});
+    io.emit('production_events_update_needed');
+  }
+  broadcastState();
+  return updated;
+}
+
+/**
  * Herrekent alle geplande tijden van de callsheet items en production events
  * op basis van een nieuw ankerpunt (bijv. een trigger vanuit vMix of handmatig).
  */

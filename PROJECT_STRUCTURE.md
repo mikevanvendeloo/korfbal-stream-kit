@@ -469,6 +469,7 @@ Season-bound endpoints (`GET /api/production`, `/api/production/matches`, `/api/
 | POST | /api/show/start/:productionId | Start show |
 | POST | /api/show/next | Next event |
 | POST | /api/show/previous | Previous event |
+| POST | /api/show/remaining | Set the active item's remaining time (`{seconds}`, 1–3600): its duration becomes elapsed + seconds; auto-advance and the following items move along |
 | POST | /api/show/recalculate/:productionId | Recalculate show timing |
 | POST | /api/show/reset/:productionId | Reset show |
 | POST | /api/show/stop/:productionId | Stop show |

@@ -1,5 +1,6 @@
 // apps/korfbal-stream-api/src/routes/show-control.ts
 import {Router} from 'express';
+import {z} from 'zod';
 import {prisma} from '../services/prisma';
 import * as productionStateService from '../services/productionState';
 
@@ -41,6 +42,21 @@ showControlRouter.post('/next', async (req, res, next) => {
 
     const updatedEvent = await productionStateService.setActiveEvent(nextEvent.id, activeProductionId);
     return res.status(200).json(updatedEvent);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// POST /api/show/remaining { seconds } - Zet de resterende tijd van het actieve item (bijv. 15, 30 of 60 s)
+const RemainingSchema = z.object({seconds: z.number().int().min(1).max(3600)});
+
+showControlRouter.post('/remaining', async (req, res, next) => {
+  try {
+    const parsed = RemainingSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({error: 'seconds must be a whole number between 1 and 3600'});
+    const updated = await productionStateService.setActiveEventRemaining(parsed.data.seconds);
+    if (!updated) return res.status(409).json({error: 'No active item.'});
+    return res.status(200).json(updated);
   } catch (err) {
     return next(err);
   }
