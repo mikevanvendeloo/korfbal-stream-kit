@@ -105,7 +105,7 @@ export function CallsheetPushPreview({colors}: { colors: Pick<VmixCallsheetPushC
                     lines={[t.nextDuration && `Duur ${t.nextDuration}`, t.nextStartsIn && `Over ${t.nextStartsIn}`, t.nextStartTime && `Om ${t.nextStartTime}`]}/>
       </div>
       <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-        Het voorbeeld gebruikt de opgeslagen posities. Data source voor vMix: <code>/api/vmix/callsheet/timing?position=Presentatie,Analist</code>
+        Het voorbeeld gebruikt de opgeslagen positie. Data source voor vMix: <code>/api/vmix/callsheet/timing?position=Presentatie</code>
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button type="button" disabled={push.isPending} onClick={() => push.mutate()}
@@ -140,10 +140,6 @@ export default function VmixCallsheetPushSettings() {
 
   const setCurrent = (patch: Partial<VmixCallsheetPushConfig['current']>) => setConfig({...config, current: {...config.current, ...patch}});
   const setNext = (patch: Partial<VmixCallsheetPushConfig['next']>) => setConfig({...config, next: {...config.next, ...patch}});
-  const togglePosition = (name: string) => setConfig({
-    ...config,
-    positions: config.positions.includes(name) ? config.positions.filter((p) => p !== name) : [...config.positions, name],
-  });
   const splitFields = (value: string) => value.split(',').map((v) => v.trim()).filter(Boolean);
 
   function handleSave(e: React.FormEvent) {
@@ -169,18 +165,15 @@ export default function VmixCallsheetPushSettings() {
         </div>
       </div>
 
-      <fieldset>
-        <legend className={labelClass}>Posities</legend>
-        <p className="text-xs text-gray-500 dark:text-gray-400">Een item telt mee als een van deze posities erop staat, of als het item geen posities heeft. Niets aangevinkt = alle items.</p>
-        <div className="mt-2 flex flex-wrap gap-3">
-          {(positions.data ?? []).map((p) => (
-            <label key={p.id} className="flex items-center gap-1 text-sm text-gray-800 dark:text-gray-200">
-              <input type="checkbox" checked={config.positions.includes(p.name)} onChange={() => togglePosition(p.name)}/>
-              {p.name}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <div className="max-w-sm">
+        <label htmlFor="push-position" className={labelClass}>Positie</label>
+        <select id="push-position" value={config.positions[0] ?? ''} className={inputClass}
+                onChange={(e) => setConfig({...config, positions: e.target.value ? [e.target.value] : []})}>
+          <option value="">Alle items</option>
+          {(positions.data ?? []).map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+        </select>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Een item telt mee als deze positie erop staat, of als het item geen posities heeft.</p>
+      </div>
 
       <p className="text-xs text-gray-500 dark:text-gray-400">
         Veldnamen zijn de vMix SelectedName van de title, bijvoorbeeld <code>Titel.Text</code>. Een leeg veld wordt niet gepusht.

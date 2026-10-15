@@ -27,8 +27,11 @@ export const VmixCallsheetPushSchema = z.object({
   enabled: z.boolean().default(false),
   /** vMix title input: name, number or key */
   input: z.string().trim().max(200).default(''),
-  /** Position names to follow. An item counts when one of them is on it, or when it has no positions at all. Empty = every item. */
-  positions: z.array(z.string().trim().min(1).max(100)).max(50).default(['Presentatie', 'Analist']),
+  /**
+   * The position to follow (at most one; a list for the timing data source, which takes several). An item
+   * counts when that position is on it, or when it has no positions at all. Empty = every item.
+   */
+  positions: z.array(z.string().trim().min(1).max(100)).max(1, 'Kies één positie').default(['Presentatie']),
   /** From this many seconds left the state becomes 'warning' (orange) */
   warningSeconds: z.number().int().min(0).max(3600).default(10),
   current: z.object({

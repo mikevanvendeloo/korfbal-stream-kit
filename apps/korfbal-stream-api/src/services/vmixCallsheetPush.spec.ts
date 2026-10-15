@@ -4,7 +4,7 @@ import * as appSettings from './appSettings';
 import * as timing from './callsheetTiming';
 import * as instances from './vmixInstances';
 import {VmixCallsheetPushSchema} from '../schemas/vmixCallsheet';
-import {buildVmixCommands, buildVmixCommandUrl, pushCallsheetToVmix} from './vmixCallsheetPush';
+import {buildVmixCommands, buildVmixCommandUrl, getCallsheetPushConfig, pushCallsheetToVmix} from './vmixCallsheetPush';
 
 vi.mock('axios');
 vi.mock('./appSettings', async (importOriginal) => {
@@ -52,6 +52,23 @@ describe('buildVmixCommands', () => {
   it('builds a vMix function URL with encoded values', () => {
     expect(buildVmixCommandUrl('http://vmix:8088', 'Callsheet', {function: 'SetColor', selectedName: 'Achtergrond', value: '#22C55E'}))
       .toBe('http://vmix:8088/api?Function=SetColor&Input=Callsheet&SelectedName=Achtergrond&Value=%2322C55E');
+  });
+});
+
+describe('one position', () => {
+  afterEach(() => vi.resetAllMocks());
+
+  it('accepts one position, or none for every item, but not two', () => {
+    expect(VmixCallsheetPushSchema.parse({}).positions).toEqual(['Presentatie']);
+    expect(VmixCallsheetPushSchema.safeParse({positions: []}).success).toBe(true);
+    expect(VmixCallsheetPushSchema.safeParse({positions: ['Presentatie', 'Analist']}).success).toBe(false);
+  });
+
+  it('keeps the first position of settings saved when several were allowed', async () => {
+    vi.mocked(appSettings.getSetting).mockResolvedValue({...config, positions: ['Analist', 'Presentatie']});
+    const read = await getCallsheetPushConfig();
+    expect(read.positions).toEqual(['Analist']);
+    expect(read.input).toBe('Callsheet');
   });
 });
 
