@@ -118,6 +118,40 @@ describe('ShowCallerPhone', () => {
 describe('useShowControls', () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it('sends each action to its own address on the server', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}'));
+    vi.stubGlobal('fetch', fetchMock);
+    const {result} = renderHook(() => useShowControls('47'));
+    for (const action of ['start', 'next', 'previous', 'recalculate', 'reset', 'stop'] as const) {
+      await act(() => result.current[action]());
+    }
+    expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).pathname)).toEqual([
+      '/api/show/start/47', '/api/show/next', '/api/show/previous', '/api/show/recalculate/47', '/api/show/reset/47', '/api/show/stop/47',
+    ]);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('sends one request when tapped twice quickly', async () => {
+    let finish: (r: Response) => void = () => undefined;
+    const fetchMock = vi.fn(() => new Promise<Response>((resolve) => { finish = resolve; }));
+    vi.stubGlobal('fetch', fetchMock);
+    const {result} = renderHook(() => useShowControls('47'));
+    let first: Promise<void> = Promise.resolve();
+    act(() => { first = result.current.next(); });
+    await act(() => result.current.next());
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(result.current.isProcessing).toBe(true));
+    await act(async () => { finish(new Response('{}')); await first; });
+    expect(result.current.isProcessing).toBe(false);
+  });
+
+  it('says so when the server cannot be reached', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+    const {result} = renderHook(() => useShowControls('47'));
+    await act(() => result.current.next());
+    expect(result.current.error).toBe('Geen verbinding met de server.');
+  });
+
   it('turns server errors into a message on screen', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({error: 'End of show reached.'}), {status: 400})));
     const {result} = renderHook(() => useShowControls('47'));
