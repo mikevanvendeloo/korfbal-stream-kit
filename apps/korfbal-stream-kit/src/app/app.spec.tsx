@@ -54,6 +54,19 @@ describe('App', () => {
     expect(document.querySelectorAll('a[href^="/admin"]')).toHaveLength(1);
   });
 
+  it('serves the LIVE manual in LIVE and the Beheer manual under /admin', async () => {
+    const {unmount} = renderApp('/handleiding/show-caller');
+    expect(screen.getByRole('heading', {level: 1, name: /Handleiding LIVE/})).toBeInTheDocument();
+    expect(screen.getByRole('heading', {level: 1, name: 'De Show Caller'})).toBeInTheDocument();
+    unmount();
+
+    renderApp('/admin/handleiding/producties');
+    expect(await screen.findByRole('heading', {level: 1, name: /Handleiding Beheer/}, LAZY)).toBeInTheDocument();
+    expect(screen.getByRole('heading', {level: 1, name: 'Producties'})).toBeInTheDocument();
+    // The help button on a Beheer screen leads to the Beheer manual
+    expect(screen.getByRole('link', {name: 'Handleiding bij dit scherm'})).toHaveAttribute('href', '/admin/handleiding');
+  });
+
   it('shows the Beheer app under /admin with Sponsors link', async () => {
     renderApp('/admin');
     expect(await screen.findByText('Korfbal Streamz Kit', {}, LAZY)).toBeInTheDocument();
