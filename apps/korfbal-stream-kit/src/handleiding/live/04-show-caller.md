@@ -19,7 +19,7 @@ Rechtsboven staan drie ronde knoppen:
 | **Volgend item** | Het volgende item wordt actief |
 | **Vorig item** | Terug naar het vorige item |
 | **Einde show** (rood, als de show loopt) | Stopt de show, na een bevestiging: het huidige item is klaar, de klok stopt en alle schermen zijn bij |
-| **Extra 15s**, **30s**, **60s** | Zet de resterende tijd van het huidige item meteen op 15, 30 of 60 seconden. Handig om een item netjes af te ronden of wat ruimte te geven. De items erna schuiven mee, en een item met *Auto* gaat na die tijd door. |
+| **Zet 15s**, **30s**, **60s** | Zet de resterende tijd van het huidige item meteen op 15, 30 of 60 seconden (er wordt niets bij opgeteld). Handig om een item netjes af te ronden of wat ruimte te geven. De items erna schuiven mee, en een item met *Auto* gaat na die tijd door. |
 
 Met het toetsenbord: <kbd>→</kbd> is volgend item, <kbd>←</kbd> is vorig item. Dat werkt niet terwijl je in een tekstveld typt.
 
@@ -47,7 +47,7 @@ Op een telefoon krijgt de Show Caller een eigen, eenvoudige weergave, gemaakt om
 - **Nu**: het item dat nu loopt, met de resterende tijd in grote cijfers. De balk is groen, oranje in de laatste 10 seconden en rood als het item over tijd is.
 - **Volgende**: het item dat start als je op **Volgend** drukt, met de begintijd en duur. Is het niet voor jouw positie, dan staat dat erbij.
 - **Daarna voor jou**: de items die daarna komen voor je positie (en items voor iedereen), met tijd en duur. Via het menu (de drie puntjes) wissel je naar **alle items**.
-- In het blok **Nu**, bij **Extra**: **15s**, **30s** en **60s** zetten de resterende tijd van het huidige item meteen op die waarde.
+- In het blok **Nu**, bij **Zet**: **15s**, **30s** en **60s** zetten de resterende tijd van het huidige item meteen op die waarde.
 - Onderaan, onder je duim: **Stop**, **Vorig** en een grote knop **Volgend**. Voor de start staat daar **Start show**. Stop vraagt eerst om bevestiging.
 - In het menu (drie puntjes): **Wissel positie**, **Callsheet view**, **Tijden herberekenen**, **Herstart show** en **Draaiboek resetten**. Herstarten en resetten vragen eerst om bevestiging.
 
