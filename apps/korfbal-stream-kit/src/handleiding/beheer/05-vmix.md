@@ -40,7 +40,7 @@ De presentator en analist kunnen in vMix zien welk item nu loopt, hoe lang nog, 
 | **Automatisch pushen naar vMix** | Aan: de app werkt de title elke seconde bij, ook als niemand de app open heeft. Uit: alleen met *Nu pushen*. |
 | **vMix title (naam, nummer of key)** | De input in vMix, bijvoorbeeld *Callsheet Presentatie* |
 | **Oranje vanaf (sec)** | Vanaf hoeveel seconden het blok oranje wordt (standaard 10) |
-| **Posities** | Welke callsheet-items meetellen: items met één van deze posities, plus items zonder positie. Niets aangevinkt is alles. Standaard Presentatie en Analist. |
+| **Positie** | Welke callsheet-items meetellen: items met deze positie, plus items zonder positie. *Alle items* neemt alles mee. Standaard Presentatie. Wil je een tweede positie in een andere title, gebruik daarvoor de datasource *Callsheet Timing* met `?position=` erachter. |
 
 Bij **Huidig item** en **Volgend item** vul je per gegeven de veldnaam in de title in, zoals vMix die noemt: tekstvelden eindigen op `.Text`, bijvoorbeeld `Titel.Text`. Een veld dat je leeg laat, wordt niet gevuld.
 
@@ -49,7 +49,7 @@ Bij **Huidig item** en **Volgend item** vul je per gegeven de veldnaam in de tit
 
 Daaronder kies je per toestand (**Normaal**, **Bijna op**, **Over tijd**) de kleur van de achtergrond en de tekst. Bij het huidige item telt de resterende tijd; bij het volgende item de tijd tot het begint.
 
-Het **Voorbeeld** toont wat er in vMix komt; met **Live / Normaal / Bijna op / Over tijd** bekijk je elke toestand. Sla eerst op: het voorbeeld gebruikt de opgeslagen posities. Met **Nu pushen** test je meteen; je ziet hoeveel velden zijn verstuurd en of er fouten waren.
+Het **Voorbeeld** toont wat er in vMix komt; met **Live / Normaal / Bijna op / Over tijd** bekijk je elke toestand. Sla eerst op: het voorbeeld gebruikt de opgeslagen positie. Met **Nu pushen** test je meteen; je ziet hoeveel velden zijn verstuurd en of er fouten waren.
 
 > Komen de teksten niet aan? Controleer de vMix-title (naam of nummer), de veldnamen (met `.Text`) en de Web Controller URL. De app stuurt elke 15 seconden alles opnieuw, dus na een herstart van vMix herstelt de title zich vanzelf.
 

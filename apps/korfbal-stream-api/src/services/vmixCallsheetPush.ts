@@ -11,8 +11,10 @@ export const VMIX_CALLSHEET_PUSH_KEY = 'vmixCallsheetPush';
 export type VmixCommand = { function: 'SetText' | 'SetColor' | 'SetTextColour'; selectedName: string; value: string };
 
 export async function getCallsheetPushConfig(): Promise<VmixCallsheetPushConfig> {
-  const stored = await getSetting<unknown>(VMIX_CALLSHEET_PUSH_KEY);
-  const parsed = VmixCallsheetPushSchema.safeParse(stored ?? {});
+  const stored = await getSetting<Record<string, unknown>>(VMIX_CALLSHEET_PUSH_KEY);
+  // Settings saved when several positions were allowed keep the first one
+  const positions = Array.isArray(stored?.positions) ? stored.positions.slice(0, 1) : stored?.positions;
+  const parsed = VmixCallsheetPushSchema.safeParse(stored ? {...stored, positions} : {});
   return parsed.success ? parsed.data : VmixCallsheetPushSchema.parse({});
 }
 

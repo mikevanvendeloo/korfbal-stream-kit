@@ -98,7 +98,7 @@ vmixRouter.post('/production/trigger-manual', async (req, res, next) => {
 
 
 // ---------------- Callsheet timing (presentator / analist) ----------------
-// GET /api/vmix/callsheet/timing?position=Presentatie,Analist
+// GET /api/vmix/callsheet/timing?position=Presentatie (several, comma separated, are allowed here)
 // The current and next callsheet item for these positions, with the remaining time as text ("04:32", "-00:12")
 // and in the vMix countdown format ("00:04:32"). Without ?position the positions from the push settings are used.
 // Returned as a one-element array, like the other vMix data sources.
@@ -800,9 +800,9 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
         description: 'Returns sponsor slides for pause screen.'
       },
       {
-        name: 'Callsheet Timing (Presentatie & Analist)',
-        url: `${baseUrl}/callsheet/timing?position=Presentatie,Analist`,
-        description: 'Current and next callsheet item for these positions, with remaining time and start times.'
+        name: 'Callsheet Timing (Presentatie)',
+        url: `${baseUrl}/callsheet/timing?position=Presentatie`,
+        description: 'Current and next callsheet item for this position, with remaining time and start times.'
       }
     ];
 

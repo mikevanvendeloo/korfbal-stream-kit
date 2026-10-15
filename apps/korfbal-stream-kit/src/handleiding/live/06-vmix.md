@@ -26,4 +26,4 @@ De kleur volgt de tijd: **Normaal**, **Bijna op** (vanaf een in Beheer ingesteld
 
 Zonder actieve productie staat er *Geen actieve productie: voorbeeldtekst.* en zie je voorbeeldteksten.
 
-> Welke posities meetellen (standaard Presentatie en Analist), de vMix-titel, de velden en de kleuren stel je in Beheer in, bij **Stamgegevens → vMix-koppeling**.
+> Welke positie meetelt (standaard Presentatie), de vMix-titel, de velden en de kleuren stel je in Beheer in, bij **Stamgegevens → vMix-koppeling**.

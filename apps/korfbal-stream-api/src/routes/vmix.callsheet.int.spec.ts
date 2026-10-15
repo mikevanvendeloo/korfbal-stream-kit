@@ -119,4 +119,9 @@ describe.runIf(runDb)('vMix callsheet timing (integration)', () => {
     const timing = await request(app).get('/api/vmix/callsheet/timing?position=Callsheet Int Presentatie');
     expect(timing.body[0].nextTitle).toBe('Interview J. de Coach & speler thuis');
   });
+
+  it('refuses more than one position in the push settings', async () => {
+    const res = await request(app).put('/api/settings/vmix-callsheet-push').send({positions: ['Callsheet Int Presentatie', 'Callsheet Int Camera']});
+    expect(res.status).toBe(400);
+  });
 });
