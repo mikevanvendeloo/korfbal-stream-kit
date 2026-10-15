@@ -2,8 +2,8 @@ import request from 'supertest';
 import app from '../main';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {prisma} from '../services/prisma';
-import {currentSeasonId} from '../../test-helpers';
 import {getCurrentState, stopProduction} from '../services/productionState';
+import {createProductionScenario, ProductionScenario} from '../../test-scenarios';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 
@@ -12,28 +12,20 @@ const runDb = process.env.REQUIRE_DB === 'true';
  * message on screen ("Dit is het laatste item."), so those answers are part of the contract.
  */
 describe.runIf(runDb)('Show control (integration)', () => {
-  let matchId: number;
+  let show: ProductionScenario;
   let productionId: number;
-  const ids: string[] = [];
+  let ids: string[];
 
   const status = async () => (await prisma.productionEvent.findMany({where: {productionId}, orderBy: {order: 'asc'}})).map((e) => e.status);
 
   beforeAll(async () => {
-    await prisma.production.updateMany({where: {isActive: true}, data: {isActive: false}});
-    const match = await prisma.matchSchedule.create({
-      data: {seasonId: await currentSeasonId(prisma), externalId: `show-control-int-${Date.now()}`, date: new Date(), homeTeamName: 'A', awayTeamName: 'B', isHomeMatch: true},
-    });
-    matchId = match.id;
-    productionId = (await prisma.production.create({data: {matchScheduleId: match.id, isActive: true}})).id;
-    for (const [order, title] of ['Opening', 'Interview', 'Afsluiting'].entries()) {
-      ids.push((await prisma.productionEvent.create({data: {productionId, title, order: order + 1, durationSec: 60}})).id);
-    }
+    show = await createProductionScenario(prisma, {active: true, items: [{title: 'Opening'}, {title: 'Interview'}, {title: 'Afsluiting'}]});
+    ({productionId, eventIds: ids} = show);
   });
 
   afterAll(async () => {
     await stopProduction(productionId);
-    await prisma.production.deleteMany({where: {id: productionId}});
-    await prisma.matchSchedule.deleteMany({where: {id: matchId}});
+    await show.cleanup();
   });
 
   it('starts at the first item and goes forward and back', async () => {

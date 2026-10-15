@@ -1,68 +1,66 @@
-import { defineConfig, devices } from '@playwright/test';
-import { nxE2EPreset } from '@nx/playwright/preset';
-import { workspaceRoot } from '@nx/devkit';
-
-// For CI, you may want to set BASE_URL to the deployed application.
-const baseURL = process.env['BASE_URL'] || 'http://localhost:4300';
-
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// require('dotenv').config();
+import {defineConfig, devices} from '@playwright/test';
+import {nxE2EPreset} from '@nx/playwright/preset';
+import {workspaceRoot} from '@nx/devkit';
+import path from 'node:path';
+import fs from 'node:fs';
+import dotenv from 'dotenv';
 
 /**
- * See https://playwright.dev/docs/test-configuration.
+ * End-to-end tests: a real browser against a real API on the TEST database. The API gets its own
+ * port and the dev server is pointed at it, so a running dev API (with the dev database) is never used.
  */
+const API_PORT = 3335;
+const KIT_PORT = 4300;
+const baseURL = process.env['BASE_URL'] || `http://localhost:${KIT_PORT}`;
+
+const testEnv = dotenv.parse(fs.readFileSync(path.join(workspaceRoot, 'apps/korfbal-stream-api/.env.test')));
+const databaseUrl = testEnv.DATABASE_URL ?? '';
+const databaseName = databaseUrl ? new URL(databaseUrl).pathname.replace(/^\//, '') : '';
+if (!databaseName.endsWith('_test')) {
+  // Same rule as the API tests (src/test-database.ts): the tests change data
+  throw new Error(`Refusing to run e2e tests against database "${databaseName || '<none>'}": its name must end in "_test".`);
+}
+process.env['E2E_DATABASE_URL'] = databaseUrl;
+process.env['E2E_API_URL'] = `http://localhost:${API_PORT}`;
+
 export default defineConfig({
-  ...nxE2EPreset(__filename, { testDir: './src' }),
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+  ...nxE2EPreset(__filename, {testDir: './src'}),
+  // One test database and one live show state: no parallel tests
+  fullyParallel: false,
+  workers: 1,
   use: {
     baseURL,
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
   },
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'npx nx run @korfbal-stream-kit/korfbal-stream-kit:preview',
-    url: 'http://localhost:4300',
-    reuseExistingServer: true,
-    cwd: workspaceRoot,
-  },
+  webServer: [
+    {
+      command: 'npx prisma migrate deploy --schema=apps/korfbal-stream-api/prisma/schema.prisma && npx tsx apps/korfbal-stream-api/src/main.ts',
+      url: `http://localhost:${API_PORT}/api/health`,
+      // Never reuse whatever already listens on the port: it could be an API on another database
+      reuseExistingServer: false,
+      cwd: workspaceRoot,
+      timeout: 120_000,
+      env: {
+        DATABASE_URL: databaseUrl,
+        PORT: String(API_PORT),
+        // 'test' would keep the server from listening (that is for the Vitest suites)
+        NODE_ENV: 'development',
+        ASSETS_DIR: path.join(workspaceRoot, 'tmp/e2e-storage'),
+      },
+    },
+    {
+      command: `npx vite --config apps/korfbal-stream-kit/vite.config.ts --port ${KIT_PORT} --strictPort`,
+      url: baseURL,
+      reuseExistingServer: false,
+      cwd: workspaceRoot,
+      timeout: 120_000,
+      env: {API_PROXY_TARGET: `http://localhost:${API_PORT}`},
+    },
+  ],
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {...devices['Desktop Chrome']},
     },
-
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-
-    // Uncomment for mobile browsers support
-    /* {
-      name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
-    },
-    {
-      name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
-    }, */
-
-    // Uncomment for branded browsers
-    /* {
-      name: 'Microsoft Edge',
-      use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    },
-    {
-      name: 'Google Chrome',
-      use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    } */
   ],
 });

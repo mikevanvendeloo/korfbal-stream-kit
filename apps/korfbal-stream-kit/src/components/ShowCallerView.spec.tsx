@@ -4,17 +4,15 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {ShowCallerView} from './ShowCallerView';
 import {useMediaQuery} from '../hooks/useMediaQuery';
 import {useWakeLock} from '../hooks/useWakeLock';
+import {fakeControls, REGIE, remaining, showItem} from '../test/showCaller';
 
-const controls = {
-  isProcessing: false, error: null as string | null, clearError: vi.fn(),
-  start: vi.fn(), next: vi.fn(), previous: vi.fn(), recalculate: vi.fn(), reset: vi.fn(), stop: vi.fn(), setRemaining: vi.fn(),
-};
-const regie = {id: 5, name: 'Regie livestream'};
-const item = (id: string, order: number, title: string, status = 'WAITING') => ({
-  id, order, title, status, note: null, durationSec: 60, positions: [{position: regie}], isInVenue: false, isInLivestream: true,
-  autoAdvance: false, isTimeAnchor: false, parentId: null, plannedStartTime: new Date(2026, 9, 17, 19, 50 + order).toISOString(), actualStartTime: null,
-});
-const items = [item('a', 1, 'Livestream starten', 'COMPLETED'), item('b', 2, 'Welkom', 'ACTIVE'), item('c', 3, 'Opkomst spelers')];
+const controls = fakeControls();
+const regie = REGIE;
+const items = [
+  showItem('a', 1, 'Livestream starten', {status: 'COMPLETED'}),
+  showItem('b', 2, 'Welkom', {status: 'ACTIVE'}),
+  showItem('c', 3, 'Opkomst spelers'),
+];
 let live: Record<string, unknown>;
 
 vi.mock('../hooks/useShowControls', async (importOriginal) => ({...(await importOriginal<object>()), useShowControls: () => controls}));
@@ -40,7 +38,7 @@ describe('ShowCallerView', () => {
     live = {
       allItems: items, allPositions: [regie], activeEvent: items[1], activeEventElapsedTime: 10,
       productionClock: {minutes: '05', seconds: '00', isNegative: false, rawSeconds: 300}, venueClock: '00:00', systemTime: '19:52:10',
-      activeEventRemainingTime: {minutes: '00', seconds: '50', isNegative: false, rawSeconds: 50},
+      activeEventRemainingTime: remaining(50),
       isLoading: false, autoAdvanceEventId: null, isConnected: true, timeSinceLastSync: 1,
     };
   });

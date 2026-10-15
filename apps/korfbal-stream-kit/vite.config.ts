@@ -3,6 +3,10 @@ import {defineConfig} from 'vite';
 import react from '@vitejs/plugin-react';
 import {nxViteTsPaths} from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 
+// Where /api, /uploads and /socket.io go in dev. The e2e tests start their own API on the test database
+// and point the dev server at it; everyone else gets the dev API on 3333.
+const apiTarget = process.env.API_PROXY_TARGET || 'http://localhost:3333';
+
 export default defineConfig(() => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/apps/korfbal-stream-kit',
@@ -12,21 +16,21 @@ export default defineConfig(() => ({
     proxy: {
       // Alle verzoeken naar /api worden nu doorgezonden naar de backend
       '/api': {
-        target: 'http://localhost:3333',
+        target: apiTarget,
         changeOrigin: true,
       },
       // Statische assets (sponsors logo's, player images, etc.)
       '/uploads': {
-        target: 'http://localhost:3333',
+        target: apiTarget,
         changeOrigin: true,
       },
       '/storage': {
-        target: 'http://localhost:3333',
+        target: apiTarget,
         changeOrigin: true,
       },
       // Live state (Socket.io), incl. websocket upgrade
       '/socket.io': {
-        target: 'http://localhost:3333',
+        target: apiTarget,
         changeOrigin: true,
         ws: true,
       },

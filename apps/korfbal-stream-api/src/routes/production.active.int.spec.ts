@@ -4,36 +4,26 @@ import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {prisma} from '../services/prisma';
 import {getSetting, setSetting} from '../services/appSettings';
 import {ACTIVE_SEASON_ID_KEY, ensureSeasonForDate} from '../services/season';
+import {createProductionScenario, ProductionScenario} from '../../test-scenarios';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 
 describe.runIf(runDb)('GET /api/production/active (integration)', () => {
   let previousActiveSeason: unknown = null;
-  let previouslyActive: number[] = [];
-  let matchId: number;
+  let show: ProductionScenario;
   let productionId: number;
 
   beforeAll(async () => {
     previousActiveSeason = await getSetting(ACTIVE_SEASON_ID_KEY);
-    previouslyActive = (await prisma.production.findMany({where: {isActive: true}, select: {id: true}})).map((p) => p.id);
-    await prisma.production.updateMany({where: {isActive: true}, data: {isActive: false}});
-
     // Last season's production is still active, while the new season is already the active one
-    const lastSeasonDate = new Date('2026-05-16T18:30:00.000Z');
-    const lastSeason = await ensureSeasonForDate(lastSeasonDate);
+    show = await createProductionScenario(prisma, {active: true, items: [], match: {date: new Date('2026-05-16T18:30:00.000Z'), homeTeamName: 'Vorig seizoen'}});
+    productionId = show.productionId;
     const newSeason = await ensureSeasonForDate(new Date('2026-10-17T18:00:00.000Z'));
-    const match = await prisma.matchSchedule.create({
-      data: {seasonId: lastSeason.id, externalId: `active-int-${Date.now()}`, date: lastSeasonDate, homeTeamName: 'Vorig seizoen', awayTeamName: 'Uit', isHomeMatch: true},
-    });
-    matchId = match.id;
-    productionId = (await prisma.production.create({data: {matchScheduleId: match.id, isActive: true}})).id;
     await setSetting(ACTIVE_SEASON_ID_KEY, newSeason.id);
   });
 
   afterAll(async () => {
-    await prisma.production.deleteMany({where: {id: productionId}});
-    await prisma.matchSchedule.deleteMany({where: {id: matchId}});
-    if (previouslyActive.length) await prisma.production.updateMany({where: {id: {in: previouslyActive}}, data: {isActive: true}});
+    await show.cleanup();
     await setSetting(ACTIVE_SEASON_ID_KEY, previousActiveSeason as never);
   });
 

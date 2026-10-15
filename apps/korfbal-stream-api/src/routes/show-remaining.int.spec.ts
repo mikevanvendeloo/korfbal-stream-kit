@@ -2,33 +2,29 @@ import request from 'supertest';
 import app from '../main';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {prisma} from '../services/prisma';
-import {currentSeasonId} from '../../test-helpers';
 import {setActiveEvent, stopProduction} from '../services/productionState';
+import {createProductionScenario, ProductionScenario} from '../../test-scenarios';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 const ms = (d: Date | null) => d?.getTime() ?? NaN;
 
 describe.runIf(runDb)('POST /api/show/remaining (integration)', () => {
-  let matchId: number;
+  let show: ProductionScenario;
   let productionId: number;
   const ids = {opening: '', interview: '', promo: ''};
 
   beforeAll(async () => {
-    await prisma.production.updateMany({where: {isActive: true}, data: {isActive: false}});
-    const match = await prisma.matchSchedule.create({
-      data: {seasonId: await currentSeasonId(prisma), externalId: `remaining-int-${Date.now()}`, date: new Date(), homeTeamName: 'A', awayTeamName: 'B', isHomeMatch: true},
+    show = await createProductionScenario(prisma, {
+      active: true,
+      items: [{title: 'Opening', durationSec: 300}, {title: 'Interview', durationSec: 120}, {title: 'Promo', durationSec: 60}],
     });
-    matchId = match.id;
-    productionId = (await prisma.production.create({data: {matchScheduleId: match.id, isActive: true}})).id;
-    for (const [key, order, durationSec] of [['opening', 1, 300], ['interview', 2, 120], ['promo', 3, 60]] as const) {
-      ids[key] = (await prisma.productionEvent.create({data: {productionId, title: key, order, durationSec}})).id;
-    }
+    productionId = show.productionId;
+    [ids.opening, ids.interview, ids.promo] = show.eventIds;
   });
 
   afterAll(async () => {
     await stopProduction(productionId);
-    await prisma.production.deleteMany({where: {id: productionId}});
-    await prisma.matchSchedule.deleteMany({where: {id: matchId}});
+    await show.cleanup();
   });
 
   it('refuses without an active item, and refuses odd values', async () => {

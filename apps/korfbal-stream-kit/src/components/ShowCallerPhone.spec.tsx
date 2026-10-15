@@ -3,42 +3,17 @@ import {MemoryRouter} from 'react-router-dom';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {ShowCallerPhone, ShowCallerPhoneProps} from './ShowCallerPhone';
 import {useShowControls} from '../hooks/useShowControls';
-import type {ProductionEvent} from '../hooks/useLiveState';
+import {fakeControls, isForRegie, remaining, showItems} from '../test/showCaller';
 
-const at = (hh: number, mm: number) => new Date(2026, 9, 17, hh, mm);
-const regie = {id: 5, name: 'Regie livestream'};
-const camera = {id: 2, name: 'Camera links'};
-
-function event(id: string, order: number, title: string, positions: Array<{ id: number; name: string }>, extra: Partial<ProductionEvent> = {}) {
-  return {
-    id, order, title, note: null, durationSec: 60, status: 'WAITING', positions: positions.map((position) => ({position})),
-    isInVenue: false, isInLivestream: true, autoAdvance: false, isTimeAnchor: false, parentId: null,
-    calculatedTime: at(19, 50 + order),
-    ...extra,
-  } as unknown as ProductionEvent & { calculatedTime: Date };
-}
-
-const items = [
-  event('a', 1, 'Livestream starten', [regie], {status: 'COMPLETED'}),
-  event('b', 2, 'Presentator heet publiek welkom', [regie], {note: 'Microfoon open', status: 'ACTIVE', autoAdvance: true}),
-  event('c', 3, 'Shots zaal', [camera]),
-  event('d', 4, 'Interview {coach-uit}', [regie]),
-  event('e', 5, 'Opkomst spelers', []),
-  event('f', 6, 'Camera naar de bank', [camera]),
-];
-
-const controls = () => ({
-  isProcessing: false, error: null as string | null, clearError: vi.fn(),
-  start: vi.fn(), next: vi.fn(), previous: vi.fn(), recalculate: vi.fn(), reset: vi.fn(), stop: vi.fn(), setRemaining: vi.fn(),
-});
+const items = showItems;
 
 function renderPhone(overrides: Partial<ShowCallerPhoneProps> = {}) {
   const props: ShowCallerPhoneProps = {
     productionId: '47', positionSlug: 'regie-livestream', positionName: 'Regie livestream', items,
-    activeEventId: 'b', remaining: {minutes: '00', seconds: '08', isNegative: false, rawSeconds: 8},
+    activeEventId: 'b', remaining: remaining(8),
     autoAdvanceEventId: null, isConnected: true, systemTime: '19:52:10',
-    isRelevant: (e) => e.positions.length === 0 || e.positions.some((p) => p.position.id === regie.id),
-    controls: controls(),
+    isRelevant: isForRegie,
+    controls: fakeControls(),
     ...overrides,
   };
   render(<MemoryRouter><ShowCallerPhone {...props}/></MemoryRouter>);
@@ -131,7 +106,7 @@ describe('ShowCallerPhone', () => {
   });
 
   it('shows a failed action instead of failing silently', () => {
-    renderPhone({controls: {...controls(), error: 'Dit is het laatste item.'}});
+    renderPhone({controls: fakeControls({error: 'Dit is het laatste item.'})});
     expect(screen.getByRole('alert').textContent).toBe('Dit is het laatste item.');
   });
 });

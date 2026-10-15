@@ -81,6 +81,12 @@ REQUIRE_DB=false npx vitest run --config apps/korfbal-stream-api/vitest.config.t
 - Vitest runs spec files **one after another in a single fork** (`pool: 'forks'`, `singleFork`, `fileParallelism: false`) because they share that database. Config: `apps/korfbal-stream-api/vitest.config.ts`, run from the repo root.
 - `REQUIRE_DB=true` enables the integration tests (`npm run api:test:integration`); without it they are skipped.
 - Integration specs must clean up what they create (especially active productions: they'd be restored by later spec files).
+- **Integration tests come first.** New API behaviour gets an integration test on the test database; unit tests with a mocked Prisma only for pure logic. Frontend flows that matter during a broadcast get an e2e test.
+- **Reuse test data, don't rebuild it** (keep tests cheap to change):
+  - `apps/korfbal-stream-api/test-scenarios.ts` → `createProductionScenario(prisma, {active, items, match, segments, report})`: a match, production, LIVE items and positions with one `cleanup()`. Used by the API integration tests and the e2e tests. Pass only what the test is about; extend the builder rather than writing setup by hand.
+  - e2e (`apps/korfbal-stream-kit-e2e/src/support/`): the `liveShow` / `makeShow` fixtures (fresh active production per test, stopped and removed afterwards) and page objects (`LiveNav`, `ShowCallerPhone`, `ShowCallerWide`). Find screens through the page objects, so a changed label is fixed in one place.
+  - Kit component tests: shared data in `apps/korfbal-stream-kit/src/test/` (e.g. `showCaller.ts`: items, `fakeControls()`).
+- **e2e**: `npm run e2e` starts its own API on port 3335 against the test database (refuses a database whose name doesn't end in `_test`) and a dev server on 4300 pointed at it (`API_PROXY_TARGET`); it never reuses a running server. Needs `npm run db:up` and once `npx playwright install chromium`. Tests run one at a time (one live show state).
 - After fixing a bug, verify no regressions before moving on.
 
 ## Project Structure

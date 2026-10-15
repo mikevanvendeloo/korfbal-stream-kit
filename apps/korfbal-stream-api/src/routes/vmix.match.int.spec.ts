@@ -2,38 +2,35 @@ import request from 'supertest';
 import app from '../main';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {prisma} from '../services/prisma';
-import {currentSeasonId} from '../../test-helpers';
+import {createProductionScenario, ProductionScenario} from '../../test-scenarios';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 
 describe.runIf(runDb)('vMix match info data source (integration)', () => {
   let productionId: number;
-  let matchId: number;
+  let show: ProductionScenario;
   let clubId: number;
   let sponsorId: number;
   const slug = `vmix-match-int-${Date.now()}`;
 
   beforeAll(async () => {
-    // Other productions must not be active, or they'd be picked instead of ours
-    await prisma.production.updateMany({where: {isActive: true}, data: {isActive: false}});
     clubId = (await prisma.club.create({data: {name: 'Vmixmatch Thuisclub', shortName: 'Vmixmatch', slug, logoUrl: 'clubs/vmixmatch.png'}})).id;
     sponsorId = (await prisma.sponsor.create({data: {name: 'Vmixmatch Balsponsor', type: 'goud', logoUrl: 'vmixmatch.png', websiteUrl: 'https://example.org'}})).id;
-    const match = await prisma.matchSchedule.create({
-      data: {
-        seasonId: await currentSeasonId(prisma), externalId: slug, date: new Date('2026-10-17T18:00:00.000Z'),
-        homeTeamName: 'Vmixmatch 1', awayTeamName: 'Tegenstander 1', isHomeMatch: true,
+    // Active, so the data source picks it (the scenario switches the other productions off)
+    show = await createProductionScenario(prisma, {
+      active: true,
+      items: [],
+      match: {
+        date: new Date('2026-10-17T18:00:00.000Z'), homeTeamName: 'Vmixmatch 1', awayTeamName: 'Tegenstander 1',
         refereeName: 'J. de Vries', reserveRefereeName: 'P. Bakker', accommodationName: 'Sporthal',
       },
+      report: {ballSponsor: 'Vmixmatch Balsponsor'},
     });
-    matchId = match.id;
-    productionId = (await prisma.production.create({
-      data: {matchScheduleId: match.id, isActive: true, productionReport: {create: {ballSponsor: 'Vmixmatch Balsponsor'}}},
-    })).id;
+    productionId = show.productionId;
   });
 
   afterAll(async () => {
-    await prisma.production.deleteMany({where: {id: productionId}});
-    await prisma.matchSchedule.deleteMany({where: {id: matchId}});
+    await show.cleanup();
     await prisma.club.deleteMany({where: {id: clubId}});
     await prisma.sponsor.deleteMany({where: {id: sponsorId}});
   });
