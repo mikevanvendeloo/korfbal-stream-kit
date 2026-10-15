@@ -353,9 +353,10 @@ export const ShowCallerView = () => {
               <div className="flex items-center gap-2">
                 {/* Set the current item's remaining time in one press */}
                 <div role="group" aria-label="Resterend instellen" className="flex items-center gap-1 mr-2">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-white/40 mr-1">Extra</span>
                   {REMAINING_PRESETS.map((sec) => (
                     <button key={sec} type="button" onClick={() => controls.setRemaining(sec)} disabled={!activeEvent || isProcessing}
-                            title={`Nog ${sec} seconden voor het huidige item`} aria-label={`Resterend ${sec} seconden`}
+                            title={`Het huidige item loopt nog ${sec} seconden`} aria-label={`Resterend ${sec} seconden`}
                             className="px-2.5 py-1.5 rounded-lg text-xs font-bold tabular-nums bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-700 dark:text-white/80 hover:bg-gray-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed">
                       {sec}s
                     </button>

@@ -143,7 +143,7 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
               <Tags event={active} autoTimer={autoAdvanceEventId === active.id}/>
               {/* Set the remaining time of this item in one press */}
               <div role="group" aria-label="Resterend instellen" className="flex items-center gap-2 pt-1">
-                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Nog</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Extra</span>
                 {REMAINING_PRESETS.map((sec) => (
                   <button key={sec} type="button" onClick={() => controls.setRemaining(sec)} disabled={controls.isProcessing}
                           aria-label={`Resterend ${sec} seconden`}
