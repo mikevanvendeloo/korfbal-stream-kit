@@ -4,9 +4,9 @@ import {useEffect, useMemo, useRef, useState} from "react";
 import {MatchHeader} from "./MatchHeader";
 import {TimeDisplay} from "./TimeDisplay";
 import {CallSheetItem} from "./CallSheetItem";
-import {LucideTvMinimalPlay, Play, Settings, SkipBack, SkipForward, Spotlight} from 'lucide-react';
+import {LucideTvMinimalPlay, Play, Settings, SkipBack, SkipForward, Spotlight, Square} from 'lucide-react';
 import {useFontSize} from "../hooks/useFontSize";
-import {useShowControls} from "../hooks/useShowControls";
+import {REMAINING_PRESETS, useShowControls} from "../hooks/useShowControls";
 import {PHONE_QUERY, useMediaQuery} from "../hooks/useMediaQuery";
 import {useWakeLock} from "../hooks/useWakeLock";
 import {ShowCallerPhone} from "./ShowCallerPhone";
@@ -345,11 +345,22 @@ export const ShowCallerView = () => {
                 </div>
               </div>
 
-              <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none">
+              {/* Centred between the buttons on wide screens; on its own row below when they would overlap */}
+              <div className="hidden xl:flex absolute left-1/2 -translate-x-1/2 items-center justify-center pointer-events-none">
                 <MatchHeader productionId={Number(productionId)} size="small" className="pointer-events-auto" />
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Set the current item's remaining time in one press */}
+                <div role="group" aria-label="Resterend instellen" className="flex items-center gap-1 mr-2">
+                  {REMAINING_PRESETS.map((sec) => (
+                    <button key={sec} type="button" onClick={() => controls.setRemaining(sec)} disabled={!activeEvent || isProcessing}
+                            title={`Nog ${sec} seconden voor het huidige item`} aria-label={`Resterend ${sec} seconden`}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold tabular-nums bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-700 dark:text-white/80 hover:bg-gray-200 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed">
+                      {sec}s
+                    </button>
+                  ))}
+                </div>
                 <button
                   onClick={handlePrevious}
                   disabled={!activeEvent || isProcessing}
@@ -359,7 +370,10 @@ export const ShowCallerView = () => {
                   <SkipBack className="w-5 h-5 fill-current" />
                 </button>
                 <button
-                  onClick={handleStart}
+                  onClick={() => {
+                    // Restarting a running show jumps back to the first item for everyone
+                    if (!activeEvent || window.confirm('De show opnieuw beginnen bij het eerste item?')) handleStart();
+                  }}
                   disabled={isProcessing}
                   title={activeEvent ? "Herstart Show" : "Start Show"}
                   className={`p-4 rounded-full transition-all shadow-lg ${
@@ -378,7 +392,24 @@ export const ShowCallerView = () => {
                 >
                   <SkipForward className="w-6 h-6 fill-current" />
                 </button>
+                {activeEvent && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Weet je zeker dat je de show wilt stoppen?')) handleStop();
+                    }}
+                    disabled={isProcessing}
+                    title="Einde show"
+                    aria-label="Einde show"
+                    className="ml-2 p-3 rounded-full bg-red-600 border border-red-500 text-white hover:bg-red-500 transition-all shadow-lg disabled:opacity-30"
+                  >
+                    <Square className="w-5 h-5 fill-current" />
+                  </button>
+                )}
               </div>
+            </div>
+
+            <div className="xl:hidden flex justify-center w-full">
+              <MatchHeader productionId={Number(productionId)} size="small" />
             </div>
 
             <TimeDisplay

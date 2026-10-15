@@ -29,7 +29,7 @@ const items = [
 
 const controls = () => ({
   isProcessing: false, error: null as string | null, clearError: vi.fn(),
-  start: vi.fn(), next: vi.fn(), previous: vi.fn(), recalculate: vi.fn(), reset: vi.fn(), stop: vi.fn(),
+  start: vi.fn(), next: vi.fn(), previous: vi.fn(), recalculate: vi.fn(), reset: vi.fn(), stop: vi.fn(), setRemaining: vi.fn(),
 });
 
 function renderPhone(overrides: Partial<ShowCallerPhoneProps> = {}) {
@@ -79,12 +79,33 @@ describe('ShowCallerPhone', () => {
     expect(props.controls.previous).toHaveBeenCalledOnce();
   });
 
+  it('sets the remaining time of the current item in one press', () => {
+    const props = renderPhone();
+    const presets = within(screen.getByRole('region', {name: 'Nu'})).getByRole('group', {name: 'Resterend instellen'});
+    expect(within(presets).getAllByRole('button').map((b) => b.textContent)).toEqual(['15s', '30s', '60s']);
+    fireEvent.click(within(presets).getByRole('button', {name: 'Resterend 30 seconden'}));
+    expect(props.controls.setRemaining).toHaveBeenCalledWith(30);
+  });
+
+  it('stops the show from the bottom bar, after confirming', () => {
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    const props = renderPhone();
+    const stop = within(screen.getByRole('navigation', {name: 'Show bediening'})).getByRole('button', {name: 'Einde show'});
+    fireEvent.click(stop);
+    expect(props.controls.stop).not.toHaveBeenCalled();
+    fireEvent.click(stop);
+    expect(props.controls.stop).toHaveBeenCalledOnce();
+  });
+
   it('offers Start show before the show begins, with the first item as next', () => {
     const props = renderPhone({activeEventId: null, remaining: null, items: items.map((e) => ({...e, status: 'WAITING'})) as never});
     expect(within(screen.getByRole('region', {name: 'Nu'})).getByText('De show is nog niet gestart')).toBeTruthy();
     expect(within(screen.getByRole('region', {name: 'Volgende'})).getByText('Livestream starten')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', {name: 'Start show'}));
     expect(props.controls.start).toHaveBeenCalledOnce();
+    // Nothing to stop or shorten before the start
+    expect(screen.queryByRole('button', {name: 'Einde show'})).toBeNull();
+    expect(screen.queryByRole('group', {name: 'Resterend instellen'})).toBeNull();
   });
 
   it('asks before restarting the show', () => {
@@ -117,6 +138,16 @@ describe('ShowCallerPhone', () => {
 
 describe('useShowControls', () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it('sends the remaining seconds to the server', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}'));
+    vi.stubGlobal('fetch', fetchMock);
+    const {result} = renderHook(() => useShowControls('47'));
+    await act(() => result.current.setRemaining(15));
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [URL, RequestInit];
+    expect(String(url)).toContain('/api/show/remaining');
+    expect(JSON.parse(String(init.body))).toEqual({seconds: 15});
+  });
 
   it('turns server errors into a message on screen', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({error: 'End of show reached.'}), {status: 400})));

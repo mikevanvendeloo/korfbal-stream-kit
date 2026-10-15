@@ -1,8 +1,8 @@
 import React from 'react';
 import {useNavigate} from 'react-router-dom';
-import {ChevronLeft, ChevronRight, FastForward, MoreVertical, Play} from 'lucide-react';
+import {ChevronLeft, ChevronRight, FastForward, MoreVertical, Play, Square} from 'lucide-react';
 import type {ProductionEvent} from '../hooks/useLiveState';
-import type {ShowControls} from '../hooks/useShowControls';
+import {REMAINING_PRESETS, type ShowControls} from '../hooks/useShowControls';
 import {InterviewText} from './InterviewText';
 
 type TimedEvent = ProductionEvent & { calculatedTime: Date | null };
@@ -111,12 +111,6 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
                   onClick={confirmThen('Weet je zeker dat je het draaiboek wilt resetten naar de originele tijden?', controls.reset)}>
             Draaiboek resetten
           </button>
-          {active && (
-            <button role="menuitem" className="w-full text-left px-4 py-3 text-red-700 dark:text-red-400"
-                    onClick={confirmThen('Weet je zeker dat je de show wilt stoppen?', controls.stop)}>
-              Einde show
-            </button>
-          )}
         </div>
       )}
 
@@ -147,6 +141,17 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
                 {positionName && !isRelevant(active) && <span>niet voor jouw positie</span>}
               </div>
               <Tags event={active} autoTimer={autoAdvanceEventId === active.id}/>
+              {/* Set the remaining time of this item in one press */}
+              <div role="group" aria-label="Resterend instellen" className="flex items-center gap-2 pt-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Nog</span>
+                {REMAINING_PRESETS.map((sec) => (
+                  <button key={sec} type="button" onClick={() => controls.setRemaining(sec)} disabled={controls.isProcessing}
+                          aria-label={`Resterend ${sec} seconden`}
+                          className="flex-1 h-11 rounded-xl bg-gray-100 dark:bg-gray-800 font-mono font-bold tabular-nums active:scale-95 disabled:opacity-50">
+                    {sec}s
+                  </button>
+                ))}
+              </div>
             </div>
           </>
         ) : (
@@ -196,9 +201,14 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
 
       {/* Controls under the thumb; Restart lives in the menu, behind a confirmation */}
       <nav aria-label="Show bediening"
-           className="fixed bottom-0 inset-x-0 z-30 grid grid-cols-3 gap-2 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-200 dark:border-gray-800">
+           className="fixed bottom-0 inset-x-0 z-30 grid grid-cols-4 gap-2 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-200 dark:border-gray-800">
         {active ? (
           <>
+            <button type="button" onClick={confirmThen('Weet je zeker dat je de show wilt stoppen?', controls.stop)} disabled={controls.isProcessing}
+                    aria-label="Einde show"
+                    className="h-16 rounded-2xl flex flex-col items-center justify-center bg-red-600 text-white text-xs font-bold active:scale-95 disabled:opacity-50">
+              <Square className="w-5 h-5 fill-current"/>Stop
+            </button>
             <button type="button" onClick={controls.previous} disabled={controls.isProcessing} aria-label="Vorig item"
                     className="h-16 rounded-2xl flex items-center justify-center gap-1 bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white font-semibold active:scale-95 disabled:opacity-50">
               <ChevronLeft className="w-6 h-6"/>Vorig
@@ -210,7 +220,7 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
           </>
         ) : (
           <button type="button" onClick={controls.start} disabled={controls.isProcessing || !items.length} aria-label="Start show"
-                  className="col-span-3 h-16 rounded-2xl flex items-center justify-center gap-2 bg-green-600 text-white text-xl font-bold active:scale-95 disabled:opacity-50">
+                  className="col-span-4 h-16 rounded-2xl flex items-center justify-center gap-2 bg-green-600 text-white text-xl font-bold active:scale-95 disabled:opacity-50">
             <Play className="w-6 h-6"/>Start show
           </button>
         )}
