@@ -1,9 +1,9 @@
 import request from 'supertest';
 import app from '../main';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {prisma} from '../services/prisma';
 import {getCurrentState, stopProduction} from '../services/productionState';
 import {createProductionScenario, ProductionScenario} from '../../test-scenarios';
+import {testDb as prisma, inTestOrganization} from '../../test-helpers';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 
@@ -24,7 +24,7 @@ describe.runIf(runDb)('Show control (integration)', () => {
   });
 
   afterAll(async () => {
-    await stopProduction(productionId);
+    await inTestOrganization(() => stopProduction(productionId));
     await show.cleanup();
   });
 

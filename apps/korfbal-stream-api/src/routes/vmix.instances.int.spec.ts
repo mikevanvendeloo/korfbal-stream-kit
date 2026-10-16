@@ -5,6 +5,7 @@ import app from '../main';
 import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'vitest';
 import {getSetting, setSetting, VMIX_URL_KEY} from '../services/appSettings';
 import {VMIX_INSTANCES_KEY} from '../services/vmixInstances';
+import {inTestOrganization} from '../../test-helpers';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 
@@ -32,7 +33,7 @@ describe.runIf(runDb)('vMix instances (integration)', () => {
   let previous: { instances: unknown; url: unknown } = {instances: null, url: null};
 
   beforeAll(async () => {
-    previous = {instances: await getSetting(VMIX_INSTANCES_KEY), url: await getSetting(VMIX_URL_KEY)};
+    previous = {instances: await inTestOrganization(() => getSetting(VMIX_INSTANCES_KEY)), url: await inTestOrganization(() => getSetting(VMIX_URL_KEY))};
     [streamUrl, schermUrl] = await Promise.all([stream.start(), scherm.start()]);
   });
 
@@ -42,8 +43,8 @@ describe.runIf(runDb)('vMix instances (integration)', () => {
   });
 
   afterAll(async () => {
-    await setSetting(VMIX_INSTANCES_KEY, previous.instances as never);
-    await setSetting(VMIX_URL_KEY, previous.url as never);
+    await inTestOrganization(() => setSetting(VMIX_INSTANCES_KEY, previous.instances as never));
+    await inTestOrganization(() => setSetting(VMIX_URL_KEY, previous.url as never));
     await Promise.all([stream.stop(), scherm.stop()]);
   });
 

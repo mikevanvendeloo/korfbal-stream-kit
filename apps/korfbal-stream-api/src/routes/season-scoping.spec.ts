@@ -212,6 +212,9 @@ describe('Season scoping of existing endpoints', () => {
           update: vi.fn(async ({where, data}: any) => settings.set(where.key, data.value)),
           create: vi.fn(async ({data}: any) => settings.set(data.key, data.value)),
         });
+        // Organization settings share the map (installSeasonMocks); the active season is installation-wide
+        prisma.organizationSetting.findMany = vi.fn(async () =>
+          [...settings].filter(([key]) => key !== ACTIVE_SEASON_ID_KEY).map(([key, value]) => ({key, value})));
       });
 
       it('export replaces the serial active season id by the season name', async () => {

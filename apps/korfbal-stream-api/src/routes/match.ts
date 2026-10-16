@@ -2,7 +2,7 @@ import {Router} from 'express';
 import {z} from 'zod';
 import {logger} from '../utils/logger';
 import {prisma} from '../services/prisma';
-import {getMatchScheduleProvider, InvalidMatchScheduleResponseError, type NormalizedMatchItem} from '../services/matchSchedule';
+import {getMatchScheduleProvider, InvalidMatchScheduleResponseError, MatchSourceNotConfiguredError, type NormalizedMatchItem} from '../services/matchSchedule';
 import {MatchScheduleImportQuerySchema} from '../schemas/matchSchedule';
 import {createSeasonIdResolver, seasonNameForStartYear, seasonStartYearForDate} from '../services/season';
 
@@ -13,7 +13,7 @@ matchRouter.post('/matches/schedule/import', async (req, res) => {
   try {
     const {date, location} = MatchScheduleImportQuerySchema.parse(req.query);
 
-    const items = await getMatchScheduleProvider().fetchMatches({date, location});
+    const items = await (await getMatchScheduleProvider()).fetchMatches({date, location});
 
     // Resolve (and create when missing) each match's season, derived from the match date, before
     // the transaction: seasons are idempotent, so one left over after a rolled-back import is harmless,
@@ -37,9 +37,9 @@ matchRouter.post('/matches/schedule/import', async (req, res) => {
         let inserted = 0;
         let updated = 0;
         for (const data of rows) {
-          const existing = await tx.matchSchedule.findUnique({where: {externalId: data.externalId}});
+          const existing = await tx.matchSchedule.findFirst({where: {externalId: data.externalId}, select: {id: true}});
           if (existing) {
-            await tx.matchSchedule.update({where: {externalId: data.externalId}, data});
+            await tx.matchSchedule.update({where: {id: existing.id}, data});
             updated++;
           } else {
             await tx.matchSchedule.create({data});
@@ -59,6 +59,7 @@ matchRouter.post('/matches/schedule/import', async (req, res) => {
     return res.json({ok: true, inserted, updated, total: items.length, bySeason});
   } catch (err: any) {
     if (err instanceof z.ZodError) return res.status(400).json({error: err.issues?.[0]?.message || 'Invalid query'});
+    if (err instanceof MatchSourceNotConfiguredError) return res.status(409).json({error: err.message});
     logger.error('Program import failed', {error: err?.message});
     if (err instanceof InvalidMatchScheduleResponseError) return res.status(502).json({error: err.message});
     return res.status(502).json({error: 'Failed to import program'});

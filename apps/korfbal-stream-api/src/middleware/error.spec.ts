@@ -110,4 +110,25 @@ describe('errorHandler', () => {
     expect(logger.error).toHaveBeenCalledWith('Unhandled error', unknownError);
     expect(logger.warn).not.toHaveBeenCalled();
   });
+
+  it('answers 404 for a record that was not found (P2025)', () => {
+    const notFound = new PrismaClientKnownRequestError('No record found', {code: 'P2025', clientVersion: '6.0.0'});
+
+    errorHandler(notFound, mockRequest as Request, mockResponse as Response, mockNext);
+
+    expect(mockResponse.status).toHaveBeenCalledWith(404);
+    expect(mockResponse.json).toHaveBeenCalledWith({ error: 'Niet gevonden' });
+  });
+
+  it('answers 400 for a foreign key to a missing row (P2003) or a row of another organization', () => {
+    const foreignKey = new PrismaClientKnownRequestError('Foreign key constraint failed', {code: 'P2003', clientVersion: '6.0.0'});
+    const otherOrganization = new Error('ERROR: ProductionPerson.personId refers to a row of another organization');
+
+    errorHandler(foreignKey, mockRequest as Request, mockResponse as Response, mockNext);
+    errorHandler(otherOrganization, mockRequest as Request, mockResponse as Response, mockNext);
+
+    expect(mockResponse.status).toHaveBeenNthCalledWith(1, 400);
+    expect(mockResponse.status).toHaveBeenNthCalledWith(2, 400);
+    expect(mockResponse.json).toHaveBeenCalledWith({ error: 'Ongeldige verwijzing' });
+  });
 });

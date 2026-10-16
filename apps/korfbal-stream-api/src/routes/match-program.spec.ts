@@ -2,7 +2,6 @@ import request from 'supertest';
 import app from '../main';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
-import { config } from '../services/config';
 
 vi.mock('axios');
 const mockedAxios = axios as unknown as { get: ReturnType<typeof vi.fn> } as any;
@@ -14,20 +13,29 @@ import { installSeasonMocks, SeasonMockState } from '../../test-helpers';
 // In-memory store to simulate DB
 let store: any[] = [];
 let seasonState: SeasonMockState;
+// The organization's match source (MatchSource row)
+let source: any;
 
 function resetPrismaMocks() {
   store = [];
   const prisma = (prismaSvc as any).prisma as any;
   seasonState = installSeasonMocks(prisma);
+  // Team colours come from the organization's own club names
+  seasonState.settings.set('productionTeamNames', ['Fortuna/Ruitenheer']);
+  prisma.organization = {
+    findUnique: vi.fn(async ({ where }: any) => (where.slug === 'test-org' || where.id === 1 ? { id: 1, slug: 'test-org', name: 'Test', isActive: true } : null)),
+  };
+  source = { id: 1, organizationId: 1, provider: 'vrijwilligers', baseUrl: 'https://provider.example.com/v1', apiToken: null, isEnabled: true };
+  prisma.matchSource = { findFirst: vi.fn(async () => source) };
   prisma.matchSchedule = {
-    findUnique: vi.fn(async ({ where }: any) => store.find((m) => m.externalId === where.externalId) || null),
+    findFirst: vi.fn(async ({ where }: any) => store.find((m) => m.externalId === where.externalId) || null),
     create: vi.fn(async ({ data }: any) => {
       const created = { id: store.length + 1, ...data };
       store.push(created);
       return created;
     }),
     update: vi.fn(async ({ where, data }: any) => {
-      const idx = store.findIndex((m) => m.externalId === where.externalId);
+      const idx = store.findIndex((m) => m.id === where.id);
       if (idx >= 0) {
         store[idx] = { ...store[idx], ...data };
         return store[idx];
@@ -141,19 +149,13 @@ describe('Match schedule import and list APIs', () => {
   });
 
   it('uses Authorization Bearer token and accept header when importing', async () => {
-    // Set token in config to simulate real auth (restored below so it can't leak into other tests)
+    // The token of the organization's match source
     const token = 'TEST_TOKEN_123';
-    const originalToken = config.matchScheduleApiToken;
-    (config as any).matchScheduleApiToken = token;
+    source.apiToken = token;
 
     mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
 
-    let res;
-    try {
-      res = await request(app).post('/api/match/matches/schedule/import');
-    } finally {
-      (config as any).matchScheduleApiToken = originalToken;
-    }
+    const res = await request(app).post('/api/match/matches/schedule/import');
     expect(res.status).toBe(200);
 
     expect(mockedAxios.get).toHaveBeenCalledTimes(1);
@@ -280,15 +282,18 @@ describe('Match schedule import and list APIs', () => {
     expect(res.body.error).toBe('Invalid response format from program API');
   });
 
-  it('returns 502 for an unknown MATCH_SCHEDULE_PROVIDER instead of failing at startup', async () => {
-    const originalKey = config.matchScheduleProviderKey;
-    (config as any).matchScheduleProviderKey = 'does-not-exist';
-    try {
-      const res = await request(app).post('/api/match/matches/schedule/import');
-      expect(res.status).toBe(502);
-    } finally {
-      (config as any).matchScheduleProviderKey = originalKey;
-    }
+  it('returns 502 for an unknown match source provider', async () => {
+    source.provider = 'does-not-exist';
+    const res = await request(app).post('/api/match/matches/schedule/import');
+    expect(res.status).toBe(502);
+  });
+
+  it('returns 409 when the organization has no (enabled) match source', async () => {
+    source = null;
+    const res = await request(app).post('/api/match/matches/schedule/import');
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('Wedstrijdimport is niet ingesteld voor deze organisatie');
+    expect(mockedAxios.get).not.toHaveBeenCalled();
   });
 });
 

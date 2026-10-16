@@ -3,9 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import app from '../main';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {prisma} from '../services/prisma';
 import {getAssetsRoot} from '../services/config';
 import {createProductionScenario, ProductionScenario} from '../../test-scenarios';
+import {testDb as prisma} from '../../test-helpers';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 

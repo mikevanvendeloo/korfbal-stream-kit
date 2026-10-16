@@ -2,9 +2,8 @@ import request from 'supertest';
 import {execSync} from 'node:child_process';
 import app from '../main';
 import {beforeAll, beforeEach, describe, expect, it} from 'vitest';
-import {PrismaClient} from '@prisma/client';
 import {POSITION_TO_SKILL} from './positionSkill';
-import {currentSeasonId} from '../../test-helpers';
+import {applyStandardSetToTestOrganization, currentSeasonId, testDb as prisma, testOrganizationId} from '../../test-helpers';
 import {findOrCreatePosition} from '../services/positions';
 
 function run(cmd: string) {
@@ -12,7 +11,6 @@ function run(cmd: string) {
 }
 
 const runDb = process.env.REQUIRE_DB === 'true';
-const prisma = new PrismaClient();
 
 async function resetDb() {
   // Children before parents. Sequential instead of $transaction([...]): a `.catch()` turns a Prisma
@@ -33,7 +31,7 @@ async function resetDb() {
 describe.runIf(runDb)('Position -> Skill mapping (integration)', () => {
   beforeAll(async () => {
     run('npx prisma migrate deploy --schema=apps/korfbal-stream-api/prisma/schema.prisma');
-    run('npx prisma db seed --schema=apps/korfbal-stream-api/prisma/schema.prisma');
+    await applyStandardSetToTestOrganization();
   });
 
   beforeEach(async () => {
@@ -43,7 +41,7 @@ describe.runIf(runDb)('Position -> Skill mapping (integration)', () => {
   it('all skill codes referenced by POSITION_TO_SKILL exist in DB', async () => {
     const codes = Array.from(new Set(Object.values(POSITION_TO_SKILL)));
     for (const code of codes) {
-      const skill = await prisma.skill.findUnique({ where: { code } });
+      const skill = await prisma.skill.findFirst({ where: { code } });
       expect(skill, `Skill code missing: ${code}`).toBeTruthy();
     }
   });
@@ -69,13 +67,13 @@ describe.runIf(runDb)('Position -> Skill mapping (integration)', () => {
     expect(await prisma.position.count()).toBe(before);
   });
 
-  it('the seed matches existing positions and skills instead of adding a second one', async () => {
+  it('the standard set matches existing positions and skills instead of adding a second one', async () => {
     const skill = await prisma.skill.create({ data: { code: 'SHOW_CALLER', name: 'Show caller', nameMale: 'Show caller', nameFemale: 'Show caller' } });
     await prisma.skill.deleteMany({ where: { code: 'SHOWCALLER' } });
     await prisma.position.create({ data: { name: 'Show caller', skillId: skill.id } });
     await prisma.position.create({ data: { name: 'regie' } });
 
-    run('npx prisma db seed --schema=apps/korfbal-stream-api/prisma/schema.prisma');
+    await applyStandardSetToTestOrganization();
 
     const names = (await prisma.position.findMany()).map((p) => p.name);
     expect(names.filter((n) => n.toLowerCase().replace(/\s/g, '') === 'showcaller')).toEqual(['Show caller']);
@@ -83,8 +81,8 @@ describe.runIf(runDb)('Position -> Skill mapping (integration)', () => {
     expect(names).not.toContain('Regie livestream');
     // The old code is renamed, so the position keeps its skill under the code the application uses
     expect((await prisma.skill.findMany({ where: { code: { in: ['SHOWCALLER', 'SHOW_CALLER'] } } })).map((s) => [s.id, s.code])).toEqual([[skill.id, 'SHOWCALLER']]);
-    // The existing position got the seed's settings
-    const regie = await prisma.position.findUnique({ where: { name: 'regie' }, include: { skill: true } });
+    // The existing position got the missing skill
+    const regie = await prisma.position.findFirst({ where: { name: 'regie' }, include: { skill: true } });
     expect(regie?.skill?.code).toBe('REGISSEUR');
   });
 
@@ -113,7 +111,7 @@ describe.runIf(runDb)('Position -> Skill mapping (integration)', () => {
     const seg = await prisma.productionSegment.create({ data: { productionId: prod.id, naam: 'Main', volgorde: 1, duurInMinuten: 5, isTimeAnchor: false } });
 
     // Ensure positions exist
-    const posLed = await prisma.position.upsert({ where: { name: 'ledscherm regie' }, update: {}, create: { name: 'ledscherm regie' } });
+    const posLed = await prisma.position.upsert({ where: { organizationId_name: { organizationId: await testOrganizationId(), name: 'ledscherm regie' } }, update: {}, create: { name: 'ledscherm regie' } });
 
     // Create a person without SCHERM_REGISSEUR skill
     const p = await prisma.person.create({ data: { name: 'Alice', gender: 'female' } });

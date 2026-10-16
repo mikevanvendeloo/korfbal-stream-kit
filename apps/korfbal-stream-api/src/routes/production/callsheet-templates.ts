@@ -1,11 +1,12 @@
 import {Router} from 'express';
 import multer from 'multer';
+import {keepOrganizationContext} from '../../middleware/organizationContext';
 import ExcelJS from 'exceljs';
 import {prisma} from '../../services/prisma';
 import {findPositionByName, SHOWCALLER_POSITION} from '../../domain/positionSkill';
 
 export const callSheetTemplateRouter: Router = Router();
-const uploadMem = multer({ storage: multer.memoryStorage() });
+const uploadMem = keepOrganizationContext(multer({ storage: multer.memoryStorage() }).single('file'));
 
 interface TemplateItemData {
   templateId: number;
@@ -572,7 +573,7 @@ callSheetTemplateRouter.get('/:id/export', async (req, res, next) => {
 });
 
 // Import template from Excel
-callSheetTemplateRouter.post('/import', uploadMem.single('file'), async (req, res, next) => {
+callSheetTemplateRouter.post('/import', uploadMem, async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const { name } = req.body;
@@ -712,7 +713,7 @@ callSheetTemplateRouter.get('/:id/export-json', async (req, res, next) => {
 });
 
 // Import template from JSON
-callSheetTemplateRouter.post('/import-json', uploadMem.single('file'), async (req, res, next) => {
+callSheetTemplateRouter.post('/import-json', uploadMem, async (req, res, next) => {
   try {
     let data: any;
 

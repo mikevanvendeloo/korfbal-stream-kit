@@ -1,8 +1,7 @@
 import request from 'supertest';
 import app from '../../main';
 import {describe, expect, it} from 'vitest';
-import {prisma} from '../../services/prisma';
-import {currentSeasonId} from '../../../test-helpers';
+import {currentSeasonId, testDb as prisma} from '../../../test-helpers';
 
 
 describe.runIf(process.env.REQUIRE_DB === 'true')('Production Import API (integration)', () => {

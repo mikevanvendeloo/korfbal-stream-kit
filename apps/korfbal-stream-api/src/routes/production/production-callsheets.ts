@@ -1,5 +1,6 @@
 import {Router} from 'express';
 import multer from 'multer';
+import {keepOrganizationContext} from '../../middleware/organizationContext';
 import path from 'node:path';
 import fs from 'node:fs';
 import ExcelJS from 'exceljs';
@@ -7,11 +8,12 @@ import {prisma} from '../../services/prisma';
 import {logger} from '../../utils/logger';
 import {broadcastState} from '../../services/productionState';
 import {findPositionByName, positionKey, SHOWCALLER_POSITION} from '../../domain/positionSkill';
+import {findOrCreatePosition} from '../../services/positions';
 
 export const productionCallsheetsRouter: Router = Router();
 
 // Multer memory storage for Excel upload (used by callsheet import)
-const uploadMem = multer({ storage: multer.memoryStorage() });
+const uploadMem = keepOrganizationContext(multer({ storage: multer.memoryStorage() }).single('file'));
 
 // -------- Callsheets --------
 // List callsheets for a production
@@ -469,7 +471,7 @@ productionCallsheetsRouter.delete('/callsheet-items/:itemId', async (req, res, n
 // POST /api/production/:id/callsheets/import-excel
 // Accepts multipart/form-data with field name "file" containing an .xlsx file.
 // If no file uploaded, attempts to read a default template.xlsx from the API app root.
-productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem.single('file'), async (req, res, next) => {
+productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem, async (req, res, next) => {
   try {
     const productionId = Number(req.params.id);
     if (!Number.isInteger(productionId) || productionId <= 0) return res.status(400).json({ error: 'Invalid id' });
@@ -658,11 +660,7 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem.single
         // Ensure the show caller position exists and is added
         let scPos = findPositionByName(knownPositions, SHOWCALLER_POSITION);
         if (!scPos) {
-          scPos = await tx.position.upsert({
-            where: { name: SHOWCALLER_POSITION },
-            update: {},
-            create: { name: SHOWCALLER_POSITION }
-          });
+          scPos = await findOrCreatePosition(tx, SHOWCALLER_POSITION);
           knownPositions.push(scPos);
         }
         ids.push(scPos.id);
@@ -673,11 +671,7 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem.single
 
             let p = findPositionByName(knownPositions, name);
             if (!p) {
-              p = await tx.position.upsert({
-                where: { name: name.trim() },
-                update: {},
-                create: { name: name.trim() }
-              });
+              p = await findOrCreatePosition(tx, name);
               knownPositions.push(p);
             }
             ids.push(p!.id);

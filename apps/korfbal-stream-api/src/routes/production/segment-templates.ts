@@ -388,7 +388,7 @@ segmentTemplatesRouter.post('/import-json', async (req, res, next) => {
     if (items.length === 0) return res.status(400).json({ error: 'No items to import' });
 
     const upserted = await prisma.$transaction(async (tx) => {
-      const existing = await tx.segmentTemplate.findUnique({ where: { name } }).catch(() => null);
+      const existing = await tx.segmentTemplate.findFirst({ where: { name } }).catch(() => null);
       let tplId: number;
       if (existing) {
         tplId = existing.id;

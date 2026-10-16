@@ -1,19 +1,30 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {prisma} from '../services/prisma';
-import {currentSeasonId} from '../../test-helpers';
+import {currentSeasonId, testDb as prisma, testOrganizationId} from '../../test-helpers';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 const MIGRATION = path.join(__dirname, '../../prisma/migrations/20261014170000_merge_duplicate_positions/migration.sql');
+
+// Tables the migration inserts into. It predates organizations, so inside the test its inserts land in
+// the test organization (a column default for the duration of the transaction).
+const INSERTED_TABLES = ['PersonCapability', 'CallSheetItemPosition', 'CallSheetTemplatePosition', 'ProductionEventPosition',
+  'ProductionPersonPosition', 'SegmentRoleAssignment', 'PositionLink'];
 
 /** Runs the migration again on the test database; one connection, because it uses temp tables. */
 async function runMigration() {
   const statements = fs.readFileSync(MIGRATION, 'utf8')
     .split('\n').filter((line) => !line.trim().startsWith('--')).join('\n')
     .split(';').map((s) => s.trim()).filter(Boolean);
+  const organizationId = await testOrganizationId();
   await prisma.$transaction(async (tx) => {
+    for (const table of INSERTED_TABLES) {
+      await tx.$executeRawUnsafe(`ALTER TABLE "${table}" ALTER COLUMN "organizationId" SET DEFAULT ${Number(organizationId)}`);
+    }
     for (const sql of statements) await tx.$executeRawUnsafe(sql);
+    for (const table of INSERTED_TABLES) {
+      await tx.$executeRawUnsafe(`ALTER TABLE "${table}" ALTER COLUMN "organizationId" SET DEFAULT missing_organization_id()`);
+    }
   });
 }
 

@@ -1,4 +1,5 @@
 import {Prisma, PrismaClient} from '@prisma/client';
+import {runWithOrganization} from './src/services/organizationContext';
 
 /**
  * Ready-made test data for integration and e2e tests: a match with a production, its callsheet items
@@ -23,6 +24,8 @@ export type ScenarioItem = {
 };
 
 export type ScenarioOptions = {
+  /** Organization the scenario belongs to (default: the test organization, see TEST_ORGANIZATION_SLUG) */
+  organizationId?: number;
   /** Make this the active production (LIVE follows it); the others are switched off and back on by cleanup */
   active?: boolean;
   /** Match fields to override, e.g. {homeTeamName, refereeName, date} */
@@ -50,8 +53,17 @@ export type ProductionScenario = {
   eventIds: string[];
   /** Position id per name */
   positionIds: Record<string, number>;
+  organizationId: number;
   cleanup: () => Promise<void>;
 };
+
+/** Slug of the organization tests run in: the global test setup creates it, the API tests send it as X-Organization. */
+export const TEST_ORGANIZATION_SLUG = 'test-org';
+
+/** Id of an organization by slug, created when missing (default: the test organization). */
+export async function ensureOrganization(db: PrismaClient, slug = TEST_ORGANIZATION_SLUG, name = slug): Promise<number> {
+  return (await db.organization.upsert({where: {slug}, update: {}, create: {slug, name}, select: {id: true}})).id;
+}
 
 /** The season containing a date (1 July – 30 June); created when the database lacks it. */
 export async function seasonForDate(db: PrismaClient, date: Date) {
@@ -62,18 +74,24 @@ export async function seasonForDate(db: PrismaClient, date: Date) {
 let counter = 0;
 
 export async function createProductionScenario(db: PrismaClient, options: ScenarioOptions = {}): Promise<ProductionScenario> {
+  const organizationId = options.organizationId ?? await ensureOrganization(db);
+  // Works with the app's scoped client (context) and with a plain client (explicit organizationId)
+  return runWithOrganization(organizationId, () => buildScenario(db, organizationId, options));
+}
+
+async function buildScenario(db: PrismaClient, organizationId: number, options: ScenarioOptions): Promise<ProductionScenario> {
   const items = options.items ?? DEFAULT_ITEMS;
   const previouslyActive = options.active
-    ? (await db.production.findMany({where: {isActive: true}, select: {id: true}})).map((p) => p.id)
+    ? (await db.production.findMany({where: {organizationId, isActive: true}, select: {id: true}})).map((p) => p.id)
     : [];
-  if (options.active) await db.production.updateMany({where: {isActive: true}, data: {isActive: false}});
+  if (options.active) await db.production.updateMany({where: {organizationId, isActive: true}, data: {isActive: false}});
 
   // Positions: reuse existing ones, remember the ones this scenario creates
   const positionIds: Record<string, number> = {};
   const createdPositions: number[] = [];
   for (const name of new Set(items.flatMap((i) => i.positions ?? []))) {
-    const existing = await db.position.findUnique({where: {name}});
-    const position = existing ?? await db.position.create({data: {name}});
+    const existing = await db.position.findFirst({where: {organizationId, name}});
+    const position = existing ?? await db.position.create({data: {organizationId, name}});
     if (!existing) createdPositions.push(position.id);
     positionIds[name] = position.id;
   }
@@ -87,15 +105,17 @@ export async function createProductionScenario(db: PrismaClient, options: Scenar
       awayTeamName: 'Scenario Uit',
       isHomeMatch: true,
       ...options.match,
+      organizationId,
       date,
     },
   });
   const production = await db.production.create({
     data: {
+      organizationId,
       matchScheduleId: match.id,
       isActive: !!options.active,
-      ...(options.report ? {productionReport: {create: options.report}} : {}),
-      ...(options.segments ? {segments: {create: options.segments.map((s, i) => ({...s, volgorde: i + 1}))}} : {}),
+      ...(options.report ? {productionReport: {create: {...options.report, organizationId}}} : {}),
+      ...(options.segments ? {segments: {create: options.segments.map((s, i) => ({...s, volgorde: i + 1, organizationId}))}} : {}),
     },
   });
 
@@ -105,11 +125,12 @@ export async function createProductionScenario(db: PrismaClient, options: Scenar
     const durationSec = item.durationSec ?? 120;
     const event = await db.productionEvent.create({
       data: {
+        organizationId,
         productionId: production.id, order: i + 1, title: item.title, durationSec,
         status: item.status ?? 'WAITING', autoAdvance: item.autoAdvance ?? false,
         isInVenue: item.isInVenue ?? false, isInLivestream: item.isInLivestream ?? true,
         plannedStartTime: new Date(plannedStart), plannedEndTime: new Date(plannedStart + durationSec * 1000),
-        positions: {create: (item.positions ?? []).map((name) => ({positionId: positionIds[name]}))},
+        positions: {create: (item.positions ?? []).map((name) => ({positionId: positionIds[name], organizationId}))},
       },
     });
     eventIds.push(event.id);
@@ -121,11 +142,12 @@ export async function createProductionScenario(db: PrismaClient, options: Scenar
     matchId: match.id,
     eventIds,
     positionIds,
-    cleanup: async () => {
-      await db.production.deleteMany({where: {id: production.id}});
-      await db.matchSchedule.deleteMany({where: {id: match.id}});
-      if (createdPositions.length) await db.position.deleteMany({where: {id: {in: createdPositions}}});
-      if (previouslyActive.length) await db.production.updateMany({where: {id: {in: previouslyActive}}, data: {isActive: true}});
-    },
+    organizationId,
+    cleanup: () => runWithOrganization(organizationId, async () => {
+      await db.production.deleteMany({where: {organizationId, id: production.id}});
+      await db.matchSchedule.deleteMany({where: {organizationId, id: match.id}});
+      if (createdPositions.length) await db.position.deleteMany({where: {organizationId, id: {in: createdPositions}}});
+      if (previouslyActive.length) await db.production.updateMany({where: {organizationId, id: {in: previouslyActive}}, data: {isActive: true}});
+    }),
   };
 }

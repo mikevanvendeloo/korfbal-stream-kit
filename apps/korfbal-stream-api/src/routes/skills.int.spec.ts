@@ -2,14 +2,13 @@ import request from 'supertest';
 import {execSync} from 'node:child_process';
 import app from '../main';
 import {beforeAll, describe, expect, it} from 'vitest';
-import {PrismaClient} from '@prisma/client';
+import {applyStandardSetToTestOrganization, testDb as prisma} from '../../test-helpers';
 
 function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
 }
 
 const runDb = process.env.REQUIRE_DB === 'true';
-const prisma = new PrismaClient();
 
 // Skills these tests create; removed up front so a previously failed run can't cause conflicts
 const TEST_SKILL_CODES = ['TEST_ROLE', 'EXPORT1', 'EXPORT2', 'IMPORT_NEW'];
@@ -18,7 +17,7 @@ describe.runIf(runDb)('Skills API (integration)', () => {
   beforeAll(async () => {
     // Apply migrations and seed to real DB
     run('npx prisma migrate deploy --schema=apps/korfbal-stream-api/prisma/schema.prisma');
-    run('npx prisma db seed --schema=apps/korfbal-stream-api/prisma/schema.prisma');
+    await applyStandardSetToTestOrganization();
     await prisma.skill.deleteMany({ where: { code: { in: TEST_SKILL_CODES } } });
   });
 

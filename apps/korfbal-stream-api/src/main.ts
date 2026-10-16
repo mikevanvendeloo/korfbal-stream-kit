@@ -30,6 +30,11 @@ import {initializeProductionState} from './services/productionState';
 import {callSheetTemplateRouter} from './routes/production/callsheet-templates'
 import {venueClockSyncService} from "./services/venueClockSyncService";
 import {vmixCallsheetPushService} from './services/vmixCallsheetPush';
+import {keepOrganizationContext, ORGANIZATION_HEADER, organizationContext} from './middleware/organizationContext';
+import {organizationsRouter} from './routes/organizations';
+import {matchSourceRouter} from './routes/matchSource';
+import {applyStandardSetWhereMissing} from './services/standardSet';
+import {copyMatchSourceFromEnv} from './services/matchSchedule';
 
 const app: Express = express();
 const httpServer = createServer(app);
@@ -58,7 +63,7 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Headers', `Content-Type, Authorization, ${ORGANIZATION_HEADER}`);
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   return next();
 });
@@ -117,12 +122,21 @@ app.use('/assets', express.static(assetsRoot));
 app.use('/uploads', express.static(assetsRoot));
 app.use('/storage', express.static(assetsRoot)); // New route for storage
 
-app.post('/api/upload', upload.single('file'), (req, res) => {
+// Every /api route runs for one organization (X-Organization), except the global ones (D3)
+app.use('/api', organizationContext);
+
+app.post('/api/upload', keepOrganizationContext(upload.single('file')), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
   return res.status(201).json({ filename: req.file.filename, path: req.file.path });
 });
+
+// Organizations (global: start screen and management)
+app.use('/api/organizations', organizationsRouter);
+
+// Match import settings of the chosen organization
+app.use('/api/match-source', matchSourceRouter);
 
 // Sponsors endpoints
 app.use('/api/sponsors', sponsorsRouter);
@@ -325,6 +339,12 @@ if (process.env.NODE_ENV !== 'test') {
   const startServer = async () => {
     await migrateLegacySeasonAssets().catch((err) => {
       logger.error('Season asset migration failed', err as any);
+    });
+    await copyMatchSourceFromEnv().catch((err) => {
+      logger.error('Copying MATCH_SCHEDULE_* into Fortuna\'s match source failed', err as any);
+    });
+    await applyStandardSetWhereMissing().catch((err) => {
+      logger.error('Adding the standard set to new organizations failed', err as any);
     });
     httpServer.listen(port, () => {
       logger.info(`🚀 API Server running on http://localhost:${port}`);

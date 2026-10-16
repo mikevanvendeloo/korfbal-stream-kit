@@ -19,6 +19,18 @@ export function errorHandler(err: any, _req: Request, res: Response<ApiErrorBody
     });
   }
 
+  // A record that isn't there (or belongs to another organization: the tenant scope hides it)
+  if (err instanceof PrismaClientKnownRequestError && err.code === 'P2025') {
+    logger.warn('Request error', { status: 404, message: err.message });
+    return res.status(404).json({ error: 'Niet gevonden' });
+  }
+
+  // A reference to a missing row, or to a row of another organization (trigger enforce_same_organization)
+  if (isForeignReferenceError(err)) {
+    logger.warn('Request error', { status: 400, message: err.message });
+    return res.status(400).json({ error: 'Ongeldige verwijzing' });
+  }
+
   // Handle Prisma database connection errors
   if (err instanceof PrismaClientInitializationError || err instanceof PrismaClientKnownRequestError) {
     // P1001: Can't reach database server
@@ -44,4 +56,11 @@ export function errorHandler(err: any, _req: Request, res: Response<ApiErrorBody
   }
 
   return res.status(status).json({ error: message });
+}
+
+const OTHER_ORGANIZATION_MESSAGE = 'refers to a row of another organization';
+
+function isForeignReferenceError(err: any): boolean {
+  if (err instanceof PrismaClientKnownRequestError && err.code === 'P2003') return true;
+  return typeof err?.message === 'string' && err.message.includes(OTHER_ORGANIZATION_MESSAGE);
 }

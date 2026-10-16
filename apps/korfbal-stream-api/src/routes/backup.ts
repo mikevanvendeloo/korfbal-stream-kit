@@ -1,3 +1,4 @@
+import {requireOrganizationId} from '../services/organizationContext';
 import {Router} from 'express';
 import {findExistingPosition, findOrCreatePosition} from '../services/positions';
 import {prisma} from '../services/prisma';
@@ -14,7 +15,7 @@ import {
   tryParseSeasonName,
 } from '../services/season';
 import {migrateLegacySeasonAssets} from '../services/seasonAssetMigration';
-import {clearSettingsCache} from '../services/appSettings';
+import {getSetting, setSetting} from '../services/appSettings';
 
 export const backupRouter: Router = Router();
 
@@ -443,22 +444,16 @@ backupRouter.get('/sponsors/export', async (_req, res, next) => {
 });
 
 // GET /api/backup/settings/export
+// The chosen organization's settings, plus the installation's active season (by name).
 backupRouter.get('/settings/export', async (_req, res, next) => {
   try {
-    const items = await prisma.setting.findMany({
-      orderBy: { key: 'asc' }
-    });
+    const items = await prisma.organizationSetting.findMany({ orderBy: { key: 'asc' } });
+    const exportData: { key: string; value: unknown }[] = items.map((s) => ({ key: s.key, value: s.value }));
 
-    const exportData: { key: string; value: unknown }[] = [];
-    for (const s of items) {
-      if (s.key !== ACTIVE_SEASON_ID_KEY) {
-        exportData.push({ key: s.key, value: s.value });
-        continue;
-      }
-      // Season ids are serial per database: export the active season by name so it resolves on import.
-      const season = typeof s.value === 'number' ? await prisma.season.findUnique({ where: { id: s.value } }) : null;
-      if (season) exportData.push({ key: ACTIVE_SEASON_NAME_EXPORT_KEY, value: season.name });
-    }
+    // Season ids are serial per database: export the active season by name so it resolves on import.
+    const activeSeasonId = await getSetting<number>(ACTIVE_SEASON_ID_KEY);
+    const season = typeof activeSeasonId === 'number' ? await prisma.season.findUnique({ where: { id: activeSeasonId } }) : null;
+    if (season) exportData.push({ key: ACTIVE_SEASON_NAME_EXPORT_KEY, value: season.name });
 
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', 'attachment; filename=settings.json');
@@ -491,7 +486,7 @@ backupRouter.post('/persons/import', async (req, res, next) => {
         // Skills management
         if (Array.isArray(item.skills)) {
           for (const s of item.skills) {
-            const skill = await prisma.skill.findUnique({ where: { code: s.code } });
+            const skill = await prisma.skill.findFirst({ where: { code: s.code } });
             if (skill) {
               await prisma.personSkill.upsert({
                 where: { personId_skillId: { personId: person.id, skillId: skill.id } },
@@ -519,7 +514,7 @@ backupRouter.post('/skills/import', async (req, res, next) => {
     for (const item of data) {
       try {
         const input = SkillInputSchema.parse(item);
-        const existing = await prisma.skill.findUnique({ where: { code: input.code } });
+        const existing = await prisma.skill.findFirst({ where: { code: input.code } });
         if (existing) {
           await prisma.skill.update({ where: { id: existing.id }, data: input as any });
           updated++;
@@ -544,7 +539,7 @@ backupRouter.post('/positions/import', async (req, res, next) => {
     let created = 0, updated = 0;
     for (const item of data) {
       try {
-        const skill = item.skillCode ? await prisma.skill.findUnique({ where: { code: item.skillCode } }) : null;
+        const skill = item.skillCode ? await prisma.skill.findFirst({ where: { code: item.skillCode } }) : null;
         const input = {
           name: item.name,
           category: item.category,
@@ -603,7 +598,7 @@ backupRouter.post('/matches/import', async (req, res, next) => {
 
         let existing;
         if (item.externalId) {
-          existing = await prisma.matchSchedule.findUnique({ where: { externalId: item.externalId } });
+          existing = await prisma.matchSchedule.findFirst({ where: { externalId: item.externalId } });
         } else {
           existing = await prisma.matchSchedule.findFirst({
             where: {
@@ -643,7 +638,7 @@ backupRouter.post('/segment-templates/import', async (req, res, next) => {
         const name = String(item.name || '').trim();
         if (!name) continue;
         const items = Array.isArray(item.items) ? item.items : [];
-        const existing = await prisma.segmentTemplate.findUnique({ where: { name } }).catch(() => null);
+        const existing = await prisma.segmentTemplate.findFirst({ where: { name } }).catch(() => null);
         let tplId: number;
         if (existing) {
           tplId = existing.id;
@@ -691,7 +686,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
           // 1. Find or create MatchSchedule
           let match;
           if (item.matchSchedule.externalId) {
-            match = await tx.matchSchedule.findUnique({
+            match = await tx.matchSchedule.findFirst({
               where: { externalId: item.matchSchedule.externalId }
             });
           } else {
@@ -769,7 +764,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
               if (Array.isArray(pData.skills)) {
                 for (const sData of pData.skills) {
                   const skill = await tx.skill.upsert({
-                    where: { code: sData.code },
+                    where: { organizationId_code: { organizationId: requireOrganizationId(), code: sData.code } },
                     update: { name: sData.name, nameMale: sData.nameMale, nameFemale: sData.nameFemale, type: sData.type },
                     create: { code: sData.code, name: sData.name, nameMale: sData.nameMale, nameFemale: sData.nameFemale, type: sData.type }
                   });
@@ -1140,15 +1135,16 @@ backupRouter.post('/sponsors/import', async (req, res, next) => {
 });
 
 // POST /api/backup/settings/import
+// Into the chosen organization (installation-wide keys stay installation-wide), also from backups made
+// before there were organizations.
 backupRouter.post('/settings/import', async (req, res, next) => {
   try {
     const data = req.body;
     if (!Array.isArray(data)) return res.status(400).json({ error: 'Array expected' });
     let created = 0, updated = 0;
-    const touchedKeys = new Set<string>();
     for (const item of data) {
       try {
-        if (!item?.key) continue;
+        if (typeof item?.key !== 'string' || !item.key) continue;
         let key: string = item.key;
         let value = item.value ?? null;
         if (key === ACTIVE_SEASON_ID_KEY) {
@@ -1165,26 +1161,14 @@ backupRouter.post('/settings/import', async (req, res, next) => {
           key = ACTIVE_SEASON_ID_KEY;
           value = (await ensureSeasonForStartYear(startYear)).id;
         }
-        const existing = await prisma.setting.findUnique({ where: { key } });
-        if (existing) {
-          await prisma.setting.update({
-            where: { key },
-            data: { value }
-          });
-          updated++;
-        } else {
-          await prisma.setting.create({
-            data: { key, value }
-          });
-          created++;
-        }
-        touchedKeys.add(key);
+        const existed = (await getSetting(key)) !== null;
+        await setSetting(key, value);
+        if (existed) updated++;
+        else created++;
       } catch (err) {
         logger.error(`Failed to import setting ${item?.key}`, err as any);
       }
     }
-    // Imported values must take effect without a restart.
-    clearSettingsCache(touchedKeys);
     clearSeasonCache();
     return res.json({ ok: true, created, updated });
   } catch (err) {

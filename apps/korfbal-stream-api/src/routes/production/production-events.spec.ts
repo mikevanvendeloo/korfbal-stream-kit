@@ -2,15 +2,13 @@ import request from 'supertest';
 import {execSync} from 'node:child_process';
 import app from '../../main';
 import {beforeAll, beforeEach, describe, expect, it} from 'vitest';
-import {PrismaClient} from '@prisma/client';
-import {currentSeasonId} from '../../../test-helpers';
+import {applyStandardSetToTestOrganization, currentSeasonId, testDb as prisma} from '../../../test-helpers';
 
 function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
 }
 
 const runDb = !!process.env.DATABASE_URL && process.env.RUN_DB_TESTS === 'true';
-const prisma = new PrismaClient();
 
 async function resetDb() {
   await prisma.$transaction([
@@ -21,7 +19,7 @@ describe.runIf(runDb)('Production Events API (integration)', () => {
   beforeAll(async () => {
     try {
       run('npx prisma migrate deploy --schema=apps/korfbal-stream-api/prisma/schema.prisma');
-      run('npx prisma db seed --schema=apps/korfbal-stream-api/prisma/schema.prisma');
+      await applyStandardSetToTestOrganization();
     } catch (e) {
       // Migrate/Seed can fail in environments with existing DBs or shared test runners.
       // We continue since resetDb handles per-test isolation.

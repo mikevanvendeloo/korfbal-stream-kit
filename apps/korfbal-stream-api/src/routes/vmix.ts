@@ -15,7 +15,9 @@ import {
   buildVmixApiUrl,
   getSponsorNamesTypes,
   getSponsorRowsTypes,
+  getSetting,
   getSponsorSlidesTypes,
+  SPONSOR_CAROUSEL_EXTRA_KEY,
 } from '../services/appSettings';
 import {resolveVmixInstance} from '../services/vmixInstances';
 import {shuffle} from "../utils/array-utils";
@@ -569,15 +571,11 @@ vmixRouter.get('/sponsor-carrousel', async (_req, res, next) => {
         {name: 'asc'}
       ]
     });
-    sponsors.push({
-      id: 9999,
-      name: 'Fortuna sponsor',
-      logoUrl: 'sponsoring.png',
-      type: 'premium',
-      websiteUrl: 'https://www.fortuna-korfbal.nl/sponsoring/businessclub/',
-      categories: null,
-      createdAt: new Date()
-    } as any)
+    // The organization's own entry (e.g. its business club), configured per organization
+    const extra = await getSetting<{name?: string; logoUrl?: string; type?: string; websiteUrl?: string}>(SPONSOR_CAROUSEL_EXTRA_KEY);
+    if (extra?.name && extra.logoUrl) {
+      sponsors.push({id: 0, name: extra.name, logoUrl: extra.logoUrl, type: extra.type ?? 'premium', websiteUrl: extra.websiteUrl ?? ''} as any);
+    }
     return res.status(200).json(shuffle(sponsors).map((s) => {
       const dn = ((s as any).displayName || '').trim();
       return {

@@ -1,3 +1,4 @@
+import {requireOrganizationId} from '../../services/organizationContext';
 import {Router} from 'express';
 import {findOrCreatePosition} from '../../services/positions';
 import {prisma} from '../../services/prisma';
@@ -270,7 +271,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
       // 1. Find or create MatchSchedule
       let match;
       if (data.matchSchedule.externalId) {
-        match = await tx.matchSchedule.findUnique({
+        match = await tx.matchSchedule.findFirst({
           where: { externalId: data.matchSchedule.externalId }
         });
       } else {
@@ -351,7 +352,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
           if (Array.isArray(pData.skills)) {
             for (const sData of pData.skills) {
               const skill = await tx.skill.upsert({
-                where: { code: sData.code },
+                where: { organizationId_code: { organizationId: requireOrganizationId(), code: sData.code } },
                 update: { name: sData.name, nameMale: sData.nameMale, nameFemale: sData.nameFemale, type: sData.type },
                 create: { code: sData.code, name: sData.name, nameMale: sData.nameMale, nameFemale: sData.nameFemale, type: sData.type }
               });

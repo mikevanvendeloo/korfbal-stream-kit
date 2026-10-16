@@ -1,325 +1,62 @@
-import {PrismaClient} from '@prisma/client';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import {seedPersons, seedPositions, seedSkills, seedTitles} from './seed-data';
-import {findPositionByName} from '../src/domain/positionSkill';
+import {prisma} from '../src/services/prisma';
+import {runWithOrganization} from '../src/services/organizationContext';
+import {applyStandardSet} from '../src/services/standardSet';
+import {seedPersons} from './seed-data';
 
-const prisma = new PrismaClient();
+/** The organizations the migration creates; the seed makes sure they exist (and have the standard set). */
+const organizations = [
+  {slug: 'fortuna', name: 'Fortuna'},
+  {slug: 'knkv', name: 'KNKV'},
+];
 
-// Source data for sponsors
-const seedSponsors = [
-  {
-    name: 'Ruitenheer',
-    logoFileName: 'ruitenheer',
-    siteUrl: 'https://www.ruitenheer.nl',
-    sponsorPackage: 'Premium',
-    sponsorType: 'Hoofdsponsor',
-  },
-] as const;
+// Fortuna's own data, not part of the standard set
+const fortunaSponsors = [
+  {name: 'Ruitenheer', logoUrl: 'ruitenheer.png', websiteUrl: 'https://www.ruitenheer.nl', type: 'premium' as const},
+];
 
-interface SourceSponsor {
-  name: string;
-  logoFileName?: string;
-  siteUrl: string;
-  sponsorPackage: string; // Premium | Goud | Zilver | Brons
-  sponsorType?: string; // not persisted in current schema
-}
+async function seedFortuna() {
+  console.log('Seeding Fortuna sponsors...');
+  for (const data of fortunaSponsors) {
+    const existing = await prisma.sponsor.findFirst({where: {name: data.name}});
+    if (existing) await prisma.sponsor.update({where: {id: existing.id}, data});
+    else await prisma.sponsor.create({data});
+    console.log(`Ensured sponsor: ${data.name}`);
+  }
 
-function mapSponsorToModel(rec: SourceSponsor) {
-  const name = rec.name;
-  const type = String(rec.sponsorPackage || '').toLowerCase() as 'premium' | 'goud' | 'zilver' | 'brons' | 'event';
-  const websiteUrl = rec.siteUrl;
-  const baseLogo = rec.logoFileName || name.trim().replace(/\s+/g, '-').toLowerCase();
-  const logoUrl = `${baseLogo}.png`;
-  return {name, type, websiteUrl, logoUrl};
+  console.log('Seeding Fortuna persons...');
+  const skills = await prisma.skill.findMany();
+  for (const p of seedPersons) {
+    const existing = await prisma.person.findFirst({where: {name: p.name}});
+    const person = existing
+      ? await prisma.person.update({where: {id: existing.id}, data: {gender: p.gender}})
+      : await prisma.person.create({data: {name: p.name, gender: p.gender}});
+
+    // Only touch the skills of persons named in the seed, and only when they differ
+    const current = await prisma.personSkill.findMany({where: {personId: person.id}});
+    const currentCodes = new Set(current.map((ps) => skills.find((s) => s.id === ps.skillId)?.code).filter(Boolean));
+    const target = new Set(p.skillCodes);
+    if (currentCodes.size === target.size && [...target].every((code) => currentCodes.has(code))) continue;
+
+    await prisma.personSkill.deleteMany({where: {personId: person.id}});
+    for (const code of p.skillCodes) {
+      const skill = skills.find((s) => s.code === code);
+      if (skill) await prisma.personSkill.create({data: {personId: person.id, skillId: skill.id}});
+    }
+    console.log(`Synced skills for person: ${p.name}`);
+  }
 }
 
 async function main() {
-  console.log('Seeding sponsors...');
-  for (const rec of seedSponsors) {
-    const data = mapSponsorToModel(rec);
-    if (!data.name || !data.type || !data.websiteUrl || !data.logoUrl) continue;
-
-    const existing = await prisma.sponsor.findFirst({where: {name: data.name}});
-    if (existing) {
-      await prisma.sponsor.update({where: {id: existing.id}, data});
-      console.log(`Updated sponsor: ${data.name}`);
-    } else {
-      await prisma.sponsor.create({data});
-      console.log(`Created sponsor: ${data.name}`);
-    }
-  }
-
-  console.log('Seeding skills catalog...');
-  // Match codes without underscores too: an existing SHOW_CALLER becomes SHOWCALLER (same id, so people
-  // and positions keep it) instead of a second skill being added next to it
-  const skillKey = (code: string) => code.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const existingSkills = await prisma.skill.findMany();
-  for (const s of seedSkills) {
-    const existing = existingSkills.find((e) => e.code === s.code)
-      ?? existingSkills.find((e) => skillKey(e.code) === skillKey(s.code));
-    const data = {code: s.code, name: s.name, nameMale: s.nameMale, nameFemale: s.nameFemale, type: s.type};
-    if (existing) Object.assign(existing, await prisma.skill.update({where: {id: existing.id}, data}));
-    else existingSkills.push(await prisma.skill.create({data}));
-    console.log(`Ensured skill: ${s.code}`);
-  }
-
-  console.log('Seeding positions catalog...');
-  const skills = await prisma.skill.findMany();
-  const skillIdFor = (code: string) => skills.find((s) => skillKey(s.code) === skillKey(code))?.id ?? null;
-
-  // Match names like the application does (case, spacing, aliases): an existing position keeps its name
-  const existingPositions = await prisma.position.findMany();
-  for (const pos of seedPositions) {
-    const skillId = pos.skillCode ? skillIdFor(pos.skillCode) : null;
-    const data = {isStudio: pos.isStudio, category: pos.category, sortOrder: pos.sortOrder, skillId};
-    const existing = findPositionByName(existingPositions, pos.name);
-    if (existing) await prisma.position.update({where: {id: existing.id}, data});
-    else existingPositions.push(await prisma.position.create({data: {...data, name: pos.name}}));
-    console.log(`Ensured position: ${existing?.name ?? pos.name}`);
-  }
-
-  console.log('Seeding position links...');
-  const posRegie = findPositionByName(existingPositions, 'Regie livestream');
-  if (posRegie) {
-    const targets = ['Regie LEDscherm', 'Muziek', 'Oplopen geluid', 'Speaker'];
-    const targetPositions = targets.map((t) => findPositionByName(existingPositions, t)).filter((p): p is NonNullable<typeof p> => !!p);
-    for (const targetPos of targetPositions) {
-      await (prisma as any).positionLink.upsert({
-        where: {
-          sourcePositionId_targetPositionId: {
-            sourcePositionId: posRegie.id,
-            targetPositionId: targetPos.id
-          }
-        },
-        update: {},
-        create: {
-          sourcePositionId: posRegie.id,
-          targetPositionId: targetPos.id
-        }
-      });
-    }
-  }
-
-  console.log('Seeding default vMix title templates...');
-  for (const t of seedTitles) {
-    const existingDef = await (prisma as any).titleDefinition.findFirst({
-      where: { productionId: null, name: t.name }
-    }).catch(() => null);
-
-    let def;
-    if (existingDef) {
-      def = existingDef;
-      console.log(`Title template already exists: ${t.name}`);
-    } else {
-      const orderCount = await (prisma as any).titleDefinition.count({ where: { productionId: null } }).catch(() => 0);
-      def = await (prisma as any).titleDefinition.create({
-        data: { productionId: null, name: t.name, order: orderCount + 1, enabled: true },
-      });
-      console.log(`Created title template: ${t.name}`);
-    }
-
-    // Always ensure parts are present (if we want to update them, we'd need a more complex sync)
-    // For now, only create parts if they don't exist yet for this definition
-    const existingPartsCount = await (prisma as any).titlePart.count({
-      where: { titleDefinitionId: def.id }
-    }).catch(() => 0);
-
-    if (existingPartsCount === 0) {
-      for (const p of t.parts) {
-        await (prisma as any).titlePart.create({
-          data: {
-            titleDefinitionId: def.id,
-            sourceType: p.sourceType,
-            teamSide: p.teamSide,
-            limit: p.limit ?? null,
-            filters: null,
-          },
-        });
-      }
-      console.log(`Added parts to title template: ${t.name}`);
-    }
-  }
-
-  console.log('Seeding persons...');
-  for (const p of seedPersons) {
-    const existingPerson = await prisma.person.findFirst({where: {name: p.name}});
-    let person;
-    if (existingPerson) {
-      person = await prisma.person.update({
-        where: {id: existingPerson.id},
-        data: {gender: p.gender},
-      });
-      console.log(`Updated person: ${p.name}`);
-    } else {
-      person = await prisma.person.create({
-        data: {name: p.name, gender: p.gender},
-      });
-      console.log(`Created person: ${p.name}`);
-    }
-
-    // Only sync skills if the person was just created or updated via seed
-    // This way we only touch skills of persons explicitly mentioned in the seed
-    const currentSkills = await prisma.personSkill.findMany({ where: { personId: person.id } });
-    const currentSkillCodes = new Set(
-      currentSkills.map(ps => {
-        const skill = skills.find(s => s.id === ps.skillId);
-        return skill?.code;
-      }).filter(Boolean)
-    );
-
-    const targetSkillCodes = new Set(p.skillCodes);
-
-    // Check if skills are already correct to avoid unnecessary deletes/creates
-    const skillsMatch = currentSkillCodes.size === targetSkillCodes.size &&
-                       [...targetSkillCodes].every(code => currentSkillCodes.has(code));
-
-    if (!skillsMatch) {
-      await prisma.personSkill.deleteMany({where: {personId: person.id}});
-      for (const code of p.skillCodes) {
-        const skillId = skillIdFor(code);
-        if (skillId) {
-          await prisma.personSkill.create({
-            data: {personId: person.id, skillId: skillId},
-          });
-        }
-      }
-      console.log(`Synced skills for person: ${p.name}`);
-    }
-  }
-
-  console.log('Seeding CallSheetTemplates from JSON...');
-  const callsheetDir = path.join(__dirname, 'seed-data/callsheets');
-  console.log(`Checking directory: ${callsheetDir}`);
-  if (fs.existsSync(callsheetDir)) {
-    const files = fs.readdirSync(callsheetDir).filter(f => f.endsWith('.json'));
-    console.log(`Found ${files.length} JSON files: ${files.join(', ')}`);
-    const positions = await prisma.position.findMany();
-    const positionsByName = Object.fromEntries(positions.map(p => [p.name, p.id] as const));
-
-    for (const file of files) {
-      const filePath = path.join(callsheetDir, file);
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const data = JSON.parse(content);
-
-      if (data.version && data.version > 1) {
-        console.warn(`Skipping ${file}: Unsupported template version ${data.version}`);
-        continue;
-      }
-
-      const template = await prisma.callSheetTemplate.upsert({
-        where: { name: data.name },
-        update: {},
-        create: { name: data.name }
-      });
-
-      console.log(`Ensured CallSheetTemplate: ${data.name}`);
-
-      // Sync items
-      // For simplicity, we remove existing items and recreate them to ensure order and positions are correct
-      // In a production environment with existing productions linked to these templates, you might want to be more careful.
-      await prisma.callSheetTemplateItem.deleteMany({ where: { templateId: template.id } });
-
-      const idMapping: Record<string, string> = {};
-
-      for (const item of data.items) {
-        const createdItem = await prisma.callSheetTemplateItem.create({
-          data: {
-            templateId: template.id,
-            title: item.title,
-            durationSec: item.durationSec,
-            orderIndex: item.orderIndex,
-            isInVenue: item.isInVenue ?? false,
-            isInLivestream: item.isInLivestream ?? true,
-            note: item.note ?? null,
-            isTimeAnchor: item.isTimeAnchor ?? false,
-            anchorType: item.anchorType ?? null,
-            autoAdvance: item.autoAdvance ?? false,
-          }
-        });
-
-        if (item.id) {
-          idMapping[item.id] = createdItem.id;
-        }
-
-        if (item.positions && Array.isArray(item.positions)) {
-          for (const posName of item.positions) {
-            const positionId = positionsByName[posName];
-            if (positionId) {
-              await prisma.callSheetTemplatePosition.create({
-                data: {
-                  templateItemId: createdItem.id,
-                  positionId: positionId
-                }
-              });
-            } else {
-              console.warn(`Position not found: ${posName} for template ${data.name}`);
-            }
-          }
-        }
-      }
-
-      // Second pass for parentIds
-      for (const item of data.items) {
-        if (item.parentId && idMapping[item.parentId]) {
-          const currentItemId = idMapping[item.id];
-          if (currentItemId) {
-            await prisma.callSheetTemplateItem.update({
-              where: { id: currentItemId },
-              data: { parentId: idMapping[item.parentId] }
-            });
-          }
-        }
-      }
-      console.log(`Synced ${data.items.length} items for template: ${data.name}`);
-    }
-  }
-
-  console.log('Seeding SegmentTemplates from JSON...');
-  const segDir = path.join(__dirname, 'seed-data/segments');
-  if (fs.existsSync(segDir)) {
-    const files = fs.readdirSync(segDir).filter(f => f.endsWith('.json'));
-    console.log(`Found ${files.length} segment template JSON files: ${files.join(', ')}`);
-    for (const file of files) {
-      const filePath = path.join(segDir, file);
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const data = JSON.parse(content);
-      const version = Number(data.version ?? 1);
-      if (!Number.isInteger(version) || version > 1) {
-        console.warn(`Skipping ${file}: Unsupported template version ${data.version}`);
-        continue;
-      }
-      const name = String(data.name || '').trim();
-      if (!name) {
-        console.warn(`Skipping ${file}: Missing name`);
-        continue;
-      }
-      const isDefault = !!data.isDefault;
-      const template = await prisma.segmentTemplate.upsert({
-        where: { name },
-        update: { isDefault },
-        create: { name, isDefault },
-      });
-      await prisma.segmentTemplateItem.deleteMany({ where: { templateId: template.id } });
-      const items = Array.isArray(data.items) ? data.items : [];
-      for (const raw of items) {
-        const naam = String(raw.naam || '').trim();
-        const volgorde = Number(raw.volgorde);
-        const duurInMinuten = Number(raw.duurInMinuten);
-        const isTimeAnchor = !!raw.isTimeAnchor;
-        if (!naam || !Number.isInteger(volgorde) || volgorde <= 0 || !Number.isInteger(duurInMinuten) || duurInMinuten < 0) continue;
-        await prisma.segmentTemplateItem.create({
-          data: { templateId: template.id, naam, volgorde, duurInMinuten, isTimeAnchor },
-        });
-      }
-      console.log(`Synced SegmentTemplate from ${file}: ${name}`);
-    }
+  for (const org of organizations) {
+    const {id} = await prisma.organization.upsert({where: {slug: org.slug}, update: {}, create: org});
+    const result = await applyStandardSet(id);
+    console.log(`Standard set for ${org.name}:`, result);
+    if (org.slug === 'fortuna') await runWithOrganization(id, seedFortuna);
   }
 
   // Seasons: matches and players always belong to one. Seed the season containing today so
   // matches/players created afterwards (import, manual entry) have an active season to land in.
-  // Kept self-contained (no import from src/): the Docker image compiles the seed with
-  // --rootDir prisma. Same rule as services/season.ts: 1 July starts a season (Europe/Amsterdam).
+  // Same rule as services/season.ts: 1 July starts a season (Europe/Amsterdam).
   const [year, month] = new Intl.DateTimeFormat('en-CA', {timeZone: 'Europe/Amsterdam', year: 'numeric', month: '2-digit'})
     .format(new Date()).split('-').map(Number);
   const startYear = month >= 7 ? year : year - 1;

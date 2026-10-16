@@ -5,6 +5,7 @@ import {resolveVmixInstance} from './vmixInstances';
 import {CallsheetTiming, loadCallsheetTiming, TimingState} from './callsheetTiming';
 import {CallsheetColors, VmixCallsheetPushConfig, VmixCallsheetPushSchema} from '../schemas/vmixCallsheet';
 import {logger} from '../utils/logger';
+import {getLiveOrganizationId, inLiveOrganization} from './productionState';
 
 export const VMIX_CALLSHEET_PUSH_KEY = 'vmixCallsheetPush';
 
@@ -112,8 +113,17 @@ let busy = false;
 let lastErrorLog = 0;
 
 async function tick() {
-  if (busy) return;
+  // Settings and callsheet belong to the organization of the live production; none live, nothing to push
+  if (busy || !getLiveOrganizationId()) return;
   busy = true;
+  try {
+    await inLiveOrganization(pushWhenEnabled);
+  } finally {
+    busy = false;
+  }
+}
+
+async function pushWhenEnabled() {
   try {
     const config = await getCallsheetPushConfig();
     if (!config.enabled) return;
@@ -128,8 +138,6 @@ async function tick() {
       lastErrorLog = Date.now();
       logger.error('vMix callsheet push error:', err);
     }
-  } finally {
-    busy = false;
   }
 }
 

@@ -75,7 +75,7 @@ skillsRouter.post('/import-json', async (req, res, next) => {
     for (const item of data) {
       try {
         const input = SkillInputSchema.parse(item);
-        const existing = await prisma.skill.findUnique({ where: { code: input.code } });
+        const existing = await prisma.skill.findFirst({ where: { code: input.code } });
 
         if (existing) {
           await prisma.skill.update({ where: { id: existing.id }, data: input as any });

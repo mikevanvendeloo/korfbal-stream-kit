@@ -2,6 +2,61 @@ import {PrismaClient} from '@prisma/client';
 import {vi} from 'vitest';
 import {ACTIVE_SEASON_ID_KEY, clearSeasonCache, ensureSeasonForDate, seasonNameForStartYear} from './src/services/season';
 import {clearSettingsCache} from './src/services/appSettings';
+import {prisma as appPrisma, prismaUnscoped} from './src/services/prisma';
+import {tenantScope} from './src/services/tenantScope';
+import {applyStandardSet} from './src/services/standardSet';
+import {getOrganizationId, runWithOrganization} from './src/services/organizationContext';
+import {ensureOrganization} from './test-scenarios';
+
+export {ensureOrganization, TEST_ORGANIZATION_SLUG} from './test-scenarios';
+
+let testOrganization: number | undefined;
+
+/** Id of the test organization (created by the global test setup; created here when missing). */
+export async function testOrganizationId(): Promise<number> {
+  testOrganization ??= await ensureOrganization(appPrisma);
+  return testOrganization;
+}
+
+/** Gives the test organization the standard set (skills, positions, templates), like a new organization gets. */
+export async function applyStandardSetToTestOrganization() {
+  return applyStandardSet(await testOrganizationId());
+}
+
+/** Runs `fn` as the test organization, e.g. to call services that query tenant tables directly. */
+export async function inTestOrganization<T>(fn: () => Promise<T>): Promise<T> {
+  const organizationId = await testOrganizationId();
+  return runWithOrganization(organizationId, fn);
+}
+
+/** Runs `fn` as the organization with this slug (created when missing). */
+export async function inOrganization<T>(slug: string, fn: () => Promise<T>): Promise<T> {
+  const organizationId = await ensureOrganization(appPrisma, slug);
+  return runWithOrganization(organizationId, fn);
+}
+
+/**
+ * The app's (scoped) Prisma client for test setup: queries without an organization in the context run
+ * as the test organization. Application code always uses the strict client from src/services/prisma.
+ */
+// Query extensions run in the order they were added: first the default organization, then the scope.
+export const testDb = prismaUnscoped.$extends({
+  query: {
+    $allModels: {
+      async $allOperations({args, query}) {
+        if (getOrganizationId() !== undefined) return query(args);
+        const organizationId = await testOrganizationId();
+        return runWithOrganization(organizationId, () => query(args));
+      },
+    },
+  },
+}).$extends(tenantScope) as unknown as PrismaClient;
+
+/** Marks a supertest request to go out without the X-Organization header test-setup.ts adds by default. */
+export function withoutOrganization<T extends object>(test: T): T {
+  (test as {withoutOrganization?: boolean}).withoutOrganization = true;
+  return test;
+}
 
 /**
  * Cleans all data from the test database by truncating all tables.
@@ -29,6 +84,10 @@ export async function cleanDatabase(prisma: PrismaClient) {
 
   await prisma.$executeRawUnsafe(truncateQuery);
   clearSeasonCache();
+  clearSettingsCache();
+  // Organizations went too (they reference clubs): bring the test organization back
+  testOrganization = undefined;
+  await testOrganizationId();
 }
 
 /**
@@ -99,6 +158,14 @@ export function installSeasonMocks(
     upsert: vi.fn(async ({where, create: data}: any) => {
       state.settings.set(where.key, data.value);
       return {key: where.key, value: data.value};
+    }),
+  };
+  // Organization settings share the map: unit tests run as one organization
+  prisma.organizationSetting = {
+    findFirst: vi.fn(async ({where}: any) => (state.settings.has(where.key) ? {key: where.key, value: state.settings.get(where.key)} : null)),
+    upsert: vi.fn(async ({where, create: data}: any) => {
+      state.settings.set(where.organizationId_key.key, data.value);
+      return {key: where.organizationId_key.key, value: data.value};
     }),
   };
 

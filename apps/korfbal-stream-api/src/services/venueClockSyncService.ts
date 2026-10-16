@@ -2,7 +2,7 @@ import axios from 'axios';
 import {logger} from '../utils/logger';
 import {getScoreboardUrl} from './appSettings';
 import {config} from './config';
-import {updateVenueClock} from './productionState';
+import {getLiveOrganizationId, inLiveOrganization, updateVenueClock} from './productionState';
 
 let syncInterval: NodeJS.Timeout | null = null;
 const INTERVAL_MS = 1000; // Elke seconde pollen
@@ -14,7 +14,8 @@ export const venueClockSyncService = {
     logger.info('🔄 Venue clock sync service started');
     syncInterval = setInterval(async () => {
       try {
-        const baseUrl = await getScoreboardUrl() || config.scoreBoardBaseUrl;
+        // The scoreboard of the live production's organization; the installation default otherwise
+        const baseUrl = (getLiveOrganizationId() ? await inLiveOrganization(getScoreboardUrl) : null) || config.scoreBoardBaseUrl;
         if (!baseUrl) return;
 
         const url = `${baseUrl.replace(/\/$/, '')}/time-as-array`;

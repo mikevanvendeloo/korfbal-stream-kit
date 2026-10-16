@@ -1,10 +1,10 @@
 import request from 'supertest';
 import app from '../main';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {prisma} from '../services/prisma';
 import {getSetting, setSetting} from '../services/appSettings';
 import {ACTIVE_SEASON_ID_KEY, ensureSeasonForDate} from '../services/season';
 import {createProductionScenario, ProductionScenario} from '../../test-scenarios';
+import {testDb as prisma} from '../../test-helpers';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 

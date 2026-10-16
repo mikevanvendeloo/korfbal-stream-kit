@@ -5,6 +5,9 @@ import fs from 'node:fs';
 import ExcelJS from 'exceljs';
 import {prisma} from '../services/prisma';
 import {logger} from '../utils/logger';
+import {getAssetsRoot} from '../services/config';
+import {safeFileBase, saveImage, singleImage} from '../services/imageUpload';
+import {currentOrganization, keepOrganizationContext} from '../middleware/organizationContext';
 import {
   makeLogoUrl,
   normalizeLogoFilename,
@@ -15,25 +18,15 @@ import {
 
 export const sponsorsRouter: Router = Router();
 
-const storagePath = path.join(process.cwd(), 'storage', 'sponsors');
-if (!fs.existsSync(storagePath)) {
-  fs.mkdirSync(storagePath, { recursive: true });
+/**
+ * Sponsor logos: new uploads go to <assets>/sponsors/<organization slug>/ and are stored with that
+ * relative path (served at /uploads/sponsors/<logoUrl>). Older logos keep their plain file name.
+ */
+export function sponsorLogoDir(organizationSlug: string): string {
+  return path.join(getAssetsRoot(), 'sponsors', safeFileBase(organizationSlug));
 }
 
-const diskStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, storagePath);
-  },
-  filename: function (req, file, cb) {
-    const sponsorName = (req as any).sponsor?.name || 'unknown-sponsor';
-    const safeName = normalizeLogoFilename(sponsorName);
-    const extension = path.extname(file.originalname) || '.png';
-    cb(null, `${safeName}${extension}`);
-  }
-});
-
-const uploadDisk = multer({ storage: diskStorage });
-const uploadMem = multer({ storage: multer.memoryStorage() });
+const uploadMem = keepOrganizationContext(multer({ storage: multer.memoryStorage() }).single('file'));
 
 // Helper to sort sponsors by type priority
 const typePriority: Record<string, number> = {
@@ -175,14 +168,17 @@ sponsorsRouter.post('/:id/logo',
       return next(err);
     }
   },
-  uploadDisk.single('file'),
+  singleImage('file'),
   async (req, res, next) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
       }
       const id = Number(req.params.id);
-      const logoUrl = req.file.filename;
+      const organizationSlug = currentOrganization(res)!.slug;
+      const sponsor = (req as any).sponsor as { name: string };
+      const fileName = saveImage(sponsorLogoDir(organizationSlug), normalizeLogoFilename(sponsor.name).replace(/\.png$/, ''), req.file);
+      const logoUrl = `${safeFileBase(organizationSlug)}/${fileName}`;
 
       const updatedSponsor = await prisma.sponsor.update({
         where: { id },
@@ -240,7 +236,7 @@ sponsorsRouter.delete('/:id', async (req, res, next) => {
   }
 });
 
-sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, next) => {
+sponsorsRouter.post('/upload-excel', uploadMem, async (req, res, next) => {
   try {
     let buffer: Buffer | null = null;
     if (req.file && req.file.buffer) {

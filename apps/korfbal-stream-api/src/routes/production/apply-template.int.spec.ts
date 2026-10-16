@@ -1,13 +1,14 @@
 import {afterEach, beforeEach, describe, expect, it} from 'vitest';
-import {prisma} from '../../services/prisma';
 import {callSheetTemplateRouter} from './callsheet-templates';
 import {productionRouter} from '../production';
 import express from 'express';
+import {organizationContext} from '../../middleware/organizationContext';
 import request from 'supertest';
-import {currentSeasonId} from '../../../test-helpers';
+import {currentSeasonId, testDb as prisma} from '../../../test-helpers';
 
 const app = express();
 app.use(express.json());
+app.use('/api', organizationContext);
 app.use('/api/callsheets/templates', callSheetTemplateRouter);
 app.use('/api/production', productionRouter);
 

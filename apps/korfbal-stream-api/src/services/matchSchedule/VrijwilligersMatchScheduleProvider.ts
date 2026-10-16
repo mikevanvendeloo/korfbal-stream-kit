@@ -31,13 +31,20 @@ const teamColors: Record<string, string> = {
   J23: 'blue',
 };
 
-function colorForTeam(name?: string | null): string | undefined {
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Colour of an own youth team ("<club> J1" → red). The club names come from the organization (its
+ * name and productionTeamNames), so another organization's teams don't get a colour.
+ */
+export function colorForTeam(name: string | null | undefined, teamPrefixes: string[]): string | undefined {
   if (!name) return undefined;
-  // Expect names like "Fortuna/Ruitenheer J1" etc
-  const m = name.match(/Fortuna\/Ruitenheer\s+J(\d+)/i);
-  if (!m) return undefined;
-  const key = `J${m[1]}`.toUpperCase();
-  return teamColors[key];
+  for (const prefix of teamPrefixes) {
+    if (!prefix.trim()) continue;
+    const m = name.match(new RegExp(`^${escapeRegExp(prefix.trim())}\\s+J(\\d+)\\b`, 'i'));
+    if (m) return teamColors[`J${m[1]}`.toUpperCase()];
+  }
+  return undefined;
 }
 
 function refereeDisplay(user?: { privacy?: Privacy; fullName?: string } | null): string | undefined {
@@ -137,7 +144,7 @@ function nonEmptyString(value: unknown): string | null {
 
 // Returns null for items that can't satisfy the NormalizedMatchItem contract, so
 // one malformed upstream row is skipped instead of failing the whole import.
-function mapItem(item: any): NormalizedMatchItem | null {
+function mapItem(item: any, teamPrefixes: string[]): NormalizedMatchItem | null {
   const rawId = item?.id;
   const externalId = typeof rawId === 'string' || typeof rawId === 'number' ? String(rawId).trim() : '';
   const date = toDate(item?.date);
@@ -148,7 +155,7 @@ function mapItem(item: any): NormalizedMatchItem | null {
     return null;
   }
 
-  const color = colorForTeam(item?.homeTeamName) || colorForTeam(item?.homeTeam?.name) || undefined;
+  const color = colorForTeam(item?.homeTeamName, teamPrefixes) || colorForTeam(item?.homeTeam?.name, teamPrefixes) || undefined;
   const referee = pickRefereeName(item);
   const reserveReferee = refereeDisplay(item?.reserveRefereeAssignment?.user);
 
@@ -175,7 +182,12 @@ function mapItem(item: any): NormalizedMatchItem | null {
  * (api.sportclubvrijwilligersmanagement.nl "programs" endpoint).
  */
 export class VrijwilligersMatchScheduleProvider implements MatchScheduleProvider {
-  constructor(private readonly baseUrl: string, private readonly apiToken?: string) {
+  constructor(
+    private readonly baseUrl: string,
+    private readonly apiToken?: string,
+    /** Club names of the own teams, e.g. "Fortuna/Ruitenheer" (for the youth team colours) */
+    private readonly teamPrefixes: string[] = [],
+  ) {
   }
 
   async fetchMatches({date, location}: MatchScheduleFetchParams): Promise<NormalizedMatchItem[]> {
@@ -246,6 +258,6 @@ export class VrijwilligersMatchScheduleProvider implements MatchScheduleProvider
       ? (response.data as any[])
       : Object.values(response.data).filter((v: any) => Array.isArray(v)).flat();
 
-    return rawItems.map(mapItem).filter((item): item is NormalizedMatchItem => item !== null);
+    return rawItems.map((item) => mapItem(item, this.teamPrefixes)).filter((item): item is NormalizedMatchItem => item !== null);
   }
 }

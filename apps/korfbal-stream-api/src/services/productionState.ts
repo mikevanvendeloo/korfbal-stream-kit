@@ -1,6 +1,7 @@
 import {ProductionEvent} from '@prisma/client';
 import {getIO} from './socket';
-import {prisma} from './prisma';
+import {prisma, prismaUnscoped} from './prisma';
+import {bindOrganization, getOrganizationId, runWithOrganization} from './organizationContext';
 import {logger} from '../utils/logger';
 
 interface ClockState {
@@ -10,6 +11,8 @@ interface ClockState {
 
 interface LiveProductionState {
   productionId: number | null;
+  /** Organization of the live production. Phase 1: one live state for the installation; phase 2 makes it per organization. */
+  organizationId: number | null;
   activeEventId: string | null;
   clocks: ClockState;
   isClockRunning: boolean;
@@ -19,6 +22,7 @@ interface LiveProductionState {
 // This is our in-memory "source of truth" for the live show.
 const currentState: LiveProductionState = {
   productionId: null,
+  organizationId: null,
   activeEventId: null,
   clocks: {
     productionTime: 0,
@@ -29,6 +33,25 @@ const currentState: LiveProductionState = {
 };
 
 let clockInterval: NodeJS.Timeout | null = null;
+
+/** The live production belongs to the organization of the request (or startup restore) that set it. */
+function rememberLiveOrganization() {
+  currentState.organizationId = getOrganizationId() ?? currentState.organizationId;
+}
+
+/** Organization of the live production, if any. */
+export function getLiveOrganizationId(): number | null {
+  return currentState.organizationId;
+}
+
+/**
+ * Runs live-state work (broadcasts, new socket clients, background services) in the organization of
+ * the live production, whoever triggered it. Without a live production it runs in the caller's context.
+ */
+export function inLiveOrganization<T>(fn: () => Promise<T>): Promise<T> {
+  const organizationId = currentState.organizationId;
+  return organizationId ? runWithOrganization(organizationId, fn) : fn();
+}
 
 function sanitizeEvent(event: any) {
   if (!event) return null;
@@ -62,7 +85,7 @@ function sanitizeEvent(event: any) {
  * The state as sent to clients. Leaves out the auto-advance timer: a Node Timeout has circular
  * references, which make socket.io-parser (hasBinary) fail with 'Maximum call stack size exceeded'.
  */
-function stateSnapshot(): Omit<LiveProductionState, 'autoAdvanceTimer'> {
+function stateSnapshot(): Omit<LiveProductionState, 'autoAdvanceTimer' | 'organizationId'> {
   const {productionId, activeEventId, clocks, isClockRunning} = currentState;
   return {productionId, activeEventId, clocks, isClockRunning};
 }
@@ -76,13 +99,14 @@ export async function broadcastState() {
 
   // Als er een actieve productie is, stuur dan ook de geüpdatete events mee
   if (currentState.productionId) {
-    const events = await prisma.productionEvent.findMany({
-      where: { productionId: currentState.productionId },
+    const productionId = currentState.productionId;
+    const events = await inLiveOrganization(() => prisma.productionEvent.findMany({
+      where: { productionId },
       include: {
         positions: { include: { position: true } },
       },
       orderBy: { order: 'asc' },
-    });
+    }));
 
     // We kunnen een specifiek event sturen voor de events-lijst
     // Sanitize elk event om stack overflow in socket.io-parser te voorkomen
@@ -95,14 +119,15 @@ export function startProductionClock(productionId: number) {
   if (currentState.isClockRunning) return;
 
   currentState.productionId = productionId;
+  rememberLiveOrganization();
   currentState.isClockRunning = true;
 
   if (clockInterval) clearInterval(clockInterval);
 
-  clockInterval = setInterval(() => {
+  clockInterval = setInterval(bindOrganization(() => {
     currentState.clocks.productionTime++;
     broadcastState();
-  }, 1000);
+  }), 1000);
 
   logger.info(`Production clock started for production ID: ${productionId}`);
 }
@@ -131,8 +156,23 @@ export async function initializeProductionState() {
     return;
   }
   logger.info('Initializing production state...');
+  // All organizations: until phase 2 there is one live state, so the most recently created active production wins
+  const active = await prismaUnscoped.production.findFirst({
+    where: { isActive: true },
+    orderBy: { createdAt: 'desc' },
+    select: { organizationId: true },
+  });
+  if (!active) {
+    logger.info('No active production found to restore.');
+    return;
+  }
+  await runWithOrganization(active.organizationId, restoreActiveProduction);
+}
+
+async function restoreActiveProduction() {
   const activeProduction = await prisma.production.findFirst({
     where: { isActive: true },
+    orderBy: { createdAt: 'desc' },
     include: {
       productionEvents: {
         where: { status: 'ACTIVE' },
@@ -143,6 +183,7 @@ export async function initializeProductionState() {
   });
   if (activeProduction) {
     currentState.productionId = activeProduction.id;
+    rememberLiveOrganization();
     if (activeProduction.productionEvents.length > 0) {
       const activeEvent = activeProduction.productionEvents[0];
       currentState.activeEventId = activeEvent.id;
@@ -192,7 +233,7 @@ function setupAutoAdvance(event: any) {
 
     if (remainingMs > 0) {
       logger.info(`Restoring auto-advance for event ${event.id} ("${event.title}") in ${Math.round(remainingMs/1000)}s`);
-      currentState.autoAdvanceTimer = setTimeout(async () => {
+      currentState.autoAdvanceTimer = setTimeout(bindOrganization(async () => {
         logger.info(`--- AUTO-ADVANCE TIMER EXPIRED (restored) for event ${event.id} ---`);
         try {
           const pId = currentState.productionId || event.productionId;
@@ -211,11 +252,11 @@ function setupAutoAdvance(event: any) {
         } catch (err) {
           logger.error('Error during restored auto-advance:', err);
         }
-      }, remainingMs);
+      }), remainingMs);
     } else {
       logger.info(`Auto-advance for event ${event.id} ("${event.title}") already expired, triggering now.`);
       // We wachten heel even om te zorgen dat alles is geïnitialiseerd
-      setTimeout(async () => {
+      setTimeout(bindOrganization(async () => {
           logger.info(`--- AUTO-ADVANCE TIMER EXPIRED (expired/immediate) for event ${event.id} ---`);
           const pId = currentState.productionId || event.productionId;
           if (!pId) {
@@ -229,7 +270,7 @@ function setupAutoAdvance(event: any) {
           } else {
             logger.info('No next event found for expired auto-advance');
           }
-      }, 2000);
+      }), 2000);
     }
   }
 }
@@ -239,6 +280,7 @@ export async function setActiveEvent(eventId: string, productionId: number) {
     logger.info(`Clearing active event for production ${productionId}`);
     currentState.activeEventId = null;
     currentState.productionId = productionId;
+  rememberLiveOrganization();
     if (currentState.autoAdvanceTimer) {
       clearTimeout(currentState.autoAdvanceTimer);
       currentState.autoAdvanceTimer = null;
@@ -282,6 +324,7 @@ export async function setActiveEvent(eventId: string, productionId: number) {
 
   currentState.activeEventId = activeEvent.id;
   currentState.productionId = productionId; // Ensure productionId is set
+  rememberLiveOrganization();
   if (!currentState.isClockRunning) {
     startProductionClock(productionId);
   }
@@ -318,7 +361,7 @@ export async function setActiveEvent(eventId: string, productionId: number) {
         logger.info(`Immediate auto-advance triggered for event ${activeEvent.id} (duration 0s)`);
         // Gebruik een kleine timeout om te voorkomen dat we in een oneindige loop komen
         // of dat de database transactie van de huidige setActiveEvent nog niet klaar is.
-        currentState.autoAdvanceTimer = setTimeout(async () => {
+        currentState.autoAdvanceTimer = setTimeout(bindOrganization(async () => {
             try {
                 const checkProdId = currentState.productionId || currentProdId;
                 const nextEvent = await getNextEventWithId(checkProdId, activeEvent.id);
@@ -329,9 +372,9 @@ export async function setActiveEvent(eventId: string, productionId: number) {
             } catch (err) {
                 logger.error(`Error during immediate auto-advance from ${activeEvent.id}:`, err);
             }
-        }, 1000);
+        }), 1000);
     } else {
-        currentState.autoAdvanceTimer = setTimeout(async () => {
+        currentState.autoAdvanceTimer = setTimeout(bindOrganization(async () => {
           logger.info(`--- AUTO-ADVANCE TIMER EXPIRED for event ${activeEvent.id} ---`);
           try {
             const checkProdId = currentState.productionId || currentProdId;
@@ -354,7 +397,7 @@ export async function setActiveEvent(eventId: string, productionId: number) {
           } catch (err) {
             logger.error(`Error during auto-advance from ${activeEvent.id}:`, err);
           }
-        }, delayMs);
+        }), delayMs);
     }
   } else {
     logger.info(`No auto-advance for event ${activeEvent.id} ("${activeEvent.title}"). AutoAdvance: ${activeEvent.autoAdvance}, Duration: ${activeEvent.durationSec}`);
@@ -621,6 +664,7 @@ export async function stopProduction(productionId: number) {
 
   // Clear in-memory state
   currentState.productionId = null;
+  currentState.organizationId = null;
   currentState.activeEventId = null;
   currentState.clocks.productionTime = 0;
   currentState.clocks.scoreboardTime = 0;
@@ -641,12 +685,13 @@ export function initializeClient(socket: any) {
 
   // Als we een actief event hebben, stuur die dan ook direct mee
   if (currentState.activeEventId) {
-    prisma.productionEvent.findUnique({
-      where: { id: currentState.activeEventId },
+    const eventId = currentState.activeEventId;
+    inLiveOrganization(() => prisma.productionEvent.findUnique({
+      where: { id: eventId },
       include: {
         positions: { include: { position: true } },
       }
-    }).then(event => {
+    })).then(event => {
       if (event) {
         socket.emit('active_event_update', sanitizeEvent(event));
       }
@@ -656,6 +701,7 @@ export function initializeClient(socket: any) {
 
 export async function startProduction(productionId: number, firstEvent: ProductionEvent) {
   currentState.productionId = productionId;
+  rememberLiveOrganization();
   currentState.activeEventId = firstEvent.id;
   const startTime = new Date();
 

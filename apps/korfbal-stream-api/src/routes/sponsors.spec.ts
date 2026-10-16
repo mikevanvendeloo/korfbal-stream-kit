@@ -7,6 +7,10 @@ vi.mock('../services/prisma', () => {
   const data: any[] = [];
   return {
     prisma: {
+      // The organization middleware resolves X-Organization (test-setup.ts sends the test organization)
+      organization: {
+        findUnique: async ({ where }: any) => (where.slug === 'test-org' ? { id: 1, slug: 'test-org', name: 'Test', isActive: true } : null),
+      },
       sponsor: {
         findMany: async ({ where, skip = 0, take = data.length }: any = {}) => {
           let arr = [...data];
