@@ -22,8 +22,17 @@ export default defineConfig(() => ({
       // Statische assets (sponsors logo's, player images, etc.)
       '/uploads': proxy,
       '/storage': proxy,
-      // Live state (Socket.io), incl. websocket upgrade
-      '/socket.io': {...proxy, ws: true},
+      // Live state (Socket.io), incl. websocket upgrade. xfwd leaves X-Forwarded-Host out of websocket
+      // upgrades, so it is set here; without it the API's origin check refuses the socket.
+      '/socket.io': {
+        ...proxy,
+        ws: true,
+        configure: (server) => {
+          server.on('proxyReqWs', (proxyReq, req) => {
+            if (req.headers.host) proxyReq.setHeader('x-forwarded-host', req.headers.host);
+          });
+        },
+      },
     },
   },
   preview: {
