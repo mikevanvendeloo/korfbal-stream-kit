@@ -7,6 +7,7 @@ import {logger} from '../utils/logger';
 import {PersonInputSchema} from '../schemas/person';
 import {SkillInputSchema} from '../schemas/skill';
 import {SponsorInputSchema} from '../schemas/sponsor';
+import {resolveClientLogoUrl} from '../services/sponsorLogos';
 import {
   ACTIVE_SEASON_ID_KEY,
   clearSeasonCache,
@@ -1127,11 +1128,14 @@ backupRouter.post('/sponsors/import', async (req, res, next) => {
         // The export writes null for an empty displayName; the schema wants it left out
         const input = SponsorInputSchema.parse(Object.fromEntries(Object.entries(item ?? {}).filter(([, v]) => v !== null)));
         const existing = await prisma.sponsor.findFirst({ where: { name: input.name } });
+        // Own logos and legacy file names (backups from before organizations) are restored; another
+        // organization's directory is not taken over
+        const logoUrl = resolveClientLogoUrl(input.logoUrl, requireOrganizationId(), existing?.logoUrl ?? null, { lenient: true, allowLegacy: true });
         if (existing) {
-          await prisma.sponsor.update({ where: { id: existing.id }, data: input as any });
+          await prisma.sponsor.update({ where: { id: existing.id }, data: { ...input, logoUrl } as any });
           updated++;
         } else {
-          await prisma.sponsor.create({ data: input as any });
+          await prisma.sponsor.create({ data: { ...input, logoUrl } as any });
           created++;
         }
       } catch (_) { /* an invalid row is skipped */ }

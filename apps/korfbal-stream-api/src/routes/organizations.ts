@@ -105,13 +105,14 @@ organizationsRouter.put('/:id', async (req, res, next) => {
   }
 });
 
-// POST /api/organizations/:id/logo (multipart, field "file") -> storage/organizations/<slug>.<ext>
+// POST /api/organizations/:id/logo (multipart, field "file") -> storage/organizations/<id>.<ext>
+// Keyed on the id, not the slug: a slug can be renamed and then taken by a new organization.
 organizationsRouter.post('/:id/logo', singleImage('file'), async (req, res, next) => {
   try {
     const organization = await findOrganization(Number(req.params.id));
     if (!organization) return res.status(404).json({error: 'Organisatie niet gevonden'});
     if (!req.file) return res.status(400).json({error: 'Geen bestand ontvangen'});
-    const fileName = saveImage(path.join(getAssetsRoot(), ORGANIZATION_LOGO_DIR), organization.slug, req.file);
+    const fileName = saveImage(path.join(getAssetsRoot(), ORGANIZATION_LOGO_DIR), String(organization.id), req.file);
     const updated = await prisma.organization.update({
       where: {id: organization.id},
       data: {logoUrl: `${ORGANIZATION_LOGO_DIR}/${fileName}`},

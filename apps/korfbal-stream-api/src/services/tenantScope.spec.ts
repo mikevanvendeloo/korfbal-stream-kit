@@ -1,5 +1,6 @@
 import {describe, expect, it} from 'vitest';
-import {scopeArgs, TENANT_MODELS} from './tenantScope';
+import {scopeArgs, TENANT_MODELS, UnscopableRelationError} from './tenantScope';
+import {MissingOrganizationContextError} from './organizationContext';
 
 const ORG = 7;
 
@@ -99,5 +100,101 @@ describe('tenantScope', () => {
     const data = {name: 'x', organizationId: 99};
     scopeArgs('Sponsor', 'update', {where: {id: 1}, data}, ORG);
     expect(data).toEqual({name: 'x', organizationId: 99});
+  });
+
+  describe('relations of global models into tenant tables', () => {
+    const own = {organizationId: ORG};
+    const noContext = () => {
+      throw new MissingOrganizationContextError('test');
+    };
+
+    it('scopes include and select of a to-many relation, keeping its own arguments', () => {
+      expect(scopeArgs('Season', 'findMany', {include: {matches: true, players: true}}, ORG).include)
+        .toEqual({matches: {where: own}, players: true});
+      expect(scopeArgs('Season', 'findUnique', {where: {id: 1}, select: {id: true, matches: {where: {isManual: true}, take: 5}}}, ORG).select)
+        .toEqual({id: true, matches: {where: {isManual: true, organizationId: ORG}, take: 5}});
+      expect(scopeArgs('Player', 'findFirst', {include: {interviewSubjects: {select: {id: true}}}}, ORG).include)
+        .toEqual({interviewSubjects: {select: {id: true}, where: own}});
+      expect(scopeArgs('Organization', 'findMany', {include: {sponsors: true, club: true}}, ORG).include)
+        .toEqual({sponsors: {where: own}, club: true});
+    });
+
+    it('scopes them at any depth, also behind a tenant model', () => {
+      const include = scopeArgs('MatchSchedule', 'findMany', {include: {season: {include: {matches: true}}, productions: true}}, ORG).include;
+      expect(include).toEqual({season: {include: {matches: {where: own}}}, productions: true});
+      const nested = scopeArgs('Club', 'findMany', {include: {players: {include: {interviewSubjects: true}}}}, ORG).include;
+      expect(nested).toEqual({players: {include: {interviewSubjects: {where: own}}}});
+    });
+
+    it('scopes _count of a tenant relation, in include, select and as _count: true', () => {
+      expect(scopeArgs('Season', 'findMany', {include: {_count: {select: {matches: true, players: true}}}}, ORG).include)
+        .toEqual({_count: {select: {matches: {where: own}, players: true}}});
+      expect(scopeArgs('Season', 'findMany', {select: {_count: {select: {matches: {where: {isManual: true}}}}}}, ORG).select)
+        .toEqual({_count: {select: {matches: {where: {isManual: true, organizationId: ORG}}}}});
+      expect(scopeArgs('Season', 'findMany', {include: {_count: true}}, ORG).include)
+        .toEqual({_count: {select: {matches: {where: own}, players: true}}});
+      expect(scopeArgs('Club', 'findMany', {include: {_count: true}}, ORG).include).toEqual({_count: true});
+    });
+
+    it('leaves relations between tenant rows and the select of count alone', () => {
+      expect(scopeArgs('Production', 'findMany', {include: {segments: true, _count: true}}, ORG).include).toEqual({segments: true, _count: true});
+      expect(scopeArgs('Season', 'count', {select: {_all: true}}, ORG).select).toEqual({_all: true});
+    });
+
+    it('refuses a to-one relation into a tenant table, which can\'t be filtered', () => {
+      expect(() => scopeArgs('Organization', 'findUnique', {where: {id: 1}, include: {matchSource: true}}, ORG)).toThrow(UnscopableRelationError);
+      expect(() => scopeArgs('Organization', 'findMany', {select: {matchSource: {select: {apiToken: true}}}}, ORG)).toThrow(UnscopableRelationError);
+    });
+
+    it('needs a context only when a tenant relation is touched', () => {
+      expect(scopeArgs('Season', 'findMany', {include: {players: true, _count: {select: {players: true}}}}, noContext).include)
+        .toEqual({players: true, _count: {select: {players: true}}});
+      expect(scopeArgs('Organization', 'update', {where: {id: 1}, data: {name: 'x'}, include: {club: true}}, noContext).data).toEqual({name: 'x'});
+      expect(() => scopeArgs('Season', 'findMany', {include: {matches: true}}, noContext)).toThrow(MissingOrganizationContextError);
+      expect(() => scopeArgs('Season', 'findMany', {include: {_count: {select: {matches: true}}}}, noContext)).toThrow(MissingOrganizationContextError);
+      expect(() => scopeArgs('Season', 'update', {where: {id: 1}, data: {matches: {disconnect: {id: 2}}}}, noContext)).toThrow(MissingOrganizationContextError);
+    });
+
+    it('scopes every nested write into a tenant relation', () => {
+      const data = scopeArgs('Season', 'update', {
+        where: {id: 1},
+        data: {
+          matches: {
+            connect: {id: 1},
+            set: [{id: 2}],
+            disconnect: [{id: 3}],
+            delete: {id: 4},
+            deleteMany: {isManual: true},
+            update: {where: {id: 5}, data: {homeTeamName: 'x', organizationId: 99}},
+            updateMany: [{where: {isManual: true}, data: {awayTeamName: 'y'}}],
+            upsert: {where: {id: 6}, create: {date: 'd', homeTeamName: 'h', awayTeamName: 'a'}, update: {homeTeamName: 'h'}},
+            create: {date: 'd', homeTeamName: 'h', awayTeamName: 'a'},
+          },
+        },
+      }, ORG).data;
+      expect(data.matches).toEqual({
+        connect: {id: 1, ...own},
+        set: [{id: 2, ...own}],
+        disconnect: [{id: 3, ...own}],
+        delete: {id: 4, ...own},
+        deleteMany: {isManual: true, ...own},
+        update: {where: {id: 5, ...own}, data: {homeTeamName: 'x'}},
+        updateMany: [{where: {isManual: true, ...own}, data: {awayTeamName: 'y'}}],
+        upsert: {where: {id: 6, ...own}, create: {date: 'd', homeTeamName: 'h', awayTeamName: 'a', ...own}, update: {homeTeamName: 'h'}},
+        create: {date: 'd', homeTeamName: 'h', awayTeamName: 'a', ...own},
+      });
+      expect(scopeArgs('Player', 'update', {where: {id: 1}, data: {interviewSubjects: {set: []}}}, ORG).data).toEqual({interviewSubjects: {set: []}});
+    });
+
+    it('refuses nested writes into the Organization\'s own relations (they would move rows) and into to-one tenant relations', () => {
+      expect(() => scopeArgs('Organization', 'update', {where: {id: 2}, data: {sponsors: {connect: {id: 1}}}}, ORG)).toThrow(UnscopableRelationError);
+      expect(() => scopeArgs('Organization', 'create', {data: {slug: 's', name: 'n', persons: {create: {name: 'p'}}}}, ORG)).toThrow(UnscopableRelationError);
+      expect(() => scopeArgs('Organization', 'update', {where: {id: 2}, data: {matchSource: {delete: true}}}, ORG)).toThrow(UnscopableRelationError);
+    });
+
+    it('also scopes set on relations of tenant rows (it connects)', () => {
+      expect(scopeArgs('Production', 'update', {where: {id: 1}, data: {productionPersons: {set: [{id: 2}]}}}, ORG).data.productionPersons)
+        .toEqual({set: [{id: 2, ...own}]});
+    });
   });
 });

@@ -24,10 +24,27 @@ export const OrganizationUpdateSchema = z.object({
 
 export const MATCH_SOURCE_PROVIDERS = ['vrijwilligers'] as const;
 
-/** apiToken: a string replaces the stored token, null removes it, absent keeps it. */
+/**
+ * The token goes to this address, so only https; plain http only outside production (local mocks).
+ * Read at call time, so tests can switch NODE_ENV.
+ */
+export function isAllowedMatchSourceUrl(url: string): boolean {
+  let protocol: string;
+  try {
+    protocol = new URL(url).protocol;
+  } catch {
+    return false;
+  }
+  return protocol === 'https:' || (protocol === 'http:' && process.env.NODE_ENV !== 'production');
+}
+
+/**
+ * apiToken: a string replaces the stored token, null removes it, absent keeps it, but only while
+ * provider and the origin of baseUrl stay the same (services/matchSchedule/matchSource.ts).
+ */
 export const MatchSourceInputSchema = z.object({
   provider: z.enum(MATCH_SOURCE_PROVIDERS),
-  baseUrl: z.string().trim().url().refine((url) => /^https?:\/\//i.test(url), 'Alleen http(s)-adressen'),
+  baseUrl: z.string().trim().url().refine(isAllowedMatchSourceUrl, 'Alleen https-adressen'),
   apiToken: z.string().trim().min(1).max(2000).nullable().optional(),
   isEnabled: z.boolean().optional(),
 }).strict();

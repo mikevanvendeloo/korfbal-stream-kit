@@ -191,12 +191,13 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
         });
 
         if (club?.logoUrl) {
-          const logoPath = path.join(process.cwd(), 'storage', club.logoUrl);
-          if (fs.existsSync(logoPath)) {
+          // club.logoUrl can come from an import: only a png/jpeg inside the assets dir (sponsorLogoFile checks both)
+          const logoPath = sponsorLogoFile(club.logoUrl);
+          if (logoPath) {
             // renderClubLogo verwacht xPos als het midden van het logo, dus trek logoSize / 2 af voor de linkerrand
             doc.image(logoPath, xPos - logoSize / 2, yPos, { width: logoSize, height: logoSize, fit: [logoSize, logoSize] });
           } else {
-            logger.warn(`Logo not found for team ${teamName} at ${logoPath}`)
+            logger.warn(`Logo not found for team ${teamName} at ${club.logoUrl}`)
           }
         } else {
           logger.warn("No logo defined for team %s", teamName)

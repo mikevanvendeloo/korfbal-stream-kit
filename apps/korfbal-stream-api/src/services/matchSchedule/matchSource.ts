@@ -4,7 +4,7 @@ import {requireOrganizationId, runWithOrganization} from '../organizationContext
 import {getSetting, PRODUCTION_TEAM_NAMES_KEY} from '../appSettings';
 import {normalizeTeamNameForClubMatch} from '../../utils/clubs';
 import {logger} from '../../utils/logger';
-import type {MatchSourceInput} from '../../schemas/organization';
+import {isAllowedMatchSourceUrl, type MatchSourceInput} from '../../schemas/organization';
 import {createMatchScheduleProvider} from './providerFactory';
 import type {MatchScheduleProvider} from './MatchScheduleProvider';
 
@@ -30,14 +30,28 @@ export async function getMatchSource(): Promise<MatchSource | null> {
   return prisma.matchSource.findFirst();
 }
 
-/** Saves the match source; `apiToken` undefined keeps the stored token, null removes it. */
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Saves the match source; `apiToken` undefined keeps the stored token, null removes it. A stored token
+ * only stays with the provider and origin it was entered for: when either changes without a new token
+ * in the same request, the token is removed (otherwise anyone could point it at their own server).
+ */
 export async function saveMatchSource(input: MatchSourceInput): Promise<MatchSource> {
   const existing = await getMatchSource();
+  const movesToken = !!existing && (existing.provider !== input.provider || originOf(existing.baseUrl) !== originOf(input.baseUrl));
+  const apiToken = input.apiToken !== undefined ? input.apiToken : movesToken ? null : undefined;
   const data = {
     provider: input.provider,
     baseUrl: input.baseUrl,
     ...(input.isEnabled !== undefined ? {isEnabled: input.isEnabled} : {}),
-    ...(input.apiToken !== undefined ? {apiToken: input.apiToken} : {}),
+    ...(apiToken !== undefined ? {apiToken} : {}),
   };
   return existing
     ? prisma.matchSource.update({where: {id: existing.id}, data})
@@ -55,7 +69,8 @@ export async function ownTeamPrefixes(): Promise<string[]> {
 /** The provider for the organization in the context; MatchSourceNotConfiguredError when there is none (or it is off). */
 export async function getMatchScheduleProvider(): Promise<MatchScheduleProvider> {
   const source = await getMatchSource();
-  if (!source || !source.isEnabled) throw new MatchSourceNotConfiguredError();
+  // The address is checked on save too; this also covers rows from before that check (or the env copy)
+  if (!source || !source.isEnabled || !isAllowedMatchSourceUrl(source.baseUrl)) throw new MatchSourceNotConfiguredError();
   return createMatchScheduleProvider({...source, teamPrefixes: await ownTeamPrefixes()});
 }
 

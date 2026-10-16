@@ -48,35 +48,42 @@ describe('errorHandler', () => {
     expect(logger.error).not.toHaveBeenCalled();
   });
 
-  it('should handle PrismaClientInitializationError (P1001) correctly', () => {
-    const prismaInitError = new PrismaClientInitializationError('Can\'t reach database server', '4.0.0', 'P1001');
+  it('answers 503 with a generic message when the database can\'t be reached (P1xxx), details only in the log', () => {
+    const prismaInitError = new PrismaClientInitializationError('Can\'t reach database server at db:5432', '6.0.0', 'P1001');
+    const prismaKnownError = new PrismaClientKnownRequestError('Authentication failed for user korfbal', {code: 'P1000', clientVersion: '6.0.0'});
 
-    errorHandler(prismaInitError, mockRequest as Request, mockResponse as Response, mockNext);
-
-    expect(mockResponse.status).toHaveBeenCalledWith(503);
-    expect(mockResponse.json).toHaveBeenCalledWith({
-      error: 'Database is currently unavailable. Please try again later.',
-      issues: [{ message: 'Could not connect to the database server. Can\'t reach database server' }],
-    });
-    expect(logger.error).toHaveBeenCalledWith('!!!!!!! Database connection error:', prismaInitError);
+    for (const err of [prismaInitError, prismaKnownError]) {
+      errorHandler(err, mockRequest as Request, mockResponse as Response, mockNext);
+      expect(mockResponse.status).toHaveBeenLastCalledWith(503);
+      expect(mockResponse.json).toHaveBeenLastCalledWith({ error: 'De database is niet bereikbaar. Probeer het later opnieuw.' });
+      expect(logger.error).toHaveBeenLastCalledWith('Database connection error', expect.objectContaining({ error: err }));
+    }
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
-  it('should handle PrismaClientKnownRequestError (P1000) correctly', () => {
-    const prismaKnownError = new PrismaClientKnownRequestError('Authentication failed', 'P1000', '4.0.0');
+  it('answers 409 with a generic message for a unique constraint (P2002)', () => {
+    const unique = new PrismaClientKnownRequestError('Unique constraint failed on the fields: (`id`)', {code: 'P2002', clientVersion: '6.0.0'});
 
-    errorHandler(prismaKnownError, mockRequest as Request, mockResponse as Response, mockNext);
+    errorHandler(unique, mockRequest as Request, mockResponse as Response, mockNext);
 
-    expect(mockResponse.status).toHaveBeenCalledWith(503);
-    expect(mockResponse.json).toHaveBeenCalledWith({
-      error: 'Database is currently unavailable. Please try again later.',
-      issues: [{ message: 'Could not connect to the database server. Authentication failed' }],
-    });
-    expect(logger.error).toHaveBeenCalledWith('!!!!!!! Database connection error:', prismaKnownError);
-    expect(logger.warn).not.toHaveBeenCalled();
+    expect(mockResponse.status).toHaveBeenCalledWith(409);
+    expect(mockResponse.json).toHaveBeenCalledWith({ error: 'Bestaat al' });
   });
 
-  it('should handle generic 4xx errors correctly', () => {
+  it('answers 500 "Interne serverfout" for other Prisma errors, without their message', () => {
+    const tooLong = new PrismaClientKnownRequestError('The provided value for the column "name" is too long', {code: 'P2000', clientVersion: '6.0.0'});
+    const validation = Object.assign(new Error('Invalid `prisma.sponsor.create()` invocation: Argument `organizationId` is missing'), {name: 'PrismaClientValidationError'});
+    const unknown = Object.assign(new Error('ERROR: organizationId is required (code 23502)'), {name: 'PrismaClientUnknownRequestError'});
+
+    for (const err of [tooLong, validation, unknown]) {
+      errorHandler(err, mockRequest as Request, mockResponse as Response, mockNext);
+      expect(mockResponse.status).toHaveBeenLastCalledWith(500);
+      expect(mockResponse.json).toHaveBeenLastCalledWith({ error: 'Interne serverfout' });
+      expect(logger.error).toHaveBeenLastCalledWith('Unhandled error', expect.objectContaining({ error: err }));
+    }
+  });
+
+  it('keeps the message of an error thrown on purpose with a 4xx status', () => {
     const clientError = new Error('Bad Request');
     (clientError as any).status = 400;
 
@@ -84,30 +91,21 @@ describe('errorHandler', () => {
 
     expect(mockResponse.status).toHaveBeenCalledWith(400);
     expect(mockResponse.json).toHaveBeenCalledWith({ error: 'Bad Request' });
-    expect(logger.warn).toHaveBeenCalledWith('Request error', { status: 400, message: 'Bad Request' });
+    expect(logger.warn).toHaveBeenCalledWith('Request error', expect.objectContaining({ status: 400, message: 'Bad Request' }));
     expect(logger.error).not.toHaveBeenCalled();
   });
 
-  it('should handle generic 5xx errors correctly', () => {
-    const serverError = new Error('Something went wrong');
+  it('answers 500 "Interne serverfout" for 5xx and unknown errors, details only in the log', () => {
+    const serverError = new Error('connect ECONNREFUSED 10.0.0.5:8088');
     (serverError as any).status = 500;
+    const unknownError = new Error('Cannot read properties of undefined (reading \'id\')');
 
-    errorHandler(serverError, mockRequest as Request, mockResponse as Response, mockNext);
-
-    expect(mockResponse.status).toHaveBeenCalledWith(500);
-    expect(mockResponse.json).toHaveBeenCalledWith({ error: 'Something went wrong' });
-    expect(logger.error).toHaveBeenCalledWith('Unhandled error', serverError);
-    expect(logger.warn).not.toHaveBeenCalled();
-  });
-
-  it('should default to 500 for unknown errors', () => {
-    const unknownError = new Error('Unknown error type');
-
-    errorHandler(unknownError, mockRequest as Request, mockResponse as Response, mockNext);
-
-    expect(mockResponse.status).toHaveBeenCalledWith(500);
-    expect(mockResponse.json).toHaveBeenCalledWith({ error: 'Unknown error type' });
-    expect(logger.error).toHaveBeenCalledWith('Unhandled error', unknownError);
+    for (const err of [serverError, unknownError]) {
+      errorHandler(err, mockRequest as Request, mockResponse as Response, mockNext);
+      expect(mockResponse.status).toHaveBeenLastCalledWith(500);
+      expect(mockResponse.json).toHaveBeenLastCalledWith({ error: 'Interne serverfout' });
+      expect(logger.error).toHaveBeenLastCalledWith('Unhandled error', expect.objectContaining({ error: err }));
+    }
     expect(logger.warn).not.toHaveBeenCalled();
   });
 

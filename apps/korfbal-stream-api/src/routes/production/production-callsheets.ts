@@ -1,3 +1,4 @@
+import {randomUUID} from 'node:crypto';
 import {Router} from 'express';
 import multer from 'multer';
 import {keepOrganizationContext} from '../../middleware/organizationContext';
@@ -337,7 +338,9 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
     const callSheetId = Number(req.params.callSheetId);
     if (!Number.isInteger(callSheetId) || callSheetId <= 0) return res.status(400).json({ error: 'Invalid callsheet id' });
 
-    const id = String(req.body?.id || '').trim();
+    // Item ids are global (CallSheetItem.id is the primary key over all organizations): always chosen
+    // here, never by the client, so an id of another organization can't collide or be probed (409)
+    const id = randomUUID();
     const productionSegmentId = req.body?.productionSegmentId ? Number(req.body.productionSegmentId) : null;
     const cue = String(req.body?.cue || '').trim();
     const title = String(req.body?.title || '').trim();
@@ -355,7 +358,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
     const parentId = req.body?.parentId != null ? String(req.body.parentId).trim() : null;
     const positionIds: number[] = Array.isArray(req.body?.positionIds) ? req.body.positionIds.map((x: any) => Number(x)).filter((x: number) => Number.isInteger(x) && x > 0) : [];
 
-    if (!id || !cue || !title || !Number.isInteger(durationSec) || durationSec < 0) {
+    if (!cue || !title || !Number.isInteger(durationSec) || durationSec < 0) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -400,7 +403,6 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
 
     return res.status(201).json(created);
   } catch (err: any) {
-    if (err?.code === 'P2002') return res.status(409).json({ error: 'Item id already exists' });
     if (err?.code === 'P2003') return res.status(404).json({ error: 'Callsheet not found' });
     return next(err);
   }
@@ -573,8 +575,6 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem, async
       return isNaN(d.getTime()) ? null : d;
     };
 
-    const genId = () => Math.random().toString(16).slice(2, 10);
-
     rows.forEach((row, idx) => {
       const rowHeaders = Object.keys(row);
       const map: Record<string, any> = {};
@@ -589,7 +589,6 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem, async
       const timeEnd = toDateMaybe(map[normKey('timeend')] ?? map[normKey('end')] ?? map[normKey('eindtijd')]);
       const durationSec = parseDuration(map[normKey('duration')] ?? map[normKey('duur')] ?? map[normKey('durationsec')] ?? map[normKey('duursec')]);
       const orderIndex = Number(map[normKey('order')] ?? map[normKey('volgorde')] ?? map[normKey('index')] ?? 0) || 0;
-      const idCell = (map[normKey('id')] ?? '').toString().trim();
       const positionsRaw = (map[normKey('positions')] ?? map[normKey('posities')] ?? map[normKey('position')] ?? map[normKey('positie')] ?? '').toString();
       const positionNames = positionsRaw
         .split(/[,;]+/)
@@ -610,7 +609,8 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem, async
 
       parsed.push({
         productionSegmentId: (seg as any).id,
-        id: idCell || genId(),
+        // An ID column (e.g. from an export, possibly of another organization) is ignored: ids are global
+        id: randomUUID(),
         cue,
         title,
         note: note ? String(note) : null,

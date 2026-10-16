@@ -2,7 +2,7 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {createUrl, extractError} from '../lib/api';
 import {PositionCategory} from './usePositions';
 
-export type ReportSponsor = { id: number; name: string; displayName?: string | null; logoUrl: string };
+export type ReportSponsor = { id: number; name: string; displayName?: string | null; logoUrl: string | null };
 
 export type ProductionReportData = {
   production: {

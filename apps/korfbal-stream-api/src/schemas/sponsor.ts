@@ -6,7 +6,8 @@ export const SponsorInputSchema = z.object({
   name: z.string().min(1),
   type: SponsorTypeEnum,
   websiteUrl: z.string().url(),
-  logoUrl: z.string().optional(),
+  /** Set by an upload; only a value in the organization's own directory is accepted (services/sponsorLogos.ts), null removes it */
+  logoUrl: z.string().nullable().optional(),
   displayName: z.string().optional(),
   enabled: z.boolean().optional().default(true),
 });
@@ -51,8 +52,3 @@ export function normalizeLogoFilename(input: string): string {
   return `${base.toLowerCase()}.png`;
 }
 
-export function makeLogoUrl(name: string): string {
-  // For derived filenames from Name, preserve casing as in tests (e.g., ACME-BV.png)
-  const base = slugifyBase(name, false);
-  return `${base.toLowerCase()}.png`;
-}

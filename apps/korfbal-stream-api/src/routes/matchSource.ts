@@ -3,7 +3,6 @@ import {MatchSourceInputSchema} from '../schemas/organization';
 import {
   getMatchScheduleProvider,
   getMatchSource,
-  InvalidMatchScheduleResponseError,
   MatchSourceNotConfiguredError,
   saveMatchSource,
   toMatchSourceDto,
@@ -37,18 +36,18 @@ matchSourceRouter.put('/', async (req, res, next) => {
   }
 });
 
-// POST /api/match-source/test -> fetches today's matches with the stored settings
+// POST /api/match-source/test -> fetches today's matches with the stored settings: only ok or failed.
+// Nothing of the upstream answer (status, body, count, kind of failure) goes back: the address is
+// chosen by the caller, so details would make this a probe for other servers (and could echo the token).
 matchSourceRouter.post('/test', async (_req, res) => {
   try {
     const provider = await getMatchScheduleProvider();
-    const items = await provider.fetchMatches({date: new Date().toISOString().slice(0, 10)});
-    return res.json({ok: true, count: items.length});
+    await provider.fetchMatches({date: new Date().toISOString().slice(0, 10)});
+    return res.json({ok: true});
   } catch (err) {
     if (err instanceof MatchSourceNotConfiguredError) return res.status(409).json({ok: false, error: err.message});
-    if (err instanceof InvalidMatchScheduleResponseError) return res.status(502).json({ok: false, error: err.message});
-    // No upstream details (they can echo the request, token included)
     const {status, code} = upstreamFailure(err);
     logger.warn('Match source test failed', {status, code});
-    return res.status(502).json({ok: false, error: 'Geen verbinding met de wedstrijdbron', status});
+    return res.status(502).json({ok: false, error: 'Geen verbinding met de wedstrijdbron'});
   }
 });

@@ -581,7 +581,7 @@ vmixRouter.get('/sponsor-carrousel', async (_req, res, next) => {
       const dn = ((s as any).displayName || '').trim();
       return {
         name: dn || s.name,
-        commercial: s.logoUrl.toLowerCase(),
+        commercial: (s.logoUrl ?? '').toLowerCase(),
         type: s.type,
         website: s.websiteUrl
       };

@@ -45,7 +45,7 @@ vi.mock('../services/prisma', () => {
 });
 
 describe('Sponsors API', () => {
-  it('should create a sponsor and return it with derived logoUrl', async () => {
+  it('creates a sponsor without a logo: it is never derived from the name', async () => {
     const payload = { name: 'ACME BV', type: 'premium', websiteUrl: 'https://acme.example' };
     const res = await request(app).post('/api/sponsors').send(payload);
     expect(res.status).toBe(201);
@@ -54,8 +54,22 @@ describe('Sponsors API', () => {
       name: 'ACME BV',
       type: 'premium',
       websiteUrl: 'https://acme.example',
-      logoUrl: 'acme-bv.png',
+      logoUrl: null,
     });
+  });
+
+  it('accepts a logoUrl only in the organization\'s own directory (test organization: id 1)', async () => {
+    const base = { type: 'premium', websiteUrl: 'https://logo.example' };
+    const own = await request(app).post('/api/sponsors').send({ ...base, name: 'Eigen logo', logoUrl: '1/eigen-logo.png' });
+    expect(own.status).toBe(201);
+    expect(own.body.logoUrl).toBe('1/eigen-logo.png');
+    for (const logoUrl of ['acme-bv.png', '2/vreemd.png', '1/../2/x.png', '../1/x.png', '1/x.svg', '1/sub/x.png', '/1/x.png']) {
+      const res = await request(app).post('/api/sponsors').send({ ...base, name: 'Vreemd logo', logoUrl });
+      expect(res.status, logoUrl).toBe(400);
+      expect(res.body.error).toBe('Ongeldig logo: upload het logo bij de sponsor');
+    }
+    expect((await request(app).put(`/api/sponsors/${own.body.id}`).send({ logoUrl: '2/vreemd.png' })).status).toBe(400);
+    await request(app).delete(`/api/sponsors/${own.body.id}`);
   });
 
   it('should list sponsors including the one created with pagination envelope', async () => {
@@ -88,7 +102,8 @@ describe('Sponsors API', () => {
 
     const updateRes = await request(app).put('/api/sponsors/1').send({ name: 'ACME NL' });
     expect(updateRes.status).toBe(200);
-    expect(updateRes.body).toMatchObject({ name: 'ACME NL', logoUrl: 'acme-nl.png' });
+    // A rename keeps the logo (none here); sending the current value back (the edit form does) keeps it too
+    expect(updateRes.body).toMatchObject({ name: 'ACME NL', logoUrl: null });
 
     const deleteRes = await request(app).delete('/api/sponsors/1');
     expect(deleteRes.status).toBe(204);

@@ -5,11 +5,11 @@ import fs from 'node:fs';
 import ExcelJS from 'exceljs';
 import {prisma} from '../services/prisma';
 import {logger} from '../utils/logger';
-import {getAssetsRoot} from '../services/config';
-import {safeFileBase, saveImage, singleImage} from '../services/imageUpload';
-import {currentOrganization, keepOrganizationContext} from '../middleware/organizationContext';
+import {saveImage, singleImage} from '../services/imageUpload';
+import {keepOrganizationContext} from '../middleware/organizationContext';
+import {requireOrganizationId} from '../services/organizationContext';
+import {resolveClientLogoUrl, sponsorLogoDir, sponsorLogoUrl} from '../services/sponsorLogos';
 import {
-  makeLogoUrl,
   normalizeLogoFilename,
   SponsorInputSchema,
   SponsorQuerySchema,
@@ -17,14 +17,6 @@ import {
 } from '../schemas/sponsor';
 
 export const sponsorsRouter: Router = Router();
-
-/**
- * Sponsor logos: new uploads go to <assets>/sponsors/<organization slug>/ and are stored with that
- * relative path (served at /uploads/sponsors/<logoUrl>). Older logos keep their plain file name.
- */
-export function sponsorLogoDir(organizationSlug: string): string {
-  return path.join(getAssetsRoot(), 'sponsors', safeFileBase(organizationSlug));
-}
 
 const uploadMem = keepOrganizationContext(multer({ storage: multer.memoryStorage() }).single('file'));
 
@@ -143,7 +135,8 @@ sponsorsRouter.post('/', async (req, res, next) => {
         name,
         type,
         websiteUrl,
-        logoUrl: logoUrl ? normalizeLogoFilename(logoUrl) : makeLogoUrl(name),
+        // Never derived from the name (that would point at another organization's legacy file): set by an upload
+        logoUrl: resolveClientLogoUrl(logoUrl, requireOrganizationId(), null),
         displayName: displayName || null,
         enabled: enabled ?? true,
       },
@@ -175,10 +168,10 @@ sponsorsRouter.post('/:id/logo',
         return res.status(400).json({ error: 'No file uploaded' });
       }
       const id = Number(req.params.id);
-      const organizationSlug = currentOrganization(res)!.slug;
+      const organizationId = requireOrganizationId();
       const sponsor = (req as any).sponsor as { name: string };
-      const fileName = saveImage(sponsorLogoDir(organizationSlug), normalizeLogoFilename(sponsor.name).replace(/\.png$/, ''), req.file);
-      const logoUrl = `${safeFileBase(organizationSlug)}/${fileName}`;
+      const fileName = saveImage(sponsorLogoDir(organizationId), normalizeLogoFilename(sponsor.name).replace(/\.png$/, ''), req.file);
+      const logoUrl = sponsorLogoUrl(organizationId, fileName);
 
       const updatedSponsor = await prisma.sponsor.update({
         where: { id },
@@ -202,7 +195,8 @@ sponsorsRouter.put('/:id', async (req, res, next) => {
     if (!existing) return res.status(404).json({ error: 'Niet gevonden' });
 
     const nextName = input.name ?? (existing as any).name;
-    const nextLogo = input.logoUrl ? normalizeLogoFilename(input.logoUrl) : (input.name ? makeLogoUrl(input.name) : existing.logoUrl);
+    // A rename keeps the logo; a new value must be in the organization's own directory
+    const nextLogo = resolveClientLogoUrl(input.logoUrl, requireOrganizationId(), existing.logoUrl);
 
     const updated = await prisma.sponsor.update({
       where: { id },
@@ -334,7 +328,8 @@ sponsorsRouter.post('/upload-excel', uploadMem, async (req, res, next) => {
         name,
         type,
         websiteUrl: website,
-        logoUrl: logo ? normalizeLogoFilename(logo) : normalizeLogoFilename(name),
+        // Only a logo in the organization's own directory (e.g. from its own export); otherwise none until an upload
+        logoUrl: resolveClientLogoUrl(logo, requireOrganizationId(), null, {lenient: true}),
         categories: categories || undefined,
         enabled: enabledRaw ? (enabledRaw === 'ja' || enabledRaw === 'yes' || enabledRaw === 'true' || enabledRaw === '1') : true,
       };

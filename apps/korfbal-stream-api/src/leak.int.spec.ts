@@ -249,7 +249,6 @@ const ROUTES: Record<string, Probe> = {
   'POST /api/time/start': LIVE,
   'POST /api/time/stop': LIVE,
   'POST /api/time/venue-clock': LIVE,
-  'POST /api/upload': {own: 'stores a file, no tenant data'},
   'POST /api/vmix/callsheet/push': {device: 'sends to vMix'},
   'POST /api/vmix/production/trigger-manual': {write: () => '/api/vmix/production/trigger-manual', body: (a) => ({eventId: a.eventId})},
   'POST /api/vmix/set-timer': {device: 'sends to vMix'},

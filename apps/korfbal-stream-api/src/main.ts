@@ -1,7 +1,5 @@
 import express, {Express} from 'express';
 import {createServer} from 'http';
-import multer from 'multer';
-import path from 'node:path';
 import fs from 'node:fs';
 import swaggerUi from 'swagger-ui-express';
 import {logger} from './utils/logger';
@@ -30,7 +28,7 @@ import {initializeProductionState} from './services/productionState';
 import {callSheetTemplateRouter} from './routes/production/callsheet-templates'
 import {venueClockSyncService} from "./services/venueClockSyncService";
 import {vmixCallsheetPushService} from './services/vmixCallsheetPush';
-import {keepOrganizationContext, ORGANIZATION_HEADER, organizationContext} from './middleware/organizationContext';
+import {ORGANIZATION_HEADER, organizationContext} from './middleware/organizationContext';
 import {organizationsRouter} from './routes/organizations';
 import {matchSourceRouter} from './routes/matchSource';
 import {applyStandardSetWhereMissing} from './services/standardSet';
@@ -105,17 +103,10 @@ app.use((req, res, next) => {
 });
 
 
-// File uploads (store under assets/)
+// Assets (logos, player photos) are written by their own routes, which accept only images
+// (services/imageUpload.ts); there is no generic upload endpoint
 const assetsRoot = getAssetsRoot();
 if (!fs.existsSync(assetsRoot)) fs.mkdirSync(assetsRoot, { recursive: true });
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, assetsRoot),
-  filename: (_req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, unique + path.extname(file.originalname || '.bin'));
-  },
-});
-const upload = multer({ storage });
 
 // Serve assets statically. Keep backward-compatible /uploads route.
 app.use('/assets', express.static(assetsRoot));
@@ -124,13 +115,6 @@ app.use('/storage', express.static(assetsRoot)); // New route for storage
 
 // Every /api route runs for one organization (X-Organization), except the global ones (D3)
 app.use('/api', organizationContext);
-
-app.post('/api/upload', keepOrganizationContext(upload.single('file')), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
-  }
-  return res.status(201).json({ filename: req.file.filename, path: req.file.path });
-});
 
 // Organizations (global: start screen and management)
 app.use('/api/organizations', organizationsRouter);
@@ -277,7 +261,7 @@ const openapi = {
           name: { type: 'string' },
           type: { type: 'string', enum: ['premium', 'goud', 'zilver', 'brons'] },
           websiteUrl: { type: 'string' },
-          logoUrl: {type: 'string'},
+          logoUrl: {type: 'string', nullable: true, description: 'Set by POST /api/sponsors/{id}/logo: <organizationId>/<file> (older logos: a plain file name)'},
           createdAt: {type: 'string', format: 'date-time'},
         },
       },
@@ -288,7 +272,7 @@ const openapi = {
           name: {type: 'string'},
           type: {type: 'string', enum: ['premium', 'goud', 'zilver', 'brons']},
           websiteUrl: {type: 'string'},
-          logoUrl: {type: 'string'},
+          logoUrl: {type: 'string', nullable: true, description: 'Only a logo in the organization\'s own directory (<organizationId>/<file>); null removes it'},
         },
       },
       SponsorUpdate: {
@@ -297,7 +281,7 @@ const openapi = {
           name: {type: 'string'},
           type: {type: 'string', enum: ['premium', 'goud', 'zilver', 'brons']},
           websiteUrl: {type: 'string'},
-          logoUrl: {type: 'string'},
+          logoUrl: {type: 'string', nullable: true, description: 'Only a logo in the organization\'s own directory (<organizationId>/<file>); null removes it'},
         },
       },
     },

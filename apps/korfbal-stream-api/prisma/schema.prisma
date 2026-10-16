@@ -11,7 +11,8 @@ model Sponsor {
   id             Int          @id @default(autoincrement())
   name           String
   type           SponsorType
-  logoUrl        String
+  /// Set by an upload: `<organizationId>/<file>` (older logos: a plain file name); null without a logo
+  logoUrl        String?
   websiteUrl     String
   createdAt      DateTime     @default(now())
   categories     String?
@@ -674,7 +675,7 @@ model Organization {
   id        Int      @id @default(autoincrement())
   slug      String   @unique
   name      String
-  /// Uploaded logo (file name under storage/organizations/); falls back to the linked club's logo
+  /// Uploaded logo (organizations/<id>.<ext> under storage/); falls back to the linked club's logo
   logoUrl   String?
   /// Optional link to the shared Club (logo fallback, own club)
   clubId    Int?
