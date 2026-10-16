@@ -1,4 +1,5 @@
 import {Router} from 'express';
+import {getOrganizationId} from '../services/organizationContext';
 import {prisma} from '../services/prisma';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -655,6 +656,8 @@ clubsRouter.get('/:id/teams', async (req, res, next) => {
     if (isNaN(clubId)) {
       return res.status(400).json({ error: 'Invalid club ID' });
     }
+    // Clubs are global, but the teams come from the organization's own match schedule
+    if (getOrganizationId() === undefined) return res.status(401).json({ error: 'Kies een organisatie' });
 
     const club = await prisma.club.findUnique({
       where: { id: clubId },

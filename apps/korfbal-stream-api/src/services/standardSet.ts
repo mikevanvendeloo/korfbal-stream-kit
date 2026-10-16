@@ -135,8 +135,11 @@ async function addStandardSet(tx: Prisma.TransactionClient): Promise<StandardSet
  * Startup check: organizations without any position get the standard set (e.g. KNKV right after the
  * migration, in environments that skip the seed).
  */
-export async function applyStandardSetWhereMissing(): Promise<void> {
-  const organizations = await prisma.organization.findMany({select: {id: true, slug: true}});
+export async function applyStandardSetWhereMissing(organizationIds?: number[]): Promise<void> {
+  const organizations = await prisma.organization.findMany({
+    where: organizationIds ? {id: {in: organizationIds}} : {},
+    select: {id: true, slug: true},
+  });
   for (const organization of organizations) {
     const positions = await runWithOrganization(organization.id, () => prisma.position.count());
     if (positions > 0) continue;

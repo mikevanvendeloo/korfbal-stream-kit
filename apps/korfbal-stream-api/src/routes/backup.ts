@@ -1,4 +1,5 @@
 import {requireOrganizationId} from '../services/organizationContext';
+import {randomUUID} from 'node:crypto';
 import {Router} from 'express';
 import {findExistingPosition, findOrCreatePosition} from '../services/positions';
 import {prisma} from '../services/prisma';
@@ -496,7 +497,7 @@ backupRouter.post('/persons/import', async (req, res, next) => {
             }
           }
         }
-      } catch (_) {}
+      } catch (_) { /* an invalid row is skipped */ }
     }
     return res.json({ ok: true, created, updated });
   } catch (err) {
@@ -522,7 +523,7 @@ backupRouter.post('/skills/import', async (req, res, next) => {
           await prisma.skill.create({ data: input as any });
           created++;
         }
-      } catch (_) {}
+      } catch (_) { /* an invalid row is skipped */ }
     }
     return res.json({ ok: true, created, updated });
   } catch (err) {
@@ -555,7 +556,7 @@ backupRouter.post('/positions/import', async (req, res, next) => {
           await prisma.position.create({ data: input as any });
           created++;
         }
-      } catch (_) {}
+      } catch (_) { /* an invalid row is skipped */ }
     }
     return res.json({ ok: true, created, updated });
   } catch (err) {
@@ -616,7 +617,7 @@ backupRouter.post('/matches/import', async (req, res, next) => {
           await prisma.matchSchedule.create({ data: matchData });
           created++;
         }
-      } catch (_) {}
+      } catch (_) { /* an invalid row is skipped */ }
     }
     return res.json({ ok: true, created, updated });
   } catch (err) {
@@ -657,7 +658,7 @@ backupRouter.post('/segment-templates/import', async (req, res, next) => {
           if (!naam || !Number.isInteger(volgorde) || volgorde <= 0 || !Number.isInteger(duurInMinuten) || duurInMinuten < 0) continue;
           await prisma.segmentTemplateItem.create({ data: { templateId: tplId, naam, volgorde, duurInMinuten, isTimeAnchor } });
         }
-      } catch (_) {}
+      } catch (_) { /* an invalid row is skipped */ }
     }
     return res.json({ ok: true, created, updated });
   } catch (err) {
@@ -796,7 +797,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
           if (Array.isArray(item.positions)) {
             for (const cData of item.positions) {
               const person = await tx.person.findFirst({ where: { name: cData.personName } });
-              let position = await findOrCreatePosition(tx, cData.positionName, { isStudio: !!cData.isStudio });
+              const position = await findOrCreatePosition(tx, cData.positionName, { isStudio: !!cData.isStudio });
               if (person) {
                 await tx.productionPersonPosition.upsert({
                   where: {
@@ -835,7 +836,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
               if (Array.isArray(sData.assignments)) {
                 for (const bData of sData.assignments) {
                   const person = await tx.person.findFirst({ where: { name: bData.personName } });
-                  let position = await findOrCreatePosition(tx, bData.positionName, { isStudio: !!bData.isStudio });
+                  const position = await findOrCreatePosition(tx, bData.positionName, { isStudio: !!bData.isStudio });
                   if (person) {
                     await tx.segmentRoleAssignment.create({
                       data: {
@@ -930,6 +931,8 @@ backupRouter.post('/producties/import', async (req, res, next) => {
               });
 
               if (Array.isArray(csData.items)) {
+                // New ids: item ids are global, and the backup may come from another organization
+                const itemIdMap = new Map<string, string>();
                 for (const iData of csData.items) {
                   const seg = iData.productionSegmentVolgorde ? await tx.productionSegment.findFirst({
                     where: { productionId: production.id, volgorde: iData.productionSegmentVolgorde }
@@ -937,7 +940,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
 
                   const callSheetItem = await tx.callSheetItem.create({
                     data: {
-                      id: iData.id,
+                      id: randomUUID(),
                       callSheetId: callSheet.id,
                       cue: iData.cue,
                       title: iData.title,
@@ -952,14 +955,14 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                       isTimeAnchor: !!iData.isTimeAnchor,
                       autoAdvance: !!iData.autoAdvance,
                       isInLivestream: iData.isInLivestream !== false,
-                      parentId: iData.parentId,
                       productionSegmentId: seg?.id || null
                     }
                   });
+                  if (iData.id) itemIdMap.set(String(iData.id), callSheetItem.id);
 
                   if (Array.isArray(iData.positions)) {
                     for (const posName of iData.positions) {
-                      let position = await findOrCreatePosition(tx, posName);
+                      const position = await findOrCreatePosition(tx, posName);
                       await tx.callSheetItemPosition.create({
                         data: {
                           callSheetItemId: callSheetItem.id,
@@ -968,6 +971,11 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                       });
                     }
                   }
+                }
+                for (const iData of csData.items) {
+                  const id = iData.id && itemIdMap.get(String(iData.id));
+                  const parentId = iData.parentId && itemIdMap.get(String(iData.parentId));
+                  if (id && parentId) await tx.callSheetItem.update({ where: { id }, data: { parentId } });
                 }
               }
             }
@@ -1001,7 +1009,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
 
               if (Array.isArray(evData.positions)) {
                 for (const posName of evData.positions) {
-                  let position = await findOrCreatePosition(tx, posName);
+                  const position = await findOrCreatePosition(tx, posName);
                   await tx.productionEventPosition.create({
                     data: {
                       eventId: event.id,
@@ -1097,7 +1105,7 @@ backupRouter.post('/clubs/import', async (req, res, next) => {
             }
           }
         }
-      } catch (_) {}
+      } catch (_) { /* an invalid row is skipped */ }
     }
     // Restored players may carry pre-season `players/...` photoUrls; move those files into their season dir.
     await migrateLegacySeasonAssets().catch((err) => logger.error('Season asset migration after clubs import failed', err as any));
@@ -1116,7 +1124,8 @@ backupRouter.post('/sponsors/import', async (req, res, next) => {
     let created = 0, updated = 0;
     for (const item of data) {
       try {
-        const input = SponsorInputSchema.parse(item);
+        // The export writes null for an empty displayName; the schema wants it left out
+        const input = SponsorInputSchema.parse(Object.fromEntries(Object.entries(item ?? {}).filter(([, v]) => v !== null)));
         const existing = await prisma.sponsor.findFirst({ where: { name: input.name } });
         if (existing) {
           await prisma.sponsor.update({ where: { id: existing.id }, data: input as any });
@@ -1125,7 +1134,7 @@ backupRouter.post('/sponsors/import', async (req, res, next) => {
           await prisma.sponsor.create({ data: input as any });
           created++;
         }
-      } catch (_) {}
+      } catch (_) { /* an invalid row is skipped */ }
     }
     return res.json({ ok: true, created, updated });
   } catch (err) {

@@ -9,6 +9,7 @@ import {logger} from "../../utils/logger";
 import fs from "node:fs";
 import {getAssetsRoot} from "../../services/config";
 import {findSponsorByName, sponsorLogoFile, sponsorLogoPath} from "../../services/reportSponsors";
+import {assertProductionExists} from '../../services/production';
 
 export const productionReportsRouter: Router = Router();
 
@@ -127,6 +128,7 @@ productionReportsRouter.post('/:id/report', async (req, res, next) => {
     }
 
     const { matchSponsor, ballSponsor, interviewRationale, remarks } = parsed.data;
+    await assertProductionExists(id);
 
     const report = await prisma.productionReport.upsert({
       where: { productionId: id },

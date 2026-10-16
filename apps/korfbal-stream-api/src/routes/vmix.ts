@@ -25,6 +25,7 @@ import os from 'node:os';
 import {loadCallsheetTiming, parsePositions} from '../services/callsheetTiming';
 import {getCallsheetPushConfig, pushCallsheetToVmix} from '../services/vmixCallsheetPush';
 import {buildVmixMatchInfo, loadActiveMatchInput} from '../services/vmixMatchInfo';
+import {NotFoundError} from '../middleware/error';
 
 export const vmixRouter: Router = Router();
 export const adminVmixRouter: Router = Router();
@@ -1175,7 +1176,7 @@ adminVmixRouter.patch('/title-templates:reorder', async (req, res, next) => {
     await prisma.$transaction(async (tx) => {
       const existing = await (tx as any).titleDefinition.findMany({ where: { productionId: null }, select: { id: true } });
       const idsSet = new Set(existing.map((e: any) => e.id));
-      for (const i of parsed.ids) if (!idsSet.has(i)) throw new Error('Invalid template id in ordering');
+      for (const i of parsed.ids) if (!idsSet.has(i)) throw new NotFoundError('Invalid template id in ordering');
       for (let index = 0; index < parsed.ids.length; index++) {
         const templateId = parsed.ids[index];
         await (tx as any).titleDefinition.update({ where: { id: templateId }, data: { order: index + 1 } });

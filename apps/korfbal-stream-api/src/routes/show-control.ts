@@ -3,6 +3,7 @@ import {Router} from 'express';
 import {z} from 'zod';
 import {prisma} from '../services/prisma';
 import * as productionStateService from '../services/productionState';
+import {assertProductionExists} from '../services/production';
 
 export const showControlRouter: Router = Router();
 
@@ -88,6 +89,7 @@ showControlRouter.post('/recalculate/:productionId', async (req, res, next) => {
     try {
         const productionId = Number(req.params.productionId);
         const { anchorEventId, anchorTime } = req.body;
+        await assertProductionExists(productionId);
 
         let eventId = anchorEventId;
         let time = anchorTime ? new Date(anchorTime) : new Date();
@@ -141,7 +143,7 @@ showControlRouter.post('/reset/:productionId', async (req, res, next) => {
         });
 
         if (!production || !production.matchSchedule) {
-            return res.status(400).json({ error: 'Production or match schedule not found' });
+            return res.status(404).json({ error: 'Production or match schedule not found' });
         }
 
         const anchorEvent = await prisma.productionEvent.findFirst({
@@ -191,6 +193,7 @@ showControlRouter.post('/reset/:productionId', async (req, res, next) => {
 showControlRouter.post('/stop/:productionId', async (req, res, next) => {
     try {
         const productionId = Number(req.params.productionId);
+        await assertProductionExists(productionId);
         const activeProductionId = productionStateService.getActiveProductionId();
         if (activeProductionId !== productionId) {
             return res.status(400).json({ error: 'This production is not currently active.' });
