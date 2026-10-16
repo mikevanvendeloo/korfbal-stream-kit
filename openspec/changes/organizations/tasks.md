@@ -1,6 +1,6 @@
 # Tasks: organizations
 
-> Status: phases 1 and 2 done (backend, not yet released: the frontend must send X-Organization, the socket handshake and API keys first). See design.md (D1–D13) for every decision. Order: phase 1 → 2 → 3, released together.
+> Status: phases 1, 2 and 3 done (backend and frontend; release them together). See design.md (D1–D13) for every decision. Order: phase 1 → 2 → 3, released together.
 
 ## Phase 1: Model & isolation (backend)
 
@@ -29,16 +29,17 @@
 
 ## Phase 3: Frontend
 
-- [ ] Start screen: large buttons with logo + name per active organization; auto-choose when only one; stored in `localStorage`; shown again when the stored one is gone/inactive
-- [ ] Central fetch wrapper adding `X-Organization` to same-origin `/api` requests; socket handshake with the organization; React Query cache cleared on switch
-- [ ] Current organization in LIVE and Beheer nav, click → switch
-- [ ] Beheer → Overig → Organisaties (list/create/edit/(de)activate, logo, club link)
-- [ ] Beheer → Overig → Organisatie: match import (provider, URL, token set/not set, test connection), API keys (create with copy-once dialog, list, revoke)
-- [ ] vMix endpoints page: feed URLs with key, filled in right after creating a key
-- [ ] Backup page: per organization wording
-- [ ] Manual: chapters for choosing an organization, organizations, API keys and the vMix key change (LIVE + Beheer)
-- [ ] Tests: component tests; e2e fixtures choose the organization; e2e for start screen + switching
+- [x] Start screen: large buttons with logo + name per active organization; auto-choose when only one; stored in `localStorage`; shown again when the stored one is gone/inactive
+- [x] Central fetch wrapper adding `X-Organization` to same-origin `/api` requests; socket handshake with the organization; React Query cache cleared on switch
+- [x] Current organization in LIVE and Beheer nav, click → switch
+- [x] Beheer → Overig → Organisaties (list/create/edit/(de)activate, logo, club link)
+- [x] Beheer → Overig → Organisatie: match import (provider, URL, token set/not set, test connection), API keys (create with copy-once dialog, list, revoke)
+- [x] vMix endpoints page: feed URLs with key, filled in right after creating a key
+- [x] Backup page: per organization wording
+- [x] Manual: chapters for choosing an organization, organizations, API keys and the vMix key change (LIVE + Beheer)
+- [x] Tests: component tests; e2e fixtures choose the organization; e2e for start screen + switching
+- [x] Exports via fetch (`downloadExport`) instead of plain links, so they carry X-Organization; CallSheetEditPage no longer shows a client-made item id
 
 ## Docs
 
-- [ ] CLAUDE.md conventions (organization context, extension, raw SQL rule, settings, live per org, API keys), PROJECT_STRUCTURE.md, GLOSSARY.md (Organisatie, API-sleutel, Standaardset), openspec config context
+- [x] CLAUDE.md conventions (organization context, extension, raw SQL rule, settings, live per org, API keys, frontend start screen and fetch wrapper), PROJECT_STRUCTURE.md, GLOSSARY.md (Organisatie, Startscherm, API-sleutel, Standaardset, Wedstrijdbron), openspec config context

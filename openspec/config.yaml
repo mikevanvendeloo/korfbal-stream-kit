@@ -6,7 +6,10 @@ context: |
   Socket.io for real-time state; Vitest for testing; Nx 21 monorepo.
 
   Domain: Korfbal (Dutch sport) livestream production management.
-  This is an internal LAN tool — no authentication. All routes are open.
+  This is an internal LAN tool without login, but multi-tenant: every /api request carries the chosen
+  Organization (X-Organization: <slug>, chosen on the start screen, 401/403 without a valid one);
+  feed routes (vMix data sources, scoreboard) take an organization API key (?key=) instead.
+  Global data: Season, Club, Player, Organization, Setting; everything else is per organization.
 
   Monorepo apps:
     - apps/korfbal-stream-api — Express API, port 3333, routes under /api/
@@ -14,13 +17,14 @@ context: |
     - apps/korfbal-stream-kit-e2e — Playwright e2e tests
 
   Key conventions:
-    - Only one Production can be active at a time
+    - One Production can be active per Organization (organizations can be live at the same time)
     - Event status flow: WAITING → ACTIVE → COMPLETED (unidirectional)
-    - In-memory live state in productionState.ts; DB holds persistent data
-    - Socket.io broadcasts full state snapshots (not diffs) every 1 second
+    - In-memory live state in productionState.ts, per organization; DB holds persistent data
+    - Socket.io broadcasts full state snapshots (not diffs) to the organization's room (org:<id>)
     - Segment ordering uses 2-phase reorder (bump to 1000+, reorder, renumber)
     - Zod schemas in apps/korfbal-stream-api/src/schemas/ for all API inputs
-    - Settings stored as key/value JSON in the Setting table
+    - Settings stored as key/value JSON per organization (OrganizationSetting); installation-wide keys in Setting
+    - Frontend: X-Organization is added centrally (lib/organization.ts fetch wrapper), never per fetch call
 
   API route groups:
     /api/production — productions, segments, events, crew, callsheets
@@ -28,7 +32,8 @@ context: |
     /api/vmix/* — vMix data feeds and title templates
     /api/match — match schedule import
     /api/show — live show control
-    /api/backup — export/import of all data
+    /api/backup — export/import of the chosen organization's data
+    /api/organizations — organizations (global); /api/match-source, /api/organization/api-keys — per organization
 
 rules:
   proposal:
