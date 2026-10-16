@@ -62,9 +62,7 @@ services:
 | `DATABASE_URL` | ja | PostgreSQL connection string |
 | `PORT` | nee | Poort van de API (standaard `3333`) |
 | `ASSETS_DIR` | nee | Map voor logo's, foto's en KNKV-downloads (koppel als volume) |
-| `MATCH_SCHEDULE_BASE_URL` | nee | URL van de wedstrijdplanning-API |
-| `MATCH_SCHEDULE_API_TOKEN` | nee | Bearer token voor de wedstrijdplanning-API |
-| `MATCH_SCHEDULE_PROVIDER` | nee | Bron van de wedstrijdplanning (standaard `vrijwilligers`) |
+| `MATCH_SCHEDULE_BASE_URL` / `MATCH_SCHEDULE_API_TOKEN` / `MATCH_SCHEDULE_PROVIDER` | nee | Verouderd: worden bij de eerste start eenmalig overgenomen in de wedstrijdimport van Fortuna (als die nog niet is ingesteld). De wedstrijdimport stel je nu per organisatie in via Beheer. |
 | `SCOREBOARD_BASE_URL` / `SHOTCLOCK_BASE_URL` | nee | Adressen van het scorebord en de schotklok in de zaal |
 | `HOST_IP` | nee | IP van de host, zodat de vMix-endpoints het juiste adres tonen |
 | `LOG_LEVEL` | nee | `error`, `warn`, `info` (standaard) of `debug` |

@@ -1,20 +1,20 @@
 # Tasks: organizations
 
-> Status: TODO. See design.md (D1–D13) for every decision. Order: phase 1 → 2 → 3, released together.
+> Status: phase 1 done (backend, not yet released: the frontend must send X-Organization first). See design.md (D1–D13) for every decision. Order: phase 1 → 2 → 3, released together.
 
 ## Phase 1: Model & isolation (backend)
 
-- [ ] Migration: `Organization`; `organizationId` (FK, index) on every tenant table incl. children (D4); per-org unique constraints; `OrganizationSetting`, `MatchSource`, `OrganizationApiKey`; create Fortuna (link to Fortuna club when present) and KNKV; move all existing rows and per-org setting keys to Fortuna
-- [ ] `AsyncLocalStorage` organization context + `runWithOrganization(orgId, fn)`
-- [ ] Prisma client extension: filter/set `organizationId` on all tenant models, throw without context
-- [ ] Middleware `organizationContext`: `X-Organization` slug → 401 when missing, 403 when unknown/inactive; global routes exempt (D3)
-- [ ] Settings per organization (`OrganizationSetting`, cache keyed by org + key); `activeSeasonId` stays global
-- [ ] Standard set: `applyStandardSet(orgId)` from seed data, idempotent; used by organization create, seed and a startup check
-- [ ] `/api/organizations`: public list (active, for the start screen); CRUD, logo upload (`storage/organizations/`)
-- [ ] Match import per organization: `MatchSource`, provider factory reads the source, token never returned, one-time copy of `MATCH_SCHEDULE_*` env into Fortuna; remove Fortuna hard-coding (team colour regex, 'Fortuna sponsor')
-- [ ] Sponsor logo uploads to `storage/sponsors/<org-slug>/`
-- [ ] Backup/restore per organization (D11), old backups import into the chosen organization
-- [ ] Tests: test organization in global setup; `createProductionScenario`/helpers in org context; leak test suite over every tenant route (fails when a mounted route is missing from its table)
+- [x] Migration: `Organization`; `organizationId` (FK, index) on every tenant table incl. children (D4); per-org unique constraints; `OrganizationSetting`, `MatchSource`, `OrganizationApiKey`; create Fortuna (link to Fortuna club when present) and KNKV; move all existing rows and per-org setting keys to Fortuna
+- [x] `AsyncLocalStorage` organization context + `runWithOrganization(orgId, fn)`
+- [x] Prisma client extension: filter/set `organizationId` on all tenant models, throw without context
+- [x] Middleware `organizationContext`: `X-Organization` slug → 401 when missing, 403 when unknown/inactive; global routes exempt (D3)
+- [x] Settings per organization (`OrganizationSetting`, cache keyed by org + key); `activeSeasonId` stays global
+- [x] Standard set: `applyStandardSet(orgId)` from seed data, idempotent; used by organization create, seed and a startup check
+- [x] `/api/organizations`: public list (active, for the start screen); CRUD, logo upload (`storage/organizations/`)
+- [x] Match import per organization: `MatchSource`, provider factory reads the source, token never returned, one-time copy of `MATCH_SCHEDULE_*` env into Fortuna; remove Fortuna hard-coding (team colour regex, 'Fortuna sponsor')
+- [x] Sponsor logo uploads to `storage/sponsors/<org-slug>/`
+- [x] Backup/restore per organization (D11), old backups import into the chosen organization
+- [x] Tests: test organization in global setup; `createProductionScenario`/helpers in org context; leak test suite over every tenant route (fails when a mounted route is missing from its table)
 
 ## Phase 2: Live per organization & API keys (backend)
 
