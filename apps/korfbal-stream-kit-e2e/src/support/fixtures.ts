@@ -2,7 +2,9 @@ import {test as base} from '@playwright/test';
 import {PrismaClient} from '@prisma/client';
 // Test-only: the e2e tests share the API's scenario builder, so there is one place for test data
 // eslint-disable-next-line @nx/enforce-module-boundaries
-import {createProductionScenario, DEFAULT_ITEMS, ProductionScenario, ScenarioOptions} from '../../../korfbal-stream-api/test-scenarios';
+import {createProductionScenario, DEFAULT_ITEMS, ensureOrganization, ProductionScenario, ScenarioOptions} from '../../../korfbal-stream-api/test-scenarios';
+
+export {ensureOrganization};
 
 /**
  * Shared setup for the e2e tests. The test data comes from the same scenario builder as the API's

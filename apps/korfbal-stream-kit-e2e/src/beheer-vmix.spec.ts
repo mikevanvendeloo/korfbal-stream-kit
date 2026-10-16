@@ -1,4 +1,4 @@
-import {apiUrl, db, expect, test} from './support/fixtures';
+import {apiUrl, db, ensureOrganization, expect, test} from './support/fixtures';
 
 /** Beheer: the callsheet push follows one position, saved through the real API in the test database. */
 const pushSettings = async (request: import('@playwright/test').APIRequestContext) =>
@@ -6,7 +6,8 @@ const pushSettings = async (request: import('@playwright/test').APIRequestContex
 
 test('chooses one position for the callsheet push', async ({page, request}) => {
   const previous = await pushSettings(request);
-  await db.position.upsert({where: {name: 'E2E Analist'}, update: {}, create: {name: 'E2E Analist'}});
+  const organizationId = await ensureOrganization(db);
+  await db.position.upsert({where: {organizationId_name: {organizationId, name: 'E2E Analist'}}, update: {}, create: {organizationId, name: 'E2E Analist'}});
   try {
     await page.goto('/admin/stamgegevens/vmix-koppeling');
     const position = page.getByLabel('Positie', {exact: true});

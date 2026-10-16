@@ -6,7 +6,11 @@ import {AsyncLocalStorage} from 'node:async_hooks';
  * timers) sets it with `runWithOrganization`. The Prisma extension in services/prisma.ts reads it to
  * scope every query on a tenant table, and throws when it is missing.
  */
-const storage = new AsyncLocalStorage<{organizationId: number}>();
+// One instance per process, also when this module is loaded twice (test-scenarios.ts, shared with
+// the e2e tests, reaches it through the same global key instead of importing it)
+const STORAGE_KEY = Symbol.for('korfbal-stream.organization-context');
+const holder = globalThis as unknown as Record<symbol, AsyncLocalStorage<{organizationId: number}> | undefined>;
+const storage = (holder[STORAGE_KEY] ??= new AsyncLocalStorage<{organizationId: number}>());
 
 export class MissingOrganizationContextError extends Error {
   constructor(what = 'This query') {

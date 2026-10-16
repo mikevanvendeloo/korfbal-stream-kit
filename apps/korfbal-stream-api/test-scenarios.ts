@@ -1,5 +1,16 @@
+import {AsyncLocalStorage} from 'node:async_hooks';
 import {Prisma, PrismaClient} from '@prisma/client';
-import {runWithOrganization} from './src/services/organizationContext';
+
+/**
+ * Runs `fn` in the organization context of the API (src/services/organizationContext.ts), through the
+ * same process-wide storage, without importing it: the e2e tests use this file too and only pass a
+ * plain client (every create below sets organizationId explicitly as well).
+ */
+function runWithOrganization<T>(organizationId: number, fn: () => Promise<T>): Promise<T> {
+  const holder = globalThis as unknown as Record<symbol, AsyncLocalStorage<{organizationId: number}> | undefined>;
+  const storage = (holder[Symbol.for('korfbal-stream.organization-context')] ??= new AsyncLocalStorage<{organizationId: number}>());
+  return storage.run({organizationId}, fn);
+}
 
 /**
  * Ready-made test data for integration and e2e tests: a match with a production, its callsheet items
