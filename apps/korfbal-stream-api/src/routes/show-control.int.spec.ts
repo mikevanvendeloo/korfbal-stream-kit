@@ -32,14 +32,14 @@ describe.runIf(runDb)('Show control (integration)', () => {
     expect((await request(app).post(`/api/show/start/${productionId}`)).status).toBe(200);
     // startProduction is not awaited by the route
     await new Promise((r) => setTimeout(r, 300));
-    expect(getCurrentState().activeEventId).toBe(ids[0]);
+    expect((await inTestOrganization(async () => getCurrentState())).activeEventId).toBe(ids[0]);
     expect((await request(app).post('/api/show/previous')).body).toEqual({error: 'Start of show reached.'});
 
     expect((await request(app).post('/api/show/next')).status).toBe(200);
     expect(await status()).toEqual(['COMPLETED', 'ACTIVE', 'WAITING']);
 
     expect((await request(app).post('/api/show/previous')).status).toBe(200);
-    expect(getCurrentState().activeEventId).toBe(ids[0]);
+    expect((await inTestOrganization(async () => getCurrentState())).activeEventId).toBe(ids[0]);
   });
 
   it('answers at the end of the show', async () => {
@@ -52,7 +52,7 @@ describe.runIf(runDb)('Show control (integration)', () => {
 
   it('stops the show for everyone', async () => {
     expect((await request(app).post(`/api/show/stop/${productionId}`)).status).toBe(200);
-    expect(getCurrentState()).toMatchObject({activeEventId: null, isClockRunning: false});
+    expect((await inTestOrganization(async () => getCurrentState()))).toMatchObject({activeEventId: null, isClockRunning: false});
     expect(await status()).not.toContain('ACTIVE');
   });
 });

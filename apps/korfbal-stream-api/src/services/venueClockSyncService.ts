@@ -2,10 +2,51 @@ import axios from 'axios';
 import {logger} from '../utils/logger';
 import {getScoreboardUrl} from './appSettings';
 import {config} from './config';
-import {getLiveOrganizationId, inLiveOrganization, updateVenueClock} from './productionState';
+import {organizationsWithActiveProduction, updateVenueClock} from './productionState';
+import {runWithOrganization} from './organizationContext';
 
 let syncInterval: NodeJS.Timeout | null = null;
+let busy = false;
 const INTERVAL_MS = 1000; // Elke seconde pollen
+
+/** "MM:SS" from the scoreboard's time-as-array answer (["15", "34"] or [{minute, second}]). */
+function parseVenueTime(data: unknown): string {
+  if (!Array.isArray(data) || data.length === 0) return '';
+  if (typeof data[0] === 'string') return data.join(':');
+  if (data[0]?.minute !== undefined) return `${data[0].minute}:${data[0].second}`;
+  return '';
+}
+
+async function fetchVenueTime(baseUrl: string): Promise<string> {
+  const url = `${baseUrl.replace(/\/$/, '')}/time-as-array`;
+  const response = await axios.get(url, {timeout: 800}); // Iets kortere timeout dan interval
+  return parseVenueTime(response.data);
+}
+
+/**
+ * One round: every organization with an active production gets the clock of its own scoreboard (its
+ * `scoreboardUrl` setting, else the installation default). A scoreboard shared by several organizations
+ * is asked once.
+ */
+export async function syncVenueClocks(): Promise<void> {
+  const organizationsByUrl = new Map<string, number[]>();
+  for (const organizationId of await organizationsWithActiveProduction()) {
+    const baseUrl = (await runWithOrganization(organizationId, getScoreboardUrl)) || config.scoreBoardBaseUrl;
+    if (!baseUrl) continue;
+    organizationsByUrl.set(baseUrl, [...(organizationsByUrl.get(baseUrl) ?? []), organizationId]);
+  }
+
+  await Promise.all([...organizationsByUrl].map(async ([baseUrl, organizationIds]) => {
+    try {
+      const time = await fetchVenueTime(baseUrl);
+      if (!time) return;
+      for (const organizationId of organizationIds) runWithOrganization(organizationId, () => updateVenueClock(time));
+    } catch (err) {
+      // Niet op 'info' niveau, om de logs niet te vervuilen als het scoreboard uit staat
+      logger.debug('Failed to fetch venue clock from scoreboard', {error: (err as Error)?.message});
+    }
+  }));
+}
 
 export const venueClockSyncService = {
   start: () => {
@@ -13,31 +54,14 @@ export const venueClockSyncService = {
 
     logger.info('🔄 Venue clock sync service started');
     syncInterval = setInterval(async () => {
+      if (busy) return;
+      busy = true;
       try {
-        // The scoreboard of the live production's organization; the installation default otherwise
-        const baseUrl = (getLiveOrganizationId() ? await inLiveOrganization(getScoreboardUrl) : null) || config.scoreBoardBaseUrl;
-        if (!baseUrl) return;
-
-        const url = `${baseUrl.replace(/\/$/, '')}/time-as-array`;
-        const response = await axios.get(url, { timeout: 800 }); // Iets kortere timeout dan interval
-
-        if (Array.isArray(response.data) && response.data.length > 0) {
-            // De scoreboard API 'time-as-array' geeft meestal iets als ["15", "34"] of [{minute: "15", second: "34"}]
-            // We verwachten dat updateVenueClock in productionState.ts dit kan parsen ("MM:SS")
-            let timeStr = '';
-            if (typeof response.data[0] === 'string') {
-                timeStr = response.data.join(':');
-            } else if (response.data[0]?.minute !== undefined) {
-                timeStr = `${response.data[0].minute}:${response.data[0].second}`;
-            }
-
-            if (timeStr) {
-                updateVenueClock(timeStr);
-            }
-        }
-      } catch (err: any) {
-        // We loggen dit niet op 'info' niveau om de logs niet te vervuilen als het scoreboard uit staat
-        logger.debug('Failed to fetch venue clock from scoreboard', { error: err?.message });
+        await syncVenueClocks();
+      } catch (err) {
+        logger.debug('Venue clock sync failed', {error: (err as Error)?.message});
+      } finally {
+        busy = false;
       }
     }, INTERVAL_MS);
   },

@@ -1,6 +1,6 @@
 import {Router} from 'express';
 import {prisma} from '../../services/prisma';
-import {getCurrentState} from '../../services/productionState';
+import {getCurrentState, liveStateSnapshot} from '../../services/productionState';
 import {resolveSeasonId} from '../../services/season';
 
 export const productionTimingRouter: Router = Router();
@@ -60,7 +60,7 @@ productionTimingRouter.get('/:id/clocks', async (req, res, next) => {
             state.productionId = id;
         }
 
-        return res.json(state);
+        return res.json(liveStateSnapshot());
     } catch (err) {
         return next(err);
     }

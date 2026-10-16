@@ -10,6 +10,7 @@ vi.mock('./socket', () => ({
   getIO: vi.fn(() => ({
     emit,
   })),
+  emitToOrganization: (event: string, ...args: unknown[]) => emit(event, ...args),
 }));
 
 /** Lets the async auto-advance callback finish its DB work after the fake timers fired. */
@@ -135,7 +136,7 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('ProductionState Service Auto-
     }
 
     // Check if event 2 is now active in DB
-    let e2 = await prisma.productionEvent.findUnique({ where: { id: event2Id } });
+    const e2 = await prisma.productionEvent.findUnique({ where: { id: event2Id } });
     console.log(`--- TEST: Event 2 status in DB: ${e2?.status} ---`);
 
     expect(e2?.status).toBe('ACTIVE');

@@ -8,6 +8,7 @@ import ExcelJS from 'exceljs';
 import {prisma} from '../../services/prisma';
 import {logger} from '../../utils/logger';
 import {broadcastState} from '../../services/productionState';
+import {emitToOrganization} from '../../services/socket';
 import {findPositionByName, positionKey, SHOWCALLER_POSITION} from '../../domain/positionSkill';
 import {findOrCreatePosition} from '../../services/positions';
 
@@ -176,11 +177,8 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/calculate-times', asyn
 
     await prisma.$transaction(updates);
 
-    // Broadcast via WebSocket
-    const io = (req.app as any).get('io');
-    if (io) {
-      io.emit('production_events_update_needed');
-    }
+    // Broadcast via WebSocket, to the clients of this organization
+    emitToOrganization('production_events_update_needed');
 
     return res.json({ success: true });
   } catch (err) {
