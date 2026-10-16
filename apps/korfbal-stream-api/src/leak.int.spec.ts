@@ -6,6 +6,7 @@ import {ensureOrganization, testDb as prisma} from '../test-helpers';
 import {createTenantScenario, TenantScenario} from '../test-scenarios';
 import {runWithOrganization} from './services/organizationContext';
 import {setSetting} from './services/appSettings';
+import {createApiKey} from './services/apiKeys';
 
 /**
  * Leak test suite (design D4): organization A has one of everything, organization B looks at it.
@@ -17,17 +18,19 @@ import {setSetting} from './services/appSettings';
  * - own:    only works on the caller's own organization (creates, settings, imports); foreign ids in
  *           the body are covered by security.int.spec.ts.
  * - global: global data (D3) or no data at all.
- * - live:   the in-memory live state, still one for the installation until phase 2.
- * - device: talks to an external device or service (vMix, scoreboard, match source): not called here.
+ * - live:   the in-memory live state of the caller's own organization (security.int.spec.ts runs two
+ *           organizations live at the same time).
+ * - device: talks to an external device or service (vMix, scoreboard, match source): not called here;
+ *           API keys on these feeds are covered by security.int.spec.ts.
  */
-type Ids = TenantScenario;
+type Ids = TenantScenario & {apiKeyId: number};
 type Read = {read: (a: Ids) => string; method?: 'GET' | 'POST'; body?: (a: Ids) => object; control?: boolean; binary?: boolean};
 type Write = {write: (a: Ids) => string; body?: (a: Ids) => object};
 type Probe = Read | Write | {own: string} | {global: string} | {live: string} | {device: string};
 
 const GLOBAL = {global: 'global data (D3)'};
 const OWN = {own: 'creates or changes only in the own organization'};
-const LIVE = {live: 'live state is one per installation until phase 2'};
+const LIVE = {live: 'live state of the own organization (security.int.spec.ts)'};
 const NAME = {name: 'Overgenomen', naam: 'Overgenomen', title: 'Overgenomen'};
 
 const ROUTES: Record<string, Probe> = {
@@ -36,6 +39,7 @@ const ROUTES: Record<string, Probe> = {
   'DELETE /api/callsheets/templates/items/:itemId': {write: (a) => `/api/callsheets/templates/items/${a.callSheetTemplateItemId}`},
   'DELETE /api/clubs/:slug': GLOBAL,
   'DELETE /api/manual-matches/:id': {write: (a) => `/api/manual-matches/${a.manualMatchId}`},
+  'DELETE /api/organization/api-keys/:id': {write: (a) => `/api/organization/api-keys/${a.apiKeyId}`},
   'DELETE /api/organizations/:id/logo': GLOBAL,
   'DELETE /api/persons/:id': {write: (a) => `/api/persons/${a.personId}`},
   'DELETE /api/persons/:id/skills/:skillId': {write: (a) => `/api/persons/${a.personId}/skills/${a.skillId}`},
@@ -82,6 +86,7 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/match-source': {read: () => '/api/match-source'},
   'GET /api/match/matches/schedule': {read: () => '/api/match/matches/schedule?location=ALL'},
   'GET /api/openapi.json': GLOBAL,
+  'GET /api/organization/api-keys': {read: () => '/api/organization/api-keys'},
   'GET /api/organizations': GLOBAL,
   'GET /api/organizations/:id': GLOBAL,
   'GET /api/persons': {read: () => '/api/persons'},
@@ -138,9 +143,9 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/reports/interviews': {read: () => '/api/reports/interviews', control: false},
   'GET /api/reports/next-production-date': {read: () => '/api/reports/next-production-date', control: false},
   'GET /api/reports/production-dates': {read: () => '/api/reports/production-dates', control: false},
-  'GET /api/scoreboard': {device: 'scoreboard proxy (API keys in phase 2)'},
-  'GET /api/scoreboard/clock': {device: 'scoreboard proxy (API keys in phase 2)'},
-  'GET /api/scoreboard/shotclock': {device: 'shot clock proxy (API keys in phase 2)'},
+  'GET /api/scoreboard': {device: 'scoreboard proxy'},
+  'GET /api/scoreboard/clock': {device: 'scoreboard proxy'},
+  'GET /api/scoreboard/shotclock': {device: 'shot clock proxy'},
   'GET /api/seasons': GLOBAL,
   'GET /api/seasons/active': GLOBAL,
   'GET /api/seasons/suggest-next': GLOBAL,
@@ -194,6 +199,7 @@ const ROUTES: Record<string, Probe> = {
   'POST /api/manual-matches': OWN,
   'POST /api/match-source/test': {device: 'calls the external match source'},
   'POST /api/match/matches/schedule/import': {device: 'calls the external match source'},
+  'POST /api/organization/api-keys': OWN,
   'POST /api/organizations': GLOBAL,
   'POST /api/organizations/:id/logo': GLOBAL,
   'POST /api/persons': OWN,
@@ -316,14 +322,16 @@ describe('leak test suite: route table', () => {
 });
 
 describe.runIf(runDb)('leak test suite: organization B never sees or changes organization A (integration)', () => {
-  let a: TenantScenario;
+  let a: Ids;
   const A = 'leak-alpha';
   const B = 'leak-beta';
 
   beforeAll(async () => {
     const organizationA = await ensureOrganization(prisma, A, 'Leak Alpha');
     await ensureOrganization(prisma, B, 'Leak Beta');
-    a = await createTenantScenario(prisma, organizationA, MARKER);
+    const scenario = await createTenantScenario(prisma, organizationA, MARKER);
+    const apiKey = await runWithOrganization(organizationA, () => createApiKey(`${MARKER} vMix`));
+    a = {...scenario, apiKeyId: apiKey.id};
     await runWithOrganization(organizationA, async () => {
       await prisma.productionEvent.update({where: {id: a.eventId}, data: {vMixInputName: MARKER}});
       await prisma.matchSource.create({data: {baseUrl: `https://${MARKER.toLowerCase()}.example/v1`, apiToken: 'secret-token-a'}});
@@ -391,6 +399,7 @@ describe.runIf(runDb)('leak test suite: organization B never sees or changes org
       expect(await prisma.callSheet.count({where: {productionId: a.productionId}})).toBe(1);
       expect(await prisma.productionEvent.count({where: {productionId: a.productionId}})).toBe(1);
       expect(await prisma.callSheetTemplateItem.count({where: {templateId: a.callSheetTemplateId}})).toBe(1);
+      expect((await prisma.organizationApiKey.findUnique({where: {id: a.apiKeyId}}))?.revokedAt).toBeNull();
     });
     // Nothing of B's attempts ended up in B either
     const b = await ensureOrganization(prisma, B);

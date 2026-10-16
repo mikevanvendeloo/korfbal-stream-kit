@@ -2,6 +2,7 @@ import {NextFunction, Request, Response} from 'express';
 import {ZodError} from 'zod';
 import {logger} from '../utils/logger';
 import {PrismaClientInitializationError, PrismaClientKnownRequestError} from '@prisma/client/runtime/library'; // Importeer de Prisma fouttypes
+import {withoutApiKey} from './apiKey';
 
 export interface ApiErrorBody {
   error: string;
@@ -18,7 +19,7 @@ export const DATABASE_UNAVAILABLE_MESSAGE = 'De database is niet bereikbaar. Pro
  * that answer with `res.status(..).json({error})` themselves never get here.
  */
 export function errorHandler(err: any, req: Request, res: Response<ApiErrorBody>, _next: NextFunction) {
-  const where = {method: req?.method, path: req?.originalUrl ?? req?.url};
+  const where = {method: req?.method, path: withoutApiKey(req?.originalUrl ?? req?.url ?? '')};
 
   // Handle Zod validation errors
   if (err instanceof ZodError) {

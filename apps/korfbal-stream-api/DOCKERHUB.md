@@ -70,6 +70,8 @@ services:
 
 De vMix-pc's (één of meer, bijvoorbeeld een stream- en een scherm-pc) en andere instellingen stel je in via Beheer in de Kit.
 
+vMix-databronnen en andere apparaten (scorebordschermen) hebben een **API-sleutel** van de organisatie nodig: zet `?key=<sleutel>` achter de URL of stuur de header `X-Api-Key`. Zonder sleutel antwoordt de API met 401 "API-sleutel ontbreekt". Een sleutel maak je in Beheer; hij wordt maar één keer getoond.
+
 ## Image
 
 - Gebouwd op een **Docker Hardened Image**: geen shell en geen npm; draait als non-root (uid 1000).

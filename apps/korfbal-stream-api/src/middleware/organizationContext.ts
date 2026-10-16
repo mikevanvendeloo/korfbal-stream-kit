@@ -2,6 +2,8 @@ import type {NextFunction, Request, RequestHandler, Response} from 'express';
 import type {Organization} from '@prisma/client';
 import {prisma} from '../services/prisma';
 import {getOrganizationId, runWithOrganization} from '../services/organizationContext';
+import {findOrganizationByApiKey} from '../services/apiKeys';
+import {isFeedApiPath, requestApiKey} from './apiKey';
 
 export const ORGANIZATION_HEADER = 'X-Organization';
 
@@ -24,7 +26,7 @@ export function isValidOrganizationSlug(slug: string): boolean {
   return slug.length <= MAX_SLUG_LENGTH && ORGANIZATION_SLUG_PATTERN.test(slug);
 }
 
-async function findActiveOrganization(slug: string): Promise<Organization | null> {
+export async function findActiveOrganization(slug: string): Promise<Organization | null> {
   if (!isValidOrganizationSlug(slug)) return null;
   const organization = await prisma.organization.findUnique({where: {slug}});
   return organization?.isActive ? organization : null;
@@ -35,6 +37,12 @@ async function findActiveOrganization(slug: string): Promise<Organization | null
  * in its context: 401 without a header, 403 for an unknown or inactive organization. Global routes pass.
  */
 export async function organizationContext(req: Request, res: Response, next: NextFunction) {
+  if (isFeedApiPath(req.path)) {
+    const apiKey = requestApiKey(req);
+    if (apiKey !== undefined) return withApiKeyOrganization(apiKey, res, next);
+    if (!req.get(ORGANIZATION_HEADER)?.trim()) return res.status(401).json({error: 'API-sleutel ontbreekt'});
+  }
+  // Elsewhere a key counts for nothing: without X-Organization the request gets 401 "Kies een organisatie"
   const global = isGlobalApiPath(req.path);
   const slug = (req.get(ORGANIZATION_HEADER) ?? '').trim();
   if (!slug) {
@@ -47,6 +55,19 @@ export async function organizationContext(req: Request, res: Response, next: Nex
       if (global) return next();
       return res.status(403).json({error: 'Onbekende of inactieve organisatie'});
     }
+    res.locals.organization = organization;
+    return runWithOrganization(organization.id, () => next());
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/** A feed request with an API key runs as the key's organization; the key wins over X-Organization. */
+async function withApiKeyOrganization(apiKey: string | null, res: Response, next: NextFunction) {
+  try {
+    const organization = apiKey ? await findOrganizationByApiKey(apiKey) : null;
+    // Unknown, revoked, or of an organization that was switched off: the key opens nothing
+    if (!organization?.isActive) return res.status(401).json({error: 'Ongeldige API-sleutel'});
     res.locals.organization = organization;
     return runWithOrganization(organization.id, () => next());
   } catch (err) {

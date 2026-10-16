@@ -7,7 +7,15 @@ import ExcelJS from 'exceljs';
 import express from 'express';
 import {errorHandler} from './middleware/error';
 import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest';
-import app from './main';
+import {io as ioClient, Socket as ClientSocket} from 'socket.io-client';
+import app, {httpServer} from './main';
+import * as liveState from './services/productionState';
+import {timeSyncService} from './services/timeSyncService';
+import {pushForActiveOrganizations} from './services/vmixCallsheetPush';
+import {syncVenueClocks} from './services/venueClockSyncService';
+import {setSetting} from './services/appSettings';
+import {hashApiKey, LAST_USED_WRITE_INTERVAL_MS} from './services/apiKeys';
+import {isSameOriginHandshake} from './services/socket';
 import {logger} from './utils/logger';
 import {getAssetsRoot} from './services/config';
 import {saveMatchSource} from './services/matchSchedule';
@@ -17,7 +25,8 @@ import {ensureOrganization, inTestOrganization, testDb as prisma, testOrganizati
 import {createProductionScenario, createTenantScenario, ProductionScenario, TenantScenario} from '../test-scenarios';
 
 /**
- * Security tests for organizations (phase 1). Phase 2 adds API keys for the feed routes here.
+ * Security tests for organizations: isolation (phase 1), live state per organization, socket rooms,
+ * background services and API keys on the feed routes (phase 2).
  * Organization A ('sec-alpha') owns data; the tests act as the test organization unless they say otherwise.
  */
 const runDb = process.env.REQUIRE_DB === 'true';
@@ -68,10 +77,19 @@ describe('organization context (middleware)', () => {
     expect(res.status).toBe(401);
   });
 
-  it('allows X-Organization in CORS preflights', async () => {
-    const res = await request(app).options('/api/sponsors');
+  it('allows no cross-origin use of the Beheer/LIVE API (the frontend is same-origin)', async () => {
+    const res = await request(app).options('/api/sponsors').set('Origin', 'https://evil.example');
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
+    expect((await request(app).get('/api/sponsors').set('Origin', 'https://evil.example')).headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('allows feeds and static files cross-origin, with X-Api-Key', async () => {
+    const res = await withoutOrganization(request(app).options('/api/vmix/sponsor-names'));
     expect(res.status).toBe(204);
-    expect(res.headers['access-control-allow-headers']).toContain('X-Organization');
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+    expect(res.headers['access-control-allow-headers']).toContain('X-Api-Key');
+    expect(res.headers['access-control-allow-headers']).not.toContain('X-Organization');
+    expect((await request(app).get('/uploads/none.png')).headers['access-control-allow-origin']).toBe('*');
   });
 });
 
@@ -410,14 +428,16 @@ describe.runIf(runDb)('secrets (integration)', () => {
 /** A local HTTP server that records the requests it gets and answers with `answer`. */
 async function recordingServer(answer: {status: number; body: string}) {
   const requests: http.IncomingHttpHeaders[] = [];
+  const urls: string[] = [];
   const server = http.createServer((req, res) => {
     requests.push(req.headers);
+    urls.push(req.url ?? '');
     res.writeHead(answer.status, {'content-type': 'application/json'});
     res.end(answer.body);
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`;
-  return {url, requests, close: () => new Promise<void>((resolve) => server.close(() => resolve()))};
+  return {url, requests, urls, close: () => new Promise<void>((resolve) => server.close(() => resolve()))};
 }
 
 describe.runIf(runDb)('match source token and address (integration)', () => {
@@ -734,5 +754,460 @@ describe.runIf(runDb)('uploads (integration)', () => {
     expect((await request(app).post(`/api/sponsors/${sponsorId}/logo`).attach('file', html, {filename: 'x.html', contentType: 'text/html'})).status).toBe(400);
     expect((await request(app).post(`/api/sponsors/${sponsorId}/logo`).attach('file', html, {filename: 'x.png', contentType: 'image/png'})).status).toBe(400);
     expect((await prisma.sponsor.findUnique({where: {id: sponsorId}}))?.logoUrl).toBe(`${organizationId}/sec-upload-sponsor.png`);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------
+// Phase 2: live state per organization, socket rooms, background services, API keys
+// ---------------------------------------------------------------------------------------------------
+
+async function waitFor(check: () => boolean | Promise<boolean>, timeoutMs = 3000) {
+  const until = Date.now() + timeoutMs;
+  while (Date.now() < until) {
+    if (await check()) return;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
+/** The app's Socket.io server, listening on a random port (supertest doesn't start it). */
+async function socketServerUrl(): Promise<string> {
+  if (!httpServer.listening) await new Promise<void>((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
+  return `http://127.0.0.1:${(httpServer.address() as AddressInfo).port}`;
+}
+
+type SocketRecorder = {socket: ClientSocket; events: Array<{event: string; payload: string}>};
+
+/** A socket client like the browser's, recording every event it receives. */
+function connectClient(url: string, auth: Record<string, unknown> = {}): Promise<SocketRecorder> {
+  return new Promise((resolve, reject) => {
+    const socket = ioClient(url, {transports: ['websocket'], auth, reconnection: false, forceNew: true});
+    const events: SocketRecorder['events'] = [];
+    socket.onAny((event: string, ...args: unknown[]) => events.push({event, payload: JSON.stringify(args)}));
+    socket.once('connect', () => resolve({socket, events}));
+    socket.once('connect_error', (err) => {
+      socket.close();
+      reject(err);
+    });
+  });
+}
+
+/** A recorded URL as text: vMix command values are form-encoded (space = +). */
+const decodeQuery = (url: string) => decodeURIComponent(url.replace(/\+/g, ' '));
+
+const GLOBAL_EVENTS = new Set(['heartbeat', 'season_changed']);
+
+describe('socket handshake origin', () => {
+  const req = (headers: Record<string, string>) => ({headers});
+
+  it('lets same-origin browsers and clients without an Origin through', () => {
+    expect(isSameOriginHandshake(req({}))).toBe(true);
+    expect(isSameOriginHandshake(req({origin: 'http://streamz.local', host: 'streamz.local'}))).toBe(true);
+    // nginx forwards $host without the port; the Vite proxy rewrites Host to the API's port
+    expect(isSameOriginHandshake(req({origin: 'http://localhost:4200', host: 'localhost:3333'}))).toBe(true);
+    expect(isSameOriginHandshake(req({origin: 'http://192.168.1.5:4200', host: 'localhost:3333', 'x-forwarded-host': '192.168.1.5:4200'}))).toBe(true);
+  });
+
+  it('refuses a page on another host', () => {
+    expect(isSameOriginHandshake(req({origin: 'https://evil.example', host: 'streamz.local'}))).toBe(false);
+    expect(isSameOriginHandshake(req({origin: 'null', host: 'streamz.local'}))).toBe(false);
+    expect(isSameOriginHandshake(req({origin: 'http://streamz.local.evil.example', host: 'streamz.local'}))).toBe(false);
+  });
+});
+
+describe.runIf(runDb)('live state per organization (integration)', () => {
+  const LA = 'sec-live-a';
+  const LB = 'sec-live-b';
+  const items = (name: string) => [{title: `${name} opening`}, {title: `${name} interview`}, {title: `${name} afsluiting`}];
+  let orgA: number;
+  let orgB: number;
+  let a: ProductionScenario;
+  let b: ProductionScenario;
+  let clientA: SocketRecorder;
+  let clientB: SocketRecorder;
+  let clientNone: SocketRecorder;
+
+  const asA = (r: request.Test) => r.set('X-Organization', LA);
+  const asB = (r: request.Test) => r.set('X-Organization', LB);
+  const stateOf = (organizationId: number) => runWithOrganization(organizationId, async () => liveState.liveStateSnapshot());
+  const statuses = (organizationId: number, productionId: number) => runWithOrganization(organizationId, async () =>
+    (await prisma.productionEvent.findMany({where: {productionId}, orderBy: {order: 'asc'}})).map((e) => e.status));
+
+  beforeAll(async () => {
+    orgA = await ensureOrganization(prisma, LA, 'Sec Live A');
+    orgB = await ensureOrganization(prisma, LB, 'Sec Live B');
+    a = await createProductionScenario(prisma, {organizationId: orgA, active: true, items: items('LiveA')});
+    b = await createProductionScenario(prisma, {organizationId: orgB, active: true, items: items('LiveB')});
+    const url = await socketServerUrl();
+    [clientA, clientB, clientNone] = await Promise.all([connectClient(url, {organization: LA}), connectClient(url, {organization: LB}), connectClient(url)]);
+  });
+
+  afterAll(async () => {
+    for (const s of [clientA, clientB, clientNone]) s?.socket.close();
+    for (const [organizationId, show] of [[orgA, a], [orgB, b]] as const) {
+      if (!show) continue;
+      await runWithOrganization(organizationId, () => liveState.stopProduction(liveState.getActiveProductionId() ?? show.productionId));
+      await runWithOrganization(organizationId, () => prisma.production.deleteMany({where: {matchScheduleId: show.matchId}}));
+      await show.cleanup();
+    }
+    await prisma.organization.deleteMany({where: {slug: {in: [LA, LB]}}});
+  });
+
+  it('gives each organization its own active item and clock', async () => {
+    expect((await asA(request(app).post(`/api/show/start/${a.productionId}`))).status).toBe(200);
+    expect((await asB(request(app).post(`/api/show/start/${b.productionId}`))).status).toBe(200);
+    await waitFor(async () => (await stateOf(orgA)).activeEventId === a.eventIds[0] && (await stateOf(orgB)).activeEventId === b.eventIds[0]);
+
+    expect(await stateOf(orgA)).toMatchObject({productionId: a.productionId, activeEventId: a.eventIds[0], isClockRunning: true});
+    expect(await stateOf(orgB)).toMatchObject({productionId: b.productionId, activeEventId: b.eventIds[0], isClockRunning: true});
+    // The clocks tick on their own
+    await waitFor(async () => (await stateOf(orgA)).clocks.productionTime > 0);
+    expect((await stateOf(orgA)).clocks.productionTime).toBeGreaterThan(0);
+  });
+
+  it('can\'t start or stop another organization\'s production', async () => {
+    expect((await asA(request(app).post(`/api/show/start/${b.productionId}`))).status).toBe(404);
+    expect((await asA(request(app).post(`/api/show/stop/${b.productionId}`))).status).toBe(404);
+    expect(await stateOf(orgB)).toMatchObject({productionId: b.productionId, isClockRunning: true});
+  });
+
+  it('moves only A on next in A', async () => {
+    const res = await asA(request(app).post('/api/show/next'));
+    expect(res.status).toBe(200);
+    expect((await stateOf(orgA)).activeEventId).toBe(a.eventIds[1]);
+    expect((await stateOf(orgB)).activeEventId).toBe(b.eventIds[0]);
+    expect(await statuses(orgB, b.productionId)).toEqual(['ACTIVE', 'WAITING', 'WAITING']);
+  });
+
+  it('sends socket clients only their own organization\'s events', async () => {
+    for (const c of [clientA, clientB, clientNone]) c.events.length = 0;
+    await asB(request(app).post('/api/show/next'));
+    await asA(request(app).post('/api/time/countdown').send({seconds: 90}));
+    // Clock ticks (every second) and a heartbeat (every 2 s) arrive in the meantime
+    await waitFor(() => clientNone.events.some((e) => e.event === 'heartbeat') && clientA.events.some((e) => e.event === 'callsheet_state_update'), 3000);
+
+    const textA = clientA.events.map((e) => e.payload).join('\n');
+    const textB = clientB.events.map((e) => e.payload).join('\n');
+    expect(clientB.events.some((e) => e.event === 'active_event_update' && e.payload.includes(b.eventIds[1]))).toBe(true);
+    expect(clientA.events.some((e) => e.event === 'time_state_update' && e.payload.includes('"initialDuration":90'))).toBe(true);
+    for (const id of b.eventIds) expect(textA).not.toContain(id);
+    expect(textA).not.toContain('LiveB');
+    for (const id of a.eventIds) expect(textB).not.toContain(id);
+    expect(textB).not.toContain('LiveA');
+    expect(textB).not.toContain('"initialDuration":90');
+    for (const {event, payload} of clientA.events.filter((e) => e.event === 'callsheet_state_update')) {
+      expect(JSON.parse(payload)[0].productionId, event).toBe(a.productionId);
+    }
+    // Without an organization in the handshake: only the global events
+    expect(clientNone.events.map((e) => e.event).filter((e) => !GLOBAL_EVENTS.has(e))).toEqual([]);
+  });
+
+  it('keeps the production clock (time sync) per organization', async () => {
+    expect(await runWithOrganization(orgA, async () => timeSyncService.getState())).toMatchObject({mode: 'counting_down', initialDuration: 90});
+    expect(await runWithOrganization(orgB, async () => timeSyncService.getState())).toMatchObject({mode: 'stopped'});
+  });
+
+  it('sends a new client the live state of its own organization', async () => {
+    const late = await connectClient(await socketServerUrl(), {organization: LB});
+    try {
+      await waitFor(() => late.events.some((e) => e.event === 'active_event_update'));
+      expect(late.events.find((e) => e.event === 'callsheet_state_update')?.payload).toContain(`"productionId":${b.productionId}`);
+      expect(late.events.find((e) => e.event === 'active_event_update')?.payload).toContain(b.eventIds[1]);
+      expect(late.events.map((e) => e.payload).join('\n')).not.toContain('LiveA');
+    } finally {
+      late.socket.close();
+    }
+  });
+
+  it('stops A without touching B', async () => {
+    expect((await asA(request(app).post(`/api/show/stop/${a.productionId}`))).status).toBe(200);
+    expect(await stateOf(orgA)).toMatchObject({productionId: null, activeEventId: null, isClockRunning: false});
+    expect(await stateOf(orgB)).toMatchObject({productionId: b.productionId, activeEventId: b.eventIds[1], isClockRunning: true});
+    expect(await statuses(orgB, b.productionId)).toEqual(['COMPLETED', 'ACTIVE', 'WAITING']);
+  });
+
+  it('activates and imports only within the organization', async () => {
+    const other = await createProductionScenario(prisma, {organizationId: orgA, items: [{title: 'LiveA ander'}]});
+    try {
+      expect((await asA(request(app).post(`/api/production/${other.productionId}/activate`))).status).toBe(200);
+      const isActive = (organizationId: number, id: number) => runWithOrganization(organizationId, async () =>
+        (await prisma.production.findUnique({where: {id}}))?.isActive);
+      expect(await isActive(orgA, a.productionId)).toBe(false);
+      expect(await isActive(orgB, b.productionId)).toBe(true);
+
+      // An imported active production deactivates the others of the organization only
+      const exported = await asA(request(app).get(`/api/production/${other.productionId}/export`));
+      expect(exported.status).toBe(200);
+      const imported = await asA(request(app).post('/api/production/import').send(exported.body));
+      expect(imported.status, imported.text).toBeLessThan(300);
+      expect(await isActive(orgB, b.productionId)).toBe(true);
+      expect((await stateOf(orgB)).productionId).toBe(b.productionId);
+    } finally {
+      await runWithOrganization(orgA, () => prisma.production.deleteMany({where: {matchScheduleId: other.matchId}}));
+      await other.cleanup();
+    }
+  });
+
+  it('refuses a handshake with an unknown, inactive or malformed organization', async () => {
+    const url = await socketServerUrl();
+    const inactive = await prisma.organization.upsert({
+      where: {slug: 'sec-live-off'}, update: {isActive: false}, create: {slug: 'sec-live-off', name: 'Uit', isActive: false},
+    });
+    try {
+      for (const organization of ['no-such-org', 'sec-live-off', '../sec-live-a', 42, {slug: LA}]) {
+        await expect(connectClient(url, {organization}), JSON.stringify(organization)).rejects.toThrow('Onbekende of inactieve organisatie');
+      }
+    } finally {
+      await prisma.organization.delete({where: {id: inactive.id}});
+    }
+  });
+});
+
+describe.runIf(runDb)('background services per organization (integration)', () => {
+  const PA = 'sec-push-a';
+  const PB = 'sec-push-b';
+  const servers: Array<Awaited<ReturnType<typeof recordingServer>>> = [];
+  let orgA: number;
+  let orgB: number;
+  let a: ProductionScenario;
+  let b: ProductionScenario;
+  let vmixA: Awaited<ReturnType<typeof recordingServer>>;
+  let vmixB: Awaited<ReturnType<typeof recordingServer>>;
+  let boardA: Awaited<ReturnType<typeof recordingServer>>;
+  let boardB: Awaited<ReturnType<typeof recordingServer>>;
+
+  async function configure(organizationId: number, vmixUrl: string, boardUrl: string, input: string) {
+    await runWithOrganization(organizationId, async () => {
+      await setSetting('vmixInstances', {instances: [{id: 'pc', name: 'PC', url: vmixUrl}], targets: {}});
+      await setSetting('vmixCallsheetPush', {enabled: true, input, positions: [], current: {titleField: 'Titel.Text'}});
+      await setSetting('scoreboardUrl', boardUrl);
+    });
+  }
+
+  beforeAll(async () => {
+    orgA = await ensureOrganization(prisma, PA, 'Sec Push A');
+    orgB = await ensureOrganization(prisma, PB, 'Sec Push B');
+    a = await createProductionScenario(prisma, {organizationId: orgA, active: true, items: [{title: 'PushAlpha item', status: 'ACTIVE'}]});
+    b = await createProductionScenario(prisma, {organizationId: orgB, active: true, items: [{title: 'PushBeta item', status: 'ACTIVE'}]});
+    vmixA = await recordingServer({status: 200, body: ''});
+    vmixB = await recordingServer({status: 200, body: ''});
+    boardA = await recordingServer({status: 200, body: '["12","34"]'});
+    boardB = await recordingServer({status: 200, body: '["05","06"]'});
+    servers.push(vmixA, vmixB, boardA, boardB);
+    await configure(orgA, vmixA.url, boardA.url, 'InputAlpha');
+    await configure(orgB, vmixB.url, boardB.url, 'InputBeta');
+  });
+
+  afterAll(async () => {
+    await Promise.all(servers.map((s) => s.close()));
+    await a?.cleanup();
+    await b?.cleanup();
+    await prisma.organization.deleteMany({where: {slug: {in: [PA, PB]}}});
+  });
+
+  it('pushes each organization\'s callsheet to its own vMix only', async () => {
+    await pushForActiveOrganizations();
+    const sentA = vmixA.urls.map(decodeQuery).join('\n');
+    const sentB = vmixB.urls.map(decodeQuery).join('\n');
+    expect(sentA).toContain('PushAlpha item');
+    expect(sentA).toContain('Input=InputAlpha');
+    expect(sentA).not.toContain('PushBeta');
+    expect(sentA).not.toContain('InputBeta');
+    expect(sentB).toContain('PushBeta item');
+    expect(sentB).not.toContain('PushAlpha');
+    expect(sentB).not.toContain('InputAlpha');
+  });
+
+  it('remembers what was sent per organization (a change in A doesn\'t make B skip or resend)', async () => {
+    vmixA.urls.length = 0;
+    vmixB.urls.length = 0;
+    await runWithOrganization(orgA, () => prisma.productionEvent.update({where: {id: a.eventIds[0]}, data: {title: 'PushAlpha renamed'}}));
+    await pushForActiveOrganizations();
+    expect(vmixA.urls.map(decodeQuery).join('\n')).toContain('PushAlpha renamed');
+    expect(vmixB.urls.map(decodeQuery).join('\n')).not.toContain('PushBeta item');
+  });
+
+  it('syncs each organization\'s venue clock from its own scoreboard', async () => {
+    await syncVenueClocks();
+    expect((await runWithOrganization(orgA, async () => liveState.liveStateSnapshot())).clocks.scoreboardTime).toBe(12 * 60 + 34);
+    expect((await runWithOrganization(orgB, async () => liveState.liveStateSnapshot())).clocks.scoreboardTime).toBe(5 * 60 + 6);
+    expect(boardA.urls).toContain('/v1/time-as-array');
+    expect(boardB.urls).toContain('/v1/time-as-array');
+  });
+});
+
+describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
+  const KA = 'sec-key-a';
+  const KB = 'sec-key-b';
+  let orgA: number;
+  let orgB: number;
+  let keyA: string;
+  let keyAId: number;
+  let keyB: string;
+
+  const feed = (path: string) => withoutOrganization(request(app).get(path));
+  const createKey = async (slug: string, name: string) => {
+    const res = await request(app).post('/api/organization/api-keys').set('X-Organization', slug).send({name});
+    expect(res.status).toBe(201);
+    return res.body as {id: number; key: string; prefix: string; name: string};
+  };
+
+  beforeAll(async () => {
+    orgA = await ensureOrganization(prisma, KA, 'Sec Key A');
+    orgB = await ensureOrganization(prisma, KB, 'Sec Key B');
+    await runWithOrganization(orgA, () => prisma.sponsor.create({data: {name: 'KeyAlpha Sponsor', type: 'premium', websiteUrl: 'https://a.example'}}));
+    await runWithOrganization(orgB, () => prisma.sponsor.create({data: {name: 'KeyBeta Sponsor', type: 'premium', websiteUrl: 'https://b.example'}}));
+    const created = await createKey(KA, 'vMix stream-pc');
+    keyA = created.key;
+    keyAId = created.id;
+    keyB = (await createKey(KB, 'vMix B')).key;
+  });
+
+  afterAll(async () => {
+    await prisma.organization.deleteMany({where: {slug: {in: [KA, KB]}}});
+  });
+
+  it('creates a key once: sk_ + 32 random bytes, stored only as its SHA-256 hash', async () => {
+    expect(keyA).toMatch(/^sk_[A-Za-z0-9_-]{43}$/);
+    const row = await runWithOrganization(orgA, () => prisma.organizationApiKey.findUniqueOrThrow({where: {id: keyAId}}));
+    expect(row.keyHash).toBe(hashApiKey(keyA));
+    expect(JSON.stringify(row)).not.toContain(keyA);
+    expect(keyA.startsWith(row.prefix)).toBe(true);
+    expect(row.prefix.length).toBeLessThan(12);
+  });
+
+  it('lists keys without the key or its hash, only for the own organization', async () => {
+    const list = await request(app).get('/api/organization/api-keys').set('X-Organization', KA);
+    expect(list.status).toBe(200);
+    expect(list.body).toEqual([expect.objectContaining({id: keyAId, name: 'vMix stream-pc', prefix: keyA.slice(0, 9), lastUsedAt: null, revokedAt: null})]);
+    expect(list.text).not.toContain(keyA);
+    expect(list.text).not.toContain(hashApiKey(keyA));
+    expect(list.body[0]).not.toHaveProperty('keyHash');
+    expect(list.body[0]).not.toHaveProperty('key');
+
+    const asB = await request(app).get('/api/organization/api-keys').set('X-Organization', KB);
+    expect(asB.body.map((k: {name: string}) => k.name)).toEqual(['vMix B']);
+    expect((await request(app).delete(`/api/organization/api-keys/${keyAId}`).set('X-Organization', KB)).status).toBe(404);
+  });
+
+  it('refuses a key without a name', async () => {
+    expect((await request(app).post('/api/organization/api-keys').send({name: '  '})).status).toBe(400);
+    expect((await request(app).post('/api/organization/api-keys').send({name: 'x', keyHash: 'abc'})).status).toBe(400);
+  });
+
+  it('opens the feeds of the key\'s organization, by ?key= or X-Api-Key', async () => {
+    for (const res of [
+      await feed(`/api/vmix/sponsor-names?key=${keyA}`),
+      await feed('/api/vmix/sponsor-names').set('X-Api-Key', keyA),
+      // The key decides, not X-Organization
+      await request(app).get(`/api/vmix/sponsor-names?key=${keyA}`).set('X-Organization', KB),
+    ]) {
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('KeyAlpha Sponsor');
+      expect(res.text).not.toContain('KeyBeta');
+    }
+    const asB = await feed(`/api/vmix/sponsor-names?key=${keyB}`).set('X-Organization', KA);
+    expect(asB.text).toContain('KeyBeta Sponsor');
+    expect(asB.text).not.toContain('KeyAlpha');
+    // The other feeds accept it too (here without an active production or scoreboard: no 401)
+    for (const path of ['/api/vmix/sponsor-carrousel', '/api/vmix/active-production/match', '/api/vmix/callsheet/timing', '/api/vmix/production/active/titles']) {
+      expect((await feed(`${path}?key=${keyA}`)).status, path).not.toBe(401);
+    }
+  });
+
+  it('still lets the browser use X-Organization on the feeds', async () => {
+    const res = await request(app).get('/api/vmix/sponsor-names').set('X-Organization', KA);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('KeyAlpha Sponsor');
+  });
+
+  it('answers 401 "API-sleutel ontbreekt" on a feed without key or organization', async () => {
+    for (const path of ['/api/vmix/sponsor-names', '/api/vmix/active-production/staff', '/api/scoreboard', '/api/scoreboard/clock', '/api/vmix/production/1/titles']) {
+      const res = await feed(path);
+      expect(res.status, path).toBe(401);
+      expect(res.body, path).toEqual({error: 'API-sleutel ontbreekt'});
+    }
+  });
+
+  it('answers 401 for an invalid, malformed or deleted organization\'s key', async () => {
+    const gone = await ensureOrganization(prisma, 'sec-key-gone', 'Weg');
+    const goneKey = (await createKey('sec-key-gone', 'weg')).key;
+    await prisma.organization.update({where: {id: gone}, data: {isActive: false}});
+    const inactiveRes = await feed(`/api/vmix/sponsor-names?key=${goneKey}`);
+    await prisma.organization.delete({where: {id: gone}});
+    expect(inactiveRes.status).toBe(401);
+
+    for (const path of [
+      `/api/vmix/sponsor-names?key=${goneKey}`,
+      '/api/vmix/sponsor-names?key=sk_nonsense',
+      `/api/vmix/sponsor-names?key=${keyA.slice(0, -1)}`,
+      '/api/vmix/sponsor-names?key=',
+      `/api/vmix/sponsor-names?key[]=${keyA}`,
+      `/api/vmix/sponsor-names?key=${'x'.repeat(5000)}`,
+    ]) {
+      const res = await feed(path);
+      expect(res.status, path.slice(0, 80)).toBe(401);
+      expect(res.body).toEqual({error: 'Ongeldige API-sleutel'});
+    }
+    // A wrong key isn't saved by a valid X-Organization
+    expect((await request(app).get('/api/vmix/sponsor-names?key=sk_nonsense').set('X-Organization', KA)).status).toBe(401);
+  });
+
+  it('never opens a Beheer or LIVE route with a key', async () => {
+    for (const path of ['/api/production', '/api/sponsors', '/api/settings/vmix-url', '/api/organization/api-keys', '/api/vmix/endpoints', '/api/backup/sponsors/export']) {
+      for (const res of [await feed(`${path}?key=${keyA}`), await feed(path).set('X-Api-Key', keyA)]) {
+        expect(res.status, path).toBe(401);
+        expect(res.body, path).toEqual({error: 'Kies een organisatie'});
+      }
+    }
+    const post = await withoutOrganization(request(app).post(`/api/vmix/set-timer?key=${keyA}`)).send({seconds: 10});
+    expect(post.status).toBe(401);
+    const create = await withoutOrganization(request(app).post('/api/organization/api-keys')).set('X-Api-Key', keyA).send({name: 'via key'});
+    expect(create.status).toBe(401);
+  });
+
+  it('writes lastUsedAt, but not on every request', async () => {
+    const lastUsed = () => runWithOrganization(orgA, async () => (await prisma.organizationApiKey.findUniqueOrThrow({where: {id: keyAId}})).lastUsedAt);
+    await runWithOrganization(orgA, () => prisma.organizationApiKey.update({where: {id: keyAId}, data: {lastUsedAt: null}}));
+    await feed(`/api/vmix/sponsor-names?key=${keyA}`);
+    await waitFor(async () => (await lastUsed()) !== null);
+    const first = await lastUsed();
+    expect(first).not.toBeNull();
+    await feed(`/api/vmix/sponsor-names?key=${keyA}`);
+    await new Promise((r) => setTimeout(r, 200));
+    expect((await lastUsed())?.getTime()).toBe(first?.getTime());
+    expect(LAST_USED_WRITE_INTERVAL_MS).toBeGreaterThanOrEqual(30_000);
+  });
+
+  it('keeps the key out of the logs', async () => {
+    const logged: string[] = [];
+    const capture = (...args: unknown[]) => void logged.push(JSON.stringify(args));
+    const spies = (['info', 'warn', 'error', 'debug'] as const).map((level) => vi.spyOn(logger, level).mockImplementation(capture as never));
+    try {
+      await feed(`/api/vmix/sponsor-names?seed=1&key=${keyA}`);
+      await feed(`/api/vmix/sponsor-names?k%65y=${keyA}`);
+      await feed(`/api/production?key=${keyA}`);
+      await feed(`/api/vmix/production/abc/titles?key=${keyA}`);
+      await feed('/api/vmix/sponsor-names').set('X-Api-Key', keyA);
+      await new Promise((r) => setTimeout(r, 50));
+    } finally {
+      spies.forEach((s) => s.mockRestore());
+    }
+    const text = logged.join('\n');
+    expect(text).toContain('sponsor-names');
+    expect(text).toContain('seed');
+    expect(text).not.toContain(keyA);
+    expect(text).not.toContain(keyA.slice(3));
+  });
+
+  it('stops a revoked key right away', async () => {
+    expect((await feed(`/api/vmix/sponsor-names?key=${keyA}`)).status).toBe(200);
+    const revoked = await request(app).delete(`/api/organization/api-keys/${keyAId}`).set('X-Organization', KA);
+    expect(revoked.status).toBe(200);
+    expect(revoked.body.revokedAt).toBeTruthy();
+    const res = await feed(`/api/vmix/sponsor-names?key=${keyA}`);
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({error: 'Ongeldige API-sleutel'});
+    const list = await request(app).get('/api/organization/api-keys').set('X-Organization', KA);
+    expect(list.body[0]).toMatchObject({id: keyAId, revokedAt: expect.any(String)});
   });
 });

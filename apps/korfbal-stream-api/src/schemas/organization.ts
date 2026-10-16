@@ -52,3 +52,8 @@ export const MatchSourceInputSchema = z.object({
 export type OrganizationCreate = z.infer<typeof OrganizationCreateSchema>;
 export type OrganizationUpdate = z.infer<typeof OrganizationUpdateSchema>;
 export type MatchSourceInput = z.infer<typeof MatchSourceInputSchema>;
+
+/** POST /api/organization/api-keys: a name to recognise the key by, e.g. "vMix stream-pc". */
+export const ApiKeyCreateSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+}).strict();

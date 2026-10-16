@@ -53,9 +53,9 @@ describe.runIf(runDb)('vMix match info data source (integration)', () => {
     });
   });
 
-  it('is listed among the vMix data sources', async () => {
+  it('is listed among the vMix data sources, with the API key to fill in', async () => {
     const res = await request(app).get('/api/vmix/endpoints');
-    expect(res.body.endpoints.map((e: { url: string }) => e.url)).toContainEqual(expect.stringMatching(/\/api\/vmix\/active-production\/match$/));
+    expect(res.body.endpoints.map((e: { url: string }) => e.url)).toContainEqual(expect.stringMatching(/\/api\/vmix\/active-production\/match\?key=<jouw-sleutel>$/));
   });
 
   it('clears all fields when no production is active', async () => {

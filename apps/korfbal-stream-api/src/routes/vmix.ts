@@ -1,9 +1,9 @@
-import {Router} from 'express';
+import {NextFunction, Response, Router} from 'express';
 import axios from 'axios';
 import {prisma} from '../services/prisma';
 import {findClubByTeamName} from '../utils/clubs';
 import {logger} from '../utils/logger';
-import {getIO} from '../services/socket';
+import {emitToOrganization} from '../services/socket';
 // ================= Admin vMix templates API =================
 import {z} from 'zod';
 import {
@@ -30,70 +30,53 @@ import {NotFoundError} from '../middleware/error';
 export const vmixRouter: Router = Router();
 export const adminVmixRouter: Router = Router();
 
-vmixRouter.get('/sync/activate-event', async (req, res) => {
-  const { inputName } = req.query;
-  const io = getIO();
+/** Stands in for the API key in the feed URLs of GET /api/vmix/endpoints. */
+export const API_KEY_PLACEHOLDER = '<jouw-sleutel>';
 
-  // 1. Zoek het ProductionEvent dat gekoppeld is aan deze vMix input
-  const event = await prisma.productionEvent.findFirst({
-    where: { vMixInputName: inputName as string }
-  });
+/**
+ * Makes this event the ACTIVE one of its production (the others ACTIVE → COMPLETED) and tells the
+ * organization's clients. Lookups go through the scoped client: only the own organization's events.
+ */
+async function activateEvent(event: {id: string; productionId: number}) {
+  const [, activeEvent] = await prisma.$transaction([
+    prisma.productionEvent.updateMany({
+      where: {productionId: event.productionId, status: 'ACTIVE'},
+      data: {status: 'COMPLETED'},
+    }),
+    prisma.productionEvent.update({
+      where: {id: event.id},
+      data: {status: 'ACTIVE', actualStartTime: new Date()},
+    }),
+  ]);
+  emitToOrganization('event_updated', activeEvent);
+  return activeEvent;
+}
 
-  if (event) {
-    // 2. Zet dit event op 'ACTIVE' en anderen op 'COMPLETED'
-    const [_, activeEvent] = await prisma.$transaction([
-      prisma.productionEvent.updateMany({
-        where: {
-          productionId: event.productionId,
-          status: 'ACTIVE'
-        },
-        data: { status: 'COMPLETED' }
-      }),
-      prisma.productionEvent.update({
-        where: { id: event.id },
-        data: { status: 'ACTIVE', actualStartTime: new Date() }
-      })
-    ]);
+vmixRouter.get('/sync/activate-event', async (req, res, next) => {
+  try {
+    const {inputName} = req.query;
+    if (typeof inputName !== 'string' || !inputName.trim()) return res.status(400).json({error: 'inputName is required'});
 
-    // 3. Stuur een signaal naar alle verbonden browsers
-    io.emit('event_updated', activeEvent);
+    // Het ProductionEvent dat gekoppeld is aan deze vMix input
+    const event = await prisma.productionEvent.findFirst({where: {vMixInputName: inputName}});
+    if (!event) return res.status(404).send('Event niet gevonden');
 
-    return res.status(200).json({ message: "Call sheet gesynchroniseerd" });
+    await activateEvent(event);
+    return res.status(200).json({message: 'Call sheet gesynchroniseerd'});
+  } catch (err) {
+    return next(err);
   }
-
-  return res.status(404).send("Event niet gevonden");
 });
 
 vmixRouter.post('/production/trigger-manual', async (req, res, next) => {
   try {
-    const { eventId } = req.body;
-    const io = getIO();
+    const eventId = req.body?.eventId;
+    if (typeof eventId !== 'string' || !eventId) return res.status(400).json({error: 'eventId is required'});
 
-    const event = await prisma.productionEvent.findUnique({
-      where: { id: eventId },
-    });
+    const event = await prisma.productionEvent.findUnique({where: {id: eventId}});
+    if (!event) return res.status(404).json({error: 'Event not found'});
 
-    if (!event) {
-      return res.status(404).json({ error: 'Event not found' });
-    }
-
-    const [_, activeEvent] = await prisma.$transaction([
-      prisma.productionEvent.updateMany({
-        where: {
-          productionId: event.productionId,
-          status: 'ACTIVE',
-        },
-        data: { status: 'COMPLETED' },
-      }),
-      prisma.productionEvent.update({
-        where: { id: event.id },
-        data: { status: 'ACTIVE', actualStartTime: new Date() },
-      }),
-    ]);
-
-    io.emit('event_updated', activeEvent);
-
-    return res.json(activeEvent);
+    return res.json(await activateEvent(event));
   } catch (err) {
     return next(err);
   }
@@ -805,7 +788,9 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
       }
     ];
 
-    return res.json({ hostIp: displayHost, endpoints });
+    // vMix has to send an API key of the organization (D7); the frontend fills in a real one
+    const withKey = (url: string) => `${url}${url.includes('?') ? '&' : '?'}key=${API_KEY_PLACEHOLDER}`;
+    return res.json({ hostIp: displayHost, keyPlaceholder: API_KEY_PLACEHOLDER, endpoints: endpoints.map((e) => ({...e, url: withKey(e.url)})) });
   } catch (err) {
     return next(err);
   }
@@ -823,21 +808,19 @@ type VmixTitleItem = { functionName: string; name: string | null };
  */
 // IMPORTANT: Define the specific "active" route BEFORE the dynamic :id route to avoid
 // Express treating "active" as an :id parameter.
-vmixRouter.get('/production/active/titles', async (_req, res, next) => {
+vmixRouter.get('/production/active/titles', async (req, res, next) => {
   try {
     const active = await prisma.production.findFirst({ where: { isActive: true }, orderBy: { createdAt: 'desc' } });
     if (!active) return res.status(404).json({ error: 'No active production' });
-    // Redirect to the concrete id-based endpoint to reuse the same resolver
-    return res.redirect(307, `/api/vmix/production/${active.id}/titles`);
+    // Same resolver as the id-based endpoint. No redirect: vMix would follow it without its API key.
+    return productionTitles(active.id, res, next);
   } catch (err) {
     return next(err);
   }
 });
 
-vmixRouter.get('/production/:id/titles', async (req, res, next) => {
+async function productionTitles(id: number, res: Response, next: NextFunction) {
   try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
 
     const production = await prisma.production.findUnique({
       where: { id },
@@ -1060,6 +1043,12 @@ vmixRouter.get('/production/:id/titles', async (req, res, next) => {
   } catch (err) {
     return next(err);
   }
+}
+
+vmixRouter.get('/production/:id/titles', (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+  return productionTitles(id, res, next);
 });
 
 // List templates (productionId=null)

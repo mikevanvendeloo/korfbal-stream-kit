@@ -1,6 +1,6 @@
 # Tasks: organizations
 
-> Status: phase 1 done (backend, not yet released: the frontend must send X-Organization first). See design.md (D1–D13) for every decision. Order: phase 1 → 2 → 3, released together.
+> Status: phases 1 and 2 done (backend, not yet released: the frontend must send X-Organization, the socket handshake and API keys first). See design.md (D1–D13) for every decision. Order: phase 1 → 2 → 3, released together.
 
 ## Phase 1: Model & isolation (backend)
 
@@ -18,14 +18,14 @@
 
 ## Phase 2: Live per organization & API keys (backend)
 
-- [ ] `productionState`: `Map<orgId, state>`, clock/auto-advance timers per org, restore every org's active production on start
-- [ ] Activate / export-import deactivate only within the organization
-- [ ] Socket.io: handshake `auth.organization` → room `org:<id>`; live emits to the room; season/heartbeat global; `timeSyncService` per org
-- [ ] `vmixCallsheetPushService`, `venueClockSyncService`: per organization with an active production, with its settings
-- [ ] vMix cross-production lookups limited to the organization
-- [ ] API keys: create (shown once, SHA-256 stored), list, revoke, `lastUsedAt`; `?key=` / `X-Api-Key` on feed routes (`/api/vmix/*` feeds, `/api/scoreboard/*`) → 401 "API-sleutel ontbreekt"; keys don't open Beheer routes
-- [ ] `/api/vmix/endpoints` shows URLs with `key=`
-- [ ] Tests: two organizations live at the same time; API key access/denial
+- [x] `productionState`: `Map<orgId, state>`, clock/auto-advance timers per org, restore every org's active production on start
+- [x] Activate / export-import deactivate only within the organization
+- [x] Socket.io: handshake `auth.organization` → room `org:<id>`; live emits to the room; season/heartbeat global; `timeSyncService` per org
+- [x] `vmixCallsheetPushService`, `venueClockSyncService`: per organization with an active production, with its settings
+- [x] vMix cross-production lookups limited to the organization
+- [x] API keys: create (shown once, SHA-256 stored), list, revoke, `lastUsedAt`; `?key=` / `X-Api-Key` on feed routes (`/api/vmix/*` feeds, `/api/scoreboard/*`) → 401 "API-sleutel ontbreekt"; keys don't open Beheer routes
+- [x] `/api/vmix/endpoints` shows URLs with `key=`
+- [x] Tests: two organizations live at the same time; API key access/denial
 
 ## Phase 3: Frontend
 

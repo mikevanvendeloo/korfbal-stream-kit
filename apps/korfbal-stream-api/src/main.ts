@@ -28,14 +28,17 @@ import {initializeProductionState} from './services/productionState';
 import {callSheetTemplateRouter} from './routes/production/callsheet-templates'
 import {venueClockSyncService} from "./services/venueClockSyncService";
 import {vmixCallsheetPushService} from './services/vmixCallsheetPush';
-import {ORGANIZATION_HEADER, organizationContext} from './middleware/organizationContext';
+import {organizationContext} from './middleware/organizationContext';
+import {extractApiKey, feedCors, withoutApiKey} from './middleware/apiKey';
+import {apiKeysRouter} from './routes/apiKeys';
 import {organizationsRouter} from './routes/organizations';
 import {matchSourceRouter} from './routes/matchSource';
 import {applyStandardSetWhereMissing} from './services/standardSet';
 import {copyMatchSourceFromEnv} from './services/matchSchedule';
 
 const app: Express = express();
-const httpServer = createServer(app);
+/** The HTTP server with Socket.io; tests listen on it to connect socket clients. */
+export const httpServer = createServer(app);
 
 // Initialize Socket.io
 initSocket(httpServer);
@@ -53,18 +56,15 @@ if (!process.env.VITEST) {
   });
 }
 
+// First: take the API key off the request, so no log line or route after this sees it (D7)
+app.use(extractApiKey);
+
 // Middlewares
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// CORS for frontend (allow cross-origin requests)
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', `Content-Type, Authorization, ${ORGANIZATION_HEADER}`);
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
-  return next();
-});
+// CORS only for the feeds and static files; the frontend is same-origin (Vite proxy, nginx)
+app.use(feedCors);
 
 const methodEmojis: Record<string, string> = {
   GET: '📖',
@@ -93,7 +93,8 @@ app.use((req, res, next) => {
     const methodEmoji = methodEmojis[req.method] || '📡';
     const statusEmoji = statusEmojis(res.statusCode);
 
-    logger.info(`${methodEmoji} ${req.method} ${req.url} ${statusEmoji}  ${res.statusCode}`, {
+    // The key is already off the URL (extractApiKey); this keeps it out if the order ever changes
+    logger.info(`${methodEmoji} ${req.method} ${withoutApiKey(req.originalUrl)} ${statusEmoji}  ${res.statusCode}`, {
       query: Object.keys(req.query).length > 0 ? req.query : undefined,
       duration: `${duration}ms`,
       ip: req.ip,
@@ -121,6 +122,9 @@ app.use('/api/organizations', organizationsRouter);
 
 // Match import settings of the chosen organization
 app.use('/api/match-source', matchSourceRouter);
+
+// API keys of the chosen organization (for the feed routes)
+app.use('/api/organization/api-keys', apiKeysRouter);
 
 // Sponsors endpoints
 app.use('/api/sponsors', sponsorsRouter);
