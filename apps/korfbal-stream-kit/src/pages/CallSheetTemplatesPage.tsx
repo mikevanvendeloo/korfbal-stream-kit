@@ -5,8 +5,8 @@ import {Button} from '../components/ui/button';
 import {Download, FileSpreadsheet, Plus, Trash2, Upload} from 'lucide-react';
 import {Input} from '../components/ui/input';
 import {Link} from 'react-router-dom';
-import {createUrl} from "../lib/api";
 import {adminPaths} from '../lib/adminPaths';
+import {downloadExport} from '../lib/download';
 
 export default function CallSheetTemplatesPage() {
   const { fetchTemplates, createTemplate, deleteTemplate, importTemplate, importTemplateJson, loading } = useCallSheetTemplates();
@@ -155,20 +155,22 @@ export default function CallSheetTemplatesPage() {
                 {template.name}
               </CardTitle>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <a
-                  href={createUrl(`/api/callsheets/templates/${template.id}/export`)}
+                <button
+                  type="button"
+                  onClick={() => downloadExport(`/api/callsheets/templates/${template.id}/export`, `draaiboek-${template.id}.xlsx`)}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full text-gray-500 dark:text-white/60 hover:text-gray-900 dark:hover:text-white"
                   title="Exporteren naar Excel"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
-                </a>
-                <a
-                  href={createUrl(`/api/callsheets/templates/${template.id}/export-json`)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadExport(`/api/callsheets/templates/${template.id}/export-json`, `draaiboek-${template.id}.json`)}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full text-gray-500 dark:text-white/60 hover:text-gray-900 dark:hover:text-white"
                   title="Exporteren naar JSON"
                 >
                   <Download className="w-4 h-4" />
-                </a>
+                </button>
                 <Button
                   variant="ghost"
                   size="icon"

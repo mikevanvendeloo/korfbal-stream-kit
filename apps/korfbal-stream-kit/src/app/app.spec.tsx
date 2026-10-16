@@ -4,6 +4,7 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {vi} from 'vitest';
 
 import App from './app';
+import {chooseOrganization, FORTUNA, jsonResponse, KNKV} from '../test/organizations';
 
 vi.mock('socket.io-client', () => ({
   io: vi.fn(() => ({on: vi.fn(), off: vi.fn(), disconnect: vi.fn()})),
@@ -31,7 +32,9 @@ function renderApp(path = '/') {
 
 describe('App', () => {
   beforeEach(() => {
+    chooseOrganization(FORTUNA.slug);
     global.fetch = vi.fn((url: RequestInfo | URL) => {
+      if (url.toString().endsWith('/api/organizations')) return Promise.resolve(jsonResponse([FORTUNA, KNKV]));
       if (url.toString().includes('/api/seasons/active')) {
         return Promise.resolve({ok: true, json: async () => activeSeason} as Response);
       }
@@ -111,6 +114,8 @@ describe('App', () => {
     expect(screen.getByRole('link', {name: 'Personen'})).toHaveAttribute('href', '/admin/stamgegevens/personen');
     expect(screen.getByRole('link', {name: 'Standaardbezetting per segment'})).toHaveAttribute('href', '/admin/draaiboeken/standaardbezetting');
     expect(screen.getByRole('link', {name: 'QR-generator'})).toHaveAttribute('href', '/admin/overig/qr');
+    expect(screen.getByRole('link', {name: 'Organisaties'})).toHaveAttribute('href', '/admin/overig/organisaties');
+    expect(screen.getByRole('link', {name: 'Organisatie'})).toHaveAttribute('href', '/admin/overig/organisatie');
     expect(screen.getByRole('link', {name: 'Instellingen'})).toHaveAttribute('href', '/admin/instellingen');
     expect(screen.queryByRole('link', {name: /vMix control/})).not.toBeInTheDocument();
   });
@@ -147,5 +152,25 @@ describe('App', () => {
   it('no longer serves Beheer pages outside /admin', () => {
     renderApp('/sponsors');
     expect(screen.getByText('Pagina niet gevonden')).toBeInTheDocument();
+  });
+
+  it('shows the chosen organization in the LIVE and Beheer navs, and switches from there', async () => {
+    const {unmount} = renderApp('/');
+    expect(await screen.findByRole('button', {name: 'Wissel organisatie (nu Fortuna)'})).toBeInTheDocument();
+    unmount();
+
+    renderApp('/admin');
+    fireEvent.click(await screen.findByRole('button', {name: 'Wissel organisatie (nu Fortuna)'}, LAZY));
+    expect(screen.getByRole('heading', {name: 'Kies een organisatie'})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: /KNKV/}));
+    expect(await screen.findByRole('button', {name: 'Wissel organisatie (nu KNKV)'}, LAZY)).toBeInTheDocument();
+    expect(window.localStorage.getItem('organization')).toBe('knkv');
+  });
+
+  it('shows the start screen before anything else when no organization is chosen', async () => {
+    chooseOrganization(null);
+    renderApp('/');
+    expect(await screen.findByRole('heading', {name: 'Kies een organisatie'})).toBeInTheDocument();
+    expect(screen.queryByRole('link', {name: 'Beheer'})).not.toBeInTheDocument();
   });
 });

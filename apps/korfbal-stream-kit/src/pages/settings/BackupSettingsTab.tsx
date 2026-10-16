@@ -1,5 +1,6 @@
 import {useState} from "react";
 import {createUrl} from "../../lib/api";
+import {useCurrentOrganization} from "../../components/OrganizationGate";
 
 type Entity = {
   id: string;
@@ -22,6 +23,8 @@ const ENTITIES: Entity[] = [
 export default function BackupPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [status, setStatus] = useState<Record<string, string>>({});
+  const {organization} = useCurrentOrganization();
+  const organizationName = organization?.name ?? 'de gekozen organisatie';
 
   const handleExport = async (entity: Entity) => {
     try {
@@ -84,8 +87,14 @@ export default function BackupPage() {
   return (
     <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
       <h2 className="text-xl font-medium text-gray-900 dark:text-gray-100 mb-6">Backup & Herstel (Restore)</h2>
-      <p className="text-gray-500 dark:text-gray-400 mb-8">
+      <p className="text-gray-500 dark:text-gray-400 mb-3">
         Maak een backup van je gegevens of herstel deze vanuit een eerder opgeslagen bestand.
+      </p>
+      <p className="text-gray-700 dark:text-gray-300 mb-8" data-testid="backup-organization">
+        Een backup bevat de gegevens van <strong>{organizationName}</strong>, en een restore zet ze terug in{' '}
+        <strong>{organizationName}</strong>: de gegevens van andere organisaties blijven ongemoeid. Ook een oude backup (van
+        voor de organisaties) komt in {organizationName}. Uitzondering: <em>Clubs</em> (met spelers) zijn gedeeld door alle
+        organisaties. API-sleutels en het token van de wedstrijdimport zitten niet in de backup.
       </p>
 
       <div className="space-y-6">

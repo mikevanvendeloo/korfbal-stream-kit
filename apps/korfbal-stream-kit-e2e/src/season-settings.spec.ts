@@ -1,7 +1,7 @@
-import { test, expect, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test, TEST_ORGANIZATION_SLUG } from './support/fixtures';
 
-// The season API is mocked with page.route so this flow runs against the plain
-// frontend preview server (no API/DB needed) and stays deterministic.
+// The season API is mocked with page.route so this flow stays deterministic (the real API isn't reached).
 
 type Season = {
   id: number; startYear: number; name: string; startDate: string; endDate: string;
@@ -25,6 +25,10 @@ async function mockSeasonApi(page: Page) {
     const method = req.method();
     const body = req.postData() ? JSON.parse(req.postData() as string) : undefined;
 
+    // The fixture chose the test organization; the start screen checks it against this list
+    if (pathname === '/api/organizations') {
+      return route.fulfill({ json: [{ id: 1, slug: TEST_ORGANIZATION_SLUG, name: 'Test', logoUrl: null, clubId: null, isActive: true, createdAt: '2026-01-01T00:00:00.000Z', displayLogoUrl: null, initials: 'TE' }] });
+    }
     if (pathname === '/api/seasons' && method === 'GET') return route.fulfill({ json: seasons });
     if (pathname === '/api/seasons/active' && method === 'GET') return route.fulfill({ json: seasons.find(s => s.isActive) });
     if (pathname === '/api/seasons/suggest-next') {

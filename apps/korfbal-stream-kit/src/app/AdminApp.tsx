@@ -10,6 +10,8 @@ import SkillsAdminPage from '../pages/SkillsAdminPage';
 import PositionsAdminPage from '../pages/PositionsAdminPage';
 import SegmentDefaultsAdminPage from '../pages/SegmentDefaultsAdminPage';
 import QRAdminPage from '../pages/QRAdminPage';
+import OrganizationsAdminPage from '../pages/OrganizationsAdminPage';
+import OrganizationAdminPage from '../pages/OrganizationAdminPage';
 import ProductionsAdminPage from '../pages/ProductionsAdminPage';
 import ProductionDetailPage from '../pages/ProductionDetailPage';
 import ProductionTitlesPage from '../pages/ProductionTitlesPage';
@@ -25,6 +27,8 @@ import {
   MdAssessment,
   MdAssignmentInd,
   MdBuild,
+  MdBusiness,
+  MdCorporateFare,
   MdDataObject,
   MdEditCalendar,
   MdGroups,
@@ -63,6 +67,7 @@ import ThemeToggle from "../components/ThemeToggle";
 import NotFound from "../components/NotFound";
 import ManualView from '../handleiding/ManualView';
 import HelpButton from '../handleiding/HelpButton';
+import {OrganizationSwitcher} from '../components/OrganizationGate';
 
 function AdminHome() {
   return (
@@ -150,7 +155,13 @@ const MENUS: Menu[] = [
   },
   {
     label: 'Overig',
-    groups: [{items: [{to: adminPaths.qr, label: 'QR-generator', icon: MdQrCode}]}],
+    groups: [{
+      items: [
+        {to: adminPaths.organization, label: 'Organisatie', icon: MdBusiness},
+        {to: adminPaths.organizations, label: 'Organisaties', icon: MdCorporateFare},
+        {to: adminPaths.qr, label: 'QR-generator', icon: MdQrCode},
+      ],
+    }],
   },
 ];
 
@@ -211,6 +222,7 @@ function Nav() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
+          <OrganizationSwitcher className="max-w-48"/>
           <ActiveSeasonBadge/>
           <Link to={adminPaths.settings} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Instellingen" aria-label="Instellingen">
             <MdSettings className="w-5 h-5" />
@@ -270,6 +282,8 @@ export default function AdminApp() {
             <Route path="rapportages/:tab" element={<ReportsPage/>}/>
 
             <Route path="overig/qr" element={<QRAdminPage/>}/>
+            <Route path="overig/organisaties" element={<OrganizationsAdminPage/>}/>
+            <Route path="overig/organisatie" element={<OrganizationAdminPage/>}/>
 
             <Route path="instellingen" element={<SettingsPage/>}/>
             <Route path="over" element={<AboutPage/>}/>

@@ -16,6 +16,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import NotFound from '../components/NotFound';
 import {InterviewNamesProvider} from '../components/InterviewText';
 import {ErrorBoundary} from '../components/ErrorBoundary';
+import {OrganizationSwitcher} from '../components/OrganizationGate';
 
 const links = [
   {to: '/', label: 'Actieve productie', icon: MdPlayCircleFilled, end: true},
@@ -57,6 +58,7 @@ function LiveNav() {
           ))}
         </nav>
         <div className="flex items-center gap-4">
+          <OrganizationSwitcher className="max-w-48"/>
           <Link to="/admin" className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:underline">
             <MdSettings/>
             <span>Beheer</span>
@@ -99,6 +101,7 @@ function LiveNav() {
             ))}
           </ul>
           <div className="flex flex-wrap items-center gap-2 border-t border-gray-200 dark:border-gray-800 mt-2 pt-3 pb-1">
+            <OrganizationSwitcher className="max-w-full"/>
             <Link to="/admin" className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">
               <MdSettings/> Beheer
             </Link>

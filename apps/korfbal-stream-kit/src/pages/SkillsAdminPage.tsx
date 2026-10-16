@@ -4,6 +4,7 @@ import {ColumnDef, flexRender, getCoreRowModel, useReactTable} from '@tanstack/r
 import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdDownload, MdEdit, MdUploadFile} from 'react-icons/md';
 import {createUrl, extractError} from "../lib/api";
+import {downloadExport} from '../lib/download';
 
 export type SkillType = 'crew' | 'entertainment';
 export type Skill = { id: number; code: string; name: string; nameMale: string; nameFemale: string; type: SkillType; createdAt?: string };
@@ -160,10 +161,10 @@ export default function SkillsAdminPage() {
             <MdUploadFile className="w-5 h-5" />
             <span className="sr-only">Import</span>
           </button>
-          <a href="/api/skills/export-json" download className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center" title="Export JSON">
+          <button type="button" onClick={() => downloadExport('/api/skills/export-json', 'skills.json')} className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center" title="Export JSON">
             <MdDownload className="w-5 h-5" />
             <span className="sr-only">Export</span>
-          </a>
+          </button>
           <button className="px-3 py-1 border rounded inline-flex items-center gap-1" onClick={() => setEditing({ code: '', name: '', nameMale: '', nameFemale: '', type: 'crew' })}>
             <MdAdd /> Nieuw
           </button>

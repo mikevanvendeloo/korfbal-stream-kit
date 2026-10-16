@@ -25,10 +25,10 @@ import {
   MdSave
 } from 'react-icons/md';
 import {CallSheetTemplateSelector} from '../components/CallSheetTemplateSelector';
-import {createUrl} from '../lib/api';
 import {SegmentTemplateSelector} from "../components/SegmentTemplateSelector";
 import {adminPaths} from '../lib/adminPaths';
 import TimeInput24 from '../components/TimeInput24';
+import {downloadExport} from '../lib/download';
 
 function timeLocal(iso: string) {
   const d = new Date(iso);
@@ -140,7 +140,7 @@ export default function ProductionDetailPage() {
   }
 
   const handleExport = () => {
-    window.open(createUrl(`/api/production/${id}/export`).toString(), '_blank');
+    void downloadExport(`/api/production/${id}/export`, `productie-${id}.json`);
   };
 
   const handleSaveAsTemplate = async () => {

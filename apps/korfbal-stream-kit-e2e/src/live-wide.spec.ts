@@ -27,8 +27,11 @@ test('Zet 15s sets the remaining time, and the red button stops the show', async
   await showCaller.expectRunning();
 
   await showCaller.setRemaining(15);
-  await expect.poll(() => showCaller.remainingSeconds()).toBeLessThanOrEqual(15);
-  expect(await showCaller.remainingSeconds()).toBeGreaterThan(10);
+  // Wait for the new time itself, not a value read before the update
+  await expect.poll(async () => {
+    const remaining = await showCaller.remainingSeconds();
+    return remaining > 10 && remaining <= 15;
+  }).toBe(true);
 
   await showCaller.stop();
   await showCaller.expectStopped();

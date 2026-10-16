@@ -53,9 +53,12 @@ Alleen sponsors die op **actief** staan, doen mee.
 
 Per onderdeel (Personen, Skills, Posities, Wedstrijden, Producties, Clubs, Sponsors, Instellingen, Segment templates) maak je met **Backup** een JSON-bestand, en zet je het met **Restore** terug.
 
+Backup en restore gaan over de **gekozen organisatie** (de naam staat op het tabblad): een backup bevat alleen haar gegevens, en een restore zet ze terug in die organisatie zonder die van andere organisaties aan te raken. Een oude backup van voor de organisaties komt in de gekozen organisatie. **Clubs** (met spelers) zijn gedeeld door alle organisaties. Kies dus eerst de juiste organisatie voor je een restore doet.
+
 Een restore **vult aan en werkt bij**, hij wist niets. Bestaande gegevens worden herkend (personen en sponsors op naam, skills op code, posities op naam, wedstrijden op hun code of datum en teams) en overschreven met wat in het bestand staat. Een productie die al bestaat, krijgt de segmenten, titels, interviews en het draaiboek uit het bestand.
 
 > **Niet** in de backup:
+> - de API-sleutels en het token van de wedstrijdimport ([Organisaties](/admin/handleiding/organisaties));
 > - afbeeldingen (logo's en spelerfoto's): bewaar de map `storage` apart;
 > - draaiboek-templates, titel-templates en de standaardbezetting per segment (draaiboek-templates kun je wel los exporteren);
 > - de koppelingen tussen posities.

@@ -1,8 +1,14 @@
 # Problemen oplossen
 
+## Ik zie "Kies een organisatie"
+
+De app weet niet (meer) voor welke organisatie je werkt: je gebruikt een nieuw apparaat of een privévenster, of je organisatie is uitgezet of hernoemd. Tik op je organisatie. Staat ze er niet tussen, vraag dan de beheerder ([Organisatie kiezen](/handleiding/aan-de-slag#organisatie-kiezen)).
+
 ## Ik zie "Geen actieve productie"
 
 Er is nog geen productie actief gezet. Dat doet de productieleiding in Beheer bij **Producties**. Herlaad daarna de pagina.
+
+Is er wel een productie actief, kijk dan of je de juiste organisatie hebt gekozen (logo en naam in de menubalk).
 
 ## Mijn positie staat er niet tussen
 

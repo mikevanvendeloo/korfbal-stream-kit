@@ -39,6 +39,10 @@ export const adminPaths = {
   report: (tab: ReportTab) => `${ADMIN}/rapportages/${tab}`,
 
   qr: `${ADMIN}/overig/qr`,
+  /** All organizations (list, create, edit, (de)activate) */
+  organizations: `${ADMIN}/overig/organisaties`,
+  /** The chosen organization: logo, match import, API keys */
+  organization: `${ADMIN}/overig/organisatie`,
 };
 
 export const REPORT_TABS = [

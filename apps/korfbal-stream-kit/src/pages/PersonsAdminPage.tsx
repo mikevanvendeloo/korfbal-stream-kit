@@ -5,6 +5,7 @@ import IconButton from '../components/IconButton';
 import { MdDelete, MdEdit, MdAdd, MdDownload, MdUploadFile } from 'react-icons/md';
 import { createUrl, extractError } from '../lib/api';
 import { useQueryClient } from '@tanstack/react-query';
+import {downloadExport} from '../lib/download';
 
 export default function PersonsAdminPage() {
   const [q, setQ] = React.useState('');
@@ -103,10 +104,10 @@ export default function PersonsAdminPage() {
             <MdUploadFile className="w-5 h-5" />
             <span className="sr-only">Import</span>
           </button>
-          <a href="/api/persons/export-json" download className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center" title="Export JSON">
+          <button type="button" onClick={() => downloadExport('/api/persons/export-json', 'persons.json')} className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center" title="Export JSON">
             <MdDownload className="w-5 h-5" />
             <span className="sr-only">Export</span>
-          </a>
+          </button>
         </div>
       </div>
 

@@ -147,7 +147,8 @@ export function useCallSheet(callSheetId: number) {
 export function useCreateCallSheetItem(callSheetId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: CallSheetItem): Promise<CallSheetItem> => {
+    // No id: the server chooses it (CallSheetItem ids are global over all organizations)
+    mutationFn: async (input: Omit<CallSheetItem, 'id' | 'callSheetId'>): Promise<CallSheetItem> => {
       const res = await fetch(createUrl(`/api/production/callsheets/${callSheetId}/items`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();

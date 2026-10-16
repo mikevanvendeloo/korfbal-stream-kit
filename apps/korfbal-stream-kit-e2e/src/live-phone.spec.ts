@@ -49,8 +49,11 @@ test('Zet 30s sets the remaining time of the current item', async ({page, liveSh
   await showCaller.expectNow(liveShow.titles[0]);
 
   await showCaller.setRemaining(30);
-  await expect.poll(() => showCaller.remainingSeconds()).toBeLessThanOrEqual(30);
-  expect(await showCaller.remainingSeconds()).toBeGreaterThan(25);
+  // Wait for the new time itself: a value read before the update (e.g. 0 or the full minute) doesn't count
+  await expect.poll(async () => {
+    const remaining = await showCaller.remainingSeconds();
+    return remaining > 25 && remaining <= 30;
+  }).toBe(true);
 });
 
 test('the buttons stay in view while scrolling, and the page never scrolls sideways', async ({page, liveShow}) => {

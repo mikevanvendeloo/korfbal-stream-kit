@@ -29,6 +29,35 @@ export class LiveNav {
   help() {
     return this.page.getByRole('link', {name: 'Handleiding bij dit scherm'});
   }
+
+  /** On a phone the organization switch is in the menu too. */
+  async switchOrganization(current: string) {
+    await this.page.getByRole('button', {name: 'Menu openen'}).click();
+    await organizationSwitch(this.page, current).click();
+  }
+}
+
+/** The chosen organization in the nav (LIVE and Beheer); a click opens the start screen. */
+export const organizationSwitch = (page: Page, name: string) =>
+  page.getByRole('button', {name: `Wissel organisatie (nu ${name})`});
+
+/** The start screen: a large button per active organization. */
+export class StartScreen {
+  readonly heading: Locator;
+
+  constructor(private readonly page: Page) {
+    this.heading = page.getByRole('heading', {name: 'Kies een organisatie'});
+  }
+
+  button(name: string) {
+    return this.page.getByRole('list', {name: 'Organisaties'}).getByRole('button', {name: new RegExp(`^${name}`)});
+  }
+
+  async choose(name: string) {
+    await expect(this.heading).toBeVisible();
+    await this.button(name).click();
+    await expect(this.heading).toBeHidden();
+  }
 }
 
 /** The Show Caller on a phone (below 768 px). */
@@ -103,5 +132,33 @@ export class ShowCallerWide {
 
   async expectStopped() {
     await expect(this.page.getByTitle('Start Show')).toBeVisible();
+  }
+}
+
+/** Beheer → Overig → Organisatie: match import and API keys of the chosen organization. */
+export class OrganizationPage {
+  constructor(private readonly page: Page) {}
+
+  async open() {
+    await this.page.goto('/admin/overig/organisatie');
+    await expect(this.page.getByRole('heading', {name: /^Organisatie/, level: 1})).toBeVisible();
+  }
+
+  /** Creates a key; returns the full key from the one-time dialog (left open). */
+  async createApiKey(name: string) {
+    await this.page.getByLabel('Naam van de sleutel').fill(name);
+    await this.page.getByRole('button', {name: 'Sleutel aanmaken'}).click();
+    const dialog = this.page.getByRole('dialog', {name: `API-sleutel ${name} aangemaakt`});
+    await expect(dialog).toBeVisible();
+    return {dialog, key: (await dialog.getByLabel('Nieuwe API-sleutel').textContent()) ?? ''};
+  }
+
+  keyRow(name: string) {
+    return this.page.getByRole('table', {name: 'API-sleutels'}).getByRole('row').filter({hasText: name});
+  }
+
+  async revoke(name: string) {
+    this.page.once('dialog', (dialog) => dialog.accept());
+    await this.keyRow(name).getByRole('button', {name: `Sleutel ${name} intrekken`}).click();
   }
 }

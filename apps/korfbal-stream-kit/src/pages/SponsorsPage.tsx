@@ -13,6 +13,7 @@ import React, {useRef, useState} from 'react';
 import {Sponsor, uploadSponsorsExcel} from '../lib/api';
 import {MdAdd, MdDownload, MdRefresh, MdUploadFile} from 'react-icons/md';
 import SponsorFormModal from '../components/SponsorFormModal';
+import {downloadExport} from '../lib/download';
 
 export type SponsorType = 'premium' | 'goud' | 'zilver' | 'brons' | 'event';
 
@@ -135,10 +136,10 @@ export default function SponsorsPage() {
             <MdUploadFile className="w-5 h-5" />
             <span className="sr-only">Upload sponsors</span>
           </button>
-          <a href="/api/sponsors/export-excel" className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center" title="Export sponsors naar Excel" download>
+          <button type="button" onClick={() => downloadExport('/api/sponsors/export-excel', 'sponsors.xlsx')} className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center justify-center" title="Export sponsors naar Excel">
             <MdDownload className="w-5 h-5" />
             <span className="sr-only">Export Excel</span>
-          </a>
+          </button>
           <button
             aria-label="download-all-logos"
             onClick={() => downloadLogos.mutate()}
