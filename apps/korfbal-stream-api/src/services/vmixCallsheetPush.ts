@@ -79,6 +79,16 @@ function pushMemory(): PushMemory {
   }
   return memory;
 }
+/** Forgets what was pushed for an organization (it was switched off). */
+export function discardPushMemory(organizationId: number) {
+  pushMemories.delete(organizationId);
+}
+
+/** Whether there is push memory for the organization (tests). */
+export function hasPushMemory(organizationId: number): boolean {
+  return pushMemories.has(organizationId);
+}
+
 // vMix can be restarted or the title reloaded, which loses the values: send everything again now and then
 const FULL_PUSH_INTERVAL_MS = 15_000;
 const commandKey = (c: VmixCommand) => `${c.function}|${c.selectedName}`;
@@ -110,7 +120,8 @@ export async function pushCallsheetToVmix(force = false, now = new Date()): Prom
     const key = commandKey(command);
     if (lastSent.get(key) === command.value) continue;
     try {
-      await axios.get(buildVmixCommandUrl(base, config.input, command), {timeout: 1500});
+      // A wall-clock deadline: axios' `timeout` only fires when vMix goes quiet, not when it drips
+      await axios.get(buildVmixCommandUrl(base, config.input, command), {signal: AbortSignal.timeout(1500), maxContentLength: 4096});
       lastSent.set(key, command.value);
       sent++;
     } catch (err) {

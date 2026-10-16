@@ -7,6 +7,7 @@ import {applyStandardSet} from '../services/standardSet';
 import {saveImage, singleImage} from '../services/imageUpload';
 import {OrganizationCreateSchema, OrganizationUpdateSchema} from '../schemas/organization';
 import {logger} from '../utils/logger';
+import {resumeOrganization, stopOrganization} from '../services/organizationLifecycle';
 
 /**
  * Organizations are global (no X-Organization needed): the start screen lists the active ones, and
@@ -98,6 +99,9 @@ organizationsRouter.put('/:id', async (req, res, next) => {
     if (!parsed.success) return res.status(400).json({error: 'Ongeldige organisatie', issues: parsed.error.issues});
     if (!(await clubExists(parsed.data.clubId))) return res.status(400).json({error: 'Club bestaat niet'});
     const updated = await prisma.organization.update({where: {id: existing.id}, data: parsed.data, include: withClub});
+    // Switched off: its live show, timers and sockets stop now, not at the next restart
+    if (existing.isActive && !updated.isActive) stopOrganization(updated.id);
+    if (!existing.isActive && updated.isActive) await resumeOrganization(updated.id);
     return res.json(toOrganizationDto(updated));
   } catch (err) {
     if (isUniqueViolation(err)) return res.status(409).json({error: 'Deze slug is al in gebruik'});

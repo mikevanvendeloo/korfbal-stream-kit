@@ -6,6 +6,9 @@ import {nxViteTsPaths} from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 // Where /api, /uploads and /socket.io go in dev. The e2e tests start their own API on the test database
 // and point the dev server at it; everyone else gets the dev API on 3333.
 const apiTarget = process.env.API_PROXY_TARGET || 'http://localhost:3333';
+// changeOrigin rewrites Host to the API's port; xfwd adds X-Forwarded-Host (this dev server's host and
+// port), which the API compares with the browser's Origin (cross-site write and socket origin checks).
+const proxy = {target: apiTarget, changeOrigin: true, xfwd: true};
 
 export default defineConfig(() => ({
   root: __dirname,
@@ -15,25 +18,12 @@ export default defineConfig(() => ({
     host: 'localhost',
     proxy: {
       // Alle verzoeken naar /api worden nu doorgezonden naar de backend
-      '/api': {
-        target: apiTarget,
-        changeOrigin: true,
-      },
+      '/api': proxy,
       // Statische assets (sponsors logo's, player images, etc.)
-      '/uploads': {
-        target: apiTarget,
-        changeOrigin: true,
-      },
-      '/storage': {
-        target: apiTarget,
-        changeOrigin: true,
-      },
+      '/uploads': proxy,
+      '/storage': proxy,
       // Live state (Socket.io), incl. websocket upgrade
-      '/socket.io': {
-        target: apiTarget,
-        changeOrigin: true,
-        ws: true,
-      },
+      '/socket.io': {...proxy, ws: true},
     },
   },
   preview: {

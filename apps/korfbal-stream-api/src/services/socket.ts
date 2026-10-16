@@ -1,10 +1,11 @@
 import {Server as SocketIOServer} from 'socket.io';
-import type {IncomingMessage, Server as HttpServer} from 'http';
+import type {Server as HttpServer} from 'http';
 import {logger} from '../utils/logger';
 import {timeSyncService} from './timeSyncService';
 import {initializeClient} from './productionState';
 import {requireOrganizationId, runWithOrganization} from './organizationContext';
 import {findActiveOrganization} from '../middleware/organizationContext';
+import {isSameOriginRequest} from '../middleware/sameOrigin';
 import type {SeasonDto} from './season';
 
 let io: SocketIOServer | undefined;
@@ -28,39 +29,11 @@ export async function resolveHandshakeOrganization(slug: unknown): Promise<numbe
   return organization.id;
 }
 
-function hostnameOf(host: string): string | null {
-  try {
-    return new URL(`http://${host.trim()}`).hostname.toLowerCase();
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Browsers always connect same-origin (the Vite dev proxy and nginx forward /socket.io), so a handshake
- * from a page on another host is refused. Only hostnames are compared: nginx forwards `$host` without
- * the port and the Vite proxy rewrites Host to the API's port. Clients without an Origin (vMix, Node)
- * aren't browsers and pass.
- */
-export function isSameOriginHandshake(req: Pick<IncomingMessage, 'headers'>): boolean {
-  const origin = req.headers.origin;
-  if (!origin) return true;
-  let originHost: string;
-  try {
-    originHost = new URL(origin).hostname.toLowerCase();
-  } catch {
-    return false;
-  }
-  const hosts = [req.headers['x-forwarded-host'], req.headers.host]
-    .flatMap((h) => (Array.isArray(h) ? h : h ? h.split(',') : []))
-    .map(hostnameOf);
-  return hosts.includes(originHost);
-}
-
 export function initSocket(httpServer: HttpServer) {
   const server = new SocketIOServer(httpServer, {
     transports: ['websocket', 'polling'], // Zorg dat beide transports expliciet aan staan
-    allowRequest: (req, callback) => callback(null, isSameOriginHandshake(req)),
+    // Browsers connect same-origin (Vite proxy, nginx): a handshake from a page on another host is refused
+    allowRequest: (req, callback) => callback(null, isSameOriginRequest(req)),
   });
   io = server;
 
@@ -111,6 +84,11 @@ export function getIO(): SocketIOServer {
 export function emitToOrganization(event: string, ...args: unknown[]) {
   if (!io) return;
   io.to(organizationRoom(requireOrganizationId('A live event'))).emit(event, ...args);
+}
+
+/** Closes every socket of an organization (it was switched off); a reconnect is refused as inactive. */
+export function disconnectOrganizationSockets(organizationId: number) {
+  io?.in(organizationRoom(organizationId)).disconnectSockets(true);
 }
 
 export const SEASON_CHANGED_EVENT = 'season_changed';

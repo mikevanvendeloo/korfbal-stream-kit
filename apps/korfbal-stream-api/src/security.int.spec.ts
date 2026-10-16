@@ -11,11 +11,11 @@ import {io as ioClient, Socket as ClientSocket} from 'socket.io-client';
 import app, {httpServer} from './main';
 import * as liveState from './services/productionState';
 import {timeSyncService} from './services/timeSyncService';
-import {pushForActiveOrganizations} from './services/vmixCallsheetPush';
-import {syncVenueClocks} from './services/venueClockSyncService';
+import {hasPushMemory, pushForActiveOrganizations} from './services/vmixCallsheetPush';
+import {syncVenueClocks, venueClockSyncService} from './services/venueClockSyncService';
 import {setSetting} from './services/appSettings';
 import {hashApiKey, LAST_USED_WRITE_INTERVAL_MS} from './services/apiKeys';
-import {isSameOriginHandshake} from './services/socket';
+import {isSameOriginRequest} from './middleware/sameOrigin';
 import {logger} from './utils/logger';
 import {getAssetsRoot} from './services/config';
 import {saveMatchSource} from './services/matchSchedule';
@@ -800,17 +800,33 @@ describe('socket handshake origin', () => {
   const req = (headers: Record<string, string>) => ({headers});
 
   it('lets same-origin browsers and clients without an Origin through', () => {
-    expect(isSameOriginHandshake(req({}))).toBe(true);
-    expect(isSameOriginHandshake(req({origin: 'http://streamz.local', host: 'streamz.local'}))).toBe(true);
-    // nginx forwards $host without the port; the Vite proxy rewrites Host to the API's port
-    expect(isSameOriginHandshake(req({origin: 'http://localhost:4200', host: 'localhost:3333'}))).toBe(true);
-    expect(isSameOriginHandshake(req({origin: 'http://192.168.1.5:4200', host: 'localhost:3333', 'x-forwarded-host': '192.168.1.5:4200'}))).toBe(true);
+    expect(isSameOriginRequest(req({}))).toBe(true);
+    expect(isSameOriginRequest(req({origin: 'http://streamz.local', host: 'streamz.local'}))).toBe(true);
+    expect(isSameOriginRequest(req({origin: 'http://localhost:3333', host: 'localhost:3333'}))).toBe(true);
+    expect(isSameOriginRequest(req({origin: 'https://streamz.local', host: 'streamz.local:443'}))).toBe(true);
+    // The Vite proxy (dev 4200, e2e 4300) rewrites Host to the API's port and sends its own as X-Forwarded-Host (xfwd)
+    expect(isSameOriginRequest(req({origin: 'http://localhost:4200', host: 'localhost:3333', 'x-forwarded-host': 'localhost:4200'}))).toBe(true);
+    expect(isSameOriginRequest(req({origin: 'http://localhost:4300', host: 'localhost:3335', 'x-forwarded-host': 'localhost:4300'}))).toBe(true);
+    expect(isSameOriginRequest(req({origin: 'http://192.168.1.5:4200', host: 'localhost:3333', 'x-forwarded-host': '192.168.1.5:4200'}))).toBe(true);
+    // nginx forwards $host without the port: then only the hostname can be compared (documented)
+    expect(isSameOriginRequest(req({origin: 'http://192.168.1.5', host: '192.168.1.5'}))).toBe(true);
+    expect(isSameOriginRequest(req({origin: 'http://192.168.1.5:8080', host: '192.168.1.5'}))).toBe(true);
   });
 
   it('refuses a page on another host', () => {
-    expect(isSameOriginHandshake(req({origin: 'https://evil.example', host: 'streamz.local'}))).toBe(false);
-    expect(isSameOriginHandshake(req({origin: 'null', host: 'streamz.local'}))).toBe(false);
-    expect(isSameOriginHandshake(req({origin: 'http://streamz.local.evil.example', host: 'streamz.local'}))).toBe(false);
+    expect(isSameOriginRequest(req({origin: 'https://evil.example', host: 'streamz.local'}))).toBe(false);
+    expect(isSameOriginRequest(req({origin: 'null', host: 'streamz.local'}))).toBe(false);
+    expect(isSameOriginRequest(req({origin: 'http://streamz.local.evil.example', host: 'streamz.local'}))).toBe(false);
+    expect(isSameOriginRequest(req({origin: 'file://streamz.local', host: 'streamz.local'}))).toBe(false);
+    expect(isSameOriginRequest(req({origin: 'http://streamz.local'}))).toBe(false);
+  });
+
+  it('refuses a page on another port of the same host when the Host carries a port', () => {
+    expect(isSameOriginRequest(req({origin: 'http://localhost:9999', host: 'localhost:3333'}))).toBe(false);
+    expect(isSameOriginRequest(req({origin: 'http://localhost:9999', host: 'localhost:3333', 'x-forwarded-host': 'localhost:4200'}))).toBe(false);
+    expect(isSameOriginRequest(req({origin: 'http://streamz.local', host: 'streamz.local:8080'}))).toBe(false);
+    // The forwarded host is the one the browser used: it wins over Host
+    expect(isSameOriginRequest(req({origin: 'http://localhost:3333', host: 'localhost:3333', 'x-forwarded-host': 'localhost:4200'}))).toBe(false);
   });
 });
 
@@ -1033,7 +1049,73 @@ describe.runIf(runDb)('background services per organization (integration)', () =
     expect(boardA.urls).toContain('/v1/time-as-array');
     expect(boardB.urls).toContain('/v1/time-as-array');
   });
+
+  it('doesn\'t let a dripping scoreboard of one organization stall another\'s clock', async () => {
+    const drip = await scoreboardServer('drip');
+    const counting = await scoreboardServer('count');
+    const clockOf = async (organizationId: number) =>
+      (await runWithOrganization(organizationId, async () => liveState.liveStateSnapshot())).clocks.scoreboardTime;
+    await runWithOrganization(orgA, () => setSetting('scoreboardUrl', drip.url));
+    await runWithOrganization(orgB, () => setSetting('scoreboardUrl', counting.url));
+    try {
+      // One round ends at the wall-clock deadline, although the scoreboard keeps sending a byte now and then
+      const started = Date.now();
+      await syncVenueClocks();
+      expect(Date.now() - started).toBeLessThan(1500);
+      expect(await clockOf(orgB)).toBe(1);
+
+      // The timer: B's clock moves on every second while A's scoreboard drips
+      venueClockSyncService.start();
+      try {
+        await waitFor(() => counting.requests() >= 4, 4500);
+      } finally {
+        venueClockSyncService.stop();
+      }
+      expect(counting.requests()).toBeGreaterThanOrEqual(4);
+      expect(await clockOf(orgB)).toBeGreaterThanOrEqual(3);
+      expect(await clockOf(orgA)).toBe(12 * 60 + 34);
+    } finally {
+      await runWithOrganization(orgA, () => setSetting('scoreboardUrl', boardA.url));
+      await runWithOrganization(orgB, () => setSetting('scoreboardUrl', boardB.url));
+      await Promise.all([drip.close(), counting.close()]);
+    }
+  });
 });
+
+/**
+ * A scoreboard answering time-as-array. `count`: 00:01, 00:02, … per request. `drip`: sends one byte
+ * every 100 ms for 5 s and never a valid answer (each byte resets an idle timeout).
+ */
+async function scoreboardServer(mode: 'count' | 'drip') {
+  let requests = 0;
+  const timers = new Set<NodeJS.Timeout>();
+  const server = http.createServer((_req, res) => {
+    requests++;
+    res.writeHead(200, {'content-type': 'application/json'});
+    if (mode === 'count') return void res.end(JSON.stringify(['00', String(requests).padStart(2, '0')]));
+    res.write('[');
+    let sent = 0;
+    const timer = setInterval(() => {
+      if (++sent > 50 || res.destroyed) {
+        clearInterval(timer);
+        timers.delete(timer);
+        return void res.end();
+      }
+      res.write(' ');
+    }, 100);
+    timers.add(timer);
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  return {
+    url: `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`,
+    requests: () => requests,
+    close: () => new Promise<void>((resolve) => {
+      timers.forEach(clearInterval);
+      server.closeAllConnections();
+      server.close(() => resolve());
+    }),
+  };
+}
 
 describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
   const KA = 'sec-key-a';
@@ -1142,6 +1224,12 @@ describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
       `/api/vmix/sponsor-names?key=${keyA.slice(0, -1)}`,
       '/api/vmix/sponsor-names?key=',
       `/api/vmix/sponsor-names?key[]=${keyA}`,
+      // qs (req.query) reads these as `key` too; the key is read from the URL only, as one plain key=
+      `/api/vmix/sponsor-names?[key]=${keyA}`,
+      `/api/vmix/sponsor-names?%5Bkey%5D=${keyA}`,
+      `/api/vmix/sponsor-names?[key][x]=${keyA}`,
+      `/api/vmix/sponsor-names?key=${keyA}&[key]=${keyA}`,
+      `/api/vmix/sponsor-names?key=${keyA}&key=${keyA}`,
       `/api/vmix/sponsor-names?key=${'x'.repeat(5000)}`,
     ]) {
       const res = await feed(path);
@@ -1185,6 +1273,10 @@ describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
     try {
       await feed(`/api/vmix/sponsor-names?seed=1&key=${keyA}`);
       await feed(`/api/vmix/sponsor-names?k%65y=${keyA}`);
+      await feed(`/api/vmix/sponsor-names?seed=2&[key]=${keyA}`);
+      await feed(`/api/vmix/sponsor-names?%5Bkey%5D=${keyA}`);
+      await feed(`/api/vmix/sponsor-names?[key][x]=${keyA}`);
+      await feed(`/api/production?[key]=${keyA}`);
       await feed(`/api/production?key=${keyA}`);
       await feed(`/api/vmix/production/abc/titles?key=${keyA}`);
       await feed('/api/vmix/sponsor-names').set('X-Api-Key', keyA);
@@ -1209,5 +1301,149 @@ describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
     expect(res.body).toEqual({error: 'Ongeldige API-sleutel'});
     const list = await request(app).get('/api/organization/api-keys').set('X-Organization', KA);
     expect(list.body[0]).toMatchObject({id: keyAId, revokedAt: expect.any(String)});
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------
+// Phase 2 review: cross-site writes, switching an organization off
+// ---------------------------------------------------------------------------------------------------
+
+describe('cross-site writes (CSRF)', () => {
+  const EVIL = 'https://evil.example';
+  const GLOBAL_WRITES = ['/api/organizations', '/api/seasons', '/api/clubs', '/api/players'];
+
+  it.each(GLOBAL_WRITES)('refuses a cross-site form or multipart POST to %s with 403', async (route) => {
+    const form = await withoutOrganization(request(app).post(route)).set('Origin', EVIL).type('form').send('name=Evil&slug=evil');
+    expect(form.status).toBe(403);
+    expect(form.body).toEqual({error: 'Verzoek van een andere website geweigerd'});
+    const multipart = await withoutOrganization(request(app).post(route)).set('Origin', EVIL)
+      .field('name', 'Evil').attach('file', PNG, {filename: 'x.png', contentType: 'image/png'});
+    expect(multipart.status).toBe(403);
+    // Fetch metadata without an Origin, and an opaque origin (sandboxed iframe, file://)
+    expect((await withoutOrganization(request(app).post(route)).set('Sec-Fetch-Site', 'cross-site').type('form').send('name=Evil')).status).toBe(403);
+    expect((await withoutOrganization(request(app).post(route)).set('Origin', 'null').type('form').send('name=Evil')).status).toBe(403);
+  });
+
+  it('refuses PUT, PATCH and DELETE from another site too, also on tenant routes and on another port', async () => {
+    expect((await withoutOrganization(request(app).put('/api/organizations/1')).set('Origin', EVIL).send({isActive: false})).status).toBe(403);
+    expect((await withoutOrganization(request(app).delete('/api/seasons/1')).set('Origin', EVIL)).status).toBe(403);
+    expect((await request(app).patch('/api/sponsors/1').set('Origin', EVIL).send({})).status).toBe(403);
+    expect((await request(app).post('/api/sponsors').set('Host', 'localhost:3333').set('Origin', 'http://localhost:9999').send({})).status).toBe(403);
+    // Same site (another port) is not same-origin
+    expect((await request(app).post('/api/sponsors').set('Host', 'localhost:3333').set('Origin', 'http://localhost:9999')
+      .set('Sec-Fetch-Site', 'same-site').send({})).status).toBe(403);
+  });
+
+  it('refuses a cross-site feed write without an API key', async () => {
+    const res = await request(app).post('/api/vmix/production/trigger-manual').set('Origin', EVIL).send({eventId: 'x'});
+    expect(res.status).toBe(403);
+  });
+});
+
+describe.runIf(runDb)('cross-site writes (CSRF, integration)', () => {
+  const SAME = 'sec-csrf-same';
+  const VITE = 'sec-csrf-vite';
+  const NONE = 'sec-csrf-none';
+  const KEYED = 'sec-csrf-key';
+
+  afterAll(async () => {
+    await prisma.organization.deleteMany({where: {slug: {in: [SAME, VITE, NONE, KEYED, 'evil']}}});
+  });
+
+  it('lets reads from another site through (no CORS, so the page can\'t read the answer)', async () => {
+    const res = await withoutOrganization(request(app).get('/api/organizations')).set('Origin', 'https://evil.example').set('Sec-Fetch-Site', 'cross-site');
+    expect(res.status).toBe(200);
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('lets same-origin writes through: nginx, the Vite proxy (also multipart), and clients without an Origin', async () => {
+    const nginx = await withoutOrganization(request(app).post('/api/organizations'))
+      .set('Host', 'streamz.local').set('Origin', 'http://streamz.local').set('Sec-Fetch-Site', 'same-origin')
+      .send({name: 'CSRF same', slug: SAME});
+    expect(nginx.status, nginx.text).toBe(201);
+
+    // The Vite dev proxy: Host is the API's port, X-Forwarded-Host the dev server's (xfwd)
+    const viaVite = (r: request.Test) => r.set('Host', 'localhost:3333').set('X-Forwarded-Host', 'localhost:4200')
+      .set('Origin', 'http://localhost:4200').set('Sec-Fetch-Site', 'same-origin');
+    const vite = await viaVite(withoutOrganization(request(app).post('/api/organizations'))).type('form').send(`name=CSRF+vite&slug=${VITE}`);
+    expect(vite.status, vite.text).toBe(201);
+    const logo = await viaVite(withoutOrganization(request(app).post(`/api/organizations/${vite.body.id}/logo`)))
+      .attach('file', PNG, {filename: 'logo.png', contentType: 'image/png'});
+    expect(logo.status, logo.text).toBe(200);
+
+    // vMix, curl, Node: no Origin
+    const none = await withoutOrganization(request(app).post('/api/organizations')).send({name: 'CSRF none', slug: NONE});
+    expect(none.status, none.text).toBe(201);
+    expect(await prisma.organization.count({where: {slug: 'evil'}})).toBe(0);
+  });
+
+  it('lets a feed write with an API key through from another site (an HTML overlay with a key)', async () => {
+    await ensureOrganization(prisma, KEYED, 'CSRF key');
+    const key = (await request(app).post('/api/organization/api-keys').set('X-Organization', KEYED).send({name: 'overlay'})).body.key as string;
+    const res = await withoutOrganization(request(app).post(`/api/vmix/production/trigger-manual?key=${key}`))
+      .set('Origin', 'https://overlay.example').set('Sec-Fetch-Site', 'cross-site').send({});
+    // Past the CSRF guard and the key check: the route itself answers (no eventId)
+    expect(res.status).toBe(400);
+    // A wrong key opens nothing
+    const wrong = await withoutOrganization(request(app).post('/api/vmix/production/trigger-manual?key=sk_wrong')).set('Origin', 'https://overlay.example').send({});
+    expect(wrong.status).toBe(401);
+  });
+});
+
+describe.runIf(runDb)('switching an organization off (integration)', () => {
+  const OFF = 'sec-switch-off';
+  let organizationId: number;
+  let show: ProductionScenario;
+
+  beforeAll(async () => {
+    organizationId = await ensureOrganization(prisma, OFF, 'Sec Switch Off');
+    show = await createProductionScenario(prisma, {organizationId, active: true, items: [{title: 'SwitchOff opening'}, {title: 'SwitchOff einde'}]});
+  });
+
+  afterAll(async () => {
+    if (show) {
+      await runWithOrganization(organizationId, () => liveState.stopProduction(liveState.getActiveProductionId() ?? show.productionId));
+      await runWithOrganization(organizationId, () => prisma.production.deleteMany({where: {matchScheduleId: show.matchId}}));
+      await show.cleanup();
+    }
+    await prisma.organization.deleteMany({where: {slug: OFF}});
+  });
+
+  it('stops its live show, timers, background services and sockets, and resumes when switched on', async () => {
+    const asOff = (r: request.Test) => r.set('X-Organization', OFF);
+    expect((await asOff(request(app).post(`/api/show/start/${show.productionId}`))).status).toBe(200);
+    expect((await asOff(request(app).post('/api/time/countdown')).send({seconds: 60})).status).toBe(200);
+    await runWithOrganization(organizationId, () => setSetting('vmixCallsheetPush', {enabled: false}));
+    await pushForActiveOrganizations();
+    const client = await connectClient(await socketServerUrl(), {organization: OFF});
+    const state = await runWithOrganization(organizationId, async () => liveState.getCurrentState());
+    expect(state.clockInterval).not.toBeNull();
+    expect(liveState.hasLiveState(organizationId)).toBe(true);
+    expect(timeSyncService.hasState(organizationId)).toBe(true);
+    expect(hasPushMemory(organizationId)).toBe(true);
+    expect(await liveState.organizationsWithActiveProduction()).toContain(organizationId);
+
+    const disconnected = new Promise<string>((resolve) => client.socket.once('disconnect', resolve));
+    const off = await request(app).put(`/api/organizations/${organizationId}`).send({isActive: false});
+    expect(off.status).toBe(200);
+    expect(await disconnected).toBe('io server disconnect');
+
+    expect(state.clockInterval).toBeNull();
+    expect(state.autoAdvanceTimer).toBeNull();
+    const ticks = state.clocks.productionTime;
+    await new Promise((r) => setTimeout(r, 1200));
+    expect(state.clocks.productionTime).toBe(ticks);
+    expect(liveState.hasLiveState(organizationId)).toBe(false);
+    expect(timeSyncService.hasState(organizationId)).toBe(false);
+    expect(hasPushMemory(organizationId)).toBe(false);
+    expect(await liveState.organizationsWithActiveProduction()).not.toContain(organizationId);
+    await expect(connectClient(await socketServerUrl(), {organization: OFF})).rejects.toThrow('Onbekende of inactieve organisatie');
+    // The database keeps the production: switching it on again picks it up
+    expect((await runWithOrganization(organizationId, () => prisma.production.findUnique({where: {id: show.productionId}})))?.isActive).toBe(true);
+
+    expect((await request(app).put(`/api/organizations/${organizationId}`).send({isActive: true})).status).toBe(200);
+    expect(await runWithOrganization(organizationId, async () => liveState.liveStateSnapshot()))
+      .toMatchObject({productionId: show.productionId, activeEventId: show.eventIds[0], isClockRunning: true});
+    expect(await liveState.organizationsWithActiveProduction()).toContain(organizationId);
   });
 });

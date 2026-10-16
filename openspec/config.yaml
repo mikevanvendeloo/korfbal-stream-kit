@@ -1,7 +1,7 @@
 schema: spec-driven
 
 context: |
-  Tech stack: TypeScript 5.9, Node.js 20, Express 5, Prisma ORM, PostgreSQL 16 (backend);
+  Tech stack: TypeScript 5.9, Node.js 20, Express 4.22, Prisma ORM, PostgreSQL 16 (backend);
   React 19, Vite, Tailwind CSS, TanStack Query, React Router v6 (frontend);
   Socket.io for real-time state; Vitest for testing; Nx 21 monorepo.
 

@@ -144,10 +144,34 @@ export function getCurrentState() {
   return live();
 }
 
-/** Organizations with an active production (in the database), for background services. */
+/**
+ * Drops an organization's live state (it was switched off): stops its clock and auto-advance timer and
+ * forgets the state, without touching the database. Works outside the organization's context.
+ */
+export function discardLiveState(organizationId: number) {
+  const state = liveStates.get(organizationId);
+  if (!state) return;
+  if (state.clockInterval) clearInterval(state.clockInterval);
+  state.clockInterval = null;
+  state.isClockRunning = false;
+  clearAutoAdvance(state);
+  liveStates.delete(organizationId);
+}
+
+/** Whether the organization has live state in memory (tests). */
+export function hasLiveState(organizationId: number): boolean {
+  return liveStates.has(organizationId);
+}
+
+/** Restores the active production of the organization in the context (startup, or switched on again). */
+export async function restoreLiveState() {
+  await restoreActiveProduction();
+}
+
+/** Active organizations with an active production (in the database), for background services. */
 export async function organizationsWithActiveProduction(): Promise<number[]> {
   const rows = await prismaUnscoped.production.findMany({
-    where: {isActive: true},
+    where: {isActive: true, organization: {isActive: true}},
     distinct: ['organizationId'],
     select: {organizationId: true},
   });

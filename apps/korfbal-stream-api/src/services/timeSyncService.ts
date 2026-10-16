@@ -74,4 +74,12 @@ export const timeSyncService = {
   initializeClient: (socket: { emit: (event: string, ...args: unknown[]) => unknown }) => {
     socket.emit('time_state_update', {...timeState()});
   },
+
+  /** Forgets an organization's clock (it was switched off). */
+  discard: (organizationId: number) => {
+    timeStates.delete(organizationId);
+  },
+
+  /** Whether the organization has a clock in memory (tests). */
+  hasState: (organizationId: number): boolean => timeStates.has(organizationId),
 };

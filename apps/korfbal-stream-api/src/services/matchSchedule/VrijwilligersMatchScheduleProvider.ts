@@ -204,7 +204,7 @@ export class VrijwilligersMatchScheduleProvider implements MatchScheduleProvider
     if (apiToken) headers['Authorization'] = `Bearer ${apiToken}`;
 
     logger.info('Requesting match schedule using URL ' + url.toString());
-    const response = await axios.get(url.toString(), {headers, timeout: 10000});
+    const response = await axios.get(url.toString(), {headers, signal: AbortSignal.timeout(10000)});
 
     // API can return either an array of items or an object keyed by ISO date with arrays as values.
     // Anything else (empty body, an HTML error page from a proxy, plain text) is not a valid answer.

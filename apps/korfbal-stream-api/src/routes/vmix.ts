@@ -132,7 +132,7 @@ vmixRouter.post('/set-timer', async (req, res, next) => {
     const base = target.instance.url;
     // vMix Web Controller API: SetCountdown expects Value=mm:ss
     const url = buildVmixApiUrl(base, `Function=SetCountdown&Value=${encodeURIComponent(value)}`);
-    const response = await axios.get(url, { timeout: 2000 });
+    const response = await axios.get(url, {signal: AbortSignal.timeout(2000)});
 
     return res.json({ ok: true, seconds: secs, instance: target.instance.name, vmixResponse: typeof response.data === 'string' ? response.data : undefined });
   } catch (err) {

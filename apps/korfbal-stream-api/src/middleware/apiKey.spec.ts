@@ -27,6 +27,10 @@ describe('withoutApiKey', () => {
     ['/api/x?key=a&key=b&seed=1', '/api/x?seed=1'],
     ['/api/x?k%65y=sk_abc', '/api/x'],
     ['/api/x?key[]=sk_abc&key[0]=sk_def', '/api/x'],
+    // qs's bracketed root: req.query.key as well
+    ['/api/x?[key]=sk_abc&seed=1', '/api/x?seed=1'],
+    ['/api/x?%5Bkey%5D=sk_abc', '/api/x'],
+    ['/api/x?[key][x]=sk_abc&%5Bkey%5D%5B%5D=sk_def', '/api/x'],
   ])('%s → %s', (url, expected) => expect(withoutApiKey(url)).toBe(expected));
 
   it('leaves URLs without a key alone, encoding included', () => {
@@ -58,6 +62,24 @@ describe('extractApiKey', () => {
   it('marks a key that isn\'t one string as invalid (null)', () => {
     expect(requestApiKey(run('/api/scoreboard?key[]=a', {}, {key: ['a']}))).toBeNull();
     expect(requestApiKey(run('/api/scoreboard?key=', {}, {key: ''}))).toBeNull();
+    expect(requestApiKey(run('/api/scoreboard?key=a&key=a', {}, {key: ['a', 'a']}))).toBeNull();
+  });
+
+  it('reads the key from the URL only: qs\'s other forms of `key` are invalid and stripped', () => {
+    for (const url of ['/api/scoreboard?[key]=sk_abc', '/api/scoreboard?%5Bkey%5D=sk_abc', '/api/scoreboard?key=sk_abc&[key]=sk_abc']) {
+      const req = run(url, {}, {key: 'sk_abc'});
+      expect(requestApiKey(req), url).toBeNull();
+      expect(req.url, url).toBe('/api/scoreboard');
+      expect(req.query, url).toEqual({});
+    }
+  });
+
+  it('treats a key only qs saw as invalid, and drops the whole query string', () => {
+    const req = run('/api/scoreboard?odd=sk_abc', {}, {key: 'sk_abc', odd: 'sk_abc'});
+    expect(requestApiKey(req)).toBeNull();
+    expect(req.url).toBe('/api/scoreboard');
+    expect(req.originalUrl).toBe('/api/scoreboard');
+    expect(req.query).toEqual({odd: 'sk_abc'});
   });
 
   it('leaves requests without a key untouched', () => {

@@ -30,6 +30,7 @@ import {venueClockSyncService} from "./services/venueClockSyncService";
 import {vmixCallsheetPushService} from './services/vmixCallsheetPush';
 import {organizationContext} from './middleware/organizationContext';
 import {extractApiKey, feedCors, withoutApiKey} from './middleware/apiKey';
+import {refuseCrossSiteWrites} from './middleware/sameOrigin';
 import {apiKeysRouter} from './routes/apiKeys';
 import {organizationsRouter} from './routes/organizations';
 import {matchSourceRouter} from './routes/matchSource';
@@ -113,6 +114,10 @@ if (!fs.existsSync(assetsRoot)) fs.mkdirSync(assetsRoot, { recursive: true });
 app.use('/assets', express.static(assetsRoot));
 app.use('/uploads', express.static(assetsRoot));
 app.use('/storage', express.static(assetsRoot)); // New route for storage
+
+// No writes from a page on another site (CSRF): there is no login, so this is the only thing that stops a
+// form on any website from posting to the API on the LAN. Before the organization context, also for global routes.
+app.use('/api', refuseCrossSiteWrites);
 
 // Every /api route runs for one organization (X-Organization), except the global ones (D3)
 app.use('/api', organizationContext);
