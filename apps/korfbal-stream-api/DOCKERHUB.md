@@ -62,15 +62,16 @@ services:
 | `DATABASE_URL` | ja | PostgreSQL connection string |
 | `PORT` | nee | Poort van de API (standaard `3333`) |
 | `ASSETS_DIR` | nee | Map voor logo's, foto's en KNKV-downloads (koppel als volume) |
-| `MATCH_SCHEDULE_BASE_URL` | nee | URL van de wedstrijdplanning-API |
-| `MATCH_SCHEDULE_API_TOKEN` | nee | Bearer token voor de wedstrijdplanning-API |
-| `MATCH_SCHEDULE_PROVIDER` | nee | Bron van de wedstrijdplanning (standaard `vrijwilligers`) |
 | `SCOREBOARD_BASE_URL` / `SHOTCLOCK_BASE_URL` | nee | Adressen van het scorebord en de schotklok in de zaal |
 | `HOST_IP` | nee | IP van de host, zodat de vMix-endpoints het juiste adres tonen |
 | `LOG_LEVEL` | nee | `error`, `warn`, `info` (standaard) of `debug` |
 | `SKIP_SEED` | nee | `true` bij de migratiejob: alleen migreren, niet seeden (bijv. na het terugzetten van een backup) |
 
 De vMix-pc's (één of meer, bijvoorbeeld een stream- en een scherm-pc) en andere instellingen stel je in via Beheer in de Kit.
+
+De **wedstrijdimport** (provider, URL en token) stel je per organisatie in via Beheer → Overig → Organisatie → Wedstrijdimport, niet met env-variabelen. De vroegere env-variabelen voor de wedstrijdplanning worden niet meer gelezen; je kunt ze uit je omgeving halen.
+
+vMix-databronnen en andere apparaten (scorebordschermen) hebben een **API-sleutel** van de organisatie nodig: zet `?key=<sleutel>` achter de URL of stuur de header `X-Api-Key`. Zonder sleutel antwoordt de API met 401 "API-sleutel ontbreekt". Een sleutel maak je in Beheer; hij wordt maar één keer getoond.
 
 ## Image
 

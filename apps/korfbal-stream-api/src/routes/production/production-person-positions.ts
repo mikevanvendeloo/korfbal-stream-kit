@@ -1,5 +1,6 @@
 import {Router} from 'express';
 import {prisma} from '../../services/prisma';
+import {assertProductionExists} from '../../services/production';
 
 export const productionPersonPositionsRouter: Router = Router();
 
@@ -72,6 +73,7 @@ productionPersonPositionsRouter.put('/:id/person-positions', async (req, res, ne
     if (!Number.isInteger(personId) || personId <= 0 || !Array.isArray(positionIds)) {
       return res.status(400).json({ error: 'Invalid personId or positionIds' });
     }
+    await assertProductionExists(productionId);
 
     // Transaction to ensure atomicity
     await prisma.$transaction(async (tx) => {

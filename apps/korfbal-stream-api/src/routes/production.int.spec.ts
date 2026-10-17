@@ -2,15 +2,13 @@ import request from 'supertest';
 import {execSync} from 'node:child_process';
 import app from '../main';
 import {beforeAll, beforeEach, describe, expect, it} from 'vitest';
-import {PrismaClient} from '@prisma/client';
-import {currentSeasonId} from '../../test-helpers';
+import {applyStandardSetToTestOrganization, currentSeasonId, testDb as prisma} from '../../test-helpers';
 
 function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
 }
 
 const runDb = process.env.REQUIRE_DB === 'true';
-const prisma = new PrismaClient();
 
 async function resetDb() {
   await prisma.$transaction([
@@ -29,7 +27,7 @@ async function resetDb() {
 describe.runIf(runDb)('Production API (integration)', () => {
   beforeAll(async () => {
     run('npx prisma migrate deploy --schema=apps/korfbal-stream-api/prisma/schema.prisma');
-    run('npx prisma db seed --schema=apps/korfbal-stream-api/prisma/schema.prisma');
+    await applyStandardSetToTestOrganization();
   });
 
   beforeEach(async () => {

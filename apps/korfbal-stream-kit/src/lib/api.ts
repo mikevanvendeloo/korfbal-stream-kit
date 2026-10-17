@@ -40,7 +40,8 @@ export type Sponsor = {
   id: number;
   name: string;
   type: 'premium' | 'goud' | 'zilver' | 'brons' | 'event';
-  logoUrl: string;
+  /** Set by an upload (`<organization id>/<file>`; older logos a plain file name), null without a logo */
+  logoUrl: string | null;
   websiteUrl: string;
   categories?: string | null;
   displayName?: string | null;

@@ -2,6 +2,7 @@ import request from 'supertest';
 import {execSync} from 'node:child_process';
 import app from '../main';
 import {beforeAll, describe, expect, it} from 'vitest';
+import {applyStandardSetToTestOrganization, testDb as prisma} from '../../test-helpers';
 
 // Integration test against a real Postgres instance.
 // Requires DATABASE_URL to point to a running Postgres and that `prisma` CLI is available.
@@ -15,10 +16,10 @@ function run(cmd: string) {
 const runDb = process.env.REQUIRE_DB === 'true';
 
 describe.runIf(runDb)('Sponsors API (integration)', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     // Apply migrations and seed to real DB
     run('npx prisma migrate deploy --schema=apps/korfbal-stream-api/prisma/schema.prisma');
-    run('npx prisma db seed --schema=apps/korfbal-stream-api/prisma/schema.prisma');
+    await applyStandardSetToTestOrganization();
   });
 
   it('creates and lists sponsors with filtering & pagination (real DB)', async () => {

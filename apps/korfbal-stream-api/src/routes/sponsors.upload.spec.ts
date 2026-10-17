@@ -2,6 +2,7 @@ import request from 'supertest';
 import app from '../main';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import ExcelJS from 'exceljs';
+import {testOrganizationId} from '../../test-helpers';
 
 // Mock prisma client methods used by the routes
 import * as prismaSvc from '../services/prisma';
@@ -162,11 +163,15 @@ describe('Sponsors Excel upload API', () => {
     expect(preserved.displayName).toBe('Original Display');
   });
 
-  it('normalizes logo filenames during Excel import (ampersand, slashes, diacritics)', async () => {
+  it('takes the Logo column only for a logo in the organization\'s own directory', async () => {
+    // The test organization: id 1 in unit tests (test-setup.ts), the real one with a database
+    const own = process.env.REQUIRE_DB === 'true' ? await testOrganizationId() : 1;
     const buf = await makeWorkbookBuffer([
-      { Name: 'A and B', Labels: 'Brons', Website: 'https://ab.example', Logo: 'A&B.png' },
-      { Name: 'Weird', Labels: 'Brons', Website: 'https://weird.example', Logo: 'weird/\\name.jpeg' },
-      { Name: 'Cafe', Labels: 'Brons', Website: 'https://cafe.example', Logo: 'Café.svg' },
+      { Name: 'Eigen', Labels: 'Brons', Website: 'https://eigen.example', Logo: `${own}/eigen.png` },
+      { Name: 'Plat', Labels: 'Brons', Website: 'https://plat.example', Logo: 'A&B.png' },
+      { Name: 'Vreemd', Labels: 'Brons', Website: 'https://vreemd.example', Logo: `${own + 1}/vreemd.png` },
+      { Name: 'Pad', Labels: 'Brons', Website: 'https://pad.example', Logo: `${own}/../${own + 1}/x.png` },
+      { Name: 'Leeg', Labels: 'Brons', Website: 'https://leeg.example' },
     ]);
 
     const res = await request(app)
@@ -174,32 +179,23 @@ describe('Sponsors Excel upload API', () => {
       .attach('file', buf, { filename: 'sponsors.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
     expect(res.status).toBe(200);
-    expect(res.body.ok).toBe(true);
-    expect(res.body.created).toBe(3);
-
+    expect(res.body.created).toBe(5);
     const list = await request(app).get('/api/sponsors?limit=100');
-    expect(list.status).toBe(200);
-
-    const aAndB = list.body.items.find((s: any) => s.name === 'A and B');
-    const weird = list.body.items.find((s: any) => s.name === 'Weird');
-    const cafe = list.body.items.find((s: any) => s.name === 'Cafe');
-
-    expect(aAndB.logoUrl).toBe('a-en-b.png');
-    expect(weird.logoUrl).toBe('weirdname.png');
-    expect(cafe.logoUrl).toBe('cafe.png');
+    const logo = (name: string) => list.body.items.find((s: any) => s.name === name).logoUrl;
+    expect(logo('Eigen')).toBe(`${own}/eigen.png`);
+    for (const name of ['Plat', 'Vreemd', 'Pad', 'Leeg']) expect(logo(name), name).toBeNull();
   });
 });
 
 
-it('overwrites logo when only case changes on re-import (derive lower-case from name)', async () => {
-  // First create via API with mixed-case derived logo (preserves casing)
+it('keeps the existing logo on re-import, and never derives one from the name', async () => {
   const createRes = await request(app).post('/api/sponsors').send({ name: 'ACME BV', type: 'premium', websiteUrl: 'https://acme.example' });
   expect(createRes.status).toBe(201);
-  expect(createRes.body.logoUrl).toBe('acme-bv.png');
+  expect(createRes.body.logoUrl).toBeNull();
+  await prisma.sponsor.update({ where: { id: createRes.body.id }, data: { logoUrl: 'acme-bv.png' } });
 
-  // Now upload Excel without Logo column; import should derive lowercased filename and update existing row
   const buf = await makeWorkbookBuffer([
-    { Name: 'ACME BV', Labels: 'Premium', Website: 'https://acme.example' },
+    { Name: 'ACME BV', Labels: 'Premium', Website: 'https://acme.example', Logo: '2/andere.png' },
   ]);
 
   const res = await request(app)
@@ -210,7 +206,6 @@ it('overwrites logo when only case changes on re-import (derive lower-case from 
   expect(res.body.updated).toBe(1);
 
   const list = await request(app).get('/api/sponsors?limit=100');
-  expect(list.status).toBe(200);
   const acme = list.body.items.find((s: any) => s.name === 'ACME BV');
   expect(acme.logoUrl).toBe('acme-bv.png');
 });

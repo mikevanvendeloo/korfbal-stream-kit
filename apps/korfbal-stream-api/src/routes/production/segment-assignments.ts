@@ -104,7 +104,7 @@ segmentAssignmentsRouter.post('/segments/:segmentId/assignments', async (req, re
     else requiredCode = getRequiredSkillCodeForPosition(pos.name);
     if (requiredCode) {
       // Resolve skillId by code
-      const cap = await prisma.skill.findUnique({ where: { code: requiredCode } });
+      const cap = await prisma.skill.findFirst({ where: { code: requiredCode } });
       if (!cap) return res.status(422).json({ error: `Vereiste skill ${requiredCode} bestaat niet` });
       const hasCap = await prisma.personSkill.findUnique({ where: { personId_skillId: { personId, skillId: cap.id } } });
       if (!hasCap) {

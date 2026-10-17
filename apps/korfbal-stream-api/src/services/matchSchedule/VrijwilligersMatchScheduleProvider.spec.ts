@@ -1,6 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import axios from 'axios';
-import {VrijwilligersMatchScheduleProvider} from './VrijwilligersMatchScheduleProvider';
+import {colorForTeam, VrijwilligersMatchScheduleProvider} from './VrijwilligersMatchScheduleProvider';
 import {InvalidMatchScheduleResponseError} from './MatchScheduleProvider';
 
 vi.mock('axios');
@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 function makeProvider(baseUrl = 'https://provider.example.com/v1', apiToken?: string) {
-  return new VrijwilligersMatchScheduleProvider(baseUrl, apiToken);
+  return new VrijwilligersMatchScheduleProvider(baseUrl, apiToken, ['Fortuna/Ruitenheer']);
 }
 
 describe('VrijwilligersMatchScheduleProvider', () => {
@@ -229,5 +229,23 @@ describe('VrijwilligersMatchScheduleProvider', () => {
     const provider = makeProvider();
 
     await expect(provider.fetchMatches({date: '2025-11-01'})).rejects.toThrow('network error');
+  });
+
+  describe('colorForTeam', () => {
+    it('colours youth teams of the organization\'s own club names only', () => {
+      expect(colorForTeam('Fortuna/Ruitenheer J1', ['Fortuna/Ruitenheer'])).toBe('red');
+      expect(colorForTeam('fortuna/ruitenheer j14', ['Fortuna/Ruitenheer'])).toBe('green');
+      expect(colorForTeam('Fortuna/Ruitenheer J1', ['PKC'])).toBeUndefined();
+      expect(colorForTeam('PKC J1', ['PKC', ''])).toBe('red');
+    });
+
+    it('treats the club name literally, not as a pattern', () => {
+      expect(colorForTeam('FortunaXRuitenheer J1', ['Fortuna.Ruitenheer'])).toBeUndefined();
+      expect(colorForTeam('Fortuna.Ruitenheer J1', ['Fortuna.Ruitenheer'])).toBe('red');
+    });
+
+    it('gives no colour without own club names', () => {
+      expect(colorForTeam('Fortuna/Ruitenheer J1', [])).toBeUndefined();
+    });
   });
 });

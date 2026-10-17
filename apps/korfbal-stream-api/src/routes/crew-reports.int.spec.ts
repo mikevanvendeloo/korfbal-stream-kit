@@ -1,8 +1,7 @@
 import request from 'supertest';
 import app from '../main';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {prisma} from '../services/prisma';
-import {currentSeasonId} from '../../test-helpers';
+import {currentSeasonId, testDb as prisma} from '../../test-helpers';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 const PREFIX = 'CrewReport Int';
@@ -19,7 +18,7 @@ describe.runIf(runDb)('crew reports (integration)', () => {
   beforeAll(async () => {
     seasonId = await currentSeasonId(prisma);
     // Use the existing commentary skill; only create (and later remove) it when the test db has none
-    let skill = await prisma.skill.findUnique({where: {code: 'COMMENTAAR'}});
+    let skill = await prisma.skill.findFirst({where: {code: 'COMMENTAAR'}});
     if (!skill) {
       skill = await prisma.skill.create({data: {code: 'COMMENTAAR', name: 'Commentaar', nameMale: 'Commentator', nameFemale: 'Commentatrice'}});
       createdSkillId = skill.id;

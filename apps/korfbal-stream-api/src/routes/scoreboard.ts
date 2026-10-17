@@ -11,7 +11,7 @@ scoreboardRouter.get('/', async (_req, res) => {
   try {
     const baseUrl = await getScoreboardUrl() || config.scoreBoardBaseUrl;
     const url = `${baseUrl.replace(/\/$/, '')}/score-as-array`;
-    const response = await axios.get(url, { timeout: 2000 });
+    const response = await axios.get(url, {signal: AbortSignal.timeout(2000)});
 
     if (!Array.isArray(response.data)) {
       return res.status(502).json({ error: 'Invalid response format from scoreboard' });
@@ -35,7 +35,7 @@ scoreboardRouter.get('/shotclock', async (_req, res) => {
   try {
     const baseUrl = await getShotclockUrl() || config.shotClockBaseUrl;
     const url = `${baseUrl.replace(/\/$/, '')}/time-as-array`;
-    const response = await axios.get(url, { timeout: 2000 });
+    const response = await axios.get(url, {signal: AbortSignal.timeout(2000)});
 
     const data = response.data;
     if (!Array.isArray(data)) {
@@ -60,7 +60,7 @@ scoreboardRouter.get('/clock', async (_req, res) => {
   try {
     const baseUrl = await getScoreboardUrl() || config.scoreBoardBaseUrl;
     const url = `${baseUrl.replace(/\/$/, '')}/time-as-array`;
-    const response = await axios.get(url, { timeout: 2000 });
+    const response = await axios.get(url, {signal: AbortSignal.timeout(2000)});
 
     if (!Array.isArray(response.data)) {
       return res.status(502).json({ error: 'Invalid response format from scoreboard clock' });

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {getAssetsRoot} from './config';
 
-type SponsorLike = { name: string; displayName?: string | null; logoUrl: string };
+type SponsorLike = { name: string; displayName?: string | null; logoUrl: string | null };
 
 const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
 

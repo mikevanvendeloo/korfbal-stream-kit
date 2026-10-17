@@ -63,7 +63,7 @@ services:
     image: korfbal-stream-api:localtest
     networks:
       - korfbal-network
-    # Optioneel: MATCH_SCHEDULE_API_TOKEN uit je lokale, niet-ingecheckte secrets.env
+    # Optioneel: lokale secrets uit je niet-ingecheckte secrets.env
     env_file:
       - path: secrets.env
         required: false
@@ -71,7 +71,6 @@ services:
       TZ: Europe/Amsterdam
       NODE_ENV: production
       DATABASE_URL: postgresql://fortuna:${LOCALTEST_DB_PASSWORD:-localtest}@streamz-db:5432/streamz?schema=public
-      MATCH_SCHEDULE_BASE_URL: "https://api.sportclubvrijwilligersmanagement.nl/v1"
       PORT: 3333
       ASSETS_DIR: /app/storage
     depends_on:

@@ -11,8 +11,8 @@ import {
 } from '../hooks/useProductions';
 import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdDownload, MdEdit, MdGroups, MdInfo, MdPlayCircle, MdUpload} from 'react-icons/md';
-import {createUrl} from '../lib/api';
 import {adminPaths} from '../lib/adminPaths';
+import {downloadExport} from '../lib/download';
 
 function formatMatchDate(date: string): string {
   const d = new Date(date);
@@ -77,7 +77,7 @@ export default function ProductionsAdminPage() {
   }
 
   const handleExport = (id: number) => {
-    window.open(createUrl(`/api/production/${id}/export`).toString(), '_blank');
+    void downloadExport(`/api/production/${id}/export`, `productie-${id}.json`);
   };
 
   const handleImportClick = () => {

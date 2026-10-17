@@ -115,6 +115,9 @@ segmentTemplatesRouter.post('/:id/items', async (req, res, next) => {
     if (!naam || duurInMinuten === undefined) {
       return res.status(400).json({ error: 'Naam and duurInMinuten are required' });
     }
+    if (!(await prisma.segmentTemplate.findUnique({ where: { id: templateId }, select: { id: true } }))) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
 
     const maxItem = await prisma.segmentTemplateItem.aggregate({
       _max: { volgorde: true },
@@ -388,7 +391,7 @@ segmentTemplatesRouter.post('/import-json', async (req, res, next) => {
     if (items.length === 0) return res.status(400).json({ error: 'No items to import' });
 
     const upserted = await prisma.$transaction(async (tx) => {
-      const existing = await tx.segmentTemplate.findUnique({ where: { name } }).catch(() => null);
+      const existing = await tx.segmentTemplate.findFirst({ where: { name } }).catch(() => null);
       let tplId: number;
       if (existing) {
         tplId = existing.id;

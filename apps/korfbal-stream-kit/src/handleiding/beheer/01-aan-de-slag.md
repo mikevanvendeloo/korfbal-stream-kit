@@ -1,6 +1,6 @@
 # Aan de slag met Beheer
 
-Beheer is het deel van Korfbal StreamKit waarin je alles voorbereidt: het seizoen, de crew en posities, de draaiboeken en per wedstrijd de productie. Je opent het via **Beheer** rechtsboven in LIVE, of rechtstreeks op `/admin`. De crew gebruikt tijdens de uitzending LIVE (zie de *Handleiding LIVE*).
+Beheer is het deel van Korfbal StreamKit waarin je alles voorbereidt: het seizoen, de crew en posities, de draaiboeken en per wedstrijd de productie. Je opent het via **Beheer** rechtsboven in LIVE, of rechtstreeks op `/admin`. Alles wat je hier doet, geldt voor de gekozen organisatie ([Organisaties](/admin/handleiding/organisaties)). De crew gebruikt tijdens de uitzending LIVE (zie de *Handleiding LIVE*).
 
 ## Het menu
 
@@ -10,10 +10,11 @@ Beheer is het deel van Korfbal StreamKit waarin je alles voorbereidt: het seizoe
 | **Draaiboeken** | Herbruikbare draaiboek- en segment-templates, standaardbezetting per segment |
 | **Stamgegevens** | Eén keer of per seizoen: crew (personen, posities, skills), competitie (wedstrijden, clubs en spelers), sponsors en vMix |
 | **Rapportages** | Overzichten over producties heen |
-| **Overig** | Hulpmiddelen, zoals de QR-generator |
+| **Overig** | De gekozen **Organisatie** (wedstrijdimport, API-sleutels), alle **Organisaties**, en hulpmiddelen zoals de QR-generator |
 
 Rechtsboven:
 
+- **Logo en naam**: de organisatie waarvoor je werkt. Klik erop om te wisselen ([Organisaties](/admin/handleiding/organisaties)).
 - **Seizoen …**: het actieve seizoen. Klik erop om een ander seizoen te kiezen.
 - **Tandwiel**: de [instellingen](/admin/handleiding/instellingen).
 - **?**: deze handleiding, bij het scherm waar je bent.

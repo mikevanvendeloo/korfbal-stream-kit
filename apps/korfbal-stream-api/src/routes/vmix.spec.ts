@@ -5,8 +5,11 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 // Mock prisma client methods used by the route
 import * as prismaSvc from '../services/prisma';
 import * as appSettings from '../services/appSettings';
+import {SPONSOR_CAROUSEL_EXTRA_KEY} from '../services/appSettings';
+import {installSeasonMocks, SeasonMockState} from '../../test-helpers';
 
 const prisma = (prismaSvc as any).prisma as any;
+let seasonState: SeasonMockState;
 
 // Mock appSettings
 vi.mock('../services/appSettings', async (importOriginal) => {
@@ -97,6 +100,7 @@ describe('vMix API - sponsor names ticker', () => {
 
 describe('vMix API - sponsor carousel', () => {
   beforeEach(() => {
+    seasonState = installSeasonMocks(prisma);
     prisma.sponsor = {
       findMany: vi.fn(async () => []),
     };
@@ -131,10 +135,23 @@ describe('vMix API - sponsor carousel', () => {
         enabled: true
       }
     }));
-    // Should include the two from DB plus the hardcoded one
-    expect(res.body.length).toBe(3);
+    // Only the two from DB: no extra entry configured for this organization
+    expect(res.body.length).toBe(2);
     expect(res.body.some((s: any) => s.name === 'Alpha BV')).toBe(true);
-    expect(res.body.some((s: any) => s.name === 'Fortuna sponsor')).toBe(true);
+  });
+
+  it('adds the organization\'s configured extra entry', async () => {
+    prisma.sponsor.findMany = vi.fn(async () => [
+      { id: 1, name: 'Alpha BV', logoUrl: 'alpha.png', type: 'premium', enabled: true },
+    ]);
+    seasonState.settings.set(SPONSOR_CAROUSEL_EXTRA_KEY, {name: 'Club sponsor', logoUrl: 'Sponsoring.png', websiteUrl: 'https://club.example'});
+
+    const res = await request(app).get('/api/vmix/sponsor-carrousel');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(expect.arrayContaining([
+      {name: 'Club sponsor', commercial: 'sponsoring.png', type: 'premium', website: 'https://club.example'},
+    ]));
   });
 });
 

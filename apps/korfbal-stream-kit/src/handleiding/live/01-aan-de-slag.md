@@ -2,6 +2,17 @@
 
 LIVE is het deel van Korfbal StreamKit dat de crew tijdens een uitzending gebruikt. Je ziet hier de actieve productie, je eigen callsheet, de Show Caller, het scorebord en de vMix-bediening. Alles wat je ziet volgt de productie die in Beheer **actief** is gezet.
 
+## Organisatie kiezen
+
+Korfbal StreamKit wordt door meer dan één organisatie gebruikt (bijvoorbeeld Fortuna en het KNKV). Elke organisatie heeft haar eigen producties, crew, sponsors en instellingen. Open je de app voor het eerst op een apparaat, dan zie je het scherm **Kies een organisatie**, met een grote knop (logo en naam) per organisatie. Tik op de jouwe.
+
+- Je keuze wordt **op dit apparaat onthouden**: de volgende keer ga je direct door. De adressen (bijvoorbeeld van je callsheet) blijven hetzelfde.
+- Is er maar één organisatie, dan kiest de app die zelf.
+- **Wisselen**: klik in de menubalk op het logo en de naam van je organisatie (op een telefoon staat die knop in het menu). Je komt weer op het keuzescherm; **Terug** laat alles zoals het was.
+- Zie je het keuzescherm onverwacht terug, dan bestaat je organisatie niet meer of is ze uitgezet. Kies opnieuw, of vraag de beheerder.
+
+Na het wisselen zie je alleen nog de gegevens van de nieuwe organisatie; niets van de vorige blijft op het scherm staan.
+
 ## De menubalk
 
 Bovenin staat altijd dezelfde balk:
@@ -14,10 +25,11 @@ Bovenin staat altijd dezelfde balk:
 | **Show Caller** | Het hele draaiboek, en de knoppen om de show door te zetten |
 | **vMix** | Countdown-timer en de callsheet naar vMix voor presentator en analist |
 
-Op een telefoon of tablet staat in de balk alleen het logo, **LIVE** en de naam van het scherm waar je bent. Met de **menuknop** (drie streepjes) open je de onderdelen, **Beheer**, **Over deze app** en het donkere thema.
+Op een telefoon of tablet staat in de balk alleen het logo, **LIVE** en de naam van het scherm waar je bent. Met de **menuknop** (drie streepjes) open je de onderdelen, je organisatie (om te wisselen), **Beheer**, **Over deze app** en het donkere thema.
 
 Rechts in de balk:
 
+- **Logo en naam van je organisatie**: wisselen van organisatie (zie hierboven).
 - **Beheer** opent het deel waarin de productie wordt voorbereid (zie de *Handleiding Beheer*).
 - **?** opent deze handleiding bij het scherm waar je op dat moment bent.
 - **i** toont de versie van de app.

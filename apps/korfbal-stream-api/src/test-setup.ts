@@ -4,6 +4,7 @@ import supertest from 'supertest';
 import {afterAll, beforeAll} from 'vitest';
 import {PrismaClient} from '@prisma/client';
 import {useTestDatabase} from './test-database';
+import {TEST_ORGANIZATION_SLUG} from '../test-scenarios';
 
 // supertest listens on a random port on all interfaces ('::') and then connects to 127.0.0.1. When
 // another process (e.g. a Docker or kind port) holds that port on 127.0.0.1 only, the bind still
@@ -18,6 +19,15 @@ Test.prototype.serverAddress = function (this: {_server?: unknown}, app: any, pa
   return `${protocol}://${host}:${port}${path}`;
 };
 
+// Every API request in the tests runs as the test organization unless the test chooses otherwise:
+// `.set('X-Organization', 'other')`, or `withoutOrganization(request(app).get(...))` (test-helpers.ts).
+const {Test: OrganizationTest} = supertest as unknown as {Test: {prototype: {end: (...args: unknown[]) => unknown}}};
+const originalEnd = OrganizationTest.prototype.end;
+OrganizationTest.prototype.end = function (this: {withoutOrganization?: boolean; get: (h: string) => unknown; set: (h: string, v: string) => void}, ...args: unknown[]) {
+  if (!this.withoutOrganization && this.get('X-Organization') === undefined) this.set('X-Organization', TEST_ORGANIZATION_SLUG);
+  return originalEnd.apply(this, args);
+};
+
 // supertest starts (and closes) a new server for every request. Node's default agent keeps connections
 // alive, so a pooled socket to a closed test server can be reused for a later request: 'socket hang up'.
 http.globalAgent = new http.Agent({keepAlive: false});
@@ -26,6 +36,16 @@ http.globalAgent = new http.Agent({keepAlive: false});
 useTestDatabase();
 
 const prisma = new PrismaClient();
+
+// Unit tests (no database): the organization middleware still looks the slug up, so answer it here.
+if (process.env.REQUIRE_DB !== 'true') {
+  const {prisma: appPrisma} = await import('./services/prisma');
+  const testOrganization = {id: 1, slug: TEST_ORGANIZATION_SLUG, name: 'Test', logoUrl: null, clubId: null, isActive: true, createdAt: new Date(0)};
+  (appPrisma as any).organization = {
+    findUnique: async ({where}: {where: {slug?: string; id?: number}}) =>
+      where.slug === TEST_ORGANIZATION_SLUG || where.id === testOrganization.id ? testOrganization : null,
+  };
+}
 
 beforeAll(async () => {
   // Check if database is required and available

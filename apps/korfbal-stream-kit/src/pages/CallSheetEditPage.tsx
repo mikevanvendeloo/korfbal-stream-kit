@@ -13,11 +13,6 @@ import {useProductionSegments} from '../hooks/useProductions';
 import {usePositionsCatalog} from '../hooks/usePositions';
 import {adminPaths} from '../lib/adminPaths';
 
-function uuid8() {
-  // not cryptographically secure, but sufficient for UI id suggestion
-  return Math.random().toString(16).slice(2, 10);
-}
-
 export default function CallSheetEditPage() {
   const params = useParams<{ id: string; callSheetId: string }>();
   const productionId = Number(params.id);
@@ -35,8 +30,8 @@ export default function CallSheetEditPage() {
 
   const [err, setErr] = React.useState<string | null>(null);
 
+  // No id: the server chooses item ids (they are global over all organizations)
   const [form, setForm] = React.useState({
-    id: uuid8(),
     cue: '',
     title: '',
     note: '',
@@ -104,13 +99,12 @@ export default function CallSheetEditPage() {
     setErr(null);
     try {
       const payload: any = { ...form };
-      if (!payload.id) payload.id = uuid8();
       if (!payload.cue) throw new Error('Cue is verplicht');
       if (!payload.title) throw new Error('Titel is verplicht');
       payload.timeStart = payload.timeStart ? new Date(payload.timeStart).toISOString() : undefined;
       payload.timeEnd = payload.timeEnd ? new Date(payload.timeEnd).toISOString() : undefined;
       await createItem.mutateAsync(payload as any);
-      setForm({ id: uuid8(), cue: '', title: '', note: '', color: '', durationSec: 0, timeStart: '', timeEnd: '', orderIndex: 0, isInVenue: false, isInLivestream: true, isTimeAnchor: false, autoAdvance: false, anchorType: '', parentId: '', positionIds: []});
+      setForm({ cue: '', title: '', note: '', color: '', durationSec: 0, timeStart: '', timeEnd: '', orderIndex: 0, isInVenue: false, isInLivestream: true, isTimeAnchor: false, autoAdvance: false, anchorType: '', parentId: '', positionIds: []});
     } catch (e: any) {
       setErr(e?.message || 'Toevoegen mislukt');
     }
@@ -378,10 +372,6 @@ export default function CallSheetEditPage() {
           <div className="font-bold text-white/40 uppercase">Volgorde</div>
           <input type="number" value={form.orderIndex} onChange={(e) => setForm((f) => ({ ...f, orderIndex: Number(e.target.value||0) }))} className="bg-black/40 border border-white/10 rounded px-3 py-2 text-white focus:border-blue-500/50 outline-none" />
         </label>
-        <div className="md:col-span-1 flex flex-col gap-1.5">
-          <div className="font-bold text-white/40 uppercase text-xs">ID</div>
-          <input value={form.id} readOnly className="bg-black/20 border border-white/5 rounded px-3 py-2 text-white/30 text-[10px] font-mono outline-none" />
-        </div>
 
         <label className="text-xs flex flex-col gap-1.5">
           <div className="font-bold text-white/40 uppercase">Begin (optioneel)</div>

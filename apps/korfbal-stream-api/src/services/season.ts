@@ -2,6 +2,7 @@ import {Prisma, PrismaClient, Season} from '@prisma/client';
 import {z} from 'zod';
 import {prisma} from './prisma';
 import {getSetting, setSetting} from './appSettings';
+import {getOrganizationId} from './organizationContext';
 
 export const SEASON_TIME_ZONE = 'Europe/Amsterdam';
 export const ACTIVE_SEASON_ID_KEY = 'activeSeasonId';
@@ -263,9 +264,20 @@ export interface SeasonDto {
   createdAt: string;
 }
 
-export type SeasonWithCounts = Season & { _count: { matches: number; players: number } };
+/** `matches` is missing when the counts were read without an organization (see seasonCountsInclude). */
+export type SeasonWithCounts = Season & { _count: { matches?: number; players: number } };
 
-export const SEASON_COUNTS_INCLUDE = {_count: {select: {matches: true, players: true}}} as const;
+/**
+ * Counts for the season DTO. Seasons and players are global, matches belong to an organization:
+ * `/api/seasons` is a global route, so with an organization in the context only its own matches are
+ * counted, and without one no matches at all (matchCount 0; the extension refuses to count them).
+ * Deleting a season that still has matches of any organization is refused by the database anyway.
+ */
+export function seasonCountsInclude() {
+  return getOrganizationId() === undefined
+    ? ({_count: {select: {players: true}}} as const)
+    : ({_count: {select: {matches: true, players: true}}} as const);
+}
 
 export function toSeasonDto(season: SeasonWithCounts, activeSeasonId: number): SeasonDto {
   const {startDate, endDate} = seasonDateRange(season.startYear);
@@ -276,7 +288,7 @@ export function toSeasonDto(season: SeasonWithCounts, activeSeasonId: number): S
     startDate: startDate.toISOString(),
     endDate: endDate.toISOString(),
     isActive: season.id === activeSeasonId,
-    matchCount: season._count.matches,
+    matchCount: season._count.matches ?? 0,
     playerCount: season._count.players,
     createdAt: season.createdAt.toISOString(),
   };

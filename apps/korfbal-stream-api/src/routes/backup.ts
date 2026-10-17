@@ -1,3 +1,5 @@
+import {requireOrganizationId} from '../services/organizationContext';
+import {randomUUID} from 'node:crypto';
 import {Router} from 'express';
 import {findExistingPosition, findOrCreatePosition} from '../services/positions';
 import {prisma} from '../services/prisma';
@@ -5,21 +7,24 @@ import {logger} from '../utils/logger';
 import {PersonInputSchema} from '../schemas/person';
 import {SkillInputSchema} from '../schemas/skill';
 import {SponsorInputSchema} from '../schemas/sponsor';
+import {resolveClientLogoUrl} from '../services/sponsorLogos';
 import {
   ACTIVE_SEASON_ID_KEY,
-  clearSeasonCache,
   createSeasonIdResolver,
-  ensureSeasonForStartYear,
   getActiveSeason,
-  tryParseSeasonName,
 } from '../services/season';
 import {migrateLegacySeasonAssets} from '../services/seasonAssetMigration';
-import {clearSettingsCache} from '../services/appSettings';
+import {getSetting, GLOBAL_SETTING_KEYS, setSetting} from '../services/appSettings';
+import {getOwnClubId, setOwnClubId} from '../services/ownClub';
 
 export const backupRouter: Router = Router();
 
 /** Settings-backup key for the active season, stored by name because season ids differ per database. */
 export const ACTIVE_SEASON_NAME_EXPORT_KEY = 'activeSeasonName';
+/** The own club of backups made before it moved to Organization.clubId. */
+const LEGACY_OWN_CLUB_ID_KEY = 'ownClubId';
+// Club ids are serial per database (the clubs restore matches on slug): the own club also goes out by slug
+const OWN_CLUB_SLUG_EXPORT_KEY = 'ownClubSlug';
 
 // Version for segment template JSON
 const SEGMENT_TEMPLATE_JSON_VERSION = 1 as const;
@@ -443,22 +448,24 @@ backupRouter.get('/sponsors/export', async (_req, res, next) => {
 });
 
 // GET /api/backup/settings/export
+// The chosen organization's settings and own club, plus the installation's active season (by name, for
+// reference: a restore into one organization doesn't change it).
 backupRouter.get('/settings/export', async (_req, res, next) => {
   try {
-    const items = await prisma.setting.findMany({
-      orderBy: { key: 'asc' }
-    });
-
-    const exportData: { key: string; value: unknown }[] = [];
-    for (const s of items) {
-      if (s.key !== ACTIVE_SEASON_ID_KEY) {
-        exportData.push({ key: s.key, value: s.value });
-        continue;
-      }
-      // Season ids are serial per database: export the active season by name so it resolves on import.
-      const season = typeof s.value === 'number' ? await prisma.season.findUnique({ where: { id: s.value } }) : null;
-      if (season) exportData.push({ key: ACTIVE_SEASON_NAME_EXPORT_KEY, value: season.name });
+    const items = await prisma.organizationSetting.findMany({ orderBy: { key: 'asc' } });
+    const exportData: { key: string; value: unknown }[] = items.map((s) => ({ key: s.key, value: s.value }));
+    // The own club lives on the organization; exported under its old key so older and newer backups restore alike
+    const ownClubId = await getOwnClubId();
+    if (ownClubId !== null) {
+      exportData.push({ key: LEGACY_OWN_CLUB_ID_KEY, value: ownClubId });
+      const club = await prisma.club.findUnique({ where: { id: ownClubId }, select: { slug: true } });
+      if (club) exportData.push({ key: OWN_CLUB_SLUG_EXPORT_KEY, value: club.slug });
     }
+
+    // Season ids are serial per database: export the active season by name so it resolves on import.
+    const activeSeasonId = await getSetting<number>(ACTIVE_SEASON_ID_KEY);
+    const season = typeof activeSeasonId === 'number' ? await prisma.season.findUnique({ where: { id: activeSeasonId } }) : null;
+    if (season) exportData.push({ key: ACTIVE_SEASON_NAME_EXPORT_KEY, value: season.name });
 
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', 'attachment; filename=settings.json');
@@ -491,7 +498,7 @@ backupRouter.post('/persons/import', async (req, res, next) => {
         // Skills management
         if (Array.isArray(item.skills)) {
           for (const s of item.skills) {
-            const skill = await prisma.skill.findUnique({ where: { code: s.code } });
+            const skill = await prisma.skill.findFirst({ where: { code: s.code } });
             if (skill) {
               await prisma.personSkill.upsert({
                 where: { personId_skillId: { personId: person.id, skillId: skill.id } },
@@ -501,7 +508,7 @@ backupRouter.post('/persons/import', async (req, res, next) => {
             }
           }
         }
-      } catch (_) {}
+      } catch (_) { /* an invalid row is skipped */ }
     }
     return res.json({ ok: true, created, updated });
   } catch (err) {
@@ -519,7 +526,7 @@ backupRouter.post('/skills/import', async (req, res, next) => {
     for (const item of data) {
       try {
         const input = SkillInputSchema.parse(item);
-        const existing = await prisma.skill.findUnique({ where: { code: input.code } });
+        const existing = await prisma.skill.findFirst({ where: { code: input.code } });
         if (existing) {
           await prisma.skill.update({ where: { id: existing.id }, data: input as any });
           updated++;
@@ -527,7 +534,7 @@ backupRouter.post('/skills/import', async (req, res, next) => {
           await prisma.skill.create({ data: input as any });
           created++;
         }
-      } catch (_) {}
+      } catch (_) { /* an invalid row is skipped */ }
     }
     return res.json({ ok: true, created, updated });
   } catch (err) {
@@ -544,7 +551,7 @@ backupRouter.post('/positions/import', async (req, res, next) => {
     let created = 0, updated = 0;
     for (const item of data) {
       try {
-        const skill = item.skillCode ? await prisma.skill.findUnique({ where: { code: item.skillCode } }) : null;
+        const skill = item.skillCode ? await prisma.skill.findFirst({ where: { code: item.skillCode } }) : null;
         const input = {
           name: item.name,
           category: item.category,
@@ -560,7 +567,7 @@ backupRouter.post('/positions/import', async (req, res, next) => {
           await prisma.position.create({ data: input as any });
           created++;
         }
-      } catch (_) {}
+      } catch (_) { /* an invalid row is skipped */ }
     }
     return res.json({ ok: true, created, updated });
   } catch (err) {
@@ -603,7 +610,7 @@ backupRouter.post('/matches/import', async (req, res, next) => {
 
         let existing;
         if (item.externalId) {
-          existing = await prisma.matchSchedule.findUnique({ where: { externalId: item.externalId } });
+          existing = await prisma.matchSchedule.findFirst({ where: { externalId: item.externalId } });
         } else {
           existing = await prisma.matchSchedule.findFirst({
             where: {
@@ -621,7 +628,7 @@ backupRouter.post('/matches/import', async (req, res, next) => {
           await prisma.matchSchedule.create({ data: matchData });
           created++;
         }
-      } catch (_) {}
+      } catch (_) { /* an invalid row is skipped */ }
     }
     return res.json({ ok: true, created, updated });
   } catch (err) {
@@ -643,7 +650,7 @@ backupRouter.post('/segment-templates/import', async (req, res, next) => {
         const name = String(item.name || '').trim();
         if (!name) continue;
         const items = Array.isArray(item.items) ? item.items : [];
-        const existing = await prisma.segmentTemplate.findUnique({ where: { name } }).catch(() => null);
+        const existing = await prisma.segmentTemplate.findFirst({ where: { name } }).catch(() => null);
         let tplId: number;
         if (existing) {
           tplId = existing.id;
@@ -662,7 +669,7 @@ backupRouter.post('/segment-templates/import', async (req, res, next) => {
           if (!naam || !Number.isInteger(volgorde) || volgorde <= 0 || !Number.isInteger(duurInMinuten) || duurInMinuten < 0) continue;
           await prisma.segmentTemplateItem.create({ data: { templateId: tplId, naam, volgorde, duurInMinuten, isTimeAnchor } });
         }
-      } catch (_) {}
+      } catch (_) { /* an invalid row is skipped */ }
     }
     return res.json({ ok: true, created, updated });
   } catch (err) {
@@ -691,7 +698,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
           // 1. Find or create MatchSchedule
           let match;
           if (item.matchSchedule.externalId) {
-            match = await tx.matchSchedule.findUnique({
+            match = await tx.matchSchedule.findFirst({
               where: { externalId: item.matchSchedule.externalId }
             });
           } else {
@@ -769,7 +776,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
               if (Array.isArray(pData.skills)) {
                 for (const sData of pData.skills) {
                   const skill = await tx.skill.upsert({
-                    where: { code: sData.code },
+                    where: { organizationId_code: { organizationId: requireOrganizationId(), code: sData.code } },
                     update: { name: sData.name, nameMale: sData.nameMale, nameFemale: sData.nameFemale, type: sData.type },
                     create: { code: sData.code, name: sData.name, nameMale: sData.nameMale, nameFemale: sData.nameFemale, type: sData.type }
                   });
@@ -801,7 +808,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
           if (Array.isArray(item.positions)) {
             for (const cData of item.positions) {
               const person = await tx.person.findFirst({ where: { name: cData.personName } });
-              let position = await findOrCreatePosition(tx, cData.positionName, { isStudio: !!cData.isStudio });
+              const position = await findOrCreatePosition(tx, cData.positionName, { isStudio: !!cData.isStudio });
               if (person) {
                 await tx.productionPersonPosition.upsert({
                   where: {
@@ -840,7 +847,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
               if (Array.isArray(sData.assignments)) {
                 for (const bData of sData.assignments) {
                   const person = await tx.person.findFirst({ where: { name: bData.personName } });
-                  let position = await findOrCreatePosition(tx, bData.positionName, { isStudio: !!bData.isStudio });
+                  const position = await findOrCreatePosition(tx, bData.positionName, { isStudio: !!bData.isStudio });
                   if (person) {
                     await tx.segmentRoleAssignment.create({
                       data: {
@@ -935,6 +942,8 @@ backupRouter.post('/producties/import', async (req, res, next) => {
               });
 
               if (Array.isArray(csData.items)) {
+                // New ids: item ids are global, and the backup may come from another organization
+                const itemIdMap = new Map<string, string>();
                 for (const iData of csData.items) {
                   const seg = iData.productionSegmentVolgorde ? await tx.productionSegment.findFirst({
                     where: { productionId: production.id, volgorde: iData.productionSegmentVolgorde }
@@ -942,7 +951,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
 
                   const callSheetItem = await tx.callSheetItem.create({
                     data: {
-                      id: iData.id,
+                      id: randomUUID(),
                       callSheetId: callSheet.id,
                       cue: iData.cue,
                       title: iData.title,
@@ -957,14 +966,14 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                       isTimeAnchor: !!iData.isTimeAnchor,
                       autoAdvance: !!iData.autoAdvance,
                       isInLivestream: iData.isInLivestream !== false,
-                      parentId: iData.parentId,
                       productionSegmentId: seg?.id || null
                     }
                   });
+                  if (iData.id) itemIdMap.set(String(iData.id), callSheetItem.id);
 
                   if (Array.isArray(iData.positions)) {
                     for (const posName of iData.positions) {
-                      let position = await findOrCreatePosition(tx, posName);
+                      const position = await findOrCreatePosition(tx, posName);
                       await tx.callSheetItemPosition.create({
                         data: {
                           callSheetItemId: callSheetItem.id,
@@ -973,6 +982,11 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                       });
                     }
                   }
+                }
+                for (const iData of csData.items) {
+                  const id = iData.id && itemIdMap.get(String(iData.id));
+                  const parentId = iData.parentId && itemIdMap.get(String(iData.parentId));
+                  if (id && parentId) await tx.callSheetItem.update({ where: { id }, data: { parentId } });
                 }
               }
             }
@@ -1006,7 +1020,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
 
               if (Array.isArray(evData.positions)) {
                 for (const posName of evData.positions) {
-                  let position = await findOrCreatePosition(tx, posName);
+                  const position = await findOrCreatePosition(tx, posName);
                   await tx.productionEventPosition.create({
                     data: {
                       eventId: event.id,
@@ -1102,7 +1116,7 @@ backupRouter.post('/clubs/import', async (req, res, next) => {
             }
           }
         }
-      } catch (_) {}
+      } catch (_) { /* an invalid row is skipped */ }
     }
     // Restored players may carry pre-season `players/...` photoUrls; move those files into their season dir.
     await migrateLegacySeasonAssets().catch((err) => logger.error('Season asset migration after clubs import failed', err as any));
@@ -1121,16 +1135,20 @@ backupRouter.post('/sponsors/import', async (req, res, next) => {
     let created = 0, updated = 0;
     for (const item of data) {
       try {
-        const input = SponsorInputSchema.parse(item);
+        // The export writes null for an empty displayName; the schema wants it left out
+        const input = SponsorInputSchema.parse(Object.fromEntries(Object.entries(item ?? {}).filter(([, v]) => v !== null)));
         const existing = await prisma.sponsor.findFirst({ where: { name: input.name } });
+        // Own logos and legacy file names (backups from before organizations) are restored; another
+        // organization's directory is not taken over
+        const logoUrl = resolveClientLogoUrl(input.logoUrl, requireOrganizationId(), existing?.logoUrl ?? null, { lenient: true, allowLegacy: true });
         if (existing) {
-          await prisma.sponsor.update({ where: { id: existing.id }, data: input as any });
+          await prisma.sponsor.update({ where: { id: existing.id }, data: { ...input, logoUrl } as any });
           updated++;
         } else {
-          await prisma.sponsor.create({ data: input as any });
+          await prisma.sponsor.create({ data: { ...input, logoUrl } as any });
           created++;
         }
-      } catch (_) {}
+      } catch (_) { /* an invalid row is skipped */ }
     }
     return res.json({ ok: true, created, updated });
   } catch (err) {
@@ -1140,52 +1158,46 @@ backupRouter.post('/sponsors/import', async (req, res, next) => {
 });
 
 // POST /api/backup/settings/import
+// Into the chosen organization, also from backups made before there were organizations. Installation-wide
+// keys (the active season) are skipped: a restore of one organization must not change them for all.
 backupRouter.post('/settings/import', async (req, res, next) => {
   try {
     const data = req.body;
     if (!Array.isArray(data)) return res.status(400).json({ error: 'Array expected' });
     let created = 0, updated = 0;
-    const touchedKeys = new Set<string>();
+    // The own club by slug when the backup has it (newer backups); the id only for older backups
+    const ownClubSlug = data.find((item) => item?.key === OWN_CLUB_SLUG_EXPORT_KEY)?.value;
+    const hasOwnClubSlug = typeof ownClubSlug === 'string' && ownClubSlug.length > 0;
     for (const item of data) {
       try {
-        if (!item?.key) continue;
-        let key: string = item.key;
-        let value = item.value ?? null;
-        if (key === ACTIVE_SEASON_ID_KEY) {
-          // Old backups carry the raw serial id, which points at a different season in this database.
-          logger.warn(`Skipping setting ${ACTIVE_SEASON_ID_KEY} from backup: season ids are not portable between databases`);
+        if (typeof item?.key !== 'string' || !item.key) continue;
+        const key: string = item.key;
+        const value = item.value ?? null;
+        if (GLOBAL_SETTING_KEYS.has(key) || key === ACTIVE_SEASON_NAME_EXPORT_KEY) {
+          logger.info(`Skipping setting ${key} from backup: it holds for the whole installation, not one organization`);
           continue;
         }
-        if (key === ACTIVE_SEASON_NAME_EXPORT_KEY) {
-          const startYear = tryParseSeasonName(value);
-          if (startYear === undefined) {
-            logger.warn(`Skipping setting ${ACTIVE_SEASON_NAME_EXPORT_KEY} from backup: invalid season name`, { value });
-            continue;
-          }
-          key = ACTIVE_SEASON_ID_KEY;
-          value = (await ensureSeasonForStartYear(startYear)).id;
+        if (key === OWN_CLUB_SLUG_EXPORT_KEY) {
+          const club = hasOwnClubSlug ? await prisma.club.findUnique({ where: { slug: ownClubSlug }, select: { id: true } }) : null;
+          if (club && (await setOwnClubId(club.id))) updated++;
+          else logger.warn(`Skipping setting ${key} from backup: no such club`, { value });
+          continue;
         }
-        const existing = await prisma.setting.findUnique({ where: { key } });
-        if (existing) {
-          await prisma.setting.update({
-            where: { key },
-            data: { value }
-          });
-          updated++;
-        } else {
-          await prisma.setting.create({
-            data: { key, value }
-          });
-          created++;
+        if (key === LEGACY_OWN_CLUB_ID_KEY) {
+          if (hasOwnClubSlug) continue;
+          // Old backups: the own club is the organization's club now (Organization.clubId)
+          if (Number.isInteger(value) && value > 0 && (await setOwnClubId(value))) updated++;
+          else logger.warn(`Skipping setting ${key} from backup: no such club`, { value });
+          continue;
         }
-        touchedKeys.add(key);
+        const existed = (await getSetting(key)) !== null;
+        await setSetting(key, value);
+        if (existed) updated++;
+        else created++;
       } catch (err) {
         logger.error(`Failed to import setting ${item?.key}`, err as any);
       }
     }
-    // Imported values must take effect without a restart.
-    clearSettingsCache(touchedKeys);
-    clearSeasonCache();
     return res.json({ ok: true, created, updated });
   } catch (err) {
     logger.error('POST /api/backup/settings/import failed', err as any);

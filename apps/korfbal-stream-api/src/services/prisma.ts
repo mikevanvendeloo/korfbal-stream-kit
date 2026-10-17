@@ -1,5 +1,6 @@
 import {PrismaClient} from '@prisma/client';
 import {logger} from '../utils/logger';
+import {tenantScope} from './tenantScope';
 
 // Service wrapper around PrismaClient to centralize configuration & logging
 class PrismaService {
@@ -40,5 +41,15 @@ class PrismaService {
 
 export const prismaService = new PrismaService();
 
-// Keep a named export `prisma` for backwards compatibility with existing imports/tests
-export const prisma = prismaService.getClient();
+/**
+ * Not scoped to an organization: only for system work that must see every organization (restoring
+ * live state on startup, startup checks). Everything else uses `prisma`.
+ */
+export const prismaUnscoped = prismaService.getClient();
+
+/**
+ * The client for all application code: queries on tenant tables are confined to the organization in
+ * the context (see services/tenantScope.ts). A query extension doesn't change any types, so it is
+ * typed as a plain PrismaClient and existing helpers taking a PrismaClient keep working.
+ */
+export const prisma = prismaUnscoped.$extends(tenantScope) as unknown as PrismaClient;

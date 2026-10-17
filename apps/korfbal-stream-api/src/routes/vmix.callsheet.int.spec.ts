@@ -1,8 +1,7 @@
 import request from 'supertest';
 import app from '../main';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {prisma} from '../services/prisma';
-import {currentSeasonId} from '../../test-helpers';
+import {currentSeasonId, testDb as prisma, testOrganizationId, inTestOrganization} from '../../test-helpers';
 import {getSetting, setSetting} from '../services/appSettings';
 import {VMIX_CALLSHEET_PUSH_KEY} from '../services/vmixCallsheetPush';
 
@@ -15,12 +14,12 @@ describe.runIf(runDb)('vMix callsheet timing (integration)', () => {
   const positionIds: number[] = [];
 
   beforeAll(async () => {
-    previousConfig = await getSetting(VMIX_CALLSHEET_PUSH_KEY);
+    previousConfig = await inTestOrganization(() => getSetting(VMIX_CALLSHEET_PUSH_KEY));
     // Other productions must not be active, or they'd be picked instead of ours
     await prisma.production.updateMany({where: {isActive: true}, data: {isActive: false}});
 
     for (const name of ['Callsheet Int Presentatie', 'Callsheet Int Camera']) {
-      const position = await prisma.position.upsert({where: {name}, create: {name}, update: {}});
+      const position = await prisma.position.upsert({where: {organizationId_name: {organizationId: await testOrganizationId(), name}}, create: {name}, update: {}});
       positionIds.push(position.id);
     }
     const match = await prisma.matchSchedule.create({
@@ -55,7 +54,7 @@ describe.runIf(runDb)('vMix callsheet timing (integration)', () => {
   });
 
   afterAll(async () => {
-    await setSetting(VMIX_CALLSHEET_PUSH_KEY, previousConfig as any);
+    await inTestOrganization(() => setSetting(VMIX_CALLSHEET_PUSH_KEY, previousConfig as any));
     await prisma.production.deleteMany({where: {id: productionId}});
     await prisma.matchSchedule.deleteMany({where: {id: matchId}});
     await prisma.position.deleteMany({where: {id: {in: positionIds}}});
@@ -122,7 +121,7 @@ describe.runIf(runDb)('vMix callsheet timing (integration)', () => {
 
   it('reads settings saved with several positions as the first one', async () => {
     // As stored before only one position was allowed
-    await setSetting(VMIX_CALLSHEET_PUSH_KEY, {enabled: false, input: 'Callsheet', positions: ['Callsheet Int Camera', 'Callsheet Int Presentatie']});
+    await inTestOrganization(() => setSetting(VMIX_CALLSHEET_PUSH_KEY, {enabled: false, input: 'Callsheet', positions: ['Callsheet Int Camera', 'Callsheet Int Presentatie']}));
     const res = await request(app).get('/api/settings/vmix-callsheet-push');
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({input: 'Callsheet', positions: ['Callsheet Int Camera']});

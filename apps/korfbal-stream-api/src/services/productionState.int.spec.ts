@@ -1,9 +1,8 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {PrismaClient} from '@prisma/client';
 import * as productionState from './productionState';
-import {currentSeasonId} from '../../test-helpers';
+import {currentSeasonId, testDb as prisma, inTestOrganization} from '../../test-helpers';
 
-const prisma = new PrismaClient();
 
 // Mock socket.io; one shared emit so tests can inspect what was broadcast
 const emit = vi.hoisted(() => vi.fn());
@@ -11,6 +10,7 @@ vi.mock('./socket', () => ({
   getIO: vi.fn(() => ({
     emit,
   })),
+  emitToOrganization: (event: string, ...args: unknown[]) => emit(event, ...args),
 }));
 
 /** Lets the async auto-advance callback finish its DB work after the fake timers fired. */
@@ -89,7 +89,7 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('ProductionState Service Auto-
   afterEach(async () => {
     // Stop the clock and any pending auto-advance, and remove the active production: later spec
     // files would otherwise restore it and run its timers in the background.
-    await productionState.stopProduction(productionId);
+    await inTestOrganization(() => productionState.stopProduction(productionId));
     vi.useRealTimers();
     const production = await prisma.production.findUnique({ where: { id: productionId } });
     await prisma.production.delete({ where: { id: productionId } });
@@ -100,11 +100,11 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('ProductionState Service Auto-
     vi.useFakeTimers();
 
     // Start production state
-    await productionState.initializeProductionState();
+    await inTestOrganization(() => productionState.initializeProductionState());
 
     // Set event 1 as active
     console.log('--- TEST: Setting event 1 to active ---');
-    await productionState.setActiveEvent(event1Id, productionId);
+    await inTestOrganization(() => productionState.setActiveEvent(event1Id, productionId));
 
     // Verify event 1 is active in DB
     let e1 = await prisma.productionEvent.findUnique({ where: { id: event1Id } });
@@ -136,7 +136,7 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('ProductionState Service Auto-
     }
 
     // Check if event 2 is now active in DB
-    let e2 = await prisma.productionEvent.findUnique({ where: { id: event2Id } });
+    const e2 = await prisma.productionEvent.findUnique({ where: { id: event2Id } });
     console.log(`--- TEST: Event 2 status in DB: ${e2?.status} ---`);
 
     expect(e2?.status).toBe('ACTIVE');
@@ -158,7 +158,7 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('ProductionState Service Auto-
       },
     });
 
-    await productionState.setActiveEvent(event1Id, productionId);
+    await inTestOrganization(() => productionState.setActiveEvent(event1Id, productionId));
     expect((await prisma.productionEvent.findUnique({ where: { id: stray.id } }))?.status).toBe('COMPLETED');
 
     vi.advanceTimersByTime(1500);
@@ -169,7 +169,7 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('ProductionState Service Auto-
 
   it('broadcasts a serializable state while an auto-advance timer is pending', async () => {
     emit.mockClear();
-    await productionState.setActiveEvent(event1Id, productionId);
+    await inTestOrganization(() => productionState.setActiveEvent(event1Id, productionId));
 
     const stateUpdates = emit.mock.calls.filter(([event]) => event === 'callsheet_state_update');
     expect(stateUpdates.length).toBeGreaterThan(0);

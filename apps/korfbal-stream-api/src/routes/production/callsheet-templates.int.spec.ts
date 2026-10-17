@@ -1,12 +1,13 @@
 import {beforeEach, describe, expect, it} from 'vitest';
-import {prisma} from '../../services/prisma';
 import {callSheetTemplateRouter} from './callsheet-templates';
 import express from 'express';
+import {organizationContext} from '../../middleware/organizationContext';
 import request from 'supertest';
-import {currentSeasonId} from '../../../test-helpers';
+import {currentSeasonId, testDb as prisma, testOrganizationId} from '../../../test-helpers';
 
 const app = express();
 app.use(express.json());
+app.use('/api', organizationContext);
 app.use('/api/callsheets/templates', callSheetTemplateRouter);
 
 describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Excel Export/Import', () => {
@@ -24,7 +25,7 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Excel Expor
 
     // Ensure 'Regie livestream' exists
     await prisma.position.upsert({
-      where: { name: 'Regie livestream' },
+      where: { organizationId_name: { organizationId: await testOrganizationId(), name: 'Regie livestream' } },
       update: {},
       create: { name: 'Regie livestream', category: 'TECHNICAL' }
     });

@@ -69,7 +69,7 @@ describe('help topics', () => {
     const paths = ['/admin', '/admin/producties', '/admin/producties/5', '/admin/producties/5/callsheets/2', '/admin/producties/5/beschikbaarheid',
       '/admin/producties/5/bezetting', '/admin/producties/5/vmix-titels', '/admin/producties/5/rapport/crew', '/admin/draaiboeken/templates',
       '/admin/stamgegevens/personen', '/admin/stamgegevens/clubs', '/admin/stamgegevens/sponsors', '/admin/stamgegevens/vmix-koppeling',
-      '/admin/stamgegevens/vmix-datasources', '/admin/rapportages/crew', '/admin/instellingen', '/admin/overig/qr'];
+      '/admin/stamgegevens/vmix-datasources', '/admin/rapportages/crew', '/admin/instellingen', '/admin/overig/qr', '/admin/overig/organisaties', '/admin/overig/organisatie'];
     const chapters = manualChapters('beheer');
     for (const path of paths) {
       const topic = helpTopicFor(path);

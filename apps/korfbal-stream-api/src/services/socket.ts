@@ -1,46 +1,104 @@
 import {Server as SocketIOServer} from 'socket.io';
-import {Server as HttpServer} from 'http';
+import type {Server as HttpServer} from 'http';
 import {logger} from '../utils/logger';
 import {timeSyncService} from './timeSyncService';
 import {initializeClient} from './productionState';
+import {requireOrganizationId, runWithOrganization} from './organizationContext';
+import {findActiveOrganization} from '../middleware/organizationContext';
+import {isSameOriginRequest} from '../middleware/sameOrigin';
 import type {SeasonDto} from './season';
+import {API_ERRORS} from './apiErrorCodes';
 
-let io: SocketIOServer;
+let io: SocketIOServer | undefined;
+
+/** Room of an organization's clients: every live event goes there (D6). */
+export function organizationRoom(organizationId: number): string {
+  return `org:${organizationId}`;
+}
+
+export const UNKNOWN_ORGANIZATION_MESSAGE = API_ERRORS.ORGANIZATION_UNKNOWN.error;
+
+/** A refused handshake: the client gets `connect_error` with this message and `data.code`. */
+function handshakeError(message: string, code?: keyof typeof API_ERRORS): Error {
+  const err = new Error(message) as Error & {data?: {code: string}};
+  if (code) err.data = {code};
+  return err;
+}
+
+/**
+ * The organization a client asked for in the handshake (`auth.organization` = slug). Without one the
+ * client connects but only gets the global events (heartbeat, season_changed); an unknown, inactive or
+ * malformed slug is refused (`connect_error` with `data.code` ORGANIZATION_UNKNOWN).
+ */
+export async function resolveHandshakeOrganization(slug: unknown): Promise<number | undefined> {
+  if (slug === undefined || slug === null || slug === '') return undefined;
+  const organization = typeof slug === 'string' ? await findActiveOrganization(slug.trim()) : null;
+  if (!organization) throw new Error(UNKNOWN_ORGANIZATION_MESSAGE);
+  return organization.id;
+}
 
 export function initSocket(httpServer: HttpServer) {
-  io = new SocketIOServer(httpServer, {
-    cors: {
-      origin: '*',
-    },
+  const server = new SocketIOServer(httpServer, {
     transports: ['websocket', 'polling'], // Zorg dat beide transports expliciet aan staan
+    // Browsers connect same-origin (Vite proxy, nginx): a handshake from a page on another host is refused
+    allowRequest: (req, callback) => callback(null, isSameOriginRequest(req)),
+  });
+  io = server;
+
+  server.use((socket, next) => {
+    resolveHandshakeOrganization(socket.handshake.auth?.organization)
+      .then((organizationId) => {
+        socket.data.organizationId = organizationId;
+        next();
+      })
+      .catch((err: Error) => next(err.message === UNKNOWN_ORGANIZATION_MESSAGE
+        ? handshakeError(UNKNOWN_ORGANIZATION_MESSAGE, 'ORGANIZATION_UNKNOWN')
+        : handshakeError('Verbinding geweigerd')));
   });
 
-  io.on('connection', (socket) => {
-    logger.info(`🔌 New client connected: ${socket.id}`);
+  server.on('connection', (socket) => {
+    const organizationId = socket.data.organizationId as number | undefined;
+    logger.info(`🔌 New client connected: ${socket.id}${organizationId ? ` (organization ${organizationId})` : ''}`);
 
-    // Stuur de huidige tijd-status naar de nieuwe client
-    timeSyncService.initializeClient(socket);
-    initializeClient(socket);
+    if (organizationId) {
+      socket.join(organizationRoom(organizationId));
+      // Stuur de huidige tijd- en live-status van de eigen organisatie naar de nieuwe client
+      runWithOrganization(organizationId, () => {
+        timeSyncService.initializeClient(socket);
+        initializeClient(socket);
+      });
+    }
 
     socket.on('disconnect', () => {
       logger.info(`🔌 Client disconnected: ${socket.id}`);
     });
   });
 
-  // Verstuur elke 2 seconden een heartbeat om clients gesynchroniseerd te houden
+  // Verstuur elke 2 seconden een heartbeat om clients gesynchroniseerd te houden (globaal)
   setInterval(() => {
-    io.emit('heartbeat', { serverTime: Date.now() });
-  }, 2000);
+    server.emit('heartbeat', { serverTime: Date.now() });
+  }, 2000).unref();
 
   logger.info('🚀 Socket.io initialized with heartbeat');
-  return io;
+  return server;
 }
 
-export function getIO() {
+export function getIO(): SocketIOServer {
   if (!io) {
     throw new Error('Socket.io not initialized!');
   }
   return io;
+}
+
+/** Sends a live event to the clients of the organization in the context. */
+export function emitToOrganization(event: string, ...args: unknown[]) {
+  if (!io) return;
+  io.to(organizationRoom(requireOrganizationId('A live event'))).emit(event, ...args);
+}
+
+/** Closes every socket of an organization (it was switched off); a reconnect is refused as inactive. */
+export function disconnectOrganizationSockets(organizationId: number) {
+  io?.in(organizationRoom(organizationId)).disconnectSockets(true);
 }
 
 export const SEASON_CHANGED_EVENT = 'season_changed';

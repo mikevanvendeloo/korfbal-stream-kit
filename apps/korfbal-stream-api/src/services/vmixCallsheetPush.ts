@@ -5,6 +5,8 @@ import {resolveVmixInstance} from './vmixInstances';
 import {CallsheetTiming, loadCallsheetTiming, TimingState} from './callsheetTiming';
 import {CallsheetColors, VmixCallsheetPushConfig, VmixCallsheetPushSchema} from '../schemas/vmixCallsheet';
 import {logger} from '../utils/logger';
+import {liveOrganizationIds} from './productionState';
+import {getOrganizationId, runWithOrganization} from './organizationContext';
 
 export const VMIX_CALLSHEET_PUSH_KEY = 'vmixCallsheetPush';
 
@@ -21,7 +23,7 @@ export async function getCallsheetPushConfig(): Promise<VmixCallsheetPushConfig>
 export async function setCallsheetPushConfig(config: VmixCallsheetPushConfig): Promise<void> {
   await setSetting(VMIX_CALLSHEET_PUSH_KEY, config as unknown as Prisma.JsonObject);
   // vMix may have a different title now: send everything again
-  lastSent.clear();
+  pushMemory().lastSent.clear();
 }
 
 function colorCommands(block: { backgroundField: string; textColorFields: string[]; colors: CallsheetColors }, state: TimingState): VmixCommand[] {
@@ -62,10 +64,31 @@ export function buildVmixCommandUrl(base: string, input: string, command: VmixCo
   return buildVmixApiUrl(base, query.toString());
 }
 
-// What vMix got last, per function + field, so each tick only sends what changed
-const lastSent = new Map<string, string>();
-let lastTarget = '';
-let lastFullPush = 0;
+// What vMix got last, per function + field, so each tick only sends what changed. Per organization:
+// each one pushes its own callsheet to its own vMix.
+type PushMemory = { lastSent: Map<string, string>; lastTarget: string; lastFullPush: number; lastErrorLog: number; busy: boolean };
+const pushMemories = new Map<number, PushMemory>();
+
+function pushMemory(): PushMemory {
+  // Unit tests call the push without an organization: they share one memory
+  const key = getOrganizationId() ?? 0;
+  let memory = pushMemories.get(key);
+  if (!memory) {
+    memory = {lastSent: new Map(), lastTarget: '', lastFullPush: 0, lastErrorLog: 0, busy: false};
+    pushMemories.set(key, memory);
+  }
+  return memory;
+}
+/** Forgets what was pushed for an organization (it was switched off). */
+export function discardPushMemory(organizationId: number) {
+  pushMemories.delete(organizationId);
+}
+
+/** Whether there is push memory for the organization (tests). */
+export function hasPushMemory(organizationId: number): boolean {
+  return pushMemories.has(organizationId);
+}
+
 // vMix can be restarted or the title reloaded, which loses the values: send everything again now and then
 const FULL_PUSH_INTERVAL_MS = 15_000;
 const commandKey = (c: VmixCommand) => `${c.function}|${c.selectedName}`;
@@ -82,11 +105,13 @@ export async function pushCallsheetToVmix(force = false, now = new Date()): Prom
 
   const timing = await loadCallsheetTiming(config.positions, config.warningSeconds, now);
   const commands = buildVmixCommands(timing, config);
+  const memory = pushMemory();
+  const {lastSent} = memory;
   const targetKey = `${base}|${config.input}`;
-  if (force || targetKey !== lastTarget || now.getTime() - lastFullPush > FULL_PUSH_INTERVAL_MS) {
+  if (force || targetKey !== memory.lastTarget || now.getTime() - memory.lastFullPush > FULL_PUSH_INTERVAL_MS) {
     lastSent.clear();
-    lastTarget = targetKey;
-    lastFullPush = now.getTime();
+    memory.lastTarget = targetKey;
+    memory.lastFullPush = now.getTime();
   }
 
   let sent = 0;
@@ -95,7 +120,8 @@ export async function pushCallsheetToVmix(force = false, now = new Date()): Prom
     const key = commandKey(command);
     if (lastSent.get(key) === command.value) continue;
     try {
-      await axios.get(buildVmixCommandUrl(base, config.input, command), {timeout: 1500});
+      // A wall-clock deadline: axios' `timeout` only fires when vMix goes quiet, not when it drips
+      await axios.get(buildVmixCommandUrl(base, config.input, command), {signal: AbortSignal.timeout(1500), maxContentLength: 4096});
       lastSent.set(key, command.value);
       sent++;
     } catch (err) {
@@ -108,28 +134,55 @@ export async function pushCallsheetToVmix(force = false, now = new Date()): Prom
 }
 
 let interval: NodeJS.Timeout | null = null;
-let busy = false;
-let lastErrorLog = 0;
+let ticking = false;
+
+/**
+ * One push per organization whose show runs, each with its own settings and vMix. They run
+ * side by side: an unreachable vMix of one organization doesn't hold up the others.
+ */
+async function startPushes(): Promise<Promise<void>[]> {
+  // From the live state in memory: no database query per second while no show runs
+  return liveOrganizationIds().map((organizationId) => runWithOrganization(organizationId, pushWhenEnabled));
+}
+
+/** A push round that waits until every organization is done (tests); the timer doesn't wait. */
+export async function pushForActiveOrganizations(): Promise<void> {
+  await Promise.all(await startPushes());
+}
 
 async function tick() {
-  if (busy) return;
-  busy = true;
+  if (ticking) return;
+  ticking = true;
+  try {
+    // An organization still busy with the last round skips this one (pushWhenEnabled)
+    await startPushes();
+  } catch (err) {
+    logger.error('vMix callsheet push error:', err);
+  } finally {
+    ticking = false;
+  }
+}
+
+async function pushWhenEnabled() {
+  const memory = pushMemory();
+  if (memory.busy) return;
+  memory.busy = true;
   try {
     const config = await getCallsheetPushConfig();
     if (!config.enabled) return;
     const result = await pushCallsheetToVmix();
     // vMix being unreachable would otherwise log every second
-    if (result.errors.length > 0 && Date.now() - lastErrorLog > 30_000) {
-      lastErrorLog = Date.now();
+    if (result.errors.length > 0 && Date.now() - memory.lastErrorLog > 30_000) {
+      memory.lastErrorLog = Date.now();
       logger.warn(`vMix callsheet push failed: ${result.errors[0]}${result.errors.length > 1 ? ` (+${result.errors.length - 1} more)` : ''}`);
     }
   } catch (err) {
-    if (Date.now() - lastErrorLog > 30_000) {
-      lastErrorLog = Date.now();
+    if (Date.now() - memory.lastErrorLog > 30_000) {
+      memory.lastErrorLog = Date.now();
       logger.error('vMix callsheet push error:', err);
     }
   } finally {
-    busy = false;
+    memory.busy = false;
   }
 }
 

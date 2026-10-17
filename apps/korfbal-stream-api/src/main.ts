@@ -1,7 +1,5 @@
 import express, {Express} from 'express';
 import {createServer} from 'http';
-import multer from 'multer';
-import path from 'node:path';
 import fs from 'node:fs';
 import swaggerUi from 'swagger-ui-express';
 import {logger} from './utils/logger';
@@ -30,9 +28,17 @@ import {initializeProductionState} from './services/productionState';
 import {callSheetTemplateRouter} from './routes/production/callsheet-templates'
 import {venueClockSyncService} from "./services/venueClockSyncService";
 import {vmixCallsheetPushService} from './services/vmixCallsheetPush';
+import {organizationContext} from './middleware/organizationContext';
+import {extractApiKey, feedCors, withoutApiKey} from './middleware/apiKey';
+import {refuseCrossSiteWrites} from './middleware/sameOrigin';
+import {apiKeysRouter} from './routes/apiKeys';
+import {organizationsRouter} from './routes/organizations';
+import {matchSourceRouter} from './routes/matchSource';
+import {applyStandardSetWhereMissing} from './services/standardSet';
 
 const app: Express = express();
-const httpServer = createServer(app);
+/** The HTTP server with Socket.io; tests listen on it to connect socket clients. */
+export const httpServer = createServer(app);
 
 // Initialize Socket.io
 initSocket(httpServer);
@@ -50,18 +56,15 @@ if (!process.env.VITEST) {
   });
 }
 
+// First: take the API key off the request, so no log line or route after this sees it (D7)
+app.use(extractApiKey);
+
 // Middlewares
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// CORS for frontend (allow cross-origin requests)
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
-  return next();
-});
+// CORS only for the feeds and static files; the frontend is same-origin (Vite proxy, nginx)
+app.use(feedCors);
 
 const methodEmojis: Record<string, string> = {
   GET: '📖',
@@ -90,7 +93,8 @@ app.use((req, res, next) => {
     const methodEmoji = methodEmojis[req.method] || '📡';
     const statusEmoji = statusEmojis(res.statusCode);
 
-    logger.info(`${methodEmoji} ${req.method} ${req.url} ${statusEmoji}  ${res.statusCode}`, {
+    // The key is already off the URL (extractApiKey); this keeps it out if the order ever changes
+    logger.info(`${methodEmoji} ${req.method} ${withoutApiKey(req.originalUrl)} ${statusEmoji}  ${res.statusCode}`, {
       query: Object.keys(req.query).length > 0 ? req.query : undefined,
       duration: `${duration}ms`,
       ip: req.ip,
@@ -100,29 +104,31 @@ app.use((req, res, next) => {
 });
 
 
-// File uploads (store under assets/)
+// Assets (logos, player photos) are written by their own routes, which accept only images
+// (services/imageUpload.ts); there is no generic upload endpoint
 const assetsRoot = getAssetsRoot();
 if (!fs.existsSync(assetsRoot)) fs.mkdirSync(assetsRoot, { recursive: true });
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, assetsRoot),
-  filename: (_req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, unique + path.extname(file.originalname || '.bin'));
-  },
-});
-const upload = multer({ storage });
 
 // Serve assets statically. Keep backward-compatible /uploads route.
 app.use('/assets', express.static(assetsRoot));
 app.use('/uploads', express.static(assetsRoot));
 app.use('/storage', express.static(assetsRoot)); // New route for storage
 
-app.post('/api/upload', upload.single('file'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
-  }
-  return res.status(201).json({ filename: req.file.filename, path: req.file.path });
-});
+// No writes from a page on another site (CSRF): there is no login, so this is the only thing that stops a
+// form on any website from posting to the API on the LAN. Before the organization context, also for global routes.
+app.use('/api', refuseCrossSiteWrites);
+
+// Every /api route runs for one organization (X-Organization), except the global ones (D3)
+app.use('/api', organizationContext);
+
+// Organizations (global: start screen and management)
+app.use('/api/organizations', organizationsRouter);
+
+// Match import settings of the chosen organization
+app.use('/api/match-source', matchSourceRouter);
+
+// API keys of the chosen organization (for the feed routes)
+app.use('/api/organization/api-keys', apiKeysRouter);
 
 // Sponsors endpoints
 app.use('/api/sponsors', sponsorsRouter);
@@ -263,7 +269,7 @@ const openapi = {
           name: { type: 'string' },
           type: { type: 'string', enum: ['premium', 'goud', 'zilver', 'brons'] },
           websiteUrl: { type: 'string' },
-          logoUrl: {type: 'string'},
+          logoUrl: {type: 'string', nullable: true, description: 'Set by POST /api/sponsors/{id}/logo: <organizationId>/<file> (older logos: a plain file name)'},
           createdAt: {type: 'string', format: 'date-time'},
         },
       },
@@ -274,7 +280,7 @@ const openapi = {
           name: {type: 'string'},
           type: {type: 'string', enum: ['premium', 'goud', 'zilver', 'brons']},
           websiteUrl: {type: 'string'},
-          logoUrl: {type: 'string'},
+          logoUrl: {type: 'string', nullable: true, description: 'Only a logo in the organization\'s own directory (<organizationId>/<file>); null removes it'},
         },
       },
       SponsorUpdate: {
@@ -283,7 +289,7 @@ const openapi = {
           name: {type: 'string'},
           type: {type: 'string', enum: ['premium', 'goud', 'zilver', 'brons']},
           websiteUrl: {type: 'string'},
-          logoUrl: {type: 'string'},
+          logoUrl: {type: 'string', nullable: true, description: 'Only a logo in the organization\'s own directory (<organizationId>/<file>); null removes it'},
         },
       },
     },
@@ -325,6 +331,9 @@ if (process.env.NODE_ENV !== 'test') {
   const startServer = async () => {
     await migrateLegacySeasonAssets().catch((err) => {
       logger.error('Season asset migration failed', err as any);
+    });
+    await applyStandardSetWhereMissing().catch((err) => {
+      logger.error('Adding the standard set to new organizations failed', err as any);
     });
     httpServer.listen(port, () => {
       logger.info(`🚀 API Server running on http://localhost:${port}`);

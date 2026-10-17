@@ -1,5 +1,5 @@
 import {prisma} from './prisma';
-import {getSetting, OWN_CLUB_ID_KEY} from './appSettings';
+import {getOwnClubId} from './ownClub';
 import {findClubByTeamName} from '../utils/clubs';
 
 /**
@@ -64,7 +64,7 @@ async function ownSideFor(productionId: number, match: { homeTeamName: string; a
   const cached = ownSideCache.get(productionId);
   if (cached) return cached;
   let side: Side = match.isHomeMatch ? 'HOME' : 'AWAY';
-  const ownClubId = await getSetting<number>(OWN_CLUB_ID_KEY);
+  const ownClubId = await getOwnClubId();
   if (ownClubId) {
     const [home, away] = await Promise.all([
       findClubByTeamName(prisma, match.homeTeamName),

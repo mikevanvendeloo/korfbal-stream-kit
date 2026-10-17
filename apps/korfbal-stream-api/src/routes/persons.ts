@@ -1,3 +1,4 @@
+import {requireOrganizationId} from '../services/organizationContext';
 import {Router} from 'express';
 import {prisma} from '../services/prisma';
 import {logger} from '../utils/logger';
@@ -117,7 +118,7 @@ personsRouter.post('/import-json', async (req, res, next) => {
 
             // Upsert skill definition
             const skill = await prisma.skill.upsert({
-              where: { code: skillData.code },
+              where: { organizationId_code: { organizationId: requireOrganizationId(), code: skillData.code } },
               update: {
                 name: skillData.name,
                 nameMale: skillData.nameMale || skillData.name,

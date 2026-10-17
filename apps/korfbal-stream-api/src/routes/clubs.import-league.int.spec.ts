@@ -1,8 +1,7 @@
 import request from 'supertest';
 import app from '../main';
 import {afterAll, afterEach, beforeAll, describe, expect, it, vi} from 'vitest';
-import {prisma} from '../services/prisma';
-import {currentSeasonId} from '../../test-helpers';
+import {currentSeasonId, testDb as prisma} from '../../test-helpers';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 const SLUG = 'importint';

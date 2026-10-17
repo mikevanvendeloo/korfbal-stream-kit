@@ -2,9 +2,9 @@ import request from 'supertest';
 import {execSync} from 'node:child_process';
 import app from '../main';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {prisma} from '../services/prisma';
 import {ACTIVE_SEASON_ID_KEY} from '../services/season';
 import {setSetting} from '../services/appSettings';
+import {testDb as prisma} from '../../test-helpers';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 

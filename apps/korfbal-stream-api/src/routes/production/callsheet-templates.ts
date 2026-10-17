@@ -1,11 +1,13 @@
 import {Router} from 'express';
 import multer from 'multer';
+import {keepOrganizationContext} from '../../middleware/organizationContext';
 import ExcelJS from 'exceljs';
 import {prisma} from '../../services/prisma';
 import {findPositionByName, SHOWCALLER_POSITION} from '../../domain/positionSkill';
+import {NotFoundError} from '../../middleware/error';
 
 export const callSheetTemplateRouter: Router = Router();
-const uploadMem = multer({ storage: multer.memoryStorage() });
+const uploadMem = keepOrganizationContext(multer({ storage: multer.memoryStorage() }).single('file'));
 
 interface TemplateItemData {
   templateId: number;
@@ -268,7 +270,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
         include: { items: { include: { positions: true }, orderBy: { orderIndex: 'asc' } } }
       });
 
-      if (!template) throw new Error('Template not found');
+      if (!template) throw new NotFoundError('Template not found');
 
       const production = await tx.production.findUnique({
         where: { id: productionId },
@@ -278,7 +280,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
         }
       });
 
-      if (!production) throw new Error('Production not found');
+      if (!production) throw new NotFoundError('Production not found');
 
       if (replace) {
         // Clean up old CallSheets, Items, ProductionEvents for this production
@@ -506,6 +508,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
     return res.json({ success: true, message: result.message });
   } catch (err: any) {
     console.error('Error applying template:', err);
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
     return res.status(500).json({ error: err.message || 'Fout bij toepassen template' });
   }
 });
@@ -572,7 +575,7 @@ callSheetTemplateRouter.get('/:id/export', async (req, res, next) => {
 });
 
 // Import template from Excel
-callSheetTemplateRouter.post('/import', uploadMem.single('file'), async (req, res, next) => {
+callSheetTemplateRouter.post('/import', uploadMem, async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const { name } = req.body;
@@ -712,7 +715,7 @@ callSheetTemplateRouter.get('/:id/export-json', async (req, res, next) => {
 });
 
 // Import template from JSON
-callSheetTemplateRouter.post('/import-json', uploadMem.single('file'), async (req, res, next) => {
+callSheetTemplateRouter.post('/import-json', uploadMem, async (req, res, next) => {
   try {
     let data: any;
 

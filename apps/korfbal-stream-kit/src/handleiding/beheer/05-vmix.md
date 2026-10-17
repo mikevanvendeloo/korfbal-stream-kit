@@ -77,6 +77,8 @@ Templates zijn het **standaardlijstje**. Per productie neem je ze over op het ta
 
 Op **Datasources** staan de adressen die je in vMix gebruikt, met een knop om ze te kopiëren. Je voegt ze in vMix toe via **Data Sources → JSON → URL** en stelt daar in hoe vaak vMix ze ververst.
 
+Elk adres eindigt op `key=<jouw-sleutel>`: vMix moet een **API-sleutel** van je organisatie meesturen, anders krijgt het de fout 401 en ververst de datasource niet. Vervang `<jouw-sleutel>` door een sleutel van [Overig → Organisatie](/admin/handleiding/organisaties#api-sleutels). Maak je bovenaan de pagina bij **API-sleutel** een nieuwe sleutel (**Naam van de sleutel**, **Sleutel aanmaken**), dan staat hij meteen in alle adressen op de pagina, klaar om te kopiëren. Die ingevulde adressen zie je alleen tot je de pagina verlaat.
+
 | Datasource | Wat je krijgt |
 |---|---|
 | **Sponsor Names (Ticker)** | Eén regel met alle sponsornamen, voor een lopende tekst. Premium eerst, verder in willekeurige volgorde. |
@@ -96,6 +98,7 @@ Welke **sponsortypes** in de ticker, carrousel en slides meedoen, stel je in bij
 
 ### Let op
 
+- Bestonden je datasources al van voor de organisaties, zet er dan één keer de sleutel in ([zo doe je dat](/admin/handleiding/organisaties#eenmalig-na-de-update-sleutels-in-vmix)).
 - De adressen op deze pagina gebruiken het IP-adres van de server. Draait de app in Docker, zorg dan dat bij de installatie `HOST_IP` is ingesteld; anders staat er een intern adres dat vMix niet kan bereiken. Controleer ook de poort.
 - De sponsorbronnen husselen bij elke verversing. Voor **Sponsor Slides** kun je `?seed=1` achter het adres zetten voor een vaste volgorde.
 - **Sponsor Slides** geeft een fout zolang er minder dan 3 sponsors met logo of geen spelerfoto's zijn.

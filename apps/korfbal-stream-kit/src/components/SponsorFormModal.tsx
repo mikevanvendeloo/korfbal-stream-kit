@@ -89,7 +89,7 @@ export default function SponsorFormModal({ initial, onCancel, onSubmit }: Readon
           </div>
           <div>
             <label htmlFor="sponsor-logo" className="block text-xs mb-1">Logo bestandsnaam (optioneel)</label>
-            <input id="sponsor-logo" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="wordt-afgeleid-van-naam.png" className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-950" />
+            <input id="sponsor-logo" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="wordt ingevuld bij het uploaden" className="w-full px-2 py-1 border rounded bg-white dark:bg-gray-950" />
           </div>
           <div>
             <label htmlFor="sponsor-displayname" className="block text-xs mb-1">Weergavenaam (optioneel)</label>

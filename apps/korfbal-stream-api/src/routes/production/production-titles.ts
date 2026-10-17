@@ -1,4 +1,5 @@
 import {Router} from 'express';
+import {NotFoundError} from '../../middleware/error';
 import {z} from 'zod';
 import {prisma} from '../../services/prisma';
 import {
@@ -181,7 +182,7 @@ productionTitlesRouter.patch('/:id/titles:reorder', async (req, res, next) => {
       const existing = await (tx as any).titleDefinition.findMany({ where: { productionId: id }, select: { id: true } });
       const idsSet = new Set(existing.map((e: any) => e.id));
       for (const i of parsed.ids) {
-        if (!idsSet.has(i)) throw new Error('Invalid title id in ordering');
+        if (!idsSet.has(i)) throw new NotFoundError('Invalid title id in ordering');
       }
       for (let index = 0; index < parsed.ids.length; index++) {
         const titleId = parsed.ids[index];

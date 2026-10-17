@@ -6,13 +6,30 @@ Consult this file before using domain terms in specs, designs, and code. If a te
 
 ---
 
+## Organization
+
+**Organisatie** (Organization)
+A tenant of the installation, e.g. Fortuna or the KNKV. Owns all data except the global tables (Season, Club, Player, PlayerImage, Setting): productions, callsheets, crew, positions, skills, sponsors, matches, templates and settings. Chosen on the start screen ("Kies een organisatie") and stored on the device (`localStorage`, `organization` = slug); every `/api` request carries it as `X-Organization`. Identified by its `slug` in requests, but files are keyed on its id. Only active organizations are on the start screen. Not the same as a Club: an organization may be linked to one (logo fallback, own club).
+
+**Startscherm** (start screen)
+The screen with a large button (logo + name) per active Organisatie, shown before LIVE and Beheer when none is chosen, the stored one is gone or inactive, the API refuses it (401/403), or the user clicks the organization in the nav ("Wissel organisatie"). With exactly one active organization it is skipped.
+
+**API-sleutel** (API key)
+A secret of an Organisatie for devices that can't choose one: vMix data sources and triggers and scoreboard displays send it as `?key=` (or `X-Api-Key`). Opens only the feed routes, never Beheer. Shown once at creation (`sk_…`); afterwards only its prefix is visible. Can be revoked.
+
+**Standaardset** (standard set)
+The skills, positions with links, title templates, callsheet templates and segment templates every new Organisatie gets (`applyStandardSet`). Idempotent: only adds what is missing. Fortuna's own crew and sponsors are not part of it.
+
+**Wedstrijdbron** (match source)
+Where an Organisatie's match schedule is imported from (`MatchSource`): provider (now Sportclub Vrijwilligersmanagement), address (https) and token. The token is never shown, only whether it is set; changing provider or address clears it. Managed at Beheer → Overig → Organisatie → Wedstrijdimport.
+
 ## Production & Show
 
 **Production**
 A single live broadcast event. Links a MatchSchedule to all resources needed to produce the show: crew, callsheets, segments, production events, and vMix titles. A match can exist without a production, but a production always references exactly one match.
 
 **Active Production**
-The one production with `isActive=true`. At most one production can be active at a time. All show control operations and Socket.io live state are scoped to the active production. Activation is transactional — activating one production atomically deactivates all others.
+The one production with `isActive=true` within an Organisatie. Each organization has at most one active production (so two organizations can be live at the same time). All show control operations and Socket.io live state are scoped to the organization's active production. Activation is transactional — activating one production atomically deactivates the organization's others.
 
 **Segment**
 A named macro time block within a production (e.g. "Voorbeschouwing", "Eerste helft", "Rust"). Ordered by `volgorde`. Segments define the high-level structure of the broadcast; they do not contain individual cues — those live in CallSheetItems and ProductionEvents.

@@ -19,9 +19,13 @@ apps/korfbal-stream-api/
 │       ├── callsheets/        # Callsheet template seeds (JSON)
 │       └── segments/          # Segment template seeds (JSON)
 └── src/
-    ├── main.ts                # Express app: router mounting, static assets, upload, OpenAPI/Swagger, Socket.io init
+    ├── main.ts                # Express app: router mounting, organization context, static assets, OpenAPI/Swagger, Socket.io init
+    ├── standardSet/           # Standard set for new organizations (skills, positions, title/callsheet/segment templates)
     ├── test-setup.ts          # Vitest setup (.env.test, Prisma lifecycle)
     ├── routes/                # Express routers mounted under /api/*
+    │   ├── organizations.ts   # Organizations (global): public list for the start screen, CRUD, logo
+    │   ├── matchSource.ts     # Match import source of the chosen organization (token never returned), test connection
+    │   ├── apiKeys.ts         # API keys of the chosen organization (feeds): create once, list, revoke
     │   ├── sponsors.ts        # Sponsors CRUD, logo upload, Excel import/export
     │   ├── clubs.ts           # Clubs/teams, league import, club players
     │   ├── persons.ts         # Crew persons, person skills, match assignments
@@ -60,19 +64,25 @@ apps/korfbal-stream-api/
     ├── services/
     │   ├── prisma.ts                  # Shared PrismaClient wrapper
     │   ├── config.ts                  # Zod-validated env config, assets root
-    │   ├── appSettings.ts             # Cached Setting table access
+    │   ├── appSettings.ts             # Settings per organization (OrganizationSetting) + global keys (Setting), cached (also "not set")
+    │   ├── ownClub.ts                 # Own club = Organization.clubId (get/set for club-config, placeholders, restore)
+    │   ├── apiErrorCodes.ts           # Stable error codes ({error, code}) for organization/key/origin refusals; kept in sync with the kit
+    │   ├── organizationContext.ts     # AsyncLocalStorage organization context, runWithOrganization
+    │   ├── tenantScope.ts             # Prisma extension: organizationId on every tenant query
+    │   ├── standardSet.ts             # applyStandardSet(orgId): idempotent standard set
+    │   ├── apiKeys.ts                 # API keys: generate, SHA-256 hash, lookup (5 s cache), revoke, lastUsedAt
     │   ├── season.ts                  # Season derivation (1 Jul–30 Jun), active season, seasonId resolution, asset dirs
     │   ├── seasonAssetMigration.ts    # Startup job: moves legacy player photos/team-responses into storage/seasons/<YYYY-YYYY>/
     │   ├── production.ts              # Production report data loading
     │   ├── reportSponsors.ts          # Match/ball sponsor name → sponsor logo (report page + PDF)
-    │   ├── productionState.ts         # In-memory live state (active production/event, clocks)
-    │   ├── socket.ts                  # Socket.io server + broadcastState()
+    │   ├── productionState.ts         # In-memory live state per organization (active production/event, clocks)
+    │   ├── socket.ts                  # Socket.io server, room org:<id> per handshake, emitToOrganization, broadcastState()
     │   ├── timeSyncService.ts         # Production time / countdown
     │   ├── venueClockSyncService.ts   # Sync with venue scoreboard clock
     │   └── matchSchedule/             # Match schedule adapters
     │       ├── MatchScheduleProvider.ts              # Provider interface + normalized types
     │       ├── VrijwilligersMatchScheduleProvider.ts # sportclubvrijwilligersmanagement.nl adapter
-    │       ├── providerFactory.ts                    # Selects provider via MATCH_SCHEDULE_PROVIDER
+    │       ├── providerFactory.ts                    # Selects the provider of the organization's MatchSource
     │       └── index.ts                              # Exports the configured provider instance
     ├── schemas/               # Zod input schemas (sponsor, person, skill, capability, title, season)
     ├── utils/
@@ -83,6 +93,8 @@ apps/korfbal-stream-api/
     ├── domain/
     │   └── positionSkill.ts   # Position name -> required skill code mapping
     └── middleware/
+        ├── organizationContext.ts # X-Organization → organization context (401/403 with code), global routes exempt, 5 s slug cache
+        ├── apiKey.ts          # API key (?key= / X-Api-Key) on feed routes (FEED_API_PATHS), kept out of logs
         └── error.ts           # Central Express error handler
 ```
 
@@ -90,10 +102,10 @@ apps/korfbal-stream-api/
 
 ```
 apps/korfbal-stream-kit/src/
-├── main.tsx                   # React entry
+├── main.tsx                   # React entry; installs the organization fetch wrapper (X-Organization)
 ├── styles.css, styles/        # Tailwind entry + extra CSS (calendar)
 ├── app/
-│   ├── app.tsx                # Splits LIVE (/) and Beheer (/admin/*)
+│   ├── app.tsx                # OrganizationGate (start screen), then LIVE (/) and Beheer (/admin/*)
 │   ├── LiveApp.tsx            # LIVE nav + routes (incl. /vmix)
 │   ├── AdminApp.tsx           # Beheer menu (Producties, Draaiboeken, Stamgegevens, Rapportages, Overig) + routes
 │   ├── pages/CallsheetPage.tsx
@@ -111,16 +123,21 @@ apps/korfbal-stream-kit/src/
 │   ├── SponsorsPage.tsx, SponsorSlidesPage.tsx
 │   ├── ClubsPage.tsx, MatchSchedulePage.tsx, ManualMatchesAdminPage.tsx, MatchProgramPage.tsx
 │   ├── ScoreboardPage.tsx, QRAdminPage.tsx, AboutPage.tsx
+│   ├── OrganizationsAdminPage.tsx # Beheer → Overig → Organisaties: list, create, edit, (de)activate, logo
+│   ├── OrganizationAdminPage.tsx  # Beheer → Overig → Organisatie: logo, Wedstrijdimport, API-sleutels
 │   ├── SettingsPage.tsx       # Tabbed settings page
 │   └── settings/              # Settings tabs
 │       ├── SeasonSettingsTab.tsx      # Active season, create/delete season, new-season imports
 │       ├── ConnectionSettingsTab.tsx  # vMix / scoreboard connections
 │       ├── SponsorSettingsTab.tsx     # Sponsor filter config
 │       ├── ClubSettingsTab.tsx        # Own club config
-│       └── BackupSettingsTab.tsx      # Backup export/import
+│       └── BackupSettingsTab.tsx      # Backup export/import (for the chosen organization)
 ├── components/ShowCallerPhone.tsx # Show Caller on phones (< 768 px): now, next, later, controls at the bottom
 ├── handleiding/               # User manual: live/*.md and beheer/*.md, ManualView, HelpButton, helpTopics (route → chapter)
 ├── components/                # Feature components
+│   ├── OrganizationGate.tsx   # Start screen, chosen organization context (useCurrentOrganization), OrganizationSwitcher (nav)
+│   ├── OrganizationLogo.tsx   # Own logo → club logo → initials
+│   ├── ApiKeys.tsx            # API key list/create/revoke, one-time key dialog, feed URLs with the key
 │   ├── CallSheetView.tsx, CallSheetColumn.tsx, CallSheetItem.tsx, CallSheetTemplateSelector.tsx
 │   ├── ShowControl.tsx, ShowCallerView.tsx, TimeControls.tsx, TimeDisplay.tsx
 │   ├── SegmentFormModal.tsx, SegmentAssignmentsCard.tsx, SegmentOverridesManager.tsx,
@@ -138,11 +155,16 @@ apps/korfbal-stream-kit/src/
 │   ├── useSponsors.ts, useClubs.ts, useMatch.ts, useMatchSchedule.ts, useManualMatches.ts
 │   ├── useReports.ts, useProductionReport.ts, useSettings.ts
 │   ├── useSeasons.ts          # Seasons + active season (invalidates all queries on change)
+│   ├── useOrganizations.ts    # Organizations, match source, API keys, vMix endpoints
 │   ├── useLiveState.ts        # Socket.io live production state
 │   └── useFontSize.ts         # UI font-size preference
 ├── lib/
 │   ├── api.ts                 # API base URL / fetch helpers
-│   ├── download.ts            # File download helper
+│   ├── organization.ts        # Chosen organization (localStorage), fetch wrapper adding X-Organization, socket auth, slug rename
+│   ├── apiErrorCodes.ts       # The API's stable error codes (kept in sync with the API)
+│   ├── socket.ts              # Shared Socket.io connection (handshake auth.organization), reconnect on switch
+│   ├── adminPaths.ts          # All Beheer URLs
+│   ├── download.ts            # File downloads; downloadFromApi for exports (fetch, so the header goes along)
 │   └── sponsorUtils.ts        # Sponsor helpers
 ├── config/
 │   └── scoreboardLabels.ts    # Scoreboard display labels
@@ -152,7 +174,7 @@ apps/korfbal-stream-kit/src/
 
 ## API Endpoints
 
-No authentication: all endpoints are open (internal LAN tool). Swagger UI at `/api/docs`, OpenAPI JSON at `/api/openapi.json`.
+No login (internal LAN tool), but every `/api` request needs an organization: `X-Organization: <slug>` (401 "Kies een organisatie" without, 403 for an unknown or inactive one). Global routes work without: `/api/health`, `/api/organizations`, `/api/seasons`, `/api/clubs`, `/api/players`, docs. Feed routes (`/api/vmix` data sources and triggers, `/api/scoreboard/*`) take an API key of the organization instead (`?key=` or `X-Api-Key`). Swagger UI at `/api/docs`, OpenAPI JSON at `/api/openapi.json`.
 
 ### Core (`main.ts`)
 
@@ -160,8 +182,24 @@ No authentication: all endpoints are open (internal LAN tool). Swagger UI at `/a
 |--------|------|-------------|
 | GET | /api/health | Health check |
 | GET | /api/openapi.json | OpenAPI document |
-| POST | /api/upload | Generic file upload (multer) |
 | GET | /assets/\*, /uploads/\*, /storage/\* | Static files from `ASSETS_DIR` |
+
+### Organizations (`/api/organizations`, global), match source and API keys
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /api/organizations | Active organizations (start screen); `?all=true` also the inactive ones |
+| GET | /api/organizations/:id | One organization |
+| POST | /api/organizations | Create (name, slug, clubId) with the standard set |
+| PUT | /api/organizations/:id | Update name, slug, clubId, isActive |
+| POST | /api/organizations/:id/logo | Upload logo (multipart `file`, png/jpg/gif/webp) |
+| DELETE | /api/organizations/:id/logo | Remove the own logo |
+| GET | /api/match-source | Match import source of the chosen organization (`hasApiToken`, never the token) |
+| PUT | /api/match-source | Save provider, baseUrl, isEnabled, apiToken (absent keeps, null removes) |
+| POST | /api/match-source/test | Test the stored source: only ok or failed |
+| GET | /api/organization/api-keys | API keys (name, prefix, createdAt, lastUsedAt, revokedAt) |
+| POST | /api/organization/api-keys | Create a key `{name}`: the full key is in this answer only |
+| DELETE | /api/organization/api-keys/:id | Revoke a key |
 
 ### Sponsors (`/api/sponsors`)
 

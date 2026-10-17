@@ -8,15 +8,20 @@ datasource db {
 }
 
 model Sponsor {
-  id          Int         @id @default(autoincrement())
-  name        String
-  type        SponsorType
-  logoUrl     String
-  websiteUrl  String
-  createdAt   DateTime    @default(now())
-  categories  String?
-  displayName String?
-  enabled     Boolean     @default(true)
+  id             Int          @id @default(autoincrement())
+  name           String
+  type           SponsorType
+  /// Set by an upload: `<organizationId>/<file>` (older logos: a plain file name); null without a logo
+  logoUrl        String?
+  websiteUrl     String
+  createdAt      DateTime     @default(now())
+  categories     String?
+  displayName    String?
+  enabled        Boolean      @default(true)
+  organizationId Int          @default(dbgenerated("missing_organization_id()"))
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 model Season {
@@ -30,7 +35,7 @@ model Season {
 
 model MatchSchedule {
   id                 Int                   @id @default(autoincrement())
-  externalId         String?               @unique
+  externalId         String?
   date               DateTime
   homeTeamName       String
   awayTeamName       String
@@ -54,31 +59,39 @@ model MatchSchedule {
   season             Season                @relation(fields: [seasonId], references: [id], onDelete: Restrict)
   roleAssignments    MatchRoleAssignment[]
   Production         Production?
+  organizationId     Int                   @default(dbgenerated("missing_organization_id()"))
+  organization       Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@unique([organizationId, externalId])
   @@index([date])
   @@index([seasonId, date])
+  @@index([organizationId])
 }
 
 /// Catalog of skills (roles) with code and gendered display names
 model Skill {
-  id          Int                   @id @default(autoincrement())
-  code        String                @unique
-  nameMale    String
-  nameFemale  String
-  createdAt   DateTime              @default(now())
-  name        String
-  type        SkillType             @default(crew)
-  assignments MatchRoleAssignment[]
-  skills      PersonSkill[]
-  Position    Position[]
+  id             Int                   @id @default(autoincrement())
+  code           String
+  nameMale       String
+  nameFemale     String
+  createdAt      DateTime              @default(now())
+  name           String
+  type           SkillType             @default(crew)
+  assignments    MatchRoleAssignment[]
+  skills         PersonSkill[]
+  Position       Position[]
+  organizationId Int                   @default(dbgenerated("missing_organization_id()"))
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@unique([organizationId, code])
+  @@index([organizationId])
   @@map("Capability")
 }
 
 /// Catalog of production positions (distinct from skills)
 model Position {
   id                     Int                         @id @default(autoincrement())
-  name                   String                      @unique
+  name                   String
   createdAt              DateTime                    @default(now())
   /// Optional link to a skill that is required for this position
   skillId                Int?
@@ -95,17 +108,25 @@ model Position {
   productionPositions    ProductionPersonPosition[]
   SegmentDefaultPosition SegmentDefaultPosition[]
   segmentAssignments     SegmentRoleAssignment[]
+  organizationId         Int                         @default(dbgenerated("missing_organization_id()"))
+  organization           Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
 }
 
 /// NIEUW: Koppeling tussen posities voor synchronisatie van de callsheet
 model PositionLink {
-  id               Int      @id @default(autoincrement())
+  id               Int          @id @default(autoincrement())
   sourcePositionId Int
   targetPositionId Int
-  sourcePosition   Position @relation("SourcePosition", fields: [sourcePositionId], references: [id], onDelete: Cascade)
-  targetPosition   Position @relation("TargetPosition", fields: [targetPositionId], references: [id], onDelete: Cascade)
+  sourcePosition   Position     @relation("SourcePosition", fields: [sourcePositionId], references: [id], onDelete: Cascade)
+  targetPosition   Position     @relation("TargetPosition", fields: [targetPositionId], references: [id], onDelete: Cascade)
+  organizationId   Int          @default(dbgenerated("missing_organization_id()"))
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([sourcePositionId, targetPositionId])
+  @@index([organizationId])
 }
 
 /// People who can be assigned roles in livestream productions
@@ -119,17 +140,24 @@ model Person {
   productionPresences ProductionPerson[]
   productionPositions ProductionPersonPosition[]
   segmentAssignments  SegmentRoleAssignment[]
+  organizationId      Int                        @default(dbgenerated("missing_organization_id()"))
+  organization        Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 /// Link table: which skills a person has
 model PersonSkill {
-  personId  Int
-  createdAt DateTime @default(now())
-  skillId   Int
-  person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
-  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  personId       Int
+  createdAt      DateTime     @default(now())
+  skillId        Int
+  person         Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  skill          Skill        @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  organizationId Int          @default(dbgenerated("missing_organization_id()"))
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@id([personId, skillId])
+  @@index([organizationId])
   @@map("PersonCapability")
 }
 
@@ -143,12 +171,15 @@ model MatchRoleAssignment {
   matchSchedule   MatchSchedule @relation(fields: [matchScheduleId], references: [id], onDelete: Cascade)
   person          Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
   skill           Skill         @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  organizationId  Int           @default(dbgenerated("missing_organization_id()"))
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([matchScheduleId, skillId, personId])
   @@unique([matchScheduleId, skillId, personId], map: "MatchRoleAssignment_matchScheduleId_capabilityId_personId_key")
   @@index([matchScheduleId])
   @@index([personId])
   @@index([skillId])
+  @@index([organizationId])
 }
 
 /// A production instance for a given match
@@ -169,15 +200,24 @@ model Production {
   productionReport    ProductionReport?
   segments            ProductionSegment[]
   TitleDefinition     TitleDefinition[]
+  organizationId      Int                        @default(dbgenerated("missing_organization_id()"))
+  organization        Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 model CallSheetTemplate {
-  id          Int                     @id @default(autoincrement())
-  name        String                  @unique
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
-  items       CallSheetTemplateItem[]
-  productions Production[]
+  id             Int                     @id @default(autoincrement())
+  name           String
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  items          CallSheetTemplateItem[]
+  productions    Production[]
+  organizationId Int                     @default(dbgenerated("missing_organization_id()"))
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
 }
 
 model CallSheetTemplateItem {
@@ -199,9 +239,12 @@ model CallSheetTemplateItem {
   linkedItems    CallSheetTemplateItem[]     @relation("LinkedTemplateItems")
   template       CallSheetTemplate           @relation(fields: [templateId], references: [id], onDelete: Cascade)
   positions      CallSheetTemplatePosition[]
+  organizationId Int                         @default(dbgenerated("missing_organization_id()"))
+  organization   Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([templateId])
   @@index([parentId])
+  @@index([organizationId])
 }
 
 model CallSheetTemplatePosition {
@@ -209,39 +252,48 @@ model CallSheetTemplatePosition {
   positionId     Int
   position       Position              @relation(fields: [positionId], references: [id], onDelete: Cascade)
   item           CallSheetTemplateItem @relation(fields: [templateItemId], references: [id], onDelete: Cascade)
+  organizationId Int                   @default(dbgenerated("missing_organization_id()"))
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@id([templateItemId, positionId])
   @@index([positionId])
+  @@index([organizationId])
 }
 
 /// People marked as present for a production
 model ProductionPerson {
-  id           Int        @id @default(autoincrement())
-  productionId Int
-  personId     Int
-  createdAt    DateTime   @default(now())
-  person       Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
-  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  id             Int          @id @default(autoincrement())
+  productionId   Int
+  personId       Int
+  createdAt      DateTime     @default(now())
+  person         Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  production     Production   @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  organizationId Int          @default(dbgenerated("missing_organization_id()"))
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([productionId, personId])
   @@index([productionId])
   @@index([personId])
+  @@index([organizationId])
 }
 
 model ProductionPersonPosition {
-  id           Int        @id @default(autoincrement())
-  productionId Int
-  personId     Int
-  positionId   Int
-  createdAt    DateTime   @default(now())
-  person       Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
-  position     Position   @relation(fields: [positionId], references: [id], onDelete: Cascade)
-  production   Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  id             Int          @id @default(autoincrement())
+  productionId   Int
+  personId       Int
+  positionId     Int
+  createdAt      DateTime     @default(now())
+  person         Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  position       Position     @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  production     Production   @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  organizationId Int          @default(dbgenerated("missing_organization_id()"))
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([productionId, personId, positionId])
   @@index([productionId])
   @@index([personId])
   @@index([positionId])
+  @@index([organizationId])
 }
 
 model ProductionSegment {
@@ -254,43 +306,57 @@ model ProductionSegment {
   callSheetItems CallSheetItem[]
   production     Production              @relation(fields: [productionId], references: [id], onDelete: Cascade)
   bezetting      SegmentRoleAssignment[]
+  organizationId Int                     @default(dbgenerated("missing_organization_id()"))
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([productionId, volgorde])
   @@index([productionId])
+  @@index([organizationId])
 }
 
 model SegmentTemplate {
-  id        Int                   @id @default(autoincrement())
-  name      String                @unique
-  createdAt DateTime              @default(now())
-  updatedAt DateTime              @updatedAt
-  isDefault Boolean               @default(false)
-  items     SegmentTemplateItem[]
+  id             Int                   @id @default(autoincrement())
+  name           String
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  isDefault      Boolean               @default(false)
+  items          SegmentTemplateItem[]
+  organizationId Int                   @default(dbgenerated("missing_organization_id()"))
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
 }
 
 model SegmentTemplateItem {
-  id            Int             @id @default(autoincrement())
-  templateId    Int
-  naam          String
-  volgorde      Int
-  duurInMinuten Int
-  isTimeAnchor  Boolean         @default(false)
-  template      SegmentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  id             Int             @id @default(autoincrement())
+  templateId     Int
+  naam           String
+  volgorde       Int
+  duurInMinuten  Int
+  isTimeAnchor   Boolean         @default(false)
+  template       SegmentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  organizationId Int             @default(dbgenerated("missing_organization_id()"))
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([templateId, volgorde])
   @@index([templateId])
+  @@index([organizationId])
 }
 
 model SegmentDefaultPosition {
-  id          Int      @id @default(autoincrement())
-  segmentName String
-  positionId  Int
-  order       Int
-  position    Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  id             Int          @id @default(autoincrement())
+  segmentName    String
+  positionId     Int
+  order          Int
+  position       Position     @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  organizationId Int          @default(dbgenerated("missing_organization_id()"))
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([segmentName, order])
+  @@unique([organizationId, segmentName, order])
   @@index([segmentName])
   @@index([positionId])
+  @@index([organizationId])
 }
 
 model SegmentRoleAssignment {
@@ -302,21 +368,25 @@ model SegmentRoleAssignment {
   person              Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
   position            Position          @relation(fields: [positionId], references: [id], onDelete: Cascade)
   productionSegment   ProductionSegment @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
+  organizationId      Int               @default(dbgenerated("missing_organization_id()"))
+  organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([productionSegmentId, positionId, personId])
   @@index([productionSegmentId])
   @@index([personId])
   @@index([positionId])
+  @@index([organizationId])
 }
 
 model Club {
-  id        Int      @id @default(autoincrement())
-  name      String
-  shortName String
-  slug      String   @unique
-  logoUrl   String?
-  createdAt DateTime @default(now())
-  players   Player[]
+  id            Int            @id @default(autoincrement())
+  name          String
+  shortName     String
+  slug          String         @unique
+  logoUrl       String?
+  createdAt     DateTime       @default(now())
+  players       Player[]
+  organizations Organization[]
 }
 
 model Player {
@@ -352,8 +422,11 @@ model TitleDefinition {
   interviewSubjects InterviewSubject[]
   production        Production?        @relation(fields: [productionId], references: [id], onDelete: Cascade)
   parts             TitlePart[]
+  organizationId    Int                @default(dbgenerated("missing_organization_id()"))
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([productionId, order])
+  @@index([organizationId])
 }
 
 model TitlePart {
@@ -366,8 +439,11 @@ model TitlePart {
   customFunction    String?
   customName        String?
   definition        TitleDefinition @relation(fields: [titleDefinitionId], references: [id], onDelete: Cascade)
+  organizationId    Int             @default(dbgenerated("missing_organization_id()"))
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([titleDefinitionId])
+  @@index([organizationId])
 }
 
 model InterviewSubject {
@@ -382,11 +458,14 @@ model InterviewSubject {
   player            Player           @relation(fields: [playerId], references: [id], onDelete: Cascade)
   production        Production       @relation(fields: [productionId], references: [id], onDelete: Cascade)
   titleDefinition   TitleDefinition? @relation(fields: [titleDefinitionId], references: [id])
+  organizationId    Int              @default(dbgenerated("missing_organization_id()"))
+  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([productionId, side, role, titleDefinitionId])
   @@index([productionId])
   @@index([playerId])
   @@index([titleDefinitionId])
+  @@index([organizationId])
 }
 
 model PlayerImage {
@@ -399,17 +478,20 @@ model PlayerImage {
 }
 
 model CallSheet {
-  id           Int             @id @default(autoincrement())
-  productionId Int
-  name         String
-  color        String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  production   Production      @relation(fields: [productionId], references: [id], onDelete: Cascade)
-  items        CallSheetItem[]
+  id             Int             @id @default(autoincrement())
+  productionId   Int
+  name           String
+  color          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  production     Production      @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  items          CallSheetItem[]
+  organizationId Int             @default(dbgenerated("missing_organization_id()"))
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([productionId, name])
   @@index([productionId])
+  @@index([organizationId])
 }
 
 model CallSheetItem {
@@ -437,10 +519,13 @@ model CallSheetItem {
   linkedItems         CallSheetItem[]         @relation("LinkedItems")
   productionSegment   ProductionSegment?      @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
   positions           CallSheetItemPosition[]
+  organizationId      Int                     @default(dbgenerated("missing_organization_id()"))
+  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([callSheetId])
   @@index([productionSegmentId])
   @@index([parentId])
+  @@index([organizationId])
 }
 
 model CallSheetItemPosition {
@@ -449,9 +534,12 @@ model CallSheetItemPosition {
   createdAt       DateTime      @default(now())
   item            CallSheetItem @relation(fields: [callSheetItemId], references: [id], onDelete: Cascade)
   position        Position      @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  organizationId  Int           @default(dbgenerated("missing_organization_id()"))
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@id([callSheetItemId, positionId])
   @@index([positionId])
+  @@index([organizationId])
 }
 
 model Setting {
@@ -462,17 +550,20 @@ model Setting {
 }
 
 model ProductionReport {
-  id                 Int        @id @default(autoincrement())
-  productionId       Int        @unique
+  id                 Int          @id @default(autoincrement())
+  productionId       Int          @unique
   matchSponsor       String?
   ballSponsor        String?
   interviewRationale String?
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
   remarks            String?
-  production         Production @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  production         Production   @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  organizationId     Int          @default(dbgenerated("missing_organization_id()"))
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([productionId])
+  @@index([organizationId])
 }
 
 model ProductionEvent {
@@ -501,19 +592,25 @@ model ProductionEvent {
   linkedItems      ProductionEvent[]         @relation("LinkedEvents")
   production       Production                @relation(fields: [productionId], references: [id], onDelete: Cascade)
   positions        ProductionEventPosition[]
+  organizationId   Int                       @default(dbgenerated("missing_organization_id()"))
+  organization     Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([productionId])
   @@index([productionId, createdAt])
   @@index([parentId])
+  @@index([organizationId])
 }
 
 model ProductionEventPosition {
-  eventId    String
-  positionId Int
-  event      ProductionEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  position   Position        @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  eventId        String
+  positionId     Int
+  event          ProductionEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  position       Position        @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  organizationId Int             @default(dbgenerated("missing_organization_id()"))
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@id([eventId, positionId])
+  @@index([organizationId])
 }
 
 enum SponsorType {
@@ -570,4 +667,92 @@ enum TriggerSource {
   VMIX
   MANUAL
   AUTO
+}
+
+/// A club or federation that runs its own productions. Every tenant table carries organizationId;
+/// the Prisma extension in services/prisma.ts scopes all queries to the organization in the context.
+model Organization {
+  id        Int      @id @default(autoincrement())
+  slug      String   @unique
+  name      String
+  /// Uploaded logo (organizations/<id>.<ext> under storage/); falls back to the linked club's logo
+  logoUrl   String?
+  /// Optional link to the shared Club (logo fallback, own club)
+  clubId    Int?
+  /// Only active organizations are offered on the start screen
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  club      Club?    @relation(fields: [clubId], references: [id], onDelete: SetNull)
+
+  sponsors                   Sponsor[]
+  matchSchedules             MatchSchedule[]
+  skills                     Skill[]
+  positions                  Position[]
+  positionLinks              PositionLink[]
+  persons                    Person[]
+  personSkills               PersonSkill[]
+  matchRoleAssignments       MatchRoleAssignment[]
+  productions                Production[]
+  callSheetTemplates         CallSheetTemplate[]
+  callSheetTemplateItems     CallSheetTemplateItem[]
+  callSheetTemplatePositions CallSheetTemplatePosition[]
+  productionPersons          ProductionPerson[]
+  productionPersonPositions  ProductionPersonPosition[]
+  productionSegments         ProductionSegment[]
+  segmentTemplates           SegmentTemplate[]
+  segmentTemplateItems       SegmentTemplateItem[]
+  segmentDefaultPositions    SegmentDefaultPosition[]
+  segmentRoleAssignments     SegmentRoleAssignment[]
+  titleDefinitions           TitleDefinition[]
+  titleParts                 TitlePart[]
+  interviewSubjects          InterviewSubject[]
+  callSheets                 CallSheet[]
+  callSheetItems             CallSheetItem[]
+  callSheetItemPositions     CallSheetItemPosition[]
+  productionReports          ProductionReport[]
+  productionEvents           ProductionEvent[]
+  productionEventPositions   ProductionEventPosition[]
+  settings                   OrganizationSetting[]
+  matchSource                MatchSource?
+  apiKeys                    OrganizationApiKey[]
+}
+
+/// Settings of one organization (vMix, sponsor filters, scoreboard, club config). Installation-wide
+/// keys (activeSeasonId) stay in Setting.
+model OrganizationSetting {
+  organizationId Int          @default(dbgenerated("missing_organization_id()"))
+  key            String
+  value          Json
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, key])
+}
+
+/// Where an organization imports its match schedule from. apiToken is never returned by the API.
+model MatchSource {
+  id             Int          @id @default(autoincrement())
+  organizationId Int          @unique @default(dbgenerated("missing_organization_id()"))
+  provider       String       @default("vrijwilligers")
+  baseUrl        String
+  apiToken       String?
+  isEnabled      Boolean      @default(true)
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+/// API key for feeds (vMix data sources, devices) of one organization; only the SHA-256 hash is stored.
+model OrganizationApiKey {
+  id             Int          @id @default(autoincrement())
+  organizationId Int          @default(dbgenerated("missing_organization_id()"))
+  name           String
+  keyHash        String       @unique
+  prefix         String
+  createdAt      DateTime     @default(now())
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }

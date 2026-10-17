@@ -117,9 +117,8 @@ COPY --from=builder /app/apps/korfbal-stream-api/prisma /app/apps/korfbal-stream
 # /app/seed; de onderlinge relatieve imports (../src/services/...) blijven zo kloppen.
 COPY --from=builder /app/dist-seed /app/seed
 
-# Kopieer de JSON seed-data naar de locatie waar de seed scripts ze verwachten.
-# In seed.ts wordt path.join(__dirname, 'seed-data/...') gebruikt.
-COPY --from=builder /app/apps/korfbal-stream-api/prisma/seed-data /app/seed/prisma/seed-data
+# De standaardset (sjablonen, posities, skills) zit als TypeScript in src/standardSet en wordt
+# met de seed mee getranspileerd; er is geen losse JSON seed-data meer.
 
 # Migratie + seed zonder shell (gebruikt door de migrate-job in docker-compose)
 COPY apps/korfbal-stream-api/docker/migrate-and-seed.cjs /app/seed/migrate-and-seed.cjs

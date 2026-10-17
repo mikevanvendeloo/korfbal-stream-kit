@@ -65,4 +65,12 @@ describe('ClubSettingsTab', () => {
       expect(screen.getByText(/clubinstellingen opgeslagen/i)).toBeInTheDocument();
     });
   });
+
+  it('marks the organizations as changed: the own club is the organization\'s club (Beheer → Organisaties)', async () => {
+    queryClient.setQueryData(['organizations', 'all'], []);
+    renderComponent();
+    fireEvent.click(await screen.findByRole('button', { name: /instellingen opslaan/i }));
+    expect(await screen.findByText(/clubinstellingen opgeslagen/i)).toBeInTheDocument();
+    expect(queryClient.getQueryState(['organizations', 'all'])?.isInvalidated).toBe(true);
+  });
 });

@@ -2,8 +2,7 @@ import request from 'supertest';
 import {execSync} from 'node:child_process';
 import app from '../main';
 import {beforeAll, beforeEach, describe, expect, it} from 'vitest';
-import {PrismaClient} from '@prisma/client';
-import {currentSeasonId} from '../../test-helpers';
+import {applyStandardSetToTestOrganization, currentSeasonId, testDb as prisma} from '../../test-helpers';
 
 function run(cmd: string) {
   execSync(cmd, { stdio: 'inherit' });
@@ -11,7 +10,6 @@ function run(cmd: string) {
 
 const runDb = process.env.REQUIRE_DB === 'true';
 
-const prisma = new PrismaClient();
 
 async function resetDb() {
   // truncate key tables between tests
@@ -27,7 +25,7 @@ describe.runIf(runDb)('Persons API (integration)', () => {
   beforeAll(async () => {
     // Apply migrations and seed to real DB
     run('npx prisma migrate deploy --schema=apps/korfbal-stream-api/prisma/schema.prisma');
-    run('npx prisma db seed --schema=apps/korfbal-stream-api/prisma/schema.prisma');
+    await applyStandardSetToTestOrganization();
   });
 
   beforeEach(async () => {

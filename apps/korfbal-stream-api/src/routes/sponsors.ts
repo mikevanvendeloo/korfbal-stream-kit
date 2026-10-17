@@ -5,8 +5,11 @@ import fs from 'node:fs';
 import ExcelJS from 'exceljs';
 import {prisma} from '../services/prisma';
 import {logger} from '../utils/logger';
+import {saveImage, singleImage} from '../services/imageUpload';
+import {keepOrganizationContext} from '../middleware/organizationContext';
+import {requireOrganizationId} from '../services/organizationContext';
+import {resolveClientLogoUrl, sponsorLogoDir, sponsorLogoUrl} from '../services/sponsorLogos';
 import {
-  makeLogoUrl,
   normalizeLogoFilename,
   SponsorInputSchema,
   SponsorQuerySchema,
@@ -15,25 +18,7 @@ import {
 
 export const sponsorsRouter: Router = Router();
 
-const storagePath = path.join(process.cwd(), 'storage', 'sponsors');
-if (!fs.existsSync(storagePath)) {
-  fs.mkdirSync(storagePath, { recursive: true });
-}
-
-const diskStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, storagePath);
-  },
-  filename: function (req, file, cb) {
-    const sponsorName = (req as any).sponsor?.name || 'unknown-sponsor';
-    const safeName = normalizeLogoFilename(sponsorName);
-    const extension = path.extname(file.originalname) || '.png';
-    cb(null, `${safeName}${extension}`);
-  }
-});
-
-const uploadDisk = multer({ storage: diskStorage });
-const uploadMem = multer({ storage: multer.memoryStorage() });
+const uploadMem = keepOrganizationContext(multer({ storage: multer.memoryStorage() }).single('file'));
 
 // Helper to sort sponsors by type priority
 const typePriority: Record<string, number> = {
@@ -150,7 +135,8 @@ sponsorsRouter.post('/', async (req, res, next) => {
         name,
         type,
         websiteUrl,
-        logoUrl: logoUrl ? normalizeLogoFilename(logoUrl) : makeLogoUrl(name),
+        // Never derived from the name (that would point at another organization's legacy file): set by an upload
+        logoUrl: resolveClientLogoUrl(logoUrl, requireOrganizationId(), null),
         displayName: displayName || null,
         enabled: enabled ?? true,
       },
@@ -175,14 +161,17 @@ sponsorsRouter.post('/:id/logo',
       return next(err);
     }
   },
-  uploadDisk.single('file'),
+  singleImage('file'),
   async (req, res, next) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
       }
       const id = Number(req.params.id);
-      const logoUrl = req.file.filename;
+      const organizationId = requireOrganizationId();
+      const sponsor = (req as any).sponsor as { name: string };
+      const fileName = saveImage(sponsorLogoDir(organizationId), normalizeLogoFilename(sponsor.name).replace(/\.png$/, ''), req.file);
+      const logoUrl = sponsorLogoUrl(organizationId, fileName);
 
       const updatedSponsor = await prisma.sponsor.update({
         where: { id },
@@ -206,7 +195,8 @@ sponsorsRouter.put('/:id', async (req, res, next) => {
     if (!existing) return res.status(404).json({ error: 'Niet gevonden' });
 
     const nextName = input.name ?? (existing as any).name;
-    const nextLogo = input.logoUrl ? normalizeLogoFilename(input.logoUrl) : (input.name ? makeLogoUrl(input.name) : existing.logoUrl);
+    // A rename keeps the logo; a new value must be in the organization's own directory
+    const nextLogo = resolveClientLogoUrl(input.logoUrl, requireOrganizationId(), existing.logoUrl);
 
     const updated = await prisma.sponsor.update({
       where: { id },
@@ -240,7 +230,7 @@ sponsorsRouter.delete('/:id', async (req, res, next) => {
   }
 });
 
-sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, next) => {
+sponsorsRouter.post('/upload-excel', uploadMem, async (req, res, next) => {
   try {
     let buffer: Buffer | null = null;
     if (req.file && req.file.buffer) {
@@ -338,7 +328,8 @@ sponsorsRouter.post('/upload-excel', uploadMem.single('file'), async (req, res, 
         name,
         type,
         websiteUrl: website,
-        logoUrl: logo ? normalizeLogoFilename(logo) : normalizeLogoFilename(name),
+        // Only a logo in the organization's own directory (e.g. from its own export); otherwise none until an upload
+        logoUrl: resolveClientLogoUrl(logo, requireOrganizationId(), null, {lenient: true}),
         categories: categories || undefined,
         enabled: enabledRaw ? (enabledRaw === 'ja' || enabledRaw === 'yes' || enabledRaw === 'true' || enabledRaw === '1') : true,
       };

@@ -1,3 +1,5 @@
+import {requireOrganizationId} from '../../services/organizationContext';
+import {randomUUID} from 'node:crypto';
 import {Router} from 'express';
 import {findOrCreatePosition} from '../../services/positions';
 import {prisma} from '../../services/prisma';
@@ -270,7 +272,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
       // 1. Find or create MatchSchedule
       let match;
       if (data.matchSchedule.externalId) {
-        match = await tx.matchSchedule.findUnique({
+        match = await tx.matchSchedule.findFirst({
           where: { externalId: data.matchSchedule.externalId }
         });
       } else {
@@ -351,7 +353,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
           if (Array.isArray(pData.skills)) {
             for (const sData of pData.skills) {
               const skill = await tx.skill.upsert({
-                where: { code: sData.code },
+                where: { organizationId_code: { organizationId: requireOrganizationId(), code: sData.code } },
                 update: { name: sData.name, nameMale: sData.nameMale, nameFemale: sData.nameFemale, type: sData.type },
                 create: { code: sData.code, name: sData.name, nameMale: sData.nameMale, nameFemale: sData.nameFemale, type: sData.type }
               });
@@ -376,7 +378,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
         for (const posData of data.positions) {
           const person = await tx.person.findFirst({ where: { name: posData.personName } });
           if (!person) continue;
-          let position = await findOrCreatePosition(tx, posData.positionName, { isStudio: posData.isStudio });
+          const position = await findOrCreatePosition(tx, posData.positionName, { isStudio: posData.isStudio });
           await tx.productionPersonPosition.upsert({
             where: { productionId_personId_positionId: { productionId: production.id, personId: person.id, positionId: position.id } },
             update: {},
@@ -402,7 +404,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
             for (const assignData of segData.assignments) {
               const person = await tx.person.findFirst({ where: { name: assignData.personName } });
               if (!person) continue;
-              let position = await findOrCreatePosition(tx, assignData.positionName, { isStudio: assignData.isStudio });
+              const position = await findOrCreatePosition(tx, assignData.positionName, { isStudio: assignData.isStudio });
               await tx.segmentRoleAssignment.create({
                 data: { productionSegmentId: segment.id, personId: person.id, positionId: position.id }
               });
@@ -471,11 +473,10 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
         }
       }
 
-      // 9. Process CallSheets
+      // 9. Process CallSheets (old item id -> new item id, for parentId and the events' callSheetItemId)
+      const itemIdMap = new Map<string, string>();
       if (Array.isArray(data.callSheets)) {
         await tx.callSheet.deleteMany({ where: { productionId: production.id } });
-        // Use a mapping to handle parentId for items
-        const itemIdMap = new Map<string, string>();
 
         for (const csData of data.callSheets) {
           const cs = await tx.callSheet.create({
@@ -496,9 +497,10 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
               segmentId = segment?.id || null;
             }
 
+            // New ids: item ids are global, and the export may come from another organization
             const item = await tx.callSheetItem.create({
               data: {
-                id: itemData.id,
+                id: randomUUID(),
                 callSheetId: cs.id,
                 productionSegmentId: segmentId,
                 cue: itemData.cue,
@@ -521,7 +523,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
             // Handle positions
             if (Array.isArray(itemData.positions)) {
               for (const posName of itemData.positions) {
-                let position = await findOrCreatePosition(tx, posName);
+                const position = await findOrCreatePosition(tx, posName);
                 await tx.callSheetItemPosition.create({
                   data: { callSheetItemId: item.id, positionId: position.id }
                 });
@@ -561,7 +563,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
               note: evData.note,
               anchorType: evData.anchorType,
               autoAdvance: evData.autoAdvance,
-              callSheetItemId: evData.callSheetItemId, // We assume item IDs are preserved
+              callSheetItemId: evData.callSheetItemId ? itemIdMap.get(evData.callSheetItemId) ?? null : null,
               isInLivestream: evData.isInLivestream,
               isInVenue: evData.isInVenue,
               isTimeAnchor: evData.isTimeAnchor,
@@ -575,7 +577,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
           // Handle positions
           if (Array.isArray(evData.positions)) {
             for (const posName of evData.positions) {
-              let position = await findOrCreatePosition(tx, posName);
+              const position = await findOrCreatePosition(tx, posName);
               await tx.productionEventPosition.create({
                 data: { eventId: event.id, positionId: position.id }
               });

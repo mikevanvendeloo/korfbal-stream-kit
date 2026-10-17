@@ -1,11 +1,9 @@
 import request from 'supertest';
 import app from '../../main';
 import {beforeEach, describe, expect, it} from 'vitest';
-import {PrismaClient} from '@prisma/client';
-import {currentSeasonId} from '../../../test-helpers';
+import {currentSeasonId, testDb as prisma} from '../../../test-helpers';
 
 const runDb = process.env.REQUIRE_DB === 'true';
-const prisma = new PrismaClient();
 
 async function resetDb() {
   await prisma.$transaction([

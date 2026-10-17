@@ -140,7 +140,7 @@ describe('Production Export/Import API', () => {
     expect(res.body.id).toBe(200);
 
     // Verify calls
-    expect(prisma.matchSchedule.findUnique).toHaveBeenCalled();
+    expect(prisma.matchSchedule.findFirst).toHaveBeenCalled();
     // 2023-10-27 lies in season 2023/2024, derived from the match date
     expect(prisma.matchSchedule.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ seasonId: 1 }) }));
     expect(prisma.season.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { startYear: 2023 } }));

@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     networks:
       - korfbal-network
-    # Secrets (POSTGRES_PASSWORD, DATABASE_URL, MATCH_SCHEDULE_API_TOKEN, HOST_IP) staan lokaal in
+    # Secrets (POSTGRES_PASSWORD, DATABASE_URL, HOST_IP) staan lokaal in
     # secrets.prod.env (niet ingecheckt), zie secrets.prod.env.example.
     env_file: secrets.prod.env
     environment:
@@ -29,7 +29,7 @@ services:
     depends_on:
       streamz-db:
         condition: service_healthy
-    # Secrets (POSTGRES_PASSWORD, DATABASE_URL, MATCH_SCHEDULE_API_TOKEN, HOST_IP) staan lokaal in
+    # Secrets (POSTGRES_PASSWORD, DATABASE_URL, HOST_IP) staan lokaal in
     # secrets.prod.env (niet ingecheckt), zie secrets.prod.env.example.
     env_file: secrets.prod.env
     environment:
@@ -43,13 +43,12 @@ services:
     image: mvanvendeloo/korfbal-stream-api:latest
     networks:
       - korfbal-network
-    # Secrets (POSTGRES_PASSWORD, DATABASE_URL, MATCH_SCHEDULE_API_TOKEN, HOST_IP) staan lokaal in
+    # Secrets (POSTGRES_PASSWORD, DATABASE_URL, HOST_IP) staan lokaal in
     # secrets.prod.env (niet ingecheckt), zie secrets.prod.env.example.
     env_file: secrets.prod.env
     environment:
       TZ: Europe/Amsterdam
       NODE_ENV: production
-      MATCH_SCHEDULE_BASE_URL: "https://api.sportclubvrijwilligersmanagement.nl/v1"
       PORT: 3333
       ASSETS_DIR: /app/storage
       UPLOADS_DIR: /app/uploads

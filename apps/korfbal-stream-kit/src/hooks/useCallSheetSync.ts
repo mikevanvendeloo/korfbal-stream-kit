@@ -1,5 +1,6 @@
 import {useEffect, useRef, useState} from 'react';
 import {io, Socket} from 'socket.io-client';
+import {socketAuth} from '../lib/organization';
 
 import {getSocketUrl} from "../lib/api";
 
@@ -38,6 +39,8 @@ export const useTimeSync = () => {
   useEffect(() => {
     const socket: Socket = io(API_URL, {
       transports: ['websocket', 'polling'],
+      // The chosen organization: the API sends only its live events (room org:<id>)
+      auth: socketAuth,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       timeout: 20000,

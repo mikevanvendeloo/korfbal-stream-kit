@@ -53,3 +53,42 @@ export function downloadFile(blob: Blob, filename: string) {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+/** File name from a Content-Disposition header (`attachment; filename="x.json"`), if any. */
+export function fileNameFromDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(header);
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ''));
+    } catch {
+      // fall through to the plain filename
+    }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(header);
+  return plain ? plain[1].trim() : null;
+}
+
+/**
+ * Downloads an API export through fetch, so the request carries X-Organization (a plain link or
+ * window.open can't send a header and would get 401). Throws with the API's message on failure.
+ */
+export async function downloadFromApi(path: string, fallbackName: string): Promise<void> {
+  const res = await fetch(path);
+  if (!res.ok) {
+    let message = `Download mislukt (${res.status})`;
+    try {
+      const body = await res.json();
+      if (body?.error) message = String(body.error);
+    } catch {
+      // not JSON
+    }
+    throw new Error(message);
+  }
+  downloadFile(await res.blob(), fileNameFromDisposition(res.headers.get('content-disposition')) ?? fallbackName);
+}
+
+/** `downloadFromApi` for a button: a failure is shown in an alert. */
+export function downloadExport(path: string, fallbackName: string): Promise<void> {
+  return downloadFromApi(path, fallbackName).catch((err: Error) => window.alert(err.message));
+}

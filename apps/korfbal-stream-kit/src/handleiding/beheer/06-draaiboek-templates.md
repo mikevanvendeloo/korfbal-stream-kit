@@ -47,7 +47,7 @@ In titels en notities kun je een plek voor een interviewnaam typen. Die wordt in
 | `{coach-uit:kort}` | de coach van de uitploeg, als *J. de Vries* |
 | `{speler-tegenstander:achternaam}` | de speler van de tegenstander, als *de Vries* |
 
-Kies **thuis** of **uit**, of **eigen** en **tegenstander**: die laatste twee volgen de eigen club (bij **Instellingen**), zodat hetzelfde draaiboek werkt voor thuis- én uitwedstrijden.
+Kies **thuis** of **uit**, of **eigen** en **tegenstander**: die laatste twee volgen de eigen club (bij **Instellingen**, dezelfde als de club van de organisatie), zodat hetzelfde draaiboek werkt voor thuis- én uitwedstrijden.
 
 ## Segment-templates
 

@@ -79,7 +79,7 @@ Met **Nieuwe sponsor** voeg je een sponsor toe:
 | **Naam** | De officiële naam (*B.V.* wordt weggelaten) |
 | **Type** | Premium, Goud, Zilver, Brons of Evenement. Bij **Instellingen → Sponsors** kies je welke types in de ticker, carrousel en slides komen. |
 | **Website URL** | Verplicht |
-| **Logo** | Een png-, jpg- of svg-bestand |
+| **Logo** | Upload een png-, jpg-, gif- of webp-bestand. Zonder upload heeft de sponsor geen logo; het wordt niet meer van de naam afgeleid. |
 | **Weergavenaam** | Een kortere naam voor de ticker en carrousel |
 | **Sponsor is actief** | Alleen actieve sponsors komen in vMix |
 
@@ -89,7 +89,8 @@ Met **Upload sponsors** lees je een Excel-bestand in, met kolommen als *Naam*, *
 
 > - Heeft het Excel-bestand geen kolom *Actief*, dan worden alle geïmporteerde sponsors weer actief.
 > - Sponsors van het type *event* worden bij de Excel-import overgeslagen.
-> - Een sponsorlogo moet in de map `storage/sponsors` staan. Zie je geen logo, controleer dan of het bestand daar staat met precies de naam uit het veld Logo.
+> - De kolom *Logo* wordt alleen overgenomen als het een logo van je eigen organisatie is (uit een eigen export). Anders upload je het logo daarna bij de sponsor.
+> - Geüploade logo's staan in de map `storage/sponsors/<nummer van de organisatie>`; oudere logo's staan direct in `storage/sponsors`. Zie je geen logo, upload het dan opnieuw bij de sponsor.
 
 ### Sponsor-slides
 

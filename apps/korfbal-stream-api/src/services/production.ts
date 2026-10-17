@@ -1,5 +1,6 @@
 import {prisma} from './prisma';
 import {PositionCategory, Prisma} from '@prisma/client';
+import {NotFoundError} from '../middleware/error';
 
 const productionInclude = Prisma.validator<Prisma.ProductionInclude>()({
   matchSchedule: true,
@@ -46,7 +47,7 @@ export async function getProductionReportData(productionId: number) {
   });
 
   if (!production) {
-    throw new Error('Production not found');
+    throw new NotFoundError('Production not found');
   }
 
   // --- ATTENDEES ---
@@ -117,4 +118,15 @@ export async function getProductionReportData(productionId: number) {
     interviews,
     sponsors,
   };
+}
+
+/**
+ * Throws NotFoundError (404) unless the production exists in the organization of the context. For
+ * routes that only write children of a production: without it, a foreign id reaches the database.
+ */
+export async function assertProductionExists(productionId: number): Promise<void> {
+  const production = Number.isInteger(productionId) && productionId > 0
+    ? await prisma.production.findUnique({where: {id: productionId}, select: {id: true}})
+    : null;
+  if (!production) throw new NotFoundError('Production not found');
 }
