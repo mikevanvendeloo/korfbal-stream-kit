@@ -1,8 +1,11 @@
 import React, {useEffect, useState} from 'react';
-import {useQuery} from '@tanstack/react-query';
+import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {useClubs} from '../../hooks/useClubs';
+import {organizationKeys} from '../../hooks/useOrganizations';
+import {extractError} from '../../lib/api';
 
-// API functions for club config
+// API functions for club config. The own club is the organization's club (Organization.clubId), the
+// same one Beheer → Organisaties shows.
 async function getClubConfig() {
   const res = await fetch('/api/settings/club-config');
   if (!res.ok) throw new Error('Failed to fetch club config');
@@ -15,10 +18,11 @@ async function setClubConfig(config: { ownClubId: number | null; productionTeamN
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(config),
   });
-  if (!res.ok) throw new Error('Failed to save club config');
+  if (!res.ok) throw new Error(await extractError(res));
 }
 
 export default function ClubSettingsTab() {
+  const queryClient = useQueryClient();
   const [ownClubId, setOwnClubId] = useState<number | null>(null);
   const [productionTeamNames, setProductionTeamNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +66,8 @@ export default function ClubSettingsTab() {
       setError(null);
       setSuccess(null);
       await setClubConfig({ ownClubId, productionTeamNames });
+      // The organization's club changed too (logo fallback in the nav and on the start screen)
+      void queryClient.invalidateQueries({ queryKey: organizationKeys.all });
       setSuccess('Clubinstellingen opgeslagen');
     } catch (err: any) {
       setError(err.message || 'Opslaan mislukt');
@@ -97,6 +103,9 @@ export default function ClubSettingsTab() {
               <option value="">Geen (voor generieke evenementen)</option>
               {clubsData?.map(club => <option key={club.id} value={club.id}>{club.name}</option>)}
             </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Dit is de club van de organisatie: dezelfde als bij Beheer → Overig → Organisaties.
+            </p>
           </div>
           {ownClubId && (
             <div>

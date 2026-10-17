@@ -29,7 +29,7 @@ Doe het in deze volgorde:
 
 ## Club & Teams
 
-- **Eigen Club**: de club waarvoor de uitzendingen zijn. Dit bepaalt wat *eigen* en *tegenstander* zijn in interviewnamen als `{coach-tegenstander}`. Staat je club er niet tussen (omdat hij niet in de League speelt), maak hem dan eerst aan bij **Clubs & spelers → Nieuwe club**.
+- **Eigen Club**: de club waarvoor de uitzendingen zijn. Dit bepaalt wat *eigen* en *tegenstander* zijn in interviewnamen als `{coach-tegenstander}`. Het is de club van de organisatie, dezelfde als bij **Overig → Organisaties**: kies je hier een andere, dan verandert hij daar ook (en andersom). Staat je club er niet tussen (omdat hij niet in de League speelt), maak hem dan eerst aan bij **Clubs & spelers → Nieuwe club**.
 - **Productie Teams**: de teams van je eigen club waarvan je thuiswedstrijden uitzendt. Alleen hun thuiswedstrijden, plus de handmatige wedstrijden, staan in de lijst bij **Nieuwe productie**. De teams verschijnen pas als de wedstrijden van het actieve seizoen zijn geïmporteerd.
 
 Klik op **Instellingen Opslaan**.
@@ -53,7 +53,7 @@ Alleen sponsors die op **actief** staan, doen mee.
 
 Per onderdeel (Personen, Skills, Posities, Wedstrijden, Producties, Clubs, Sponsors, Instellingen, Segment templates) maak je met **Backup** een JSON-bestand, en zet je het met **Restore** terug.
 
-Backup en restore gaan over de **gekozen organisatie** (de naam staat op het tabblad): een backup bevat alleen haar gegevens, en een restore zet ze terug in die organisatie zonder die van andere organisaties aan te raken. Een oude backup van voor de organisaties komt in de gekozen organisatie. **Clubs** (met spelers) zijn gedeeld door alle organisaties. Kies dus eerst de juiste organisatie voor je een restore doet.
+Backup en restore gaan over de **gekozen organisatie** (de naam staat op het tabblad): een backup bevat alleen haar gegevens, en een restore zet ze terug in die organisatie zonder die van andere organisaties aan te raken. Een oude backup van voor de organisaties komt in de gekozen organisatie. **Clubs** (met spelers) zijn gedeeld door alle organisaties. Kies dus eerst de juiste organisatie voor je een restore doet. Het **actieve seizoen** geldt voor de hele installatie: een restore van **Instellingen** verandert het niet. Kies het zo nodig zelf bij **Actief seizoen**.
 
 Een restore **vult aan en werkt bij**, hij wist niets. Bestaande gegevens worden herkend (personen en sponsors op naam, skills op code, posities op naam, wedstrijden op hun code of datum en teams) en overschreven met wat in het bestand staat. Een productie die al bestaat, krijgt de segmenten, titels, interviews en het draaiboek uit het bestand.
 

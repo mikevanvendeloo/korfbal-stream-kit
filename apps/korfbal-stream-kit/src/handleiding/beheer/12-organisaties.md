@@ -15,7 +15,7 @@ Het keuzescherm komt ook terug als de gekozen organisatie is uitgezet, of als ha
 Onder **Overig → Organisaties** staan alle organisaties, ook de inactieve, met hun **Slug**, **Club** en status (**Actief** of **Inactief**).
 
 - **Nieuwe organisatie**: vul de **Naam** in; de **Slug** (een korte naam met kleine letters, cijfers en streepjes, bijvoorbeeld `fortuna`) wordt voorgesteld. Kies eventueel de eigen **Club** en druk op **Aanmaken**. Een nieuwe organisatie krijgt meteen de **standaardset**: skills, posities, titel-templates, draaiboek- en segment-templates. Daarna kun je een logo toevoegen.
-- **Wijzigen**: naam, slug, club en logo. Wijzig je de slug, dan kiest iedereen die deze organisatie gebruikt opnieuw op het keuzescherm (behalve jij op dit apparaat).
+- **Wijzigen**: naam, slug, club en logo. De **Club** is ook de **Eigen Club** bij **Instellingen → Club & Teams**: wijzig je hem op de ene plek, dan zie je dat op de andere. Wijzig je de slug, dan kiest iedereen die deze organisatie gebruikt opnieuw op het keuzescherm (behalve jij op dit apparaat).
 - **Deactiveren** / **Activeren**: een inactieve organisatie staat niet op het keuzescherm en haar gegevens zijn niet te openen, maar er wordt niets verwijderd. De laatste actieve organisatie kun je niet deactiveren.
 
 **Logo**: met **Logo uploaden** (PNG, JPG, GIF of WebP) en **Logo verwijderen**. Zonder eigen logo zie je het logo van de gekoppelde club, en anders de initialen.

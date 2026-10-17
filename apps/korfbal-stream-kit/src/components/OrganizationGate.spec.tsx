@@ -2,8 +2,11 @@ import {act, fireEvent, render, screen} from '@testing-library/react';
 import {QueryClient, QueryClientProvider, useQuery} from '@tanstack/react-query';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {OrganizationGate, OrganizationSwitcher} from './OrganizationGate';
-import {getOrganizationSlug, notifyOrganizationRejected} from '../lib/organization';
-import {chooseOrganization, FORTUNA, KNKV, mockApi, testOrganization} from '../test/organizations';
+import React from 'react';
+import {getOrganizationSlug, installOrganizationFetch, notifyOrganizationRejected} from '../lib/organization';
+import {extractError} from '../lib/api';
+import {API_ERROR_CODES} from '../lib/apiErrorCodes';
+import {chooseOrganization, FORTUNA, jsonResponse, KNKV, mockApi, testOrganization} from '../test/organizations';
 
 const reconnect = vi.fn();
 vi.mock('../lib/socket', () => ({reconnectSharedSocket: () => reconnect()}));
@@ -14,12 +17,26 @@ function TenantData() {
   return <p>{data ?? 'laden'}</p>;
 }
 
+/** A save action as the Beheer pages have it: the API's error on screen. */
+function SaveSponsor() {
+  const [error, setError] = React.useState<string | null>(null);
+  async function save() {
+    const res = await fetch('/api/sponsors', {method: 'POST', body: '{}'});
+    if (!res.ok) setError(await extractError(res));
+  }
+  return <>
+    <button type="button" onClick={() => void save()}>Opslaan</button>
+    {error && <p role="alert">{error}</p>}
+  </>;
+}
+
 function renderGate(queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}})) {
   render(
     <QueryClientProvider client={queryClient}>
       <OrganizationGate>
         <OrganizationSwitcher/>
         <TenantData/>
+        <SaveSponsor/>
       </OrganizationGate>
     </QueryClientProvider>,
   );
@@ -76,6 +93,30 @@ describe('OrganizationGate', () => {
     act(() => notifyOrganizationRejected());
     expect(await screen.findByRole('heading', {name: 'Kies een organisatie'})).toBeInTheDocument();
     expect(screen.queryByText('sponsors van fortuna')).not.toBeInTheDocument();
+  });
+
+  it('opens the start screen when the API says the organization is unknown (code ORGANIZATION_UNKNOWN)', async () => {
+    chooseOrganization('fortuna');
+    mockApi(({path}) => path === '/api/organizations' ? [FORTUNA, KNKV]
+      : jsonResponse({error: 'Onbekende of inactieve organisatie', code: API_ERROR_CODES.ORGANIZATION_UNKNOWN}, 403));
+    installOrganizationFetch(window);
+    renderGate();
+    fireEvent.click(await screen.findByRole('button', {name: 'Opslaan'}));
+    expect(await screen.findByRole('heading', {name: 'Kies een organisatie'})).toBeInTheDocument();
+  });
+
+  it('keeps the app for another 403 (e.g. a refused cross-site write) and shows its error', async () => {
+    chooseOrganization('fortuna');
+    mockApi(({path}) => path === '/api/organizations' ? [FORTUNA, KNKV]
+      : jsonResponse({error: 'Verzoek van een andere website geweigerd', code: API_ERROR_CODES.CROSS_SITE_REFUSED}, 403));
+    installOrganizationFetch(window);
+    renderGate();
+    fireEvent.click(await screen.findByRole('button', {name: 'Opslaan'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Verzoek van een andere website geweigerd');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByRole('heading', {name: 'Kies een organisatie'})).not.toBeInTheDocument();
+    expect(screen.getByText('sponsors van fortuna')).toBeInTheDocument();
+    expect(getOrganizationSlug()).toBe('fortuna');
   });
 
   it('forgets the previous organization\'s data and reconnects the socket on switch', async () => {

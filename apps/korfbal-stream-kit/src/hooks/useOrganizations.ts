@@ -1,5 +1,6 @@
-import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import {QueryClient, useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {createUrl, extractError} from '../lib/api';
+import {followRenamedOrganization} from '../lib/organization';
 
 /** An organization as the API shows it (routes/organizations.ts → toOrganizationDto). */
 export type Organization = {
@@ -63,13 +64,31 @@ export function useCreateOrganization() {
   });
 }
 
+/**
+ * Puts a saved organization in the cached lists straight away, so the lists and the chosen slug agree
+ * before the refetch (the start screen would otherwise see the new slug in an old list, or the reverse).
+ */
+function storeOrganization(qc: QueryClient, saved: Organization): void {
+  const replace = (list: Organization[] | undefined) => list?.map((o) => (o.id === saved.id ? saved : o));
+  qc.setQueryData<Organization[]>(organizationKeys.everything, replace);
+  qc.setQueryData<Organization[]>(organizationKeys.active, (list) => replace(list)?.filter((o) => o.isActive));
+}
+
 export function useUpdateOrganization() {
+  const qc = useQueryClient();
   const invalidate = useInvalidateOrganizations();
   return useMutation({
-    mutationFn: async ({id, ...input}: OrganizationUpdate & { id: number }): Promise<Organization> =>
-      json(await fetch(createUrl(`/api/organizations/${id}`), {
+    mutationFn: async ({id, ...input}: OrganizationUpdate & { id: number }): Promise<Organization> => {
+      const lists = [organizationKeys.everything, organizationKeys.active].map((key) => qc.getQueryData<Organization[]>(key));
+      const previousSlug = lists.flatMap((list) => list ?? []).find((o) => o.id === id)?.slug;
+      const saved: Organization = await json(await fetch(createUrl(`/api/organizations/${id}`), {
         method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(input),
-      })),
+      }));
+      // Right after the PUT, before any refetch or poll: the old slug answers 403 from now on
+      storeOrganization(qc, saved);
+      if (previousSlug) followRenamedOrganization(previousSlug, saved.slug);
+      return saved;
+    },
     onSuccess: invalidate,
   });
 }

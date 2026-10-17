@@ -13,6 +13,7 @@ import {
   useUploadOrganizationLogo,
 } from '../hooks/useOrganizations';
 import {adminPaths} from '../lib/adminPaths';
+import {ORGANIZATION_SLUG_PATTERN} from '../lib/organization';
 
 /** "Fortuna/Ruitenheer" → "fortuna-ruitenheer": the slug rule of the API (lowercase, digits, dashes). */
 export function suggestSlug(name: string): string {
@@ -83,7 +84,6 @@ function OrganizationFormModal({initial, onClose}: { initial?: Organization; onC
   const {data: clubs = []} = useClubs();
   const create = useCreateOrganization();
   const update = useUpdateOrganization();
-  const {followSlugChange} = useCurrentOrganization();
   const [name, setName] = React.useState(initial?.name ?? '');
   const [slug, setSlug] = React.useState(initial?.slug ?? '');
   const [slugTouched, setSlugTouched] = React.useState(!!initial);
@@ -95,15 +95,12 @@ function OrganizationFormModal({initial, onClose}: { initial?: Organization; onC
     e.preventDefault();
     setError(null);
     if (!name.trim()) return setError('Naam is verplicht');
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return setError('De slug mag alleen kleine letters, cijfers en streepjes bevatten');
+    if (!ORGANIZATION_SLUG_PATTERN.test(slug)) return setError('De slug mag alleen kleine letters, cijfers en streepjes bevatten');
     try {
       const result = saved
         ? await update.mutateAsync({id: saved.id, name: name.trim(), slug, clubId})
         : await create.mutateAsync({name: name.trim(), slug, clubId});
-      if (saved) {
-        followSlugChange(saved.slug, result.slug);
-        onClose();
-      }
+      if (saved) onClose(); // a renamed slug of the chosen organization is followed by useUpdateOrganization
       else setSaved(result); // stay open for the logo
     } catch (err) {
       setError((err as Error).message || 'Opslaan mislukt');

@@ -3,7 +3,7 @@ import {useQueryClient} from '@tanstack/react-query';
 import AppIcon from './AppIcon';
 import OrganizationLogo from './OrganizationLogo';
 import {Organization, organizationKeys, useActiveOrganizations} from '../hooks/useOrganizations';
-import {getOrganizationSlug, onOrganizationRejected, setOrganizationSlug} from '../lib/organization';
+import {getOrganizationSlug, onOrganizationRejected, onOrganizationSlugRenamed, setOrganizationSlug} from '../lib/organization';
 import {reconnectSharedSocket} from '../lib/socket';
 
 type CurrentOrganization = {
@@ -11,12 +11,10 @@ type CurrentOrganization = {
   organization: Organization | null;
   /** Opens the start screen again ("Wissel organisatie") */
   switchOrganization: () => void;
-  /** After renaming an organization's slug in Beheer: keep it chosen when it is the current one */
-  followSlugChange: (oldSlug: string, newSlug: string) => void;
 };
 
 const OrganizationContext = React.createContext<CurrentOrganization>({
-  organization: null, switchOrganization: () => undefined, followSlugChange: () => undefined,
+  organization: null, switchOrganization: () => undefined,
 });
 
 export function useCurrentOrganization(): CurrentOrganization {
@@ -113,6 +111,9 @@ export function OrganizationGate({children}: { children: React.ReactNode }) {
     void queryClient.invalidateQueries({queryKey: organizationKeys.active});
   }), [queryClient]);
 
+  // The chosen organization's slug was renamed in Beheer (useUpdateOrganization): same organization, keep it
+  React.useEffect(() => onOrganizationSlugRenamed(setSlug), []);
+
   const current = organizations?.find((o) => o.slug === slug) ?? null;
 
   React.useEffect(() => {
@@ -124,11 +125,6 @@ export function OrganizationGate({children}: { children: React.ReactNode }) {
   const value = React.useMemo<CurrentOrganization>(() => ({
     organization: current,
     switchOrganization: () => setPicking(true),
-    followSlugChange: (oldSlug, newSlug) => {
-      if (oldSlug === newSlug || oldSlug !== getOrganizationSlug()) return;
-      setOrganizationSlug(newSlug); // same organization: nothing to forget
-      setSlug(newSlug);
-    },
   }), [current]);
 
   const autoChoosing = !!organizations && !slug && organizations.length === 1;

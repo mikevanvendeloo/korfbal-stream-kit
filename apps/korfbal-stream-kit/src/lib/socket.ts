@@ -1,6 +1,6 @@
 import {io, Socket} from 'socket.io-client';
 import {getSocketUrl} from './api';
-import {notifyOrganizationRejected, socketAuth, UNKNOWN_ORGANIZATION_SOCKET_ERROR} from './organization';
+import {isOrganizationRejectedSocketError, notifyOrganizationRejected, socketAuth} from './organization';
 
 let sharedSocket: Socket | null = null;
 
@@ -19,7 +19,7 @@ export function getSharedSocket(): Socket {
       auth: socketAuth,
     });
     sharedSocket.on('connect_error', (err: Error) => {
-      if (err?.message === UNKNOWN_ORGANIZATION_SOCKET_ERROR) notifyOrganizationRejected();
+      if (isOrganizationRejectedSocketError(err)) notifyOrganizationRejected();
     });
   }
   return sharedSocket;
