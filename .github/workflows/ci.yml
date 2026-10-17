@@ -171,6 +171,10 @@ jobs:
     permissions:
       pull-requests: write
       id-token: write
+    # PR runs get an OIDC token with sub "repo:<owner>/<repo>:pull_request"; the main rule only
+    # accepts the main branch, so PRs have their own federation rule.
+    env:
+      ANTHROPIC_FEDERATION_RULE_ID: fdrl_015WZVwYQvDcDCLi8sjsVAex
     steps:
       - name: Checkout
         uses: actions/checkout@v5
