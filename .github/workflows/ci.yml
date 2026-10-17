@@ -97,6 +97,70 @@ jobs:
           echo "Sanitized Affected Apps JSON: $SANITIZED_APPS_JSON"
           # 3. Set the new, object-based JSON list as a step output
           echo "affected_apps_json=$SANITIZED_APPS_JSON" >> "$GITHUB_OUTPUT"
+  db-tests:
+    name: Integration & E2E tests
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch' || !inputs.skip_ci_checks
+    # The separate test database from apps/korfbal-stream-api/.env.test (korfbal_stream_test);
+    # the tests refuse any database whose name doesn't end in _test.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: korfbal
+          POSTGRES_PASSWORD: korfbal
+          POSTGRES_DB: korfbal_stream_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U korfbal -d korfbal_stream_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate Prisma Client
+        run: pnpm prisma:generate
+
+      # Migrates the test database itself (global setup)
+      - name: Run API integration tests
+        run: pnpm run api:test:integration
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      # Starts its own API (port 3335) and dev server (port 4300) on the test database
+      - name: Run e2e tests
+        run: pnpm run e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            dist/.playwright/apps/korfbal-stream-kit-e2e/
+            apps/korfbal-stream-kit-e2e/test-output/
+          if-no-files-found: ignore
+          retention-days: 7
+
   preview-release-notes:
     name: Preview Release Notes
     runs-on: ubuntu-latest
@@ -107,6 +171,10 @@ jobs:
     permissions:
       pull-requests: write
       id-token: write
+    # PR runs get an OIDC token with sub "repo:<owner>/<repo>:pull_request"; the main rule only
+    # accepts the main branch, so PRs have their own federation rule.
+    env:
+      ANTHROPIC_FEDERATION_RULE_ID: fdrl_015WZVwYQvDcDCLi8sjsVAex
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -257,11 +325,12 @@ jobs:
     # Native runner per architecture instead of QEMU emulation - the arm64 leg
     # used to take 20-30 min under emulation, this builds it natively instead.
     runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    # This job only runs if checks pass AND (it's a push to main/master OR manual dispatch)
-    needs: [ci-checks, calculate-version]
+    # This job only runs if the checks and the integration/e2e tests pass AND (it's a push to main/master OR manual dispatch)
+    needs: [ci-checks, db-tests, calculate-version]
     if: |
       always() &&
       (needs.ci-checks.result == 'success' || needs.ci-checks.result == 'skipped') &&
+      (needs.db-tests.result == 'success' || needs.db-tests.result == 'skipped') &&
       (
         (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
         github.event_name == 'workflow_dispatch'
