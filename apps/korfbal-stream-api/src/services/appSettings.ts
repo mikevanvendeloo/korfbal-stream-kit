@@ -56,6 +56,8 @@ export async function setSetting(key: string, value: Prisma.JsonValue): Promise<
       update: { value: valueForDb },
     });
   }
+  // Again after the write: a read that started during it may return the old value after this point
+  generation++;
   cache.set(cached, value); // Cache the original value (e.g., JavaScript null)
 }
 

@@ -174,7 +174,10 @@ export async function restoreLiveState() {
  * organization off drops its live state (`discardLiveState`), so only active organizations are here.
  */
 export function liveOrganizationIds(): number[] {
-  return [...liveStates].filter(([, state]) => state.productionId !== null).map(([organizationId]) => organizationId);
+  // A show runs when an item is active; a restored or reset production without one doesn't count
+  return [...liveStates]
+    .filter(([, state]) => state.productionId !== null && state.activeEventId !== null)
+    .map(([organizationId]) => organizationId);
 }
 
 /** Active organizations with an active production (in the database): restored on startup. */

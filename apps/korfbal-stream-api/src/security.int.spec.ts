@@ -1541,7 +1541,8 @@ describe.runIf(runDb)('organization and API key lookups are cached briefly (inte
       expect((await asCached()).status).toBe(200);
       expect((await viaKey()).status).toBe(200);
     });
-    expect(queries.filter((q) => /"Organization"|"OrganizationApiKey"/.test(q))).toEqual([]);
+    // Lookups only: the first key request writes lastUsedAt in the background, which may land in this window
+    expect(queries.filter((q) => /^\s*SELECT/i.test(q) && /"Organization"|"OrganizationApiKey"/.test(q))).toEqual([]);
 
     // Switched off behind the API's back (not through PUT): the cache answers until it expires
     await prisma.organization.update({where: {id: organizationId}, data: {isActive: false}});
@@ -1669,5 +1670,34 @@ describe.runIf(runDb)('background loops follow the live state in memory (integra
     await pushForActiveOrganizations();
     await syncVenueClocks();
     expect([vmix.urls, board.urls]).toEqual([[], []]);
+  });
+});
+
+describe.runIf(runDb)('background loops skip a restored show that has not started (integration)', () => {
+  const WAITING = 'sec-loop-waiting';
+  let organizationId: number;
+  let show: ProductionScenario;
+
+  beforeAll(async () => {
+    organizationId = await ensureOrganization(prisma, WAITING, 'Sec Loop Waiting');
+    // Active in the database, all items still waiting: as after a restart before the show starts
+    show = await createProductionScenario(prisma, {organizationId, active: true, items: [{title: 'WaitingLoop item'}]});
+  });
+
+  afterAll(async () => {
+    liveState.discardLiveState(organizationId);
+    await show?.cleanup();
+    await prisma.organization.deleteMany({where: {slug: WAITING}});
+  });
+
+  it('keeps the organization out of the loops until an item is active', async () => {
+    await runWithOrganization(organizationId, liveState.restoreLiveState);
+    expect(await runWithOrganization(organizationId, async () => liveState.liveStateSnapshot()))
+      .toMatchObject({productionId: show.productionId, activeEventId: null});
+    expect(liveState.liveOrganizationIds()).not.toContain(organizationId);
+
+    expect((await request(app).post(`/api/show/start/${show.productionId}`).set('X-Organization', WAITING)).status).toBe(200);
+    expect(liveState.liveOrganizationIds()).toContain(organizationId);
+    await runWithOrganization(organizationId, () => liveState.stopProduction(show.productionId));
   });
 });

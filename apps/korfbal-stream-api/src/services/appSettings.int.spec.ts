@@ -1,6 +1,7 @@
-import {afterAll, describe, expect, it} from 'vitest';
+import {afterAll, describe, expect, it, vi} from 'vitest';
 import {ensureOrganization, recordQueries, testDb as prisma} from '../../test-helpers';
 import {runWithOrganization} from './organizationContext';
+import {prisma as appPrisma} from './prisma';
 import {clearSettingsCache, getSetting, setSetting} from './appSettings';
 import {ACTIVE_SEASON_ID_KEY} from './season';
 
@@ -50,6 +51,32 @@ describe.runIf(runDb)('settings per organization (integration)', () => {
     expect(await runWithOrganization(b, () => getSetting('scoreboardUrl'))).toBeNull();
     clearSettingsCache(['scoreboardUrl']);
     expect(await runWithOrganization(b, () => getSetting('scoreboardUrl'))).toBe('http://b.example');
+  });
+
+  it('does not cache an old value read while a write was running', async () => {
+    const [a] = await Promise.all(slugs.map((slug) => ensureOrganization(prisma, slug)));
+    await runWithOrganization(a, async () => {
+      await setSetting('raceKey', 'old');
+      clearSettingsCache(['raceKey']);
+      const oldRow = await prisma.organizationSetting.findFirst({where: {key: 'raceKey'}});
+      // The read starts during the write and answers (with the old row) only after the write is done
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const delegate = (appPrisma as unknown as {organizationSetting: {findFirst: (...args: unknown[]) => Promise<unknown>}}).organizationSetting;
+      const spy = vi.spyOn(delegate, 'findFirst').mockImplementationOnce(async () => {
+        await gate;
+        return oldRow;
+      });
+      const write = setSetting('raceKey', 'new');
+      const read = getSetting('raceKey');
+      await write;
+      release();
+      await read;
+      spy.mockRestore();
+      expect(await getSetting('raceKey')).toBe('new');
+      await prisma.organizationSetting.deleteMany({where: {key: 'raceKey'}});
+      clearSettingsCache(['raceKey']);
+    });
   });
 
   it('needs an organization for organization settings', async () => {

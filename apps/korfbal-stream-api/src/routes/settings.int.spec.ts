@@ -145,4 +145,17 @@ describe.runIf(runDb)('settings restore of one organization (integration)', () =
     await request(app).post('/api/backup/settings/import').set('X-Organization', RESTORE).send([{key: 'ownClubId', value: 999_999_999}]);
     expect((await prisma.organization.findUniqueOrThrow({where: {id: organizationId}})).clubId).toBe(club.id);
   });
+
+  it('exports the own club by slug too, and restores it by slug (club ids differ per installation)', async () => {
+    const club = await prisma.club.findUniqueOrThrow({where: {slug: 'settings-restore-club'}});
+    const exported = await request(app).get('/api/backup/settings/export').set('X-Organization', RESTORE);
+    expect(exported.body).toEqual(expect.arrayContaining([{key: 'ownClubId', value: club.id}, {key: 'ownClubSlug', value: club.slug}]));
+
+    await prisma.organization.update({where: {id: organizationId}, data: {clubId: null}});
+    // From another installation: the id points at nothing (or another club) here, the slug decides
+    const res = await request(app).post('/api/backup/settings/import').set('X-Organization', RESTORE)
+      .send([{key: 'ownClubId', value: 999_999_999}, {key: 'ownClubSlug', value: club.slug}]);
+    expect(res.status, res.text).toBe(200);
+    expect((await prisma.organization.findUniqueOrThrow({where: {id: organizationId}})).clubId).toBe(club.id);
+  });
 });

@@ -23,6 +23,8 @@ export const backupRouter: Router = Router();
 export const ACTIVE_SEASON_NAME_EXPORT_KEY = 'activeSeasonName';
 /** The own club of backups made before it moved to Organization.clubId. */
 const LEGACY_OWN_CLUB_ID_KEY = 'ownClubId';
+// Club ids are serial per database (the clubs restore matches on slug): the own club also goes out by slug
+const OWN_CLUB_SLUG_EXPORT_KEY = 'ownClubSlug';
 
 // Version for segment template JSON
 const SEGMENT_TEMPLATE_JSON_VERSION = 1 as const;
@@ -454,7 +456,11 @@ backupRouter.get('/settings/export', async (_req, res, next) => {
     const exportData: { key: string; value: unknown }[] = items.map((s) => ({ key: s.key, value: s.value }));
     // The own club lives on the organization; exported under its old key so older and newer backups restore alike
     const ownClubId = await getOwnClubId();
-    if (ownClubId !== null) exportData.push({ key: LEGACY_OWN_CLUB_ID_KEY, value: ownClubId });
+    if (ownClubId !== null) {
+      exportData.push({ key: LEGACY_OWN_CLUB_ID_KEY, value: ownClubId });
+      const club = await prisma.club.findUnique({ where: { id: ownClubId }, select: { slug: true } });
+      if (club) exportData.push({ key: OWN_CLUB_SLUG_EXPORT_KEY, value: club.slug });
+    }
 
     // Season ids are serial per database: export the active season by name so it resolves on import.
     const activeSeasonId = await getSetting<number>(ACTIVE_SEASON_ID_KEY);
@@ -1159,6 +1165,9 @@ backupRouter.post('/settings/import', async (req, res, next) => {
     const data = req.body;
     if (!Array.isArray(data)) return res.status(400).json({ error: 'Array expected' });
     let created = 0, updated = 0;
+    // The own club by slug when the backup has it (newer backups); the id only for older backups
+    const ownClubSlug = data.find((item) => item?.key === OWN_CLUB_SLUG_EXPORT_KEY)?.value;
+    const hasOwnClubSlug = typeof ownClubSlug === 'string' && ownClubSlug.length > 0;
     for (const item of data) {
       try {
         if (typeof item?.key !== 'string' || !item.key) continue;
@@ -1168,7 +1177,14 @@ backupRouter.post('/settings/import', async (req, res, next) => {
           logger.info(`Skipping setting ${key} from backup: it holds for the whole installation, not one organization`);
           continue;
         }
+        if (key === OWN_CLUB_SLUG_EXPORT_KEY) {
+          const club = hasOwnClubSlug ? await prisma.club.findUnique({ where: { slug: ownClubSlug }, select: { id: true } }) : null;
+          if (club && (await setOwnClubId(club.id))) updated++;
+          else logger.warn(`Skipping setting ${key} from backup: no such club`, { value });
+          continue;
+        }
         if (key === LEGACY_OWN_CLUB_ID_KEY) {
+          if (hasOwnClubSlug) continue;
           // Old backups: the own club is the organization's club now (Organization.clubId)
           if (Number.isInteger(value) && value > 0 && (await setOwnClubId(value))) updated++;
           else logger.warn(`Skipping setting ${key} from backup: no such club`, { value });
