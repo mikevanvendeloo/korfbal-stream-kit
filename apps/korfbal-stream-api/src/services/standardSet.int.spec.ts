@@ -2,7 +2,16 @@ import {afterAll, describe, expect, it} from 'vitest';
 import {ensureOrganization, testDb as prisma} from '../../test-helpers';
 import {runWithOrganization} from './organizationContext';
 import {applyStandardSet, applyStandardSetWhereMissing} from './standardSet';
-import {standardPositions} from '../standardSet/data';
+import {standardPositionLinks, standardPositions, standardSkills, standardTitles} from '../standardSet/data';
+import {standardCallSheetTemplates} from '../standardSet/callSheetTemplates';
+import {standardSegmentTemplates} from '../standardSet/segmentTemplates';
+
+describe('standard set contents', () => {
+  it('names no club: own-club wording is neutral ("eigen ploeg", like "tegenstander")', () => {
+    const everything = JSON.stringify([standardSkills, standardPositions, standardPositionLinks, standardTitles, standardCallSheetTemplates, standardSegmentTemplates]);
+    expect(everything).not.toMatch(/Fortuna|Ruitenheer/i);
+  });
+});
 
 const runDb = process.env.REQUIRE_DB === 'true';
 
@@ -45,6 +54,24 @@ describe.runIf(runDb)('standard set (integration)', () => {
     expect(result.callSheetTemplates).toBe(1);
     await runWithOrganization(id, async () => {
       expect((await prisma.position.findFirst({where: {name: 'Runner'}}))?.sortOrder).toBe(1);
+    });
+  });
+
+  it('keeps the templates an organization already has (older titles stay as they were)', async () => {
+    const id = await ensureOrganization(prisma, slugs[0]);
+    const name = 'Draaiboek Korfbal League wedstrijd';
+    const oldTitle = 'Oplopen Fortuna door speaker';
+    await runWithOrganization(id, async () => {
+      const template = await prisma.callSheetTemplate.findFirstOrThrow({where: {name}, include: {items: true}});
+      const item = template.items.find((i) => i.title === 'Oplopen eigen ploeg door speaker');
+      if (!item) throw new Error('The standard draaiboek has no "Oplopen eigen ploeg door speaker"');
+      await prisma.callSheetTemplateItem.update({where: {id: item.id}, data: {title: oldTitle}});
+    });
+    expect((await applyStandardSet(id)).callSheetTemplates).toBe(0);
+    await runWithOrganization(id, async () => {
+      const titles = (await prisma.callSheetTemplateItem.findMany({where: {template: {name}}})).map((i) => i.title);
+      expect(titles).toContain(oldTitle);
+      expect(titles).not.toContain('Oplopen eigen ploeg door speaker');
     });
   });
 

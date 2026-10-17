@@ -7,6 +7,7 @@ import {requireOrganizationId, runWithOrganization} from './organizationContext'
 import {findActiveOrganization} from '../middleware/organizationContext';
 import {isSameOriginRequest} from '../middleware/sameOrigin';
 import type {SeasonDto} from './season';
+import {API_ERRORS} from './apiErrorCodes';
 
 let io: SocketIOServer | undefined;
 
@@ -15,12 +16,19 @@ export function organizationRoom(organizationId: number): string {
   return `org:${organizationId}`;
 }
 
-export const UNKNOWN_ORGANIZATION_MESSAGE = 'Onbekende of inactieve organisatie';
+export const UNKNOWN_ORGANIZATION_MESSAGE = API_ERRORS.ORGANIZATION_UNKNOWN.error;
+
+/** A refused handshake: the client gets `connect_error` with this message and `data.code`. */
+function handshakeError(message: string, code?: keyof typeof API_ERRORS): Error {
+  const err = new Error(message) as Error & {data?: {code: string}};
+  if (code) err.data = {code};
+  return err;
+}
 
 /**
  * The organization a client asked for in the handshake (`auth.organization` = slug). Without one the
  * client connects but only gets the global events (heartbeat, season_changed); an unknown, inactive or
- * malformed slug is refused.
+ * malformed slug is refused (`connect_error` with `data.code` ORGANIZATION_UNKNOWN).
  */
 export async function resolveHandshakeOrganization(slug: unknown): Promise<number | undefined> {
   if (slug === undefined || slug === null || slug === '') return undefined;
@@ -43,7 +51,9 @@ export function initSocket(httpServer: HttpServer) {
         socket.data.organizationId = organizationId;
         next();
       })
-      .catch((err: Error) => next(new Error(err.message === UNKNOWN_ORGANIZATION_MESSAGE ? err.message : 'Verbinding geweigerd')));
+      .catch((err: Error) => next(err.message === UNKNOWN_ORGANIZATION_MESSAGE
+        ? handshakeError(UNKNOWN_ORGANIZATION_MESSAGE, 'ORGANIZATION_UNKNOWN')
+        : handshakeError('Verbinding geweigerd')));
   });
 
   server.on('connection', (socket) => {

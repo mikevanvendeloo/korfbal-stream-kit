@@ -2,12 +2,18 @@ import type {NextFunction, Request, RequestHandler, Response} from 'express';
 import type {Organization} from '@prisma/client';
 import {prisma} from '../services/prisma';
 import {getOrganizationId, runWithOrganization} from '../services/organizationContext';
-import {findOrganizationByApiKey} from '../services/apiKeys';
+import {clearApiKeyCache, findOrganizationByApiKey, ORGANIZATION_LOOKUP_TTL_MS} from '../services/apiKeys';
+import {sendApiError} from '../services/apiErrorCodes';
 import {isFeedApiPath, requestApiKey} from './apiKey';
 
 export const ORGANIZATION_HEADER = 'X-Organization';
 
-/** Lowercase letters, digits and single dashes; nothing that could reach a path or a query. */
+export {ORGANIZATION_LOOKUP_TTL_MS};
+
+/**
+ * Lowercase letters, digits and single dashes; nothing that could reach a path or a query.
+ * Keep in sync with ORGANIZATION_SLUG_PATTERN in apps/korfbal-stream-kit/src/lib/organization.ts.
+ */
 export const ORGANIZATION_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const MAX_SLUG_LENGTH = 64;
 
@@ -26,34 +32,58 @@ export function isValidOrganizationSlug(slug: string): boolean {
   return slug.length <= MAX_SLUG_LENGTH && ORGANIZATION_SLUG_PATTERN.test(slug);
 }
 
+// slug -> active organization, for a few seconds: LIVE polls every second and vMix data sources poll
+// too, and the slug of an organization hardly ever changes. Only active organizations are kept (an
+// unknown slug is asked again, so random slugs don't fill memory and a new organization works at once).
+const bySlug = new Map<string, {organization: Organization; expires: number}>();
+let slugGeneration = 0;
+
+/**
+ * Forgets every cached organization and API key lookup. Called when an organization changes (rename,
+ * (de)activate, logo) and when a key is revoked, so that takes effect on the next request.
+ */
+export function clearOrganizationLookupCache(): void {
+  slugGeneration++;
+  bySlug.clear();
+  clearApiKeyCache();
+}
+
 export async function findActiveOrganization(slug: string): Promise<Organization | null> {
   if (!isValidOrganizationSlug(slug)) return null;
+  const cached = bySlug.get(slug);
+  if (cached && cached.expires > Date.now()) return cached.organization;
+  bySlug.delete(slug);
+  const readAt = slugGeneration;
   const organization = await prisma.organization.findUnique({where: {slug}});
-  return organization?.isActive ? organization : null;
+  if (!organization?.isActive) return null;
+  // A change while the query ran wins: don't cache what may already be outdated
+  if (readAt === slugGeneration) bySlug.set(slug, {organization, expires: Date.now() + ORGANIZATION_LOOKUP_TTL_MS});
+  return organization;
 }
 
 /**
  * Resolves the X-Organization header (slug) to an active organization and runs the rest of the request
- * in its context: 401 without a header, 403 for an unknown or inactive organization. Global routes pass.
+ * in its context: 401 without a header, 403 for an unknown or inactive organization (with a stable
+ * `code`, services/apiErrorCodes.ts). Global routes pass.
  */
 export async function organizationContext(req: Request, res: Response, next: NextFunction) {
   if (isFeedApiPath(req.path)) {
     const apiKey = requestApiKey(req);
     if (apiKey !== undefined) return withApiKeyOrganization(apiKey, res, next);
-    if (!req.get(ORGANIZATION_HEADER)?.trim()) return res.status(401).json({error: 'API-sleutel ontbreekt'});
+    if (!req.get(ORGANIZATION_HEADER)?.trim()) return sendApiError(res, 'API_KEY_MISSING');
   }
-  // Elsewhere a key counts for nothing: without X-Organization the request gets 401 "Kies een organisatie"
+  // Elsewhere a key counts for nothing: without X-Organization the request gets 401 ORGANIZATION_REQUIRED
   const global = isGlobalApiPath(req.path);
   const slug = (req.get(ORGANIZATION_HEADER) ?? '').trim();
   if (!slug) {
     if (global) return next();
-    return res.status(401).json({error: 'Kies een organisatie'});
+    return sendApiError(res, 'ORGANIZATION_REQUIRED');
   }
   try {
     const organization = await findActiveOrganization(slug);
     if (!organization) {
       if (global) return next();
-      return res.status(403).json({error: 'Onbekende of inactieve organisatie'});
+      return sendApiError(res, 'ORGANIZATION_UNKNOWN');
     }
     res.locals.organization = organization;
     return runWithOrganization(organization.id, () => next());
@@ -67,7 +97,7 @@ async function withApiKeyOrganization(apiKey: string | null, res: Response, next
   try {
     const organization = apiKey ? await findOrganizationByApiKey(apiKey) : null;
     // Unknown, revoked, or of an organization that was switched off: the key opens nothing
-    if (!organization?.isActive) return res.status(401).json({error: 'Ongeldige API-sleutel'});
+    if (!organization?.isActive) return sendApiError(res, 'API_KEY_INVALID');
     res.locals.organization = organization;
     return runWithOrganization(organization.id, () => next());
   } catch (err) {

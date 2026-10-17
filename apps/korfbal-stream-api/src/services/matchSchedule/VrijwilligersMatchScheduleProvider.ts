@@ -185,7 +185,7 @@ export class VrijwilligersMatchScheduleProvider implements MatchScheduleProvider
   constructor(
     private readonly baseUrl: string,
     private readonly apiToken?: string,
-    /** Club names of the own teams, e.g. "Fortuna/Ruitenheer" (for the youth team colours) */
+    /** Club names of the own teams, e.g. "Korfbalclub/Sponsor" (for the youth team colours) */
     private readonly teamPrefixes: string[] = [],
   ) {
   }

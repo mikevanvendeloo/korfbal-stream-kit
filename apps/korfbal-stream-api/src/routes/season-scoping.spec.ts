@@ -227,31 +227,20 @@ describe('Season scoping of existing endpoints', () => {
         expect(res.body.some((s: any) => s.key === ACTIVE_SEASON_ID_KEY)).toBe(false);
       });
 
-      it('import resolves the season name to the local season and takes effect without restart', async () => {
-        // Warm the caches with the current active season (2026).
-        expect((await getActiveSeason()).startYear).toBe(2026);
-
+      it('import into one organization leaves the installation-wide active season alone', async () => {
+        const before = state.settings.get(ACTIVE_SEASON_ID_KEY);
         const res = await request(app).post('/api/backup/settings/import').send([
           {key: 'activeSeasonName', value: '2028/2029'},
+          {key: ACTIVE_SEASON_ID_KEY, value: 999},
           {key: 'vmixWebUrl', value: 'http://vmix'},
         ]);
 
-        expect(res.body).toMatchObject({ok: true, updated: 1, created: 1});
-        const local = state.seasons.find((s) => s.startYear === 2028)!;
-        expect(state.settings.get(ACTIVE_SEASON_ID_KEY)).toBe(local.id);
-        expect(state.settings.has('activeSeasonName')).toBe(false);
-        expect((await getActiveSeason()).id).toBe(local.id);
-      });
-
-      it('import skips a raw activeSeasonId from old backups and invalid season names', async () => {
-        const before = state.settings.get(ACTIVE_SEASON_ID_KEY);
-        const res = await request(app).post('/api/backup/settings/import').send([
-          {key: ACTIVE_SEASON_ID_KEY, value: 999},
-          {key: 'activeSeasonName', value: '9999/10000'},
-        ]);
-        expect(res.body).toMatchObject({ok: true, created: 0, updated: 0});
+        expect(res.body).toMatchObject({ok: true, updated: 0, created: 1});
         expect(state.settings.get(ACTIVE_SEASON_ID_KEY)).toBe(before);
+        expect(state.settings.has('activeSeasonName')).toBe(false);
+        expect(state.seasons.some((s) => s.startYear === 2028)).toBe(false);
         expect(prisma.season.upsert).not.toHaveBeenCalled();
+        expect(state.settings.get('vmixWebUrl')).toBe('http://vmix');
       });
     });
 

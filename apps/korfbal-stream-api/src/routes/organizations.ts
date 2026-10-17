@@ -3,11 +3,12 @@ import path from 'node:path';
 import {Club, Organization, Prisma} from '@prisma/client';
 import {prisma} from '../services/prisma';
 import {getAssetsRoot} from '../services/config';
-import {applyStandardSet} from '../services/standardSet';
+import {createOrganizationWithStandardSet} from '../services/standardSet';
 import {saveImage, singleImage} from '../services/imageUpload';
 import {OrganizationCreateSchema, OrganizationUpdateSchema} from '../schemas/organization';
 import {logger} from '../utils/logger';
 import {resumeOrganization, stopOrganization} from '../services/organizationLifecycle';
+import {clearOrganizationLookupCache} from '../middleware/organizationContext';
 
 /**
  * Organizations are global (no X-Organization needed): the start screen lists the active ones, and
@@ -80,8 +81,8 @@ organizationsRouter.post('/', async (req, res, next) => {
     const parsed = OrganizationCreateSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({error: 'Ongeldige organisatie', issues: parsed.error.issues});
     if (!(await clubExists(parsed.data.clubId))) return res.status(400).json({error: 'Club bestaat niet'});
-    const created = await prisma.organization.create({data: parsed.data});
-    const standardSet = await applyStandardSet(created.id);
+    // One transaction: a failing standard set leaves no half-made organization behind
+    const {organization: created, standardSet} = await createOrganizationWithStandardSet(parsed.data);
     logger.info(`Organization ${created.slug} created with the standard set`, standardSet);
     return res.status(201).json(toOrganizationDto({...created, club: null, ...(await findOrganization(created.id))}));
   } catch (err) {
@@ -99,6 +100,8 @@ organizationsRouter.put('/:id', async (req, res, next) => {
     if (!parsed.success) return res.status(400).json({error: 'Ongeldige organisatie', issues: parsed.error.issues});
     if (!(await clubExists(parsed.data.clubId))) return res.status(400).json({error: 'Club bestaat niet'});
     const updated = await prisma.organization.update({where: {id: existing.id}, data: parsed.data, include: withClub});
+    // A renamed slug or a switched-off organization takes effect on the next request, not after the cache
+    clearOrganizationLookupCache();
     // Switched off: its live show, timers and sockets stop now, not at the next restart
     if (existing.isActive && !updated.isActive) stopOrganization(updated.id);
     if (!existing.isActive && updated.isActive) await resumeOrganization(updated.id);
@@ -122,6 +125,7 @@ organizationsRouter.post('/:id/logo', singleImage('file'), async (req, res, next
       data: {logoUrl: `${ORGANIZATION_LOGO_DIR}/${fileName}`},
       include: withClub,
     });
+    clearOrganizationLookupCache();
     return res.json(toOrganizationDto(updated));
   } catch (err) {
     return next(err);
@@ -134,6 +138,7 @@ organizationsRouter.delete('/:id/logo', async (req, res, next) => {
     const organization = await findOrganization(Number(req.params.id));
     if (!organization) return res.status(404).json({error: 'Organisatie niet gevonden'});
     const updated = await prisma.organization.update({where: {id: organization.id}, data: {logoUrl: null}, include: withClub});
+    clearOrganizationLookupCache();
     return res.json(toOrganizationDto(updated));
   } catch (err) {
     return next(err);

@@ -422,7 +422,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
       },
       {
         key: "cmnk0x8l5001jbyxtx611y69d",
-        title: "Start oploop muziek Fortuna",
+        title: "Start oploop muziek eigen ploeg",
         durationSec: 15,
         orderIndex: 28,
         isInVenue: true,
@@ -434,7 +434,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
       },
       {
         key: "cmnk0x8l9001lbyxttyv2iqlr",
-        title: "Oplopen Fortuna door speaker",
+        title: "Oplopen eigen ploeg door speaker",
         durationSec: 120,
         orderIndex: 29,
         isInVenue: true,
@@ -446,7 +446,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
       },
       {
         key: "cmnk0x8le001nbyxtjox4p5i7",
-        title: "Oplopen scheidsrechters (Fortuna muziek loopt door)",
+        title: "Oplopen scheidsrechters (muziek eigen ploeg loopt door)",
         durationSec: 30,
         orderIndex: 30,
         isInVenue: true,
@@ -784,7 +784,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
       },
       {
         key: "cmnk0x8pm0031byxtnkq2zt92",
-        title: "Interview coach Fortuna/Ruitenheer",
+        title: "Interview coach eigen ploeg",
         durationSec: 180,
         orderIndex: 55,
         isInVenue: false,
@@ -799,7 +799,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
       },
       {
         key: "cmnk0x8q70033byxt1vkybf3m",
-        title: "Interview speler Fortuna/Ruitenheer",
+        title: "Interview speler eigen ploeg",
         durationSec: 180,
         orderIndex: 56,
         isInVenue: false,

@@ -177,3 +177,28 @@ export function installSeasonMocks(
   }
   return state;
 }
+
+type QueryListener = (query: string) => void;
+const queryListeners = new Set<QueryListener>();
+let listeningToQueries = false;
+
+/**
+ * The SQL the app sends to the database while `fn` runs (Prisma's query events), e.g. to check that a
+ * loop needs no query when nothing changes. Also sees queries of other code running at the same time.
+ */
+export async function recordQueries(fn: () => Promise<unknown>): Promise<string[]> {
+  if (!listeningToQueries) {
+    prismaUnscoped.$on('query' as never, (event: {query: string}) => queryListeners.forEach((listener) => listener(event.query)));
+    listeningToQueries = true;
+  }
+  const queries: string[] = [];
+  const listener: QueryListener = (query) => queries.push(query);
+  queryListeners.add(listener);
+  try {
+    await fn();
+    await new Promise((resolve) => setImmediate(resolve)); // query events of the last query
+  } finally {
+    queryListeners.delete(listener);
+  }
+  return queries;
+}

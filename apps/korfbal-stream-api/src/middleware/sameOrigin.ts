@@ -1,6 +1,7 @@
 import type {IncomingHttpHeaders} from 'http';
 import type {NextFunction, Request, Response} from 'express';
 import {isFeedApiPath, requestApiKey} from './apiKey';
+import {sendApiError} from '../services/apiErrorCodes';
 
 type HostAndPort = {hostname: string; port: string | null};
 
@@ -60,6 +61,6 @@ export function refuseCrossSiteWrites(req: Request, res: Response, next: NextFun
   if (SAFE_METHODS.has(req.method)) return next();
   if (isFeedApiPath(req.path) && typeof requestApiKey(req) === 'string') return next();
   const crossSite = firstValue(req.headers['sec-fetch-site']) === 'cross-site' || !isSameOriginRequest(req);
-  if (crossSite) return res.status(403).json({error: 'Verzoek van een andere website geweigerd'});
+  if (crossSite) return sendApiError(res, 'CROSS_SITE_REFUSED');
   return next();
 }

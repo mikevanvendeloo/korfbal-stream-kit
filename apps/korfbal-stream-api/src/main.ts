@@ -35,7 +35,6 @@ import {apiKeysRouter} from './routes/apiKeys';
 import {organizationsRouter} from './routes/organizations';
 import {matchSourceRouter} from './routes/matchSource';
 import {applyStandardSetWhereMissing} from './services/standardSet';
-import {copyMatchSourceFromEnv} from './services/matchSchedule';
 
 const app: Express = express();
 /** The HTTP server with Socket.io; tests listen on it to connect socket clients. */
@@ -332,9 +331,6 @@ if (process.env.NODE_ENV !== 'test') {
   const startServer = async () => {
     await migrateLegacySeasonAssets().catch((err) => {
       logger.error('Season asset migration failed', err as any);
-    });
-    await copyMatchSourceFromEnv().catch((err) => {
-      logger.error('Copying MATCH_SCHEDULE_* into Fortuna\'s match source failed', err as any);
     });
     await applyStandardSetWhereMissing().catch((err) => {
       logger.error('Adding the standard set to new organizations failed', err as any);

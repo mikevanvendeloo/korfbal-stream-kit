@@ -2,7 +2,7 @@ import axios from 'axios';
 import {logger} from '../utils/logger';
 import {getScoreboardUrl} from './appSettings';
 import {config} from './config';
-import {organizationsWithActiveProduction, updateVenueClock} from './productionState';
+import {liveOrganizationIds, updateVenueClock} from './productionState';
 import {runWithOrganization} from './organizationContext';
 
 let syncInterval: NodeJS.Timeout | null = null;
@@ -31,13 +31,13 @@ async function fetchVenueTime(baseUrl: string): Promise<string> {
 }
 
 /**
- * The scoreboards to ask, each with the organizations that use it: every organization with an active
- * production, by its `scoreboardUrl` setting (else the installation default). One organization's failing
+ * The scoreboards to ask, each with the organizations that use it: every organization whose show runs
+ * (live state in memory, so nothing is asked while no show runs), by its `scoreboardUrl` setting (else the installation default). One organization's failing
  * settings lookup doesn't stop the others.
  */
 async function venueClockTargets(): Promise<Map<string, number[]>> {
   const organizationsByUrl = new Map<string, number[]>();
-  for (const organizationId of await organizationsWithActiveProduction()) {
+  for (const organizationId of liveOrganizationIds()) {
     try {
       const baseUrl = (await runWithOrganization(organizationId, getScoreboardUrl)) || config.scoreBoardBaseUrl;
       if (!baseUrl) continue;

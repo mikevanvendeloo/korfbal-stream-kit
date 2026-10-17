@@ -1,4 +1,4 @@
-import {Position, Prisma} from '@prisma/client';
+import {Organization, Position, Prisma} from '@prisma/client';
 import {prisma} from './prisma';
 import {runWithOrganization} from './organizationContext';
 import {findPositionByName} from '../domain/positionSkill';
@@ -29,6 +29,18 @@ const skillKey = (code: string) => code.toLowerCase().replace(/[^a-z0-9]/g, '');
 export async function applyStandardSet(organizationId: number): Promise<StandardSetResult> {
   return runWithOrganization(organizationId, () =>
     prisma.$transaction((tx) => addStandardSet(tx), {timeout: 60_000}));
+}
+
+/**
+ * Creates an organization together with its standard set, in one transaction: when the standard set
+ * fails, the organization isn't left behind without positions and templates (and its slug stays free).
+ */
+export async function createOrganizationWithStandardSet(data: Prisma.OrganizationUncheckedCreateInput): Promise<{organization: Organization; standardSet: StandardSetResult}> {
+  return prisma.$transaction(async (tx) => {
+    const organization = await tx.organization.create({data});
+    const standardSet = await runWithOrganization(organization.id, () => addStandardSet(tx));
+    return {organization, standardSet};
+  }, {timeout: 60_000});
 }
 
 async function addStandardSet(tx: Prisma.TransactionClient): Promise<StandardSetResult> {

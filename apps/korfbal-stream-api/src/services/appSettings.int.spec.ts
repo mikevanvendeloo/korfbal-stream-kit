@@ -1,5 +1,5 @@
 import {afterAll, describe, expect, it} from 'vitest';
-import {ensureOrganization, testDb as prisma} from '../../test-helpers';
+import {ensureOrganization, recordQueries, testDb as prisma} from '../../test-helpers';
 import {runWithOrganization} from './organizationContext';
 import {clearSettingsCache, getSetting, setSetting} from './appSettings';
 import {ACTIVE_SEASON_ID_KEY} from './season';
@@ -29,6 +29,27 @@ describe.runIf(runDb)('settings per organization (integration)', () => {
     expect(await runWithOrganization(b, () => getSetting<number>(ACTIVE_SEASON_ID_KEY))).toBe(current);
     // Readable without an organization as well
     expect(await getSetting<number>(ACTIVE_SEASON_ID_KEY)).toBe(current);
+  });
+
+  it('remembers that a key is not set (no query per second for an unset scoreboardUrl), until it is set', async () => {
+    const [a, b] = await Promise.all(slugs.map((slug) => ensureOrganization(prisma, slug)));
+    clearSettingsCache();
+    expect(await runWithOrganization(a, () => getSetting('scoreboardUrl'))).toBeNull();
+    const queries = await recordQueries(async () => {
+      expect(await runWithOrganization(a, () => getSetting('scoreboardUrl'))).toBeNull();
+    });
+    expect(queries).toEqual([]);
+
+    await runWithOrganization(a, () => setSetting('scoreboardUrl', 'http://board.example'));
+    expect(await runWithOrganization(a, () => getSetting('scoreboardUrl'))).toBe('http://board.example');
+    // Per organization: B is still not set
+    expect(await runWithOrganization(b, () => getSetting('scoreboardUrl'))).toBeNull();
+
+    // Cleared: read from the database again
+    await runWithOrganization(b, () => prisma.organizationSetting.create({data: {key: 'scoreboardUrl', value: 'http://b.example'}}));
+    expect(await runWithOrganization(b, () => getSetting('scoreboardUrl'))).toBeNull();
+    clearSettingsCache(['scoreboardUrl']);
+    expect(await runWithOrganization(b, () => getSetting('scoreboardUrl'))).toBe('http://b.example');
   });
 
   it('needs an organization for organization settings', async () => {

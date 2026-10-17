@@ -10,19 +10,19 @@ import {SponsorInputSchema} from '../schemas/sponsor';
 import {resolveClientLogoUrl} from '../services/sponsorLogos';
 import {
   ACTIVE_SEASON_ID_KEY,
-  clearSeasonCache,
   createSeasonIdResolver,
-  ensureSeasonForStartYear,
   getActiveSeason,
-  tryParseSeasonName,
 } from '../services/season';
 import {migrateLegacySeasonAssets} from '../services/seasonAssetMigration';
-import {getSetting, setSetting} from '../services/appSettings';
+import {getSetting, GLOBAL_SETTING_KEYS, setSetting} from '../services/appSettings';
+import {getOwnClubId, setOwnClubId} from '../services/ownClub';
 
 export const backupRouter: Router = Router();
 
 /** Settings-backup key for the active season, stored by name because season ids differ per database. */
 export const ACTIVE_SEASON_NAME_EXPORT_KEY = 'activeSeasonName';
+/** The own club of backups made before it moved to Organization.clubId. */
+const LEGACY_OWN_CLUB_ID_KEY = 'ownClubId';
 
 // Version for segment template JSON
 const SEGMENT_TEMPLATE_JSON_VERSION = 1 as const;
@@ -446,11 +446,15 @@ backupRouter.get('/sponsors/export', async (_req, res, next) => {
 });
 
 // GET /api/backup/settings/export
-// The chosen organization's settings, plus the installation's active season (by name).
+// The chosen organization's settings and own club, plus the installation's active season (by name, for
+// reference: a restore into one organization doesn't change it).
 backupRouter.get('/settings/export', async (_req, res, next) => {
   try {
     const items = await prisma.organizationSetting.findMany({ orderBy: { key: 'asc' } });
     const exportData: { key: string; value: unknown }[] = items.map((s) => ({ key: s.key, value: s.value }));
+    // The own club lives on the organization; exported under its old key so older and newer backups restore alike
+    const ownClubId = await getOwnClubId();
+    if (ownClubId !== null) exportData.push({ key: LEGACY_OWN_CLUB_ID_KEY, value: ownClubId });
 
     // Season ids are serial per database: export the active season by name so it resolves on import.
     const activeSeasonId = await getSetting<number>(ACTIVE_SEASON_ID_KEY);
@@ -1148,8 +1152,8 @@ backupRouter.post('/sponsors/import', async (req, res, next) => {
 });
 
 // POST /api/backup/settings/import
-// Into the chosen organization (installation-wide keys stay installation-wide), also from backups made
-// before there were organizations.
+// Into the chosen organization, also from backups made before there were organizations. Installation-wide
+// keys (the active season) are skipped: a restore of one organization must not change them for all.
 backupRouter.post('/settings/import', async (req, res, next) => {
   try {
     const data = req.body;
@@ -1158,21 +1162,17 @@ backupRouter.post('/settings/import', async (req, res, next) => {
     for (const item of data) {
       try {
         if (typeof item?.key !== 'string' || !item.key) continue;
-        let key: string = item.key;
-        let value = item.value ?? null;
-        if (key === ACTIVE_SEASON_ID_KEY) {
-          // Old backups carry the raw serial id, which points at a different season in this database.
-          logger.warn(`Skipping setting ${ACTIVE_SEASON_ID_KEY} from backup: season ids are not portable between databases`);
+        const key: string = item.key;
+        const value = item.value ?? null;
+        if (GLOBAL_SETTING_KEYS.has(key) || key === ACTIVE_SEASON_NAME_EXPORT_KEY) {
+          logger.info(`Skipping setting ${key} from backup: it holds for the whole installation, not one organization`);
           continue;
         }
-        if (key === ACTIVE_SEASON_NAME_EXPORT_KEY) {
-          const startYear = tryParseSeasonName(value);
-          if (startYear === undefined) {
-            logger.warn(`Skipping setting ${ACTIVE_SEASON_NAME_EXPORT_KEY} from backup: invalid season name`, { value });
-            continue;
-          }
-          key = ACTIVE_SEASON_ID_KEY;
-          value = (await ensureSeasonForStartYear(startYear)).id;
+        if (key === LEGACY_OWN_CLUB_ID_KEY) {
+          // Old backups: the own club is the organization's club now (Organization.clubId)
+          if (Number.isInteger(value) && value > 0 && (await setOwnClubId(value))) updated++;
+          else logger.warn(`Skipping setting ${key} from backup: no such club`, { value });
+          continue;
         }
         const existed = (await getSetting(key)) !== null;
         await setSetting(key, value);
@@ -1182,7 +1182,6 @@ backupRouter.post('/settings/import', async (req, res, next) => {
         logger.error(`Failed to import setting ${item?.key}`, err as any);
       }
     }
-    clearSeasonCache();
     return res.json({ ok: true, created, updated });
   } catch (err) {
     logger.error('POST /api/backup/settings/import failed', err as any);

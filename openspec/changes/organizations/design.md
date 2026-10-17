@@ -54,8 +54,8 @@ model Organization {
 
 ## D5. Settings
 
-- New table `OrganizationSetting(organizationId, key, value)` for the per-organization keys: `vmixWebUrl`, `vmixInstances`, `vmixCallsheetPush`, `sponsorNamesTypes`, `sponsorRowsTypes`, `sponsorSlidesTypes`, `scoreboardUrl`, `shotclockUrl`, `ownClubId`, `productionTeamNames`.
-- `Setting` stays for installation-wide keys: `activeSeasonId`.
+- New table `OrganizationSetting(organizationId, key, value)` for the per-organization keys: `vmixWebUrl`, `vmixInstances`, `vmixCallsheetPush`, `sponsorNamesTypes`, `sponsorRowsTypes`, `sponsorSlidesTypes`, `scoreboardUrl`, `shotclockUrl`, `productionTeamNames`. The own club is `Organization.clubId` (PR #12 review: one source; a migration moved `ownClubId` there).
+- `Setting` stays for installation-wide keys: `activeSeasonId`. A settings restore into one organization skips them (PR #12 review).
 - The settings cache is keyed by organization + key. `/api/settings` works on the chosen organization. **(confirmed)**
 - The migration moves the existing per-organization keys to Fortuna.
 
@@ -84,7 +84,7 @@ model Organization {
 - The token stays with the provider and origin it was entered for: when `provider` or the origin of `baseUrl` changes and the same request brings no new token, the stored token is removed (`hasApiToken: false`). Otherwise anyone could point the stored token at their own server. `baseUrl` must be `https:` (`http:` only outside production, for local mocks); a stored source with another address is not used.
 - "Test verbinding" (`POST /api/match-source/test`) answers only ok or failed (generic message), nothing of the upstream answer: the address is chosen by the caller, so status, body or count would make it a probe for other servers.
 - Beheer → Organisatie → Wedstrijdimport: provider, URL, token, and a "Test verbinding" button.
-- The `MATCH_SCHEDULE_*` env vars are removed. On first startup after the migration, when they're set and Fortuna has no source yet, they're copied once into Fortuna's source. **(confirmed)**
+- The `MATCH_SCHEDULE_*` env vars are removed. **(user, PR #12 review)** There is no one-time copy into Fortuna either: the match source is configured in Beheer only.
 - Fortuna-specific hard-coded values move to configuration: the team colour regex `Fortuna/Ruitenheer J(\d+)` in the volunteer adapter, and the `'Fortuna sponsor'` name in `routes/vmix.ts`. They're derived from the organization's name or `productionTeamNames`. **(confirmed)**
 
 ## D9. Standard set for new organizations (user)

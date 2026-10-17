@@ -1,39 +1,52 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
-import {testDb as prisma} from '../../../test-helpers';
+import {ensureOrganization, testDb as prisma} from '../../../test-helpers';
 import {runWithOrganization} from '../organizationContext';
-import {copyMatchSourceFromEnv, DEFAULT_MATCH_SOURCE_BASE_URL} from './matchSource';
+import {getMatchScheduleProvider, MatchSourceNotConfiguredError} from './matchSource';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 
-describe.runIf(runDb)('MATCH_SCHEDULE_* env copied once into Fortuna (integration)', () => {
-  let fortuna: number;
-  let previous: unknown;
+/** Every .ts file under src, without the specs. */
+function sourceFiles(dir: string): string[] {
+  return fs.readdirSync(dir, {withFileTypes: true}).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return sourceFiles(full);
+    return entry.name.endsWith('.ts') && !entry.name.includes('.spec.') ? [full] : [];
+  });
+}
+
+describe('the match source is configured in Beheer only', () => {
+  it('reads no MATCH_SCHEDULE_* env vars anywhere', () => {
+    const readers = sourceFiles(path.join(__dirname, '../..')).filter((file) => fs.readFileSync(file, 'utf8').includes('MATCH_SCHEDULE_'));
+    expect(readers).toEqual([]);
+  });
+});
+
+describe.runIf(runDb)('the match source is configured in Beheer only (integration)', () => {
+  const SLUG = 'match-source-env';
+  const ENV_KEYS = ['MATCH_SCHEDULE_BASE_URL', 'MATCH_SCHEDULE_API_TOKEN', 'MATCH_SCHEDULE_PROVIDER'] as const;
+  const previousEnv: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {};
+  let organizationId: number;
 
   beforeAll(async () => {
-    // The migration creates Fortuna
-    fortuna = (await prisma.organization.findUniqueOrThrow({where: {slug: 'fortuna'}})).id;
-    previous = await runWithOrganization(fortuna, () => prisma.matchSource.findFirst());
-    await runWithOrganization(fortuna, () => prisma.matchSource.deleteMany());
+    organizationId = await ensureOrganization(prisma, SLUG, 'Match Source Env');
+    for (const key of ENV_KEYS) previousEnv[key] = process.env[key];
+    process.env.MATCH_SCHEDULE_BASE_URL = 'https://env.example/v1';
+    process.env.MATCH_SCHEDULE_API_TOKEN = 'env-token';
+    process.env.MATCH_SCHEDULE_PROVIDER = 'vrijwilligers';
   });
 
   afterAll(async () => {
-    await runWithOrganization(fortuna, async () => {
-      await prisma.matchSource.deleteMany();
-      if (previous) await prisma.matchSource.create({data: previous as never});
-    });
+    for (const key of ENV_KEYS) {
+      if (previousEnv[key] === undefined) delete process.env[key];
+      else process.env[key] = previousEnv[key];
+    }
+    await prisma.organization.deleteMany({where: {slug: SLUG}});
   });
 
-  it('does nothing without the env vars', async () => {
-    expect(await copyMatchSourceFromEnv({})).toBe(false);
-    expect(await runWithOrganization(fortuna, () => prisma.matchSource.count())).toBe(0);
-  });
-
-  it('copies them when Fortuna has no source, and only then', async () => {
-    expect(await copyMatchSourceFromEnv({MATCH_SCHEDULE_API_TOKEN: 'env-token'})).toBe(true);
-    const source = await runWithOrganization(fortuna, () => prisma.matchSource.findFirstOrThrow());
-    expect(source).toMatchObject({provider: 'vrijwilligers', baseUrl: DEFAULT_MATCH_SOURCE_BASE_URL, apiToken: 'env-token', isEnabled: true});
-
-    expect(await copyMatchSourceFromEnv({MATCH_SCHEDULE_API_TOKEN: 'other', MATCH_SCHEDULE_BASE_URL: 'https://other.example'})).toBe(false);
-    expect((await runWithOrganization(fortuna, () => prisma.matchSource.findFirstOrThrow())).apiToken).toBe('env-token');
+  it('ignores the old env vars: without a source in Beheer there is no match import', async () => {
+    await expect(runWithOrganization(organizationId, getMatchScheduleProvider)).rejects.toBeInstanceOf(MatchSourceNotConfiguredError);
+    expect(await runWithOrganization(organizationId, () => prisma.matchSource.count())).toBe(0);
   });
 });

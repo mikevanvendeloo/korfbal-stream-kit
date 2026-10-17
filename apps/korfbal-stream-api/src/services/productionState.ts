@@ -168,7 +168,16 @@ export async function restoreLiveState() {
   await restoreActiveProduction();
 }
 
-/** Active organizations with an active production (in the database), for background services. */
+/**
+ * Organizations whose show runs (a production in the live state), for the background services that
+ * tick every second: read from memory, so no database query while no show runs. Switching an
+ * organization off drops its live state (`discardLiveState`), so only active organizations are here.
+ */
+export function liveOrganizationIds(): number[] {
+  return [...liveStates].filter(([, state]) => state.productionId !== null).map(([organizationId]) => organizationId);
+}
+
+/** Active organizations with an active production (in the database): restored on startup. */
 export async function organizationsWithActiveProduction(): Promise<number[]> {
   const rows = await prismaUnscoped.production.findMany({
     where: {isActive: true, organization: {isActive: true}},

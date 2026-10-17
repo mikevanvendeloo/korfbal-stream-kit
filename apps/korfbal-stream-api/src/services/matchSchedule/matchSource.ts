@@ -1,9 +1,8 @@
 import type {MatchSource} from '@prisma/client';
 import {prisma} from '../prisma';
-import {requireOrganizationId, runWithOrganization} from '../organizationContext';
+import {requireOrganizationId} from '../organizationContext';
 import {getSetting, PRODUCTION_TEAM_NAMES_KEY} from '../appSettings';
 import {normalizeTeamNameForClubMatch} from '../../utils/clubs';
-import {logger} from '../../utils/logger';
 import {isAllowedMatchSourceUrl, type MatchSourceInput} from '../../schemas/organization';
 import {createMatchScheduleProvider} from './providerFactory';
 import type {MatchScheduleProvider} from './MatchScheduleProvider';
@@ -69,31 +68,7 @@ export async function ownTeamPrefixes(): Promise<string[]> {
 /** The provider for the organization in the context; MatchSourceNotConfiguredError when there is none (or it is off). */
 export async function getMatchScheduleProvider(): Promise<MatchScheduleProvider> {
   const source = await getMatchSource();
-  // The address is checked on save too; this also covers rows from before that check (or the env copy)
+  // The address is checked on save too; this also covers rows from before that check
   if (!source || !source.isEnabled || !isAllowedMatchSourceUrl(source.baseUrl)) throw new MatchSourceNotConfiguredError();
   return createMatchScheduleProvider({...source, teamPrefixes: await ownTeamPrefixes()});
-}
-
-/**
- * One-time move of the old MATCH_SCHEDULE_* env vars into Fortuna's match source: only when they
- * are set and Fortuna has no source yet. After that the env vars are no longer read.
- */
-export async function copyMatchSourceFromEnv(env: NodeJS.ProcessEnv = process.env): Promise<boolean> {
-  const token = env.MATCH_SCHEDULE_API_TOKEN?.trim();
-  const baseUrl = env.MATCH_SCHEDULE_BASE_URL?.trim();
-  if (!token && !baseUrl) return false;
-  const fortuna = await prisma.organization.findUnique({where: {slug: 'fortuna'}});
-  if (!fortuna) return false;
-  return runWithOrganization(fortuna.id, async () => {
-    if (await getMatchSource()) return false;
-    await prisma.matchSource.create({
-      data: {
-        provider: env.MATCH_SCHEDULE_PROVIDER?.trim().toLowerCase() || 'vrijwilligers',
-        baseUrl: baseUrl || DEFAULT_MATCH_SOURCE_BASE_URL,
-        apiToken: token || null,
-      },
-    });
-    logger.warn('MATCH_SCHEDULE_* env vars copied into Fortuna\'s match source; remove them from the environment');
-    return true;
-  });
 }

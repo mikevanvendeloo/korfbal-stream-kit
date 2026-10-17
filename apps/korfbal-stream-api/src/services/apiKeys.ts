@@ -15,6 +15,20 @@ const DISPLAY_PREFIX_LENGTH = API_KEY_PREFIX.length + 6;
 export const LAST_USED_WRITE_INTERVAL_MS = 60_000;
 /** Longest value worth hashing: a real key is 46 characters. */
 const MAX_KEY_LENGTH = 200;
+/** How long an organization or key lookup is answered from memory (middleware/organizationContext.ts too). */
+export const ORGANIZATION_LOOKUP_TTL_MS = 5_000;
+
+// keyHash -> the key's organization, for a few seconds: vMix data sources poll every second. Only valid
+// keys are kept, so wrong keys don't fill memory. Revoking a key or changing an organization clears it.
+type CachedKey = {keyId: number; organization: Organization; lastUsedAt: Date | null; expires: number};
+const byHash = new Map<string, CachedKey>();
+let keyGeneration = 0;
+
+/** Forgets every cached key lookup (a key was revoked, or an organization changed). */
+export function clearApiKeyCache(): void {
+  keyGeneration++;
+  byHash.clear();
+}
 
 export type ApiKeyDto = Pick<OrganizationApiKey, 'id' | 'name' | 'prefix' | 'createdAt' | 'lastUsedAt' | 'revokedAt'>;
 
@@ -49,24 +63,35 @@ export async function revokeApiKey(id: number): Promise<ApiKeyDto | null> {
   const row = await prisma.organizationApiKey.findUnique({where: {id}});
   if (!row) return null;
   if (row.revokedAt) return toApiKeyDto(row);
-  return toApiKeyDto(await prisma.organizationApiKey.update({where: {id}, data: {revokedAt: new Date()}}));
+  const revoked = await prisma.organizationApiKey.update({where: {id}, data: {revokedAt: new Date()}});
+  clearApiKeyCache(); // the key stops working on the next request, not when the cache expires
+  return toApiKeyDto(revoked);
 }
 
 /**
  * The organization a key belongs to: null for an unknown or revoked key (looked up by its hash, so
  * there is no comparison to time). The key's organization may still be inactive: the caller checks.
+ * A valid key is answered from memory for ORGANIZATION_LOOKUP_TTL_MS.
  */
 export async function findOrganizationByApiKey(key: string, now = new Date()): Promise<Organization | null> {
   if (!key.startsWith(API_KEY_PREFIX) || key.length > MAX_KEY_LENGTH) return null;
-  // Before a request has an organization: the lookup itself is what finds it
-  const row = await prismaUnscoped.organizationApiKey.findUnique({
-    where: {keyHash: hashApiKey(key)},
-    include: {organization: true},
-  });
-  if (!row || row.revokedAt) return null;
-  if (!row.lastUsedAt || now.getTime() - row.lastUsedAt.getTime() >= LAST_USED_WRITE_INTERVAL_MS) {
-    prismaUnscoped.organizationApiKey.update({where: {id: row.id}, data: {lastUsedAt: now}})
-      .catch((err: unknown) => logger.warn('Updating lastUsedAt of an API key failed', {id: row.id, error: (err as Error)?.message}));
+  const keyHash = hashApiKey(key);
+  let entry = byHash.get(keyHash);
+  if (!entry || entry.expires <= Date.now()) {
+    byHash.delete(keyHash);
+    const readAt = keyGeneration;
+    // Before a request has an organization: the lookup itself is what finds it
+    const row = await prismaUnscoped.organizationApiKey.findUnique({where: {keyHash}, include: {organization: true}});
+    if (!row || row.revokedAt) return null;
+    entry = {keyId: row.id, organization: row.organization, lastUsedAt: row.lastUsedAt, expires: Date.now() + ORGANIZATION_LOOKUP_TTL_MS};
+    // A revoke or organization change while the query ran wins: don't cache what may be outdated
+    if (readAt === keyGeneration) byHash.set(keyHash, entry);
   }
-  return row.organization;
+  if (!entry.lastUsedAt || now.getTime() - entry.lastUsedAt.getTime() >= LAST_USED_WRITE_INTERVAL_MS) {
+    entry.lastUsedAt = now;
+    const {keyId} = entry;
+    prismaUnscoped.organizationApiKey.update({where: {id: keyId}, data: {lastUsedAt: now}})
+      .catch((err: unknown) => logger.warn('Updating lastUsedAt of an API key failed', {id: keyId, error: (err as Error)?.message}));
+  }
+  return entry.organization;
 }

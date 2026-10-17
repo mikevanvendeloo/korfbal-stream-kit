@@ -9,8 +9,13 @@ import { requireOrganizationId } from './organizationContext';
  */
 export const GLOBAL_SETTING_KEYS: ReadonlySet<string> = new Set(['activeSeasonId']);
 
-// In-memory cache per organization + key ("global" for installation-wide keys)
-const cache = new Map<string, any>();
+// In-memory cache per organization + key ("global" for installation-wide keys). A key that isn't set is
+// cached too (NOT_SET), so a background loop asking every second for an unset setting doesn't query
+// the database each time; setSetting and clearSettingsCache overwrite it.
+const NOT_SET = Symbol('not set');
+const cache = new Map<string, unknown>();
+// Bumped by every write and clear: a read that started before one doesn't cache its (older) answer
+let generation = 0;
 
 function cacheKey(key: string): string {
   const scope = GLOBAL_SETTING_KEYS.has(key) ? 'global' : String(requireOrganizationId(`Setting "${key}"`));
@@ -19,17 +24,22 @@ function cacheKey(key: string): string {
 
 export async function getSetting<T>(key: string): Promise<T | null> {
   const cached = cacheKey(key);
-  if (cache.has(cached)) return cache.get(cached)!;
+  if (cache.has(cached)) {
+    const value = cache.get(cached);
+    return value === NOT_SET ? null : (value as T | null);
+  }
+  const readAt = generation;
   const row = GLOBAL_SETTING_KEYS.has(key)
     ? await prisma.setting.findUnique({ where: { key } })
     : await prisma.organizationSetting.findFirst({ where: { key } });
-  if (!row || !row.value) return null;
-  cache.set(cached, row.value);
-  return row.value as T;
+  const value = row?.value ? row.value : null;
+  if (readAt === generation) cache.set(cached, value === null ? NOT_SET : value);
+  return value as T | null;
 }
 
 export async function setSetting(key: string, value: Prisma.JsonValue): Promise<void> {
   const cached = cacheKey(key);
+  generation++;
   // Prisma requires the explicit `Prisma.JsonNull` enum to set a JSON field to null.
   const valueForDb = value === null ? Prisma.JsonNull : value;
   if (GLOBAL_SETTING_KEYS.has(key)) {
@@ -57,7 +67,6 @@ export const SPONSOR_ROWS_TYPES_KEY = 'sponsorRowsTypes';
 export const SPONSOR_SLIDES_TYPES_KEY = 'sponsorSlidesTypes';
 export const SCOREBOARD_URL_KEY = 'scoreboardUrl';
 export const SHOTCLOCK_URL_KEY = 'shotclockUrl';
-export const OWN_CLUB_ID_KEY = 'ownClubId';
 export const PRODUCTION_TEAM_NAMES_KEY = 'productionTeamNames';
 /** Extra entry at the end of the sponsor carousel ({name, logoUrl, type, websiteUrl}); none when unset. */
 export const SPONSOR_CAROUSEL_EXTRA_KEY = 'sponsorCarouselExtra';
@@ -121,6 +130,7 @@ export async function setShotclockUrl(input: string): Promise<void> {
 
 /** Drops cached settings (of every organization): only the given keys, or everything when no keys are passed. */
 export function clearSettingsCache(keys?: Iterable<string>): void {
+  generation++;
   if (!keys) {
     cache.clear();
     return;

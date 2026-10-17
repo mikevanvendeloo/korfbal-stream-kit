@@ -12,7 +12,7 @@ const SLUG = 'org-api-test';
 
 describe.runIf(runDb)('Organizations API (integration)', () => {
   afterAll(async () => {
-    await prisma.organization.deleteMany({where: {slug: {in: [SLUG, `${SLUG}-2`]}}});
+    await prisma.organization.deleteMany({where: {slug: {in: [SLUG, `${SLUG}-2`, `${SLUG}-broken`]}}});
     await prisma.club.deleteMany({where: {slug: 'org-api-test-club'}});
   });
 
@@ -39,6 +39,26 @@ describe.runIf(runDb)('Organizations API (integration)', () => {
 
     // The new organization can be used right away
     expect((await request(app).get('/api/production/positions').set('X-Organization', SLUG)).body.length).toBe(standardPositions.length);
+  });
+
+  it('leaves no organization behind when the standard set fails, so the slug can be used again', async () => {
+    const slug = `${SLUG}-broken`;
+    // A segment template the database refuses: the standard set fails halfway (after skills, positions, …)
+    const broken = {name: 'Kapot', isDefault: false, items: [{nope: true}]} as unknown as (typeof standardSegmentTemplates)[number];
+    standardSegmentTemplates.push(broken);
+    try {
+      const failed = await request(app).post('/api/organizations').send({name: 'Kapot', slug});
+      expect(failed.status).toBe(500);
+      expect(await prisma.organization.count({where: {slug}})).toBe(0);
+    } finally {
+      standardSegmentTemplates.splice(standardSegmentTemplates.indexOf(broken), 1);
+    }
+    // Not 409 "slug in gebruik": nothing of the failed attempt is left
+    const again = await request(app).post('/api/organizations').send({name: 'Hersteld', slug});
+    expect(again.status, again.text).toBe(201);
+    await runWithOrganization(again.body.id, async () => {
+      expect(await prisma.position.count()).toBe(standardPositions.length);
+    });
   });
 
   it('refuses a slug that is taken or invalid, and an unknown club', async () => {

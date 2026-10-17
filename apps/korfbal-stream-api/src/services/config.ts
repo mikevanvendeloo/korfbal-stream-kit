@@ -18,8 +18,7 @@ const EnvSchema = z.object({
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
   SCOREBOARD_BASE_URL: z.string().url().default('http://10.12.0.62/scoreboard'),
   SHOTCLOCK_BASE_URL: z.string().url().default('http://10.12.0.61/shotclock'),
-  // MATCH_SCHEDULE_* are no longer configuration: the match source is per organization (MatchSource).
-  // They are read once, raw, by services/matchSchedule/matchSource.ts to fill Fortuna's source.
+  // The match import is not configured here: each organization sets its source in Beheer (MatchSource).
   // Root directory where binary assets (logos, player photos, uploads) are stored within the container/app.
   // Default: "storage". In tests, if not set, falls back to tmp/test-storage under cwd to avoid polluting real data.
   ASSETS_DIR: z.string().optional().default(''),

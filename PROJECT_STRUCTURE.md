@@ -64,11 +64,13 @@ apps/korfbal-stream-api/
     ├── services/
     │   ├── prisma.ts                  # Shared PrismaClient wrapper
     │   ├── config.ts                  # Zod-validated env config, assets root
-    │   ├── appSettings.ts             # Settings per organization (OrganizationSetting) + global keys (Setting), cached
+    │   ├── appSettings.ts             # Settings per organization (OrganizationSetting) + global keys (Setting), cached (also "not set")
+    │   ├── ownClub.ts                 # Own club = Organization.clubId (get/set for club-config, placeholders, restore)
+    │   ├── apiErrorCodes.ts           # Stable error codes ({error, code}) for organization/key/origin refusals; kept in sync with the kit
     │   ├── organizationContext.ts     # AsyncLocalStorage organization context, runWithOrganization
     │   ├── tenantScope.ts             # Prisma extension: organizationId on every tenant query
     │   ├── standardSet.ts             # applyStandardSet(orgId): idempotent standard set
-    │   ├── apiKeys.ts                 # API keys: generate, SHA-256 hash, lookup, revoke, lastUsedAt
+    │   ├── apiKeys.ts                 # API keys: generate, SHA-256 hash, lookup (5 s cache), revoke, lastUsedAt
     │   ├── season.ts                  # Season derivation (1 Jul–30 Jun), active season, seasonId resolution, asset dirs
     │   ├── seasonAssetMigration.ts    # Startup job: moves legacy player photos/team-responses into storage/seasons/<YYYY-YYYY>/
     │   ├── production.ts              # Production report data loading
@@ -80,7 +82,7 @@ apps/korfbal-stream-api/
     │   └── matchSchedule/             # Match schedule adapters
     │       ├── MatchScheduleProvider.ts              # Provider interface + normalized types
     │       ├── VrijwilligersMatchScheduleProvider.ts # sportclubvrijwilligersmanagement.nl adapter
-    │       ├── providerFactory.ts                    # Selects provider via MATCH_SCHEDULE_PROVIDER
+    │       ├── providerFactory.ts                    # Selects the provider of the organization's MatchSource
     │       └── index.ts                              # Exports the configured provider instance
     ├── schemas/               # Zod input schemas (sponsor, person, skill, capability, title, season)
     ├── utils/
@@ -91,7 +93,7 @@ apps/korfbal-stream-api/
     ├── domain/
     │   └── positionSkill.ts   # Position name -> required skill code mapping
     └── middleware/
-        ├── organizationContext.ts # X-Organization → organization context (401/403), global routes exempt
+        ├── organizationContext.ts # X-Organization → organization context (401/403 with code), global routes exempt, 5 s slug cache
         ├── apiKey.ts          # API key (?key= / X-Api-Key) on feed routes (FEED_API_PATHS), kept out of logs
         └── error.ts           # Central Express error handler
 ```
@@ -158,7 +160,8 @@ apps/korfbal-stream-kit/src/
 │   └── useFontSize.ts         # UI font-size preference
 ├── lib/
 │   ├── api.ts                 # API base URL / fetch helpers
-│   ├── organization.ts        # Chosen organization (localStorage), fetch wrapper adding X-Organization, socket auth
+│   ├── organization.ts        # Chosen organization (localStorage), fetch wrapper adding X-Organization, socket auth, slug rename
+│   ├── apiErrorCodes.ts       # The API's stable error codes (kept in sync with the API)
 │   ├── socket.ts              # Shared Socket.io connection (handshake auth.organization), reconnect on switch
 │   ├── adminPaths.ts          # All Beheer URLs
 │   ├── download.ts            # File downloads; downloadFromApi for exports (fetch, so the header goes along)

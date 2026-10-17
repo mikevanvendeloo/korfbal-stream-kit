@@ -5,7 +5,7 @@ import {resolveVmixInstance} from './vmixInstances';
 import {CallsheetTiming, loadCallsheetTiming, TimingState} from './callsheetTiming';
 import {CallsheetColors, VmixCallsheetPushConfig, VmixCallsheetPushSchema} from '../schemas/vmixCallsheet';
 import {logger} from '../utils/logger';
-import {organizationsWithActiveProduction} from './productionState';
+import {liveOrganizationIds} from './productionState';
 import {getOrganizationId, runWithOrganization} from './organizationContext';
 
 export const VMIX_CALLSHEET_PUSH_KEY = 'vmixCallsheetPush';
@@ -137,12 +137,12 @@ let interval: NodeJS.Timeout | null = null;
 let ticking = false;
 
 /**
- * One push per organization with an active production, each with its own settings and vMix. They run
+ * One push per organization whose show runs, each with its own settings and vMix. They run
  * side by side: an unreachable vMix of one organization doesn't hold up the others.
  */
 async function startPushes(): Promise<Promise<void>[]> {
-  const organizationIds = await organizationsWithActiveProduction();
-  return organizationIds.map((organizationId) => runWithOrganization(organizationId, pushWhenEnabled));
+  // From the live state in memory: no database query per second while no show runs
+  return liveOrganizationIds().map((organizationId) => runWithOrganization(organizationId, pushWhenEnabled));
 }
 
 /** A push round that waits until every organization is done (tests); the timer doesn't wait. */

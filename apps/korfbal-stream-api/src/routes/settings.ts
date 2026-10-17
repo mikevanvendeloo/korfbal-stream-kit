@@ -6,7 +6,7 @@ import {
   getSponsorNamesTypes,
   getSponsorRowsTypes,
   getSponsorSlidesTypes,
-  getVmixUrl, OWN_CLUB_ID_KEY, PRODUCTION_TEAM_NAMES_KEY,
+  getVmixUrl, PRODUCTION_TEAM_NAMES_KEY,
   setScoreboardUrl,
   setSetting,
   setShotclockUrl,
@@ -21,6 +21,7 @@ import {VmixCallsheetPushSchema} from '../schemas/vmixCallsheet';
 import {getCallsheetPushConfig, setCallsheetPushConfig} from '../services/vmixCallsheetPush';
 import {VmixInstancesConfigSchema} from '../schemas/vmixInstances';
 import {getVmixInstancesConfig, setFirstVmixUrl, setVmixInstancesConfig} from '../services/vmixInstances';
+import {getOwnClubId, setOwnClubId} from '../services/ownClub';
 
 export const settingsRouter: Router = Router();
 
@@ -170,14 +171,15 @@ settingsRouter.put('/scoreboard-config', async (req, res, next) => {
 });
 
 // GET /api/settings/club-config
+// ownClubId is the organization's club (Organization.clubId), the same one Beheer → Organisaties shows.
 settingsRouter.get('/club-config', async (_req, res, next) => {
   try {
     const [ownClubId, productionTeamNames] = await Promise.all([
-      getSetting<number>(OWN_CLUB_ID_KEY),
+      getOwnClubId(),
       getSetting<string[]>(PRODUCTION_TEAM_NAMES_KEY),
     ]);
     return res.json({
-      ownClubId: ownClubId || null,
+      ownClubId,
       productionTeamNames: productionTeamNames || [],
     });
   } catch (err) {
@@ -194,10 +196,8 @@ const ClubConfigSchema = z.object({
 settingsRouter.put('/club-config', async (req, res, next) => {
   try {
     const parsed = ClubConfigSchema.parse(req.body);
-    await Promise.all([
-      setSetting(OWN_CLUB_ID_KEY, parsed.ownClubId),
-      setSetting(PRODUCTION_TEAM_NAMES_KEY, parsed.productionTeamNames),
-    ]);
+    if (!(await setOwnClubId(parsed.ownClubId))) return res.status(400).json({error: 'Club bestaat niet'});
+    await setSetting(PRODUCTION_TEAM_NAMES_KEY, parsed.productionTeamNames);
     return res.json(parsed);
   } catch (err: any) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid payload' });

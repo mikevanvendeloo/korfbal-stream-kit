@@ -2,7 +2,6 @@ export type {MatchScheduleFetchParams, MatchScheduleProvider, NormalizedMatchIte
 export {InvalidMatchScheduleResponseError} from './MatchScheduleProvider';
 export {createMatchScheduleProvider} from './providerFactory';
 export {
-  copyMatchSourceFromEnv,
   getMatchScheduleProvider,
   getMatchSource,
   MatchSourceNotConfiguredError,

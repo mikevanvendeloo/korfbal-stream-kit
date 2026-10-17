@@ -16,12 +16,13 @@ import {syncVenueClocks, venueClockSyncService} from './services/venueClockSyncS
 import {setSetting} from './services/appSettings';
 import {hashApiKey, LAST_USED_WRITE_INTERVAL_MS} from './services/apiKeys';
 import {isSameOriginRequest} from './middleware/sameOrigin';
+import {clearOrganizationLookupCache, ORGANIZATION_LOOKUP_TTL_MS} from './middleware/organizationContext';
 import {logger} from './utils/logger';
 import {getAssetsRoot} from './services/config';
 import {saveMatchSource} from './services/matchSchedule';
-import {prisma as appPrisma} from './services/prisma';
+import {prisma as appPrisma, prismaUnscoped} from './services/prisma';
 import {MissingOrganizationContextError, runWithOrganization} from './services/organizationContext';
-import {ensureOrganization, inTestOrganization, testDb as prisma, testOrganizationId, withoutOrganization} from '../test-helpers';
+import {ensureOrganization, inTestOrganization, recordQueries, testDb as prisma, testOrganizationId, withoutOrganization} from '../test-helpers';
 import {createProductionScenario, createTenantScenario, ProductionScenario, TenantScenario} from '../test-scenarios';
 
 /**
@@ -46,7 +47,7 @@ describe('organization context (middleware)', () => {
   it('answers 401 "Kies een organisatie" without X-Organization on a tenant route', async () => {
     const res = await withoutOrganization(request(app).get('/api/sponsors'));
     expect(res.status).toBe(401);
-    expect(res.body).toEqual({error: 'Kies een organisatie'});
+    expect(res.body).toEqual({error: 'Kies een organisatie', code: 'ORGANIZATION_REQUIRED'});
   });
 
   it('answers 401 for an empty or blank header', async () => {
@@ -69,7 +70,7 @@ describe('organization context (middleware)', () => {
   ])('rejects the odd slug %j with 403, never a 500', async (slug) => {
     const res = await request(app).get('/api/sponsors').set('X-Organization', slug);
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({error: 'Onbekende of inactieve organisatie'});
+    expect(res.body).toEqual({error: 'Onbekende of inactieve organisatie', code: 'ORGANIZATION_UNKNOWN'});
   });
 
   it('answers 401 for a club\'s teams without an organization (they come from the own match schedule)', async () => {
@@ -138,6 +139,26 @@ describe.runIf(runDb)('Prisma extension (integration)', () => {
     await expect(appPrisma.$executeRawUnsafe(
       `INSERT INTO "Sponsor" ("name", "type", "logoUrl", "websiteUrl") VALUES ('Raw', 'premium', 'raw.png', 'https://raw.example')`,
     )).rejects.toThrow(/23502|organizationId is required/);
+  });
+
+  it('keeps the same-organization trigger working under another search_path (e.g. a pg_dump import)', async () => {
+    const own = await testOrganizationId();
+    const other = await ensureOrganization(prisma, 'sec-search-path', 'Search path');
+    const foreignSkill = await runWithOrganization(other, () =>
+      prisma.skill.create({data: {code: 'SEC_SEARCH_PATH', name: 'Search path', nameMale: 'Search path', nameFemale: 'Search path'}}));
+    const insertPosition = (skillId: number | null) => prismaUnscoped.$transaction(async (tx) => {
+      // As a dump import does: nothing on the search_path, every table named with its schema
+      await tx.$queryRawUnsafe(`SELECT set_config('search_path', '', true)`);
+      await tx.$executeRawUnsafe(`INSERT INTO public."Position" ("organizationId", "name", "skillId") VALUES ($1, 'Search path positie', $2)`, own, skillId);
+      throw new Error('rollback');
+    });
+    try {
+      await expect(insertPosition(null)).rejects.toThrow('rollback');
+      // And it still refuses a reference to another organization's row
+      await expect(insertPosition(foreignSkill.id)).rejects.toThrow(/another organization/);
+    } finally {
+      await prisma.organization.delete({where: {id: other}});
+    }
   });
 
   it('ignores organizationId in create and update data (mass assignment)', async () => {
@@ -1011,9 +1032,12 @@ describe.runIf(runDb)('background services per organization (integration)', () =
     servers.push(vmixA, vmixB, boardA, boardB);
     await configure(orgA, vmixA.url, boardA.url, 'InputAlpha');
     await configure(orgB, vmixB.url, boardB.url, 'InputBeta');
+    // The loops follow the live state in memory: both shows run (as after a restart with an active item)
+    for (const organizationId of [orgA, orgB]) await runWithOrganization(organizationId, liveState.restoreLiveState);
   });
 
   afterAll(async () => {
+    for (const organizationId of [orgA, orgB]) if (organizationId) liveState.discardLiveState(organizationId);
     await Promise.all(servers.map((s) => s.close()));
     await a?.cleanup();
     await b?.cleanup();
@@ -1206,7 +1230,7 @@ describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
     for (const path of ['/api/vmix/sponsor-names', '/api/vmix/active-production/staff', '/api/scoreboard', '/api/scoreboard/clock', '/api/vmix/production/1/titles']) {
       const res = await feed(path);
       expect(res.status, path).toBe(401);
-      expect(res.body, path).toEqual({error: 'API-sleutel ontbreekt'});
+      expect(res.body, path).toEqual({error: 'API-sleutel ontbreekt', code: 'API_KEY_MISSING'});
     }
   });
 
@@ -1234,7 +1258,7 @@ describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
     ]) {
       const res = await feed(path);
       expect(res.status, path.slice(0, 80)).toBe(401);
-      expect(res.body).toEqual({error: 'Ongeldige API-sleutel'});
+      expect(res.body).toEqual({error: 'Ongeldige API-sleutel', code: 'API_KEY_INVALID'});
     }
     // A wrong key isn't saved by a valid X-Organization
     expect((await request(app).get('/api/vmix/sponsor-names?key=sk_nonsense').set('X-Organization', KA)).status).toBe(401);
@@ -1244,7 +1268,7 @@ describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
     for (const path of ['/api/production', '/api/sponsors', '/api/settings/vmix-url', '/api/organization/api-keys', '/api/vmix/endpoints', '/api/backup/sponsors/export']) {
       for (const res of [await feed(`${path}?key=${keyA}`), await feed(path).set('X-Api-Key', keyA)]) {
         expect(res.status, path).toBe(401);
-        expect(res.body, path).toEqual({error: 'Kies een organisatie'});
+        expect(res.body, path).toEqual({error: 'Kies een organisatie', code: 'ORGANIZATION_REQUIRED'});
       }
     }
     const post = await withoutOrganization(request(app).post(`/api/vmix/set-timer?key=${keyA}`)).send({seconds: 10});
@@ -1256,6 +1280,7 @@ describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
   it('writes lastUsedAt, but not on every request', async () => {
     const lastUsed = () => runWithOrganization(orgA, async () => (await prisma.organizationApiKey.findUniqueOrThrow({where: {id: keyAId}})).lastUsedAt);
     await runWithOrganization(orgA, () => prisma.organizationApiKey.update({where: {id: keyAId}, data: {lastUsedAt: null}}));
+    clearOrganizationLookupCache(); // changed behind the API's back: forget the cached key
     await feed(`/api/vmix/sponsor-names?key=${keyA}`);
     await waitFor(async () => (await lastUsed()) !== null);
     const first = await lastUsed();
@@ -1298,7 +1323,7 @@ describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
     expect(revoked.body.revokedAt).toBeTruthy();
     const res = await feed(`/api/vmix/sponsor-names?key=${keyA}`);
     expect(res.status).toBe(401);
-    expect(res.body).toEqual({error: 'Ongeldige API-sleutel'});
+    expect(res.body).toEqual({error: 'Ongeldige API-sleutel', code: 'API_KEY_INVALID'});
     const list = await request(app).get('/api/organization/api-keys').set('X-Organization', KA);
     expect(list.body[0]).toMatchObject({id: keyAId, revokedAt: expect.any(String)});
   });
@@ -1315,7 +1340,7 @@ describe('cross-site writes (CSRF)', () => {
   it.each(GLOBAL_WRITES)('refuses a cross-site form or multipart POST to %s with 403', async (route) => {
     const form = await withoutOrganization(request(app).post(route)).set('Origin', EVIL).type('form').send('name=Evil&slug=evil');
     expect(form.status).toBe(403);
-    expect(form.body).toEqual({error: 'Verzoek van een andere website geweigerd'});
+    expect(form.body).toEqual({error: 'Verzoek van een andere website geweigerd', code: 'CROSS_SITE_REFUSED'});
     const multipart = await withoutOrganization(request(app).post(route)).set('Origin', EVIL)
       .field('name', 'Evil').attach('file', PNG, {filename: 'x.png', contentType: 'image/png'});
     expect(multipart.status).toBe(403);
@@ -1421,7 +1446,7 @@ describe.runIf(runDb)('switching an organization off (integration)', () => {
     expect(liveState.hasLiveState(organizationId)).toBe(true);
     expect(timeSyncService.hasState(organizationId)).toBe(true);
     expect(hasPushMemory(organizationId)).toBe(true);
-    expect(await liveState.organizationsWithActiveProduction()).toContain(organizationId);
+    expect(liveState.liveOrganizationIds()).toContain(organizationId);
 
     const disconnected = new Promise<string>((resolve) => client.socket.once('disconnect', resolve));
     const off = await request(app).put(`/api/organizations/${organizationId}`).send({isActive: false});
@@ -1436,7 +1461,7 @@ describe.runIf(runDb)('switching an organization off (integration)', () => {
     expect(liveState.hasLiveState(organizationId)).toBe(false);
     expect(timeSyncService.hasState(organizationId)).toBe(false);
     expect(hasPushMemory(organizationId)).toBe(false);
-    expect(await liveState.organizationsWithActiveProduction()).not.toContain(organizationId);
+    expect(liveState.liveOrganizationIds()).not.toContain(organizationId);
     await expect(connectClient(await socketServerUrl(), {organization: OFF})).rejects.toThrow('Onbekende of inactieve organisatie');
     // The database keeps the production: switching it on again picks it up
     expect((await runWithOrganization(organizationId, () => prisma.production.findUnique({where: {id: show.productionId}})))?.isActive).toBe(true);
@@ -1444,6 +1469,205 @@ describe.runIf(runDb)('switching an organization off (integration)', () => {
     expect((await request(app).put(`/api/organizations/${organizationId}`).send({isActive: true})).status).toBe(200);
     expect(await runWithOrganization(organizationId, async () => liveState.liveStateSnapshot()))
       .toMatchObject({productionId: show.productionId, activeEventId: show.eventIds[0], isClockRunning: true});
-    expect(await liveState.organizationsWithActiveProduction()).toContain(organizationId);
+    expect(liveState.liveOrganizationIds()).toContain(organizationId);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------
+// PR #12 review: stable error codes, cached lookups, background loops on the live state
+// ---------------------------------------------------------------------------------------------------
+
+describe('stable error codes on refusals', () => {
+  it('sends a code next to the message, so clients never match on the text', async () => {
+    expect((await withoutOrganization(request(app).get('/api/sponsors'))).body).toEqual({error: 'Kies een organisatie', code: 'ORGANIZATION_REQUIRED'});
+    expect((await withoutOrganization(request(app).get('/api/clubs/1/teams'))).body).toMatchObject({code: 'ORGANIZATION_REQUIRED'});
+    expect((await withoutOrganization(request(app).get('/api/vmix/sponsor-names'))).body).toEqual({error: 'API-sleutel ontbreekt', code: 'API_KEY_MISSING'});
+    const csrf = await withoutOrganization(request(app).post('/api/organizations')).set('Origin', 'https://evil.example').send({});
+    expect(csrf.status).toBe(403);
+    expect(csrf.body).toEqual({error: 'Verzoek van een andere website geweigerd', code: 'CROSS_SITE_REFUSED'});
+  });
+
+  it('keeps the two 403s apart: only an unknown organization is ORGANIZATION_UNKNOWN', async () => {
+    const unknown = await request(app).get('/api/sponsors').set('X-Organization', '../x');
+    const crossSite = await request(app).post('/api/sponsors').set('Origin', 'https://evil.example').send({});
+    expect([unknown.status, crossSite.status]).toEqual([403, 403]);
+    expect(unknown.body.code).toBe('ORGANIZATION_UNKNOWN');
+    expect(crossSite.body.code).toBe('CROSS_SITE_REFUSED');
+  });
+});
+
+describe.runIf(runDb)('stable error codes on refusals (integration)', () => {
+  it('sends API_KEY_INVALID for a wrong key and ORGANIZATION_UNKNOWN for an unknown organization', async () => {
+    expect((await withoutOrganization(request(app).get('/api/vmix/sponsor-names?key=sk_nonsense'))).body)
+      .toEqual({error: 'Ongeldige API-sleutel', code: 'API_KEY_INVALID'});
+    expect((await request(app).get('/api/sponsors').set('X-Organization', 'no-such-org')).body)
+      .toEqual({error: 'Onbekende of inactieve organisatie', code: 'ORGANIZATION_UNKNOWN'});
+  });
+
+  it('sends the code with a refused socket handshake (connect_error data.code)', async () => {
+    const error = await connectClient(await socketServerUrl(), {organization: 'no-such-org'}).catch((err) => err);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toBe('Onbekende of inactieve organisatie');
+    expect(error.data).toEqual({code: 'ORGANIZATION_UNKNOWN'});
+  });
+});
+
+describe.runIf(runDb)('organization and API key lookups are cached briefly (integration)', () => {
+  const CA = 'sec-cache-a';
+  const RENAMED = 'sec-cache-renamed';
+  const LATE = 'sec-cache-late';
+  let organizationId: number;
+  let key: string;
+
+  const asCached = (slug = CA) => request(app).get('/api/sponsors').set('X-Organization', slug);
+  const viaKey = (k = key) => withoutOrganization(request(app).get(`/api/vmix/sponsor-names?key=${k}`));
+  const createKey = async (name: string) =>
+    (await request(app).post('/api/organization/api-keys').set('X-Organization', CA).send({name})).body as {id: number; key: string};
+
+  beforeAll(async () => {
+    organizationId = await ensureOrganization(prisma, CA, 'Sec Cache A');
+    key = (await createKey('cache')).key;
+  });
+
+  afterAll(async () => {
+    await prisma.organization.deleteMany({where: {slug: {in: [CA, RENAMED, LATE]}}});
+    clearOrganizationLookupCache();
+  });
+
+  it('answers a repeated slug or key from memory for a few seconds', async () => {
+    expect((await asCached()).status).toBe(200);
+    expect((await viaKey()).status).toBe(200);
+    const queries = await recordQueries(async () => {
+      expect((await asCached()).status).toBe(200);
+      expect((await viaKey()).status).toBe(200);
+    });
+    expect(queries.filter((q) => /"Organization"|"OrganizationApiKey"/.test(q))).toEqual([]);
+
+    // Switched off behind the API's back (not through PUT): the cache answers until it expires
+    await prisma.organization.update({where: {id: organizationId}, data: {isActive: false}});
+    try {
+      expect((await asCached()).status).toBe(200);
+      const later = Date.now() + ORGANIZATION_LOOKUP_TTL_MS + 1;
+      const clock = vi.spyOn(Date, 'now').mockReturnValue(later);
+      try {
+        expect((await asCached()).body.code).toBe('ORGANIZATION_UNKNOWN');
+        expect((await viaKey()).body.code).toBe('API_KEY_INVALID');
+      } finally {
+        clock.mockRestore();
+      }
+    } finally {
+      await prisma.organization.update({where: {id: organizationId}, data: {isActive: true}});
+      clearOrganizationLookupCache();
+    }
+    expect(ORGANIZATION_LOOKUP_TTL_MS).toBeLessThanOrEqual(5_000);
+  });
+
+  it('stops a deactivated organization at once: its slug, its keys and its sockets', async () => {
+    expect((await asCached()).status).toBe(200);
+    expect((await viaKey()).status).toBe(200);
+    (await connectClient(await socketServerUrl(), {organization: CA})).socket.close();
+
+    expect((await request(app).put(`/api/organizations/${organizationId}`).send({isActive: false})).status).toBe(200);
+    try {
+      const refused = await asCached();
+      expect(refused.status).toBe(403);
+      expect(refused.body.code).toBe('ORGANIZATION_UNKNOWN');
+      const keyRefused = await viaKey();
+      expect(keyRefused.status).toBe(401);
+      expect(keyRefused.body.code).toBe('API_KEY_INVALID');
+      await expect(connectClient(await socketServerUrl(), {organization: CA})).rejects.toThrow('Onbekende of inactieve organisatie');
+    } finally {
+      expect((await request(app).put(`/api/organizations/${organizationId}`).send({isActive: true})).status).toBe(200);
+    }
+    // And back on at once too
+    expect((await asCached()).status).toBe(200);
+    expect((await viaKey()).status).toBe(200);
+  });
+
+  it('follows a slug rename at once: the old slug stops, the new one works', async () => {
+    expect((await asCached()).status).toBe(200);
+    expect((await request(app).put(`/api/organizations/${organizationId}`).send({slug: RENAMED})).status).toBe(200);
+    try {
+      expect((await asCached()).body.code).toBe('ORGANIZATION_UNKNOWN');
+      expect((await asCached(RENAMED)).status).toBe(200);
+    } finally {
+      expect((await request(app).put(`/api/organizations/${organizationId}`).send({slug: CA})).status).toBe(200);
+    }
+    expect((await asCached(RENAMED)).body.code).toBe('ORGANIZATION_UNKNOWN');
+    expect((await asCached()).status).toBe(200);
+  });
+
+  it('stops a revoked key at once, also right after it was used', async () => {
+    const created = await createKey('revoke me');
+    expect((await viaKey(created.key)).status).toBe(200);
+    expect((await viaKey(created.key)).status).toBe(200);
+    expect((await request(app).delete(`/api/organization/api-keys/${created.id}`).set('X-Organization', CA)).status).toBe(200);
+    const res = await viaKey(created.key);
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('API_KEY_INVALID');
+    // The other key of the organization keeps working
+    expect((await viaKey()).status).toBe(200);
+  });
+
+  it('does not remember an unknown slug: an organization created right after works at once', async () => {
+    expect((await asCached(LATE)).body.code).toBe('ORGANIZATION_UNKNOWN');
+    await ensureOrganization(prisma, LATE, 'Sec Cache Late');
+    expect((await asCached(LATE)).status).toBe(200);
+  });
+});
+
+describe.runIf(runDb)('background loops follow the live state in memory (integration)', () => {
+  const IDLE = 'sec-loop-idle';
+  let organizationId: number;
+  let show: ProductionScenario;
+  let vmix: Awaited<ReturnType<typeof recordingServer>>;
+  let board: Awaited<ReturnType<typeof recordingServer>>;
+
+  beforeAll(async () => {
+    organizationId = await ensureOrganization(prisma, IDLE, 'Sec Loop Idle');
+    // Active in the database, but no show runs (not started, no live state)
+    show = await createProductionScenario(prisma, {organizationId, active: true, items: [{title: 'IdleLoop item', status: 'ACTIVE'}]});
+    vmix = await recordingServer({status: 200, body: ''});
+    board = await recordingServer({status: 200, body: '["01","02"]'});
+    await runWithOrganization(organizationId, async () => {
+      await setSetting('vmixInstances', {instances: [{id: 'pc', name: 'PC', url: vmix.url}], targets: {}});
+      await setSetting('vmixCallsheetPush', {enabled: true, input: 'IdleInput', positions: [], current: {titleField: 'Titel.Text'}});
+      await setSetting('scoreboardUrl', board.url);
+    });
+  });
+
+  afterAll(async () => {
+    liveState.discardLiveState(organizationId);
+    await Promise.all([vmix?.close(), board?.close()]);
+    await show?.cleanup();
+    await prisma.organization.deleteMany({where: {slug: IDLE}});
+  });
+
+  it('asks the database nothing per round while no show runs', async () => {
+    expect(liveState.liveOrganizationIds()).not.toContain(organizationId);
+    const queries = await recordQueries(async () => {
+      await pushForActiveOrganizations();
+      await syncVenueClocks();
+    });
+    expect(queries).toEqual([]);
+    expect(vmix.urls).toEqual([]);
+    expect(board.urls).toEqual([]);
+  });
+
+  it('pushes and syncs once the show runs, and stops again when it stops', async () => {
+    await runWithOrganization(organizationId, liveState.restoreLiveState);
+    expect(liveState.liveOrganizationIds()).toContain(organizationId);
+    await pushForActiveOrganizations();
+    await syncVenueClocks();
+    expect(vmix.urls.map(decodeQuery).join('\n')).toContain('IdleLoop item');
+    expect(board.urls).toContain('/v1/time-as-array');
+
+    await runWithOrganization(organizationId, () => liveState.stopProduction(show.productionId));
+    expect(liveState.liveOrganizationIds()).not.toContain(organizationId);
+    vmix.urls.length = 0;
+    board.urls.length = 0;
+    await pushForActiveOrganizations();
+    await syncVenueClocks();
+    expect([vmix.urls, board.urls]).toEqual([[], []]);
   });
 });
