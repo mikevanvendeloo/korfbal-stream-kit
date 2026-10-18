@@ -9,8 +9,8 @@ export default function AboutPage() {
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100 flex flex-col items-center">
-      <AppLogo className="w-32 h-32 mb-6" />
-      <h1 className="text-2xl font-bold mb-6">Over Korfbal Stream Kit</h1>
+      <AppLogo className="h-48 mb-6" />
+      <h1 className="text-2xl font-bold mb-4">Over Korfbal Stream Kit</h1>
 
       <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 w-full max-w-md">
         <div className="space-y-4">
