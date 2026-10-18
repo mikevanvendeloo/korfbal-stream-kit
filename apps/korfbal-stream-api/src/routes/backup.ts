@@ -4,6 +4,7 @@ import {Router} from 'express';
 import {findExistingPosition, findOrCreatePosition} from '../services/positions';
 import {prisma} from '../services/prisma';
 import {logger} from '../utils/logger';
+import {parseInstant} from '../utils/time';
 import {PersonInputSchema} from '../schemas/person';
 import {SkillInputSchema} from '../schemas/skill';
 import {SponsorInputSchema} from '../schemas/sponsor';
@@ -586,7 +587,8 @@ backupRouter.post('/matches/import', async (req, res, next) => {
     const seasons = createSeasonIdResolver();
     for (const item of data) {
       try {
-        const date = new Date(item.date);
+        const date = parseInstant(item.date);
+        if (!date) continue; // an invalid row is skipped
         const matchData = {
           externalId: item.externalId,
           date,
@@ -595,7 +597,7 @@ backupRouter.post('/matches/import', async (req, res, next) => {
           awayTeamName: item.awayTeamName,
           accommodationName: item.accommodationName,
           accommodationRoute: item.accommodationRoute,
-          attendanceTime: item.attendanceTime ? new Date(item.attendanceTime) : null,
+          attendanceTime: parseInstant(item.attendanceTime),
           isPracticeMatch: !!item.isPracticeMatch,
           isHomeMatch: !!item.isHomeMatch,
           isCompetitiveMatch: !!item.isCompetitiveMatch,
@@ -691,7 +693,8 @@ backupRouter.post('/producties/import', async (req, res, next) => {
         // seasonName is informational only: the season is always derived from the match date.
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { seasonName: _seasonName, ...matchSchedule } = item.matchSchedule;
-        const matchDate = new Date(matchSchedule.date);
+        const matchDate = parseInstant(matchSchedule.date);
+        if (!matchDate) continue; // an invalid row is skipped
         const seasonId = await seasons.forDate(matchDate);
 
         await prisma.$transaction(async (tx) => {
@@ -704,7 +707,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
           } else {
             match = await tx.matchSchedule.findFirst({
               where: {
-                date: new Date(item.matchSchedule.date),
+                date: matchDate,
                 homeTeamName: item.matchSchedule.homeTeamName,
                 awayTeamName: item.matchSchedule.awayTeamName
               }
@@ -715,7 +718,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
             ...matchSchedule,
             date: matchDate,
             seasonId,
-            attendanceTime: matchSchedule.attendanceTime ? new Date(matchSchedule.attendanceTime) : null
+            attendanceTime: parseInstant(matchSchedule.attendanceTime)
           };
 
           if (match) {
@@ -736,7 +739,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
               data: {
                 matchScheduleId: match.id,
                 isActive: !!item.production.isActive,
-                liveTime: item.production.liveTime ? new Date(item.production.liveTime) : null
+                liveTime: parseInstant(item.production.liveTime)
               }
             });
             created++;
@@ -745,7 +748,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
               where: { id: production.id },
               data: {
                 isActive: !!item.production.isActive,
-                liveTime: item.production.liveTime ? new Date(item.production.liveTime) : null
+                liveTime: parseInstant(item.production.liveTime)
               }
             });
             updated++;
@@ -957,8 +960,8 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                       title: iData.title,
                       note: iData.note,
                       color: iData.color,
-                      timeStart: iData.timeStart ? new Date(iData.timeStart) : null,
-                      timeEnd: iData.timeEnd ? new Date(iData.timeEnd) : null,
+                      timeStart: parseInstant(iData.timeStart),
+                      timeEnd: parseInstant(iData.timeEnd),
                       durationSec: Number(iData.durationSec || 0),
                       orderIndex: Number(iData.orderIndex || 0),
                       isInVenue: !!iData.isInVenue,
@@ -1003,9 +1006,9 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                   title: evData.title,
                   status: evData.status,
                   order: evData.order,
-                  actualStartTime: evData.actualStartTime ? new Date(evData.actualStartTime) : null,
-                  plannedStartTime: evData.plannedStartTime ? new Date(evData.plannedStartTime) : null,
-                  plannedEndTime: evData.plannedEndTime ? new Date(evData.plannedEndTime) : null,
+                  actualStartTime: parseInstant(evData.actualStartTime),
+                  plannedStartTime: parseInstant(evData.plannedStartTime),
+                  plannedEndTime: parseInstant(evData.plannedEndTime),
                   durationSec: evData.durationSec,
                   note: evData.note,
                   triggerSource: evData.triggerSource,

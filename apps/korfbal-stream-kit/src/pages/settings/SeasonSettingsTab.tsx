@@ -12,6 +12,7 @@ import {
 import {useImportLeagueTeams} from '../../hooks/useClubs';
 import MatchImportForm from '../../components/MatchImportForm';
 import DateInputNL from '../../components/DateInputNL';
+import {formatDate as formatAmsterdamDate} from '../../lib/time';
 
 const cardClass = 'bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700';
 const cardTitleClass = 'text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-100 dark:border-gray-700 pb-2';
@@ -23,9 +24,7 @@ const errorClass = 'p-3 bg-red-50 border border-red-200 text-red-700 rounded dar
 const successClass = 'p-3 bg-green-50 border border-green-200 text-green-700 rounded dark:bg-green-900/30 dark:border-green-800 dark:text-green-300';
 
 function formatDate(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('nl-NL', {day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Amsterdam'});
+  return formatAmsterdamDate(iso, {day: 'numeric', month: 'short', year: 'numeric'}) || iso;
 }
 
 function countsLabel(s: SeasonDto) {

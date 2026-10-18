@@ -29,13 +29,10 @@ import {SegmentTemplateSelector} from "../components/SegmentTemplateSelector";
 import {adminPaths} from '../lib/adminPaths';
 import TimeInput24 from '../components/TimeInput24';
 import {downloadExport} from '../lib/download';
+import {atAmsterdamTime, formatTime} from '../lib/time';
 
-function timeLocal(iso: string) {
-  const d = new Date(iso);
-  const h = d.getHours().toString().padStart(2, '0');
-  const m = d.getMinutes().toString().padStart(2, '0');
-  return `${h}:${m}`;
-}
+// Amsterdam time, whatever the device's zone
+const timeLocal = (iso?: string | null) => formatTime(iso);
 
 export default function ProductionDetailPage() {
   const params = useParams<{ id: string }>();
@@ -121,16 +118,12 @@ export default function ProductionDetailPage() {
   async function handleLiveTimeChange(value: string) {
     setErr(null);
     try {
-      // Combine date from match with new time
+      // The typed time (Amsterdam) on the match's day (in Amsterdam)
       if (!prod?.matchSchedule?.date) return;
 
       let newLiveTime: string | null = null;
       if (value) {
-        const matchDate = new Date(prod.matchSchedule.date);
-        const [hours, minutes] = value.split(':').map(Number);
-        const newDate = new Date(matchDate);
-        newDate.setHours(hours, minutes, 0, 0);
-        newLiveTime = newDate.toISOString();
+        newLiveTime = atAmsterdamTime(prod.matchSchedule.date, value);
       }
 
       await updateProduction.mutateAsync({ id, liveTime: newLiveTime });
@@ -201,9 +194,9 @@ export default function ProductionDetailPage() {
               className="px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-700"
               value={
                 prod.liveTime
-                  ? new Date(prod.liveTime).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+                  ? formatTime(prod.liveTime)
                   : (prod.matchSchedule?.date
-                      ? new Date(new Date(prod.matchSchedule.date).getTime() - 5 * 60 * 1000).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+                      ? formatTime(new Date(prod.matchSchedule.date).getTime() - 5 * 60 * 1000)
                       : '')
               }
               onCommit={handleLiveTimeChange}

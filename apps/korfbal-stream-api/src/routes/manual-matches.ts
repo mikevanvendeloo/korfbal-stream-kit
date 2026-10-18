@@ -2,11 +2,20 @@ import {Router} from 'express';
 import {prisma} from '../services/prisma';
 import {z} from 'zod';
 import {ensureSeasonForDate, resolveSeasonId} from '../services/season';
+import {parseInstant} from '../utils/time';
 
 export const manualMatchesRouter: Router = Router();
 
 const ManualMatchSchema = z.object({
-  date: z.string().datetime(),
+  // UTC ("…Z") or with an offset, as the kit sends it; a time without zone means Amsterdam time
+  date: z.string().transform((value, ctx) => {
+    const date = parseInstant(value);
+    if (!date) {
+      ctx.addIssue({code: z.ZodIssueCode.custom, message: 'Invalid date'});
+      return z.NEVER;
+    }
+    return date;
+  }),
   homeTeamName: z.string().min(1),
   awayTeamName: z.string().min(1),
   description: z.string().optional().nullable(),
@@ -31,7 +40,7 @@ manualMatchesRouter.get('/', async (req, res, next) => {
 manualMatchesRouter.post('/', async (req, res, next) => {
   try {
     const data = ManualMatchSchema.parse(req.body);
-    const season = await ensureSeasonForDate(new Date(data.date));
+    const season = await ensureSeasonForDate(data.date);
     const newMatch = await prisma.matchSchedule.create({
       data: { ...data, isManual: true, seasonId: season.id },
     });
@@ -46,7 +55,7 @@ manualMatchesRouter.put('/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const data = ManualMatchSchema.parse(req.body);
-    const season = await ensureSeasonForDate(new Date(data.date));
+    const season = await ensureSeasonForDate(data.date);
     const updatedMatch = await prisma.matchSchedule.update({
       where: { id },
       data: { ...data, seasonId: season.id },

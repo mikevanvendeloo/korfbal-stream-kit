@@ -135,6 +135,39 @@ export class ShowCallerWide {
   }
 }
 
+/** Beheer → Stamgegevens → Handmatige wedstrijden. Date and time fields mean Amsterdam time. */
+export class ManualMatchesPage {
+  constructor(private readonly page: Page) {}
+
+  async open() {
+    await this.page.goto('/admin/stamgegevens/handmatige-wedstrijden');
+    await expect(this.page.getByRole('heading', {name: 'Handmatige Wedstrijden', level: 1})).toBeVisible();
+  }
+
+  row(home: string, away: string) {
+    return this.page.getByRole('row').filter({hasText: `${home} vs ${away}`});
+  }
+
+  /** The form's date and time field, as a datetime-local value ("2026-11-14T19:30"). */
+  dateField() {
+    return this.page.getByLabel('Datum & Tijd');
+  }
+
+  async create(match: { date: string; home: string; away: string }) {
+    await this.page.getByRole('button', {name: 'Nieuwe Wedstrijd'}).click();
+    await this.dateField().fill(match.date);
+    await this.page.getByLabel('Thuisploeg').fill(match.home);
+    await this.page.getByLabel('Uitploeg').fill(match.away);
+    await this.page.getByRole('button', {name: 'Opslaan'}).click();
+    await expect(this.row(match.home, match.away)).toBeVisible();
+  }
+
+  async edit(home: string, away: string) {
+    await this.page.getByRole('button', {name: `${home} vs ${away} bewerken`}).click();
+    await expect(this.dateField()).toBeVisible();
+  }
+}
+
 /** Beheer → Overig → Organisatie: match import and API keys of the chosen organization. */
 export class OrganizationPage {
   constructor(private readonly page: Page) {}

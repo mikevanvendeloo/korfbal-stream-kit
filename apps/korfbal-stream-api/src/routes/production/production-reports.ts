@@ -10,6 +10,7 @@ import fs from "node:fs";
 import {getAssetsRoot} from "../../services/config";
 import {findSponsorByName, sponsorLogoFile, sponsorLogoPath} from "../../services/reportSponsors";
 import {assertProductionExists} from '../../services/production';
+import {amsterdamDay, formatTime} from '../../utils/time';
 
 export const productionReportsRouter: Router = Router();
 
@@ -212,7 +213,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
     doc.moveDown(0.5);
     // Format datum en tijd
     const matchDate = new Date(matchSchedule.date);
-    const timeStr = matchDate.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+    const timeStr = formatTime(matchDate);
     const matchTitle = `${matchSchedule.homeTeamName} - ${matchSchedule.awayTeamName}: ${timeStr} uur`;
     const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
     const logoSize = 40;
@@ -256,7 +257,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
       // Tabel rijen
       doc.fontSize(9).font('Helvetica');
       timing.forEach((segment) => {
-        const startTime = new Date(segment.start).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+        const startTime = formatTime(new Date(segment.start));
         const currentY = doc.y;
         doc.text(startTime, doc.page.margins.left, currentY, { width: 50 });
         doc.text(segment.naam, doc.page.margins.left + 60, currentY, { width: pageWidth - 60 });
@@ -266,7 +267,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
       if (production.liveTime) {
         const totalDuration = timing.reduce((sum, s) => sum + s.duurInMinuten, 0);
         const endLiveTime = new Date(new Date(production.liveTime).getTime() + totalDuration * 60000);
-        const endTimeStr = endLiveTime.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+        const endTimeStr = formatTime(endLiveTime);
 
         const currentY = doc.y;
         doc.font('Helvetica-Bold');
@@ -593,7 +594,7 @@ productionReportsRouter.get('/:id/report/markdown', async (req, res, next) => {
 
     // Format datum en tijd
     const matchDate = new Date(match.date);
-    const timeStr = matchDate.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+    const timeStr = formatTime(matchDate);
     const matchTitle = `${match.homeTeamName} - ${match.awayTeamName}: ${timeStr} uur`;
 
     // Bouw Markdown content
@@ -617,15 +618,15 @@ productionReportsRouter.get('/:id/report/markdown', async (req, res, next) => {
       markdown += `| Segment | Start | Einde | Duur |\n`;
       markdown += `|---------|-------|-------|------|\n`;
       timing.forEach((segment) => {
-        const startTime = new Date(segment.start).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
-        const endTime = new Date(segment.end).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+        const startTime = formatTime(new Date(segment.start));
+        const endTime = formatTime(new Date(segment.end));
         markdown += `| ${segment.naam} | ${startTime} | ${endTime} | ${segment.duurInMinuten} min |\n`;
       });
 
       if (production.liveTime) {
         const totalDuration = timing.reduce((sum, s) => sum + s.duurInMinuten, 0);
         const endLiveTime = new Date(new Date(production.liveTime).getTime() + totalDuration * 60000);
-        const endTimeStr = endLiveTime.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+        const endTimeStr = formatTime(endLiveTime);
         markdown += `| **LIVESTREAM EINDE** | - | **${endTimeStr}** | **${totalDuration} min** |\n`;
       }
 
@@ -749,7 +750,7 @@ productionReportsRouter.get('/:id/report/markdown', async (req, res, next) => {
     }
 
     // Set response headers
-    const filename = `Productie_Positie_Overzicht_${match.homeTeamName.replace(/[^a-z0-9]/gi, '_')}_${matchDate.toISOString().split('T')[0]}.md`;
+    const filename = `Productie_Positie_Overzicht_${match.homeTeamName.replace(/[^a-z0-9]/gi, '_')}_${amsterdamDay(matchDate)}.md`;
     res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 
@@ -847,7 +848,7 @@ productionReportsRouter.get('/:id/report/whatsapp', async (req, res, next) => {
 
     // Format datum en tijd
     const matchDate = new Date(match.date);
-    const timeStr = matchDate.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+    const timeStr = formatTime(matchDate);
     const matchTitle = `${match.homeTeamName} - ${match.awayTeamName}: ${timeStr} uur`;
 
     // Bouw WhatsApp tekst (met emoji's voor opmaak)
@@ -869,14 +870,14 @@ productionReportsRouter.get('/:id/report/whatsapp', async (req, res, next) => {
     if (timing.length > 0) {
       text += `*🕒 Tijdschema*\n`;
       timing.forEach((segment) => {
-        const startTime = new Date(segment.start).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+        const startTime = formatTime(new Date(segment.start));
         text += `• ${startTime} - ${segment.naam}\n`;
       });
 
       if (production.liveTime) {
         const totalDuration = timing.reduce((sum, s) => sum + s.duurInMinuten, 0);
         const endLiveTime = new Date(new Date(production.liveTime).getTime() + totalDuration * 60000);
-        const endTimeStr = endLiveTime.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+        const endTimeStr = formatTime(endLiveTime);
         text += `• ${endTimeStr} - *LIVESTREAM EINDE*\n`;
       }
 
@@ -998,7 +999,7 @@ productionReportsRouter.get('/:id/report/whatsapp', async (req, res, next) => {
     }
 
     // Set response headers
-    const filename = `Productie_Positie_Overzicht_${match.homeTeamName.replace(/[^a-z0-9]/gi, '_')}_${matchDate.toISOString().split('T')[0]}.txt`;
+    const filename = `Productie_Positie_Overzicht_${match.homeTeamName.replace(/[^a-z0-9]/gi, '_')}_${amsterdamDay(matchDate)}.txt`;
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 

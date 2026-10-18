@@ -10,6 +10,10 @@ const apiTarget = process.env.API_PROXY_TARGET || 'http://localhost:3333';
 // port), which the API compares with the browser's Origin (cross-site write and socket origin checks).
 const proxy = {target: apiTarget, changeOrigin: true, xfwd: true};
 
+// Component tests run in a zone other than Amsterdam (the kit must show Amsterdam time on any device);
+// override with e.g. TZ=America/New_York. Set before the test workers start, so they inherit it.
+if (process.env.VITEST) process.env.TZ ||= 'UTC';
+
 export default defineConfig(() => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/apps/korfbal-stream-kit',

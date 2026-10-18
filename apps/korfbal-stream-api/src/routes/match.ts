@@ -5,6 +5,7 @@ import {fetchFromMatchSource, MatchSourceError, type NormalizedMatchItem, sendMa
 import {INDOOR_IMPORT_DATE, MatchScheduleImportQuerySchema} from '../schemas/matchSchedule';
 import {createSeasonIdResolver, getActiveSeason, seasonNameForStartYear, seasonStartYearForDate} from '../services/season';
 import {dateColumnToIsoDay} from '../utils/dayDate';
+import {amsterdamDay, amsterdamDayRange, amsterdamInputToDate} from '../utils/time';
 
 export const matchRouter: Router = Router();
 
@@ -89,11 +90,13 @@ matchRouter.post('/matches/schedule/import', async (req, res) => {
 // GET /api/match/matches/schedule
 matchRouter.get('/matches/schedule', async (req, res) => {
   try {
-    const dateStr = (req.query.date as string) || new Date().toISOString().slice(0, 10);
+    const dateStr = req.query.date == null || req.query.date === '' ? amsterdamDay(new Date()) : String(req.query.date);
     const location = ((req.query.location as string) || 'HOME').toUpperCase();
+    if (!amsterdamInputToDate(dateStr) || dateStr.length !== 10) return res.status(400).json({error: 'Invalid date (YYYY-MM-DD)'});
 
-    const dayStart = new Date(dateStr + 'T00:00:00.000Z');
-    const dayEnd = new Date(dateStr + 'T23:59:59.999Z');
+    // The Amsterdam day, whatever the server's zone
+    const {start: dayStart, end: nextDay} = amsterdamDayRange(dateStr);
+    const dayEnd = new Date(nextDay.getTime() - 1);
 
     const locationWhere: any = {};
     if (location === 'HOME') {

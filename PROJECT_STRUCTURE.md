@@ -87,6 +87,7 @@ apps/korfbal-stream-api/
     ├── schemas/               # Zod input schemas (sponsor, person, skill, capability, title, season)
     ├── utils/
     │   ├── logger.ts          # Logger
+    │   ├── time.ts            # Europe/Amsterdam formatting/parsing (vMix text, reports, parseInstant), DST rules
     │   ├── sponsorRows.ts     # Sponsor row/slide generation (seeded mulberry32 RNG)
     │   ├── clubs.ts           # Team-name normalization, club lookup by team name
     │   └── array-utils.ts     # shuffle helper
@@ -165,6 +166,7 @@ apps/korfbal-stream-kit/src/
 │   ├── socket.ts              # Shared Socket.io connection (handshake auth.organization), reconnect on switch
 │   ├── adminPaths.ts          # All Beheer URLs
 │   ├── download.ts            # File downloads; downloadFromApi for exports (fetch, so the header goes along)
+│   ├── time.ts                # Show/enter times in Europe/Amsterdam on any device (formatTime, datetime-local values)
 │   └── sponsorUtils.ts        # Sponsor helpers
 ├── config/
 │   └── scoreboardLabels.ts    # Scoreboard display labels

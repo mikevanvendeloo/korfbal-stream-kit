@@ -1,7 +1,6 @@
 import * as React from 'react';
 import {useMemo, useState} from 'react';
 import {
-  formatDate,
   LocationFilter,
   nextDayStr,
   nextWeekStr,
@@ -10,6 +9,7 @@ import {
   useMatchSchedule,
 } from '../hooks/useMatchSchedule';
 import {MatchSchedule} from '../lib/api';
+import {formatDate as formatAmsterdamDate, formatTime, todayAmsterdam} from '../lib/time';
 import MatchImportForm from '../components/MatchImportForm';
 import {useActiveSeason} from '../hooks/useSeasons';
 import {
@@ -21,12 +21,8 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 
-function timeStr(iso: string) {
-  const d = new Date(iso);
-  const h = d.getHours().toString().padStart(2, '0');
-  const m = d.getMinutes().toString().padStart(2, '0');
-  return `${h}:${m}`;
-}
+// Amsterdam time, whatever the device's zone
+const timeStr = (iso: string) => formatTime(iso);
 
 // Normalize field display: remove everything up to and including the first '-' and trim
 function cleanField(name?: string | null): string | undefined {
@@ -107,20 +103,15 @@ function MobileRow({ m }: { m: MatchSchedule }) {
 }
 
 export default function MatchSchedulePage() {
-  const today = formatDate(new Date());
+  const today = todayAmsterdam();
   const [date, setDate] = useState<string>(today);
   const [location, setLocation] = useState<LocationFilter>('HOME');
   const { data, isLoading, isError, error, refetch } = useMatchSchedule(date, location);
   const { data: activeSeason } = useActiveSeason();
 
   const title = useMemo(() => {
-    // Render the selected date in the browser's local timezone
-    const d = new Date(date + 'T00:00:00'); // interpret as local midnight
-    try {
-      return new Intl.DateTimeFormat(undefined, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }).format(d);
-    } catch {
-      return d.toLocaleDateString();
-    }
+    // The selected Amsterdam day (noon UTC lies on that same day in Amsterdam)
+    return formatAmsterdamDate(`${date}T12:00:00Z`, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
   }, [date]);
 
   const columns = useMemo<ColumnDef<MatchSchedule>[]>(

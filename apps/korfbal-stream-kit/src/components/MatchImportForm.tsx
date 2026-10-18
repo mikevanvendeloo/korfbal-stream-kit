@@ -2,6 +2,7 @@ import React from 'react';
 import {useMutation, useQueryClient} from '@tanstack/react-query';
 import {importMatchSchedule, MatchImportError, MatchScheduleImportSeasonCount} from '../lib/api';
 import {formatDateNL} from './DateInputNL';
+import {formatDate} from '../lib/time';
 
 /** The default range: counted by the source from the current week (keep in sync with the API's DEFAULT_IMPORT_RANGE). */
 export const DEFAULT_IMPORT_RANGE = '30-weeks';
@@ -30,8 +31,8 @@ export function MatchImportErrorMessage({error, prefix}: { error: unknown; prefi
 }
 
 function formatDayLong(iso: string) {
-  const d = new Date(`${iso}T12:00:00Z`);
-  return Number.isNaN(d.getTime()) ? formatDateNL(iso) : d.toLocaleDateString('nl-NL', {day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Amsterdam'});
+  // Noon UTC lies on that same day in Amsterdam
+  return formatDate(`${iso}T12:00:00Z`, {day: 'numeric', month: 'long', year: 'numeric'}) || formatDateNL(iso);
 }
 
 type Props = {

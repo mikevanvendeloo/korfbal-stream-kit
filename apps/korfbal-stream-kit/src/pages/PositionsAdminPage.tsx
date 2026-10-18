@@ -14,6 +14,7 @@ import {createUrl, extractError} from '../lib/api';
 import {closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSensors} from '@dnd-kit/core';
 import {arrayMove, SortableContext, useSortable, verticalListSortingStrategy} from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
+import {todayAmsterdam} from '../lib/time';
 
 type Skill = { id: number; code: string; name: string };
 
@@ -147,7 +148,7 @@ export default function PositionsAdminPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `positions-export-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `positions-export-${todayAmsterdam()}.json`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e: any) {

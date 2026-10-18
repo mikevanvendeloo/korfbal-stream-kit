@@ -45,6 +45,8 @@ export default defineConfig({
         PORT: String(API_PORT),
         // 'test' would keep the server from listening (that is for the Vitest suites)
         NODE_ENV: 'development',
+        // The zone the API runs in on Docker: text for vMix and reports must still be Amsterdam time
+        TZ: 'UTC',
         ASSETS_DIR: path.join(workspaceRoot, 'tmp/e2e-storage'),
       },
     },

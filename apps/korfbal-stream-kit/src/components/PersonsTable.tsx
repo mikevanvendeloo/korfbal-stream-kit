@@ -3,6 +3,7 @@ import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack
 import { Person } from '../hooks/usePersons';
 import IconButton from './IconButton';
 import { MdDelete, MdEdit, MdManageAccounts } from 'react-icons/md';
+import { formatDateTime } from '../lib/time';
 
 export type PersonsTableProps = {
   data: Person[];
@@ -20,7 +21,7 @@ export default function PersonsTable({ data, onEdit, onDelete, onManageSkills }:
       {
         header: 'Aangemaakt',
         accessorKey: 'createdAt',
-        cell: (info) => new Date(info.getValue<string>()).toLocaleString(),
+        cell: (info) => formatDateTime(info.getValue<string>()),
       },
       {
         header: 'Acties',

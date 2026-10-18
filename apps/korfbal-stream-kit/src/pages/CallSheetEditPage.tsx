@@ -12,6 +12,7 @@ import {
 import {useProductionSegments} from '../hooks/useProductions';
 import {usePositionsCatalog} from '../hooks/usePositions';
 import {adminPaths} from '../lib/adminPaths';
+import {formatTime, fromAmsterdamInput} from '../lib/time';
 
 export default function CallSheetEditPage() {
   const params = useParams<{ id: string; callSheetId: string }>();
@@ -101,8 +102,9 @@ export default function CallSheetEditPage() {
       const payload: any = { ...form };
       if (!payload.cue) throw new Error('Cue is verplicht');
       if (!payload.title) throw new Error('Titel is verplicht');
-      payload.timeStart = payload.timeStart ? new Date(payload.timeStart).toISOString() : undefined;
-      payload.timeEnd = payload.timeEnd ? new Date(payload.timeEnd).toISOString() : undefined;
+      // The fields mean Amsterdam time, whatever the device's zone
+      payload.timeStart = payload.timeStart ? fromAmsterdamInput(payload.timeStart) ?? undefined : undefined;
+      payload.timeEnd = payload.timeEnd ? fromAmsterdamInput(payload.timeEnd) ?? undefined : undefined;
       await createItem.mutateAsync(payload as any);
       setForm({ cue: '', title: '', note: '', color: '', durationSec: 0, timeStart: '', timeEnd: '', orderIndex: 0, isInVenue: false, isInLivestream: true, isTimeAnchor: false, autoAdvance: false, anchorType: '', parentId: '', positionIds: []});
     } catch (e: any) {
@@ -324,9 +326,9 @@ export default function CallSheetEditPage() {
               <div className="flex gap-4 items-center">
                 <div className="text-[10px] font-mono text-white/30 flex items-center gap-1.5">
                   <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  {it.timeStart ? new Date(it.timeStart).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
+                  {formatTime(it.timeStart, {seconds: true, fallback: '--:--:--'})}
                   {' ➔ '}
-                  {it.timeEnd ? new Date(it.timeEnd).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
+                  {formatTime(it.timeEnd, {seconds: true, fallback: '--:--:--'})}
                 </div>
                 <div className="text-[10px] text-white/20 flex items-center gap-1.5">
                    <div className="w-2 h-2 rounded-full" style={{backgroundColor: (it as any).color || '#333'}}></div>

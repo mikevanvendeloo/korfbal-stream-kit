@@ -15,6 +15,7 @@ import ClubLogo from '../components/ClubLogo';
 import {useProductionTiming} from '../hooks/useProductions';
 import {PositionCategory} from "../hooks/usePositions";
 import SponsorField from '../components/SponsorField';
+import {formatDateTime, formatTime} from '../lib/time';
 
 const categoryLabels: Record<PositionCategory, string> = {
   [PositionCategory.ENTERTAINMENT]: 'Entertainment',
@@ -43,12 +44,8 @@ function matchClub(teamName?: string, list?: Club[]): Club | undefined {
   return list.find((c) => key && (c.shortName?.toLowerCase().includes(key) || c.name?.toLowerCase().includes(key)));
 }
 
-function timeLocal(iso: string) {
-  const d = new Date(iso);
-  const h = d.getHours().toString().padStart(2, '0');
-  const m = d.getMinutes().toString().padStart(2, '0');
-  return `${h}:${m}`;
-}
+// Amsterdam time, whatever the device's zone
+const timeLocal = (iso: string) => formatTime(iso);
 
 export default function ProductionReportPage() {
   const params = useParams<{ id: string }>();
@@ -175,7 +172,7 @@ export default function ProductionReportPage() {
             size="medium"
           />
         </div>
-        <div className="text-sm text-gray-500 text-center">{matchDate.toLocaleString('nl-NL')}</div>
+        <div className="text-sm text-gray-500 text-center">{formatDateTime(matchDate)}</div>
       </div>
 
       <div className="space-y-6">

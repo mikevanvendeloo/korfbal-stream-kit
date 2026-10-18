@@ -3,6 +3,7 @@ import {useParams} from 'react-router-dom';
 import {EventStatus, TriggerSource} from '@prisma/client';
 import {createUrl} from "../lib/api";
 import {getSharedSocket, SocketListener} from "../lib/socket";
+import {formatTime as formatAmsterdamTime, fromAmsterdamInput, todayAmsterdam} from '../lib/time';
 
 // --- Type definities ---
 type ClockMode = 'stopped' | 'counting_up' | 'counting_down';
@@ -62,11 +63,9 @@ export function formatTime(totalSeconds: number): DisplayTime {
   return { minutes, seconds, isNegative, rawSeconds: totalSeconds };
 }
 
+/** "19:30:05": a wall-clock time in Amsterdam, whatever the device's zone. */
 export function formatSystemTime(date: Date): string {
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  const seconds = date.getSeconds().toString().padStart(2, '0');
-  return `${hours}:${minutes}:${seconds}`;
+  return formatAmsterdamTime(date, {seconds: true});
 }
 
 /**
@@ -105,8 +104,7 @@ export function calculateEventTimes(allItems: ProductionEvent[]): (ProductionEve
 
     // C. Fallback: als er echt geen geplande tijd is, gebruik de order als relatieve offset vanaf vandaag 00:00
     if (!calculatedStartTime) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = new Date(fromAmsterdamInput(todayAmsterdam()) ?? Date.now());
       calculatedStartTime = new Date(today.getTime() + (item.order * 1000));
     }
 

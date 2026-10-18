@@ -1,6 +1,7 @@
 import {useState} from "react";
 import {createUrl} from "../../lib/api";
 import {useCurrentOrganization} from "../../components/OrganizationGate";
+import {todayAmsterdam} from '../../lib/time';
 
 type Entity = {
   id: string;
@@ -36,7 +37,7 @@ export default function BackupPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${entity.id}-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `${entity.id}-backup-${todayAmsterdam()}.json`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);

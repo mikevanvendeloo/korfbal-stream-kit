@@ -1,6 +1,11 @@
 import {fileURLToPath} from 'node:url';
 import {defineConfig} from 'vitest/config';
 
+// The server runs in Docker with TZ=UTC; test in a zone other than Amsterdam so code that formats with
+// the server's zone fails here instead of on the night. Override with e.g. TZ=America/New_York.
+// Set before the forks start, so the test processes inherit it.
+process.env.TZ ||= 'UTC';
+
 export default defineConfig({
   test: {
     name: 'korfbal-stream-api-tests',

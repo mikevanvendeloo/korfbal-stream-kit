@@ -1,5 +1,6 @@
 import axios from 'axios';
 import {logger} from '../../utils/logger';
+import {amsterdamDay, parseInstant} from '../../utils/time';
 import {InvalidMatchScheduleResponseError} from './MatchScheduleProvider';
 import type {MatchScheduleFetchParams, MatchScheduleProvider, NormalizedMatchItem} from './MatchScheduleProvider';
 
@@ -130,10 +131,10 @@ function cleanField(name?: string | null): string | undefined {
   return trimmed;
 }
 
+// Upstream sends UTC ("2025-11-01T10:40:00.000Z"); a time without zone would mean Amsterdam time,
+// never the server's zone
 function toDate(value: unknown): Date | null {
-  if (value === undefined || value === null || value === '') return null;
-  const d = new Date(value as string);
-  return Number.isNaN(d.getTime()) ? null : d;
+  return parseInstant(value);
 }
 
 function nonEmptyString(value: unknown): string | null {
@@ -251,7 +252,7 @@ export class VrijwilligersMatchScheduleProvider implements MatchScheduleProvider
         const arr = response.data as any[];
         const byDate: Record<string, number> = {};
         for (const it of arr) {
-          const d = (it?.date ? String(it.date) : '').slice(0, 10);
+          const d = amsterdamDay(parseInstant(it?.date));
           if (!d) continue;
           byDate[d] = (byDate[d] || 0) + 1;
         }

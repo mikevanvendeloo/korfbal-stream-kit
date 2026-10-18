@@ -6,6 +6,7 @@ import {usePositionsCatalog} from '../hooks/usePositions';
 import PlayerCard from '../components/PlayerCard';
 import html2canvas from 'html2canvas';
 import {MdDownload, MdLiveTv, MdLocationOn, MdSync} from 'react-icons/md';
+import {formatTime as formatAmsterdamTime} from '../lib/time';
 
 export default function CrewReportPage() {
   const params = useParams<{ id: string }>();
@@ -69,10 +70,8 @@ export default function CrewReportPage() {
     );
   };
 
-  const formatTime = (dateStr: string | null | undefined) => {
-    if (!dateStr) return '';
-    return new Date(dateStr).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', hour12: false });
-  };
+  // Amsterdam time, whatever the device's zone
+  const formatTime = (dateStr: string | null | undefined) => formatAmsterdamTime(dateStr);
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">

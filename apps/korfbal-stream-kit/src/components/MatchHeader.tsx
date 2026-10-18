@@ -1,6 +1,7 @@
 import {useProduction} from '../hooks/useProductions';
 import {Club, useClubs} from '../hooks/useClubs';
 import ClubLogo from './ClubLogo';
+import {formatTime} from '../lib/time';
 
 interface MatchHeaderProps {
   productionId: number;
@@ -27,10 +28,7 @@ export const MatchHeader = ({
   const homeTeamName = ms.homeTeamName;
   const awayTeamName = ms.awayTeamName;
 
-  const startTime = ms.date ? new Date(ms.date).toLocaleTimeString('nl-NL', {
-    hour: '2-digit',
-    minute: '2-digit'
-  }) : '';
+  const startTime = formatTime(ms.date);
 
   const logoSize = size === 'small' ? 'small' : 'medium';
   // Smaller on phones, and long team names are cut off instead of making the page wider than the screen

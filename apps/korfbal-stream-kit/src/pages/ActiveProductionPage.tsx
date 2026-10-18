@@ -4,6 +4,7 @@ import {MdAnchor} from 'react-icons/md';
 import {PositionCategory} from "../hooks/usePositions";
 import PlayerCard from "../components/PlayerCard";
 import InterviewSelector from "../components/InterviewSelector";
+import {formatTime} from '../lib/time';
 
 const categoryLabels: Record<PositionCategory, string> = {
   [PositionCategory.GENERAL]: 'Algemeen',
@@ -44,7 +45,7 @@ export default function ActiveProductionPage() {
                 <div className="p-3 flex items-center justify-between bg-yellow-50 dark:bg-yellow-900/10">
                   <div className="font-medium text-yellow-800 dark:text-yellow-200">Verzamelen</div>
                   <div className="text-sm font-semibold text-yellow-800 dark:text-yellow-200">
-                    {gatheringTime.toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit', hour12: false})}
+                    {formatTime(gatheringTime)}
                   </div>
                 </div>
               )}
@@ -58,7 +59,7 @@ export default function ActiveProductionPage() {
                     <div className="text-sm text-gray-500 dark:text-gray-400">{s.duurInMinuten} min</div>
                   </div>
                   <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                    {s.start ? new Date(s.start).toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit', hour12: false}) : '--:--'}
+                    {formatTime(s.start, {fallback: '--:--'})}
                   </div>
                 </div>
               ))}
@@ -66,7 +67,7 @@ export default function ActiveProductionPage() {
                 <div className="p-3 flex items-center justify-between bg-blue-50 dark:bg-blue-900/10 border-t border-blue-100 dark:border-blue-900/30">
                   <div className="font-bold text-blue-800 dark:text-blue-200 uppercase text-xs tracking-wider">Einde Livestream</div>
                   <div className="text-sm font-black text-blue-800 dark:text-blue-200">
-                    {endLiveTime.toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit', hour12: false})}
+                    {formatTime(endLiveTime)}
                   </div>
                 </div>
               )}

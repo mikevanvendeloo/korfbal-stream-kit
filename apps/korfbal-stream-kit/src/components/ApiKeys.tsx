@@ -1,6 +1,7 @@
 import React from 'react';
 import {MdContentCopy} from 'react-icons/md';
 import {CreatedApiKey, useApiKeys, useCreateApiKey, useRevokeApiKey, useVmixEndpoints, withApiKey} from '../hooks/useOrganizations';
+import {formatDateTime} from '../lib/time';
 
 const inputClass = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500';
 const secondaryButton = 'px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 text-sm text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50';
@@ -111,7 +112,7 @@ export function CreateApiKeyForm({onCreated}: { onCreated: (created: CreatedApiK
   );
 }
 
-const formatDate = (iso: string | null) => (iso ? new Date(iso).toLocaleString('nl-NL', {dateStyle: 'short', timeStyle: 'short'}) : null);
+const formatDate = (iso: string | null) => (iso ? formatDateTime(iso) : null);
 
 /** Beheer → Organisatie → API-sleutels: create (shown once), list, revoke. */
 export function ApiKeysSection() {
