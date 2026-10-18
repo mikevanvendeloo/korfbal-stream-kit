@@ -2,13 +2,14 @@ import React from 'react';
 import { useProduction } from '../hooks/useProductions';
 import { useClubs, Club } from '../hooks/useClubs';
 import ClubLogo from './ClubLogo';
+import { formatDate, formatTime } from '../lib/time';
 
 function formatDateTime(iso?: string) {
   if (!iso) return '';
   try {
-    const d = new Date(iso);
-    const date = d.toLocaleDateString('nl-NL', { weekday: 'short', day: '2-digit', month: 'short' });
-    const time = d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+    // Amsterdam time, whatever the device's zone
+    const date = formatDate(iso, { weekday: 'short', day: '2-digit', month: 'short' });
+    const time = formatTime(iso);
     return `${date} ${time}`;
   } catch {
     return '';

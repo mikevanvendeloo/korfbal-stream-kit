@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useManualMatches, useCreateManualMatch, useUpdateManualMatch, useDeleteManualMatch, ManualMatch, ManualMatchInput } from '../hooks/useManualMatches';
 import { MdAdd, MdDelete, MdEdit } from 'react-icons/md';
 import { useForm } from 'react-hook-form';
+import { formatDateTime, fromAmsterdamInput, toAmsterdamInputValue } from '../lib/time';
 
 function MatchFormModal({ match, onSave, onCancel }: { match?: ManualMatch, onSave: (data: ManualMatchInput) => void, onCancel: () => void }) {
   const { register, handleSubmit, formState: { errors } } = useForm<ManualMatchInput>({
-    defaultValues: match ? { ...match, date: match.date.substring(0, 16) } : {},
+    // The field shows and means Amsterdam time, whatever the device's zone
+    defaultValues: match ? { ...match, date: toAmsterdamInputValue(match.date) } : {},
   });
 
   return (
@@ -14,18 +16,18 @@ function MatchFormModal({ match, onSave, onCancel }: { match?: ManualMatch, onSa
         <h2 className="text-xl font-semibold mb-4">{match ? 'Wedstrijd Bewerken' : 'Nieuwe Wedstrijd'}</h2>
         <form onSubmit={handleSubmit(onSave)} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium">Datum & Tijd</label>
-            <input type="datetime-local" {...register('date', { required: true })} className="w-full p-2 border rounded bg-white dark:bg-gray-900" />
+            <label htmlFor="manual-match-date" className="block text-sm font-medium">Datum & Tijd</label>
+            <input id="manual-match-date" type="datetime-local" {...register('date', { required: true })} className="w-full p-2 border rounded bg-white dark:bg-gray-900" />
             {errors.date && <p className="text-red-500 text-xs mt-1">Datum is verplicht.</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium">Thuisploeg</label>
-            <input {...register('homeTeamName', { required: true })} className="w-full p-2 border rounded bg-white dark:bg-gray-900" />
+            <label htmlFor="manual-match-home" className="block text-sm font-medium">Thuisploeg</label>
+            <input id="manual-match-home" {...register('homeTeamName', { required: true })} className="w-full p-2 border rounded bg-white dark:bg-gray-900" />
             {errors.homeTeamName && <p className="text-red-500 text-xs mt-1">Thuisploeg is verplicht.</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium">Uitploeg</label>
-            <input {...register('awayTeamName', { required: true })} className="w-full p-2 border rounded bg-white dark:bg-gray-900" />
+            <label htmlFor="manual-match-away" className="block text-sm font-medium">Uitploeg</label>
+            <input id="manual-match-away" {...register('awayTeamName', { required: true })} className="w-full p-2 border rounded bg-white dark:bg-gray-900" />
             {errors.awayTeamName && <p className="text-red-500 text-xs mt-1">Uitploeg is verplicht.</p>}
           </div>
           <div>
@@ -57,7 +59,7 @@ export default function ManualMatchesAdminPage() {
   const handleSave = async (data: ManualMatchInput) => {
     const payload = {
       ...data,
-      date: new Date(data.date).toISOString(),
+      date: fromAmsterdamInput(data.date) ?? data.date,
     };
 
     if (editingMatch) {
@@ -95,13 +97,13 @@ export default function ManualMatchesAdminPage() {
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
             {matches?.map(match => (
               <tr key={match.id}>
-                <td className="p-3">{new Date(match.date).toLocaleString('nl-NL')}</td>
+                <td className="p-3">{formatDateTime(match.date)}</td>
                 <td className="p-3">{match.homeTeamName} vs {match.awayTeamName}</td>
                 <td className="p-3">{match.refereeName}</td>
                 <td className="p-3">{match.description}</td>
                 <td className="p-3 text-right">
-                  <button onClick={() => setEditingMatch(match)} className="p-2 text-gray-500 hover:text-gray-800"><MdEdit /></button>
-                  <button onClick={() => deleteMatch.mutate(match.id)} className="p-2 text-red-500 hover:text-red-700"><MdDelete /></button>
+                  <button onClick={() => setEditingMatch(match)} aria-label={`${match.homeTeamName} vs ${match.awayTeamName} bewerken`} title="Bewerken" className="p-2 text-gray-500 hover:text-gray-800"><MdEdit /></button>
+                  <button onClick={() => deleteMatch.mutate(match.id)} aria-label={`${match.homeTeamName} vs ${match.awayTeamName} verwijderen`} title="Verwijderen" className="p-2 text-red-500 hover:text-red-700"><MdDelete /></button>
                 </td>
               </tr>
             ))}

@@ -2,6 +2,7 @@ import {Router} from 'express';
 import {prisma} from '../../services/prisma';
 import {getCurrentState, liveStateSnapshot} from '../../services/productionState';
 import {resolveSeasonId} from '../../services/season';
+import {amsterdamDay} from '../../utils/time';
 
 export const productionTimingRouter: Router = Router();
 
@@ -93,12 +94,12 @@ productionTimingRouter.get('/next-date', async (req, res, next) => {
 
     if (nextProd) {
       // Return date part only (YYYY-MM-DD)
-      const dateStr = nextProd.matchSchedule.date.toISOString().split('T')[0];
+      const dateStr = amsterdamDay(nextProd.matchSchedule.date);
       return res.json({ date: dateStr });
     }
 
     // Fallback to today if no future production found
-    return res.json({ date: now.toISOString().split('T')[0] });
+    return res.json({ date: amsterdamDay(now) });
   } catch (err) {
     return next(err);
   }
@@ -129,7 +130,7 @@ productionTimingRouter.get('/dates', async (req, res, next) => {
     const dates = new Set<string>();
     for (const p of productions) {
       if (p.matchSchedule?.date) {
-        dates.add(p.matchSchedule.date.toISOString().split('T')[0]);
+        dates.add(amsterdamDay(p.matchSchedule.date));
       }
     }
 

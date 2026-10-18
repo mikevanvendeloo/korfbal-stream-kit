@@ -2,6 +2,7 @@ import {Router} from 'express';
 import {prisma} from '../services/prisma';
 import {z} from 'zod';
 import {resolveSeasonId} from '../services/season';
+import {amsterdamDay, amsterdamDayRange} from '../utils/time';
 
 export const reportsRouter: Router = Router();
 
@@ -15,10 +16,9 @@ const DateQuerySchema = z.object({
 reportsRouter.get('/daily-occupancy', async (req, res, next) => {
   try {
     const { date } = DateQuerySchema.parse(req.query);
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    // The Amsterdam day, whatever the server's zone
+    const {start: startOfDay, end: nextDay} = amsterdamDayRange(date);
+    const endOfDay = new Date(nextDay.getTime() - 1);
 
     // Find all productions on this day
     const productions = await prisma.production.findMany({
@@ -131,10 +131,9 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
 reportsRouter.get('/daily-occupancy-by-position', async (req, res, next) => {
   try {
     const { date } = DateQuerySchema.parse(req.query);
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    // The Amsterdam day, whatever the server's zone
+    const {start: startOfDay, end: nextDay} = amsterdamDayRange(date);
+    const endOfDay = new Date(nextDay.getTime() - 1);
 
     // Find all productions on this day
     const productions = await prisma.production.findMany({
@@ -407,7 +406,7 @@ reportsRouter.get('/production-dates', async (req, res, next) => {
       },
     });
 
-    const dates = productions.map(p => p.matchSchedule.date.toISOString().split('T')[0]);
+    const dates = productions.map(p => amsterdamDay(p.matchSchedule.date));
     const uniqueDates = Array.from(new Set(dates));
 
     return res.json(uniqueDates);
@@ -420,8 +419,7 @@ reportsRouter.get('/production-dates', async (req, res, next) => {
 // GET /api/reports/next-production-date
 reportsRouter.get('/next-production-date', async (req, res, next) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = amsterdamDayRange(amsterdamDay(new Date())).start;
 
     const nextProduction = await prisma.production.findFirst({
       where: {
@@ -449,7 +447,7 @@ reportsRouter.get('/next-production-date', async (req, res, next) => {
       return res.json(null);
     }
 
-    return res.json(nextProduction.matchSchedule.date.toISOString().split('T')[0]);
+    return res.json(amsterdamDay(nextProduction.matchSchedule.date));
   } catch (err) {
     return next(err);
   }

@@ -5,7 +5,9 @@ import {findOrCreatePosition} from '../../services/positions';
 import {prisma} from '../../services/prisma';
 import {logger} from '../../utils/logger';
 import {ensureSeasonForDate} from '../../services/season';
+import {amsterdamDay, parseInstant} from '../../utils/time';
 import {migrateLegacySeasonAssets} from '../../services/seasonAssetMigration';
+import {contentDisposition} from '../../utils/attachment';
 
 export const productionExportImportRouter: Router = Router();
 
@@ -231,9 +233,9 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
       }))
     };
 
-    const dateString = `${production.matchSchedule.date.getFullYear()}-${production.matchSchedule.date.getMonth() + 1}-${production.matchSchedule.date.getDate()}`;
+    const dateString = amsterdamDay(production.matchSchedule.date);
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="production-${dateString}-${production.matchSchedule.homeTeamName}-${production.matchSchedule.awayTeamName}-export.json"`);
+    res.setHeader('Content-Disposition', contentDisposition(`production-${dateString}-${production.matchSchedule.homeTeamName}-${production.matchSchedule.awayTeamName}-export.json`));
     return res.json(exportData);
   } catch (err) {
     return next(err);
@@ -257,7 +259,8 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
     // seasonName is informational only: the season is always derived from the match date.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { seasonName: _seasonName, ...matchSchedule } = data.matchSchedule;
-    const matchDate = new Date(matchSchedule.date);
+    const matchDate = parseInstant(matchSchedule.date);
+    if (!matchDate) return res.status(400).json({ error: 'Invalid match date in import data' });
     const seasonId = (await ensureSeasonForDate(matchDate)).id;
 
     const result = await prisma.$transaction(async (tx) => {
@@ -278,7 +281,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
       } else {
         match = await tx.matchSchedule.findFirst({
           where: {
-            date: new Date(data.matchSchedule.date),
+            date: matchDate,
             homeTeamName: data.matchSchedule.homeTeamName,
             awayTeamName: data.matchSchedule.awayTeamName
           }
@@ -289,7 +292,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
         ...matchSchedule,
         date: matchDate,
         seasonId,
-        attendanceTime: matchSchedule.attendanceTime ? new Date(matchSchedule.attendanceTime) : null
+        attendanceTime: parseInstant(matchSchedule.attendanceTime)
       };
 
       if (match) {
@@ -307,9 +310,8 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
       let production = await tx.production.findUnique({ where: { matchScheduleId: match.id } });
       if (!production) {
         // Default liveTime to 5 minutes before match if not provided in export
-        const liveTime = data.production.liveTime
-          ? new Date(data.production.liveTime)
-          : new Date(new Date(match.date).getTime() - 5 * 60 * 1000);
+        const liveTime = parseInstant(data.production.liveTime)
+          ?? new Date(new Date(match.date).getTime() - 5 * 60 * 1000);
 
         production = await tx.production.create({
           data: {
@@ -323,7 +325,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
           where: { id: production.id },
           data: {
             isActive: data.production.isActive,
-            liveTime: data.production.liveTime ? new Date(data.production.liveTime) : null
+            liveTime: parseInstant(data.production.liveTime)
           }
         });
       }
@@ -507,8 +509,8 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
                 title: itemData.title,
                 note: itemData.note,
                 color: itemData.color,
-                timeStart: itemData.timeStart ? new Date(itemData.timeStart) : null,
-                timeEnd: itemData.timeEnd ? new Date(itemData.timeEnd) : null,
+                timeStart: parseInstant(itemData.timeStart),
+                timeEnd: parseInstant(itemData.timeEnd),
                 durationSec: itemData.durationSec,
                 orderIndex: itemData.orderIndex,
                 isInVenue: itemData.isInVenue,
@@ -556,9 +558,9 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
               title: evData.title,
               status: evData.status,
               order: evData.order,
-              actualStartTime: evData.actualStartTime ? new Date(evData.actualStartTime) : null,
-              plannedStartTime: evData.plannedStartTime ? new Date(evData.plannedStartTime) : null,
-              plannedEndTime: evData.plannedEndTime ? new Date(evData.plannedEndTime) : null,
+              actualStartTime: parseInstant(evData.actualStartTime),
+              plannedStartTime: parseInstant(evData.plannedStartTime),
+              plannedEndTime: parseInstant(evData.plannedEndTime),
               durationSec: evData.durationSec,
               note: evData.note,
               anchorType: evData.anchorType,

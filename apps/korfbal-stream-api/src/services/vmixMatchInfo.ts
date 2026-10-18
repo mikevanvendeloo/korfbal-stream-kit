@@ -1,8 +1,8 @@
 import {prisma} from './prisma';
 import {findClubByTeamName} from '../utils/clubs';
 import {findSponsorByName, sponsorLogoPath} from './reportSponsors';
+import {formatDate, formatTime} from '../utils/time';
 
-const TZ = 'Europe/Amsterdam';
 
 /** One flat row for a vMix data source: every field is a string, empty when unknown. */
 export type VmixMatchInfo = {
@@ -42,10 +42,10 @@ const EMPTY: VmixMatchInfo = {
   matchSponsor: '', matchSponsorLogo: '', ballSponsor: '', ballSponsorLogo: '',
 };
 
-const time = (d: Date | null | undefined) =>
-  d ? d.toLocaleTimeString('nl-NL', {hour: '2-digit', minute: '2-digit', hour12: false, timeZone: TZ}) : '';
-const longDate = (d: Date) => d.toLocaleDateString('nl-NL', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ});
-const shortDate = (d: Date) => d.toLocaleDateString('nl-NL', {day: '2-digit', month: '2-digit', year: 'numeric', timeZone: TZ});
+// Amsterdam time: vMix shows the text as is
+const time = (d: Date | null | undefined) => formatTime(d);
+const longDate = (d: Date) => formatDate(d, {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
+const shortDate = (d: Date) => formatDate(d);
 
 type MatchInput = {
   productionId: number;

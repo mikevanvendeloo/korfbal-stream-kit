@@ -13,24 +13,17 @@ import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdDownload, MdEdit, MdGroups, MdInfo, MdPlayCircle, MdUpload} from 'react-icons/md';
 import {adminPaths} from '../lib/adminPaths';
 import {downloadExport} from '../lib/download';
+import {formatDate, formatDateTime, formatTime} from '../lib/time';
 
+// Amsterdam time, whatever the device's zone: "14-11-2026 19:30"
 function formatMatchDate(date: string): string {
-  const d = new Date(date);
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
-  return `${day}-${month}-${year} ${hours}:${minutes}`;
+  return formatDateTime(date);
 }
 
+// "14-11 19:25"
 function formatProductionTime(matchDate: string, liveTime?: string): string {
-  const dateObj = liveTime ? new Date(liveTime) : new Date(matchDate);
-  const day = String(dateObj.getDate()).padStart(2, '0');
-  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const hours = String(dateObj.getHours()).padStart(2, '0');
-  const minutes = String(dateObj.getMinutes()).padStart(2, '0');
-  return `${day}-${month} ${hours}:${minutes}`;
+  const when = liveTime || matchDate;
+  return `${formatDate(when, {day: '2-digit', month: '2-digit'})} ${formatTime(when)}`;
 }
 
 export default function ProductionsAdminPage() {

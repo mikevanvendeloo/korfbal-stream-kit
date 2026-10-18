@@ -1,5 +1,12 @@
 import {describe, expect, it} from 'vitest';
-import {formatTime} from './useLiveState';
+import {formatSystemTime, formatTime} from './useLiveState';
+
+describe('useLiveState - formatSystemTime (the "Tijd" clock)', () => {
+  it('shows the wall clock in Amsterdam, whatever the device zone (tests run in UTC)', () => {
+    expect(formatSystemTime(new Date('2026-11-14T18:30:05.000Z'))).toBe('19:30:05');
+    expect(formatSystemTime(new Date('2026-06-13T17:30:05.000Z'))).toBe('19:30:05');
+  });
+});
 
 describe('useLiveState - formatTime', () => {
   it('should format seconds into MM:SS correctly', () => {

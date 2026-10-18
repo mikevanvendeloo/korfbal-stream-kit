@@ -1,13 +1,10 @@
 import { useMemo, useState } from 'react';
-import { useMatchSchedule, formatDate, nextDayStr, prevDayStr, nextWeekStr, prevWeekStr, LocationFilter } from '../hooks/useMatchSchedule';
+import { formatDate as formatAmsterdamDate, formatTime, todayAmsterdam } from '../lib/time';
+import { useMatchSchedule, nextDayStr, prevDayStr, nextWeekStr, prevWeekStr, LocationFilter } from '../hooks/useMatchSchedule';
 import { MatchSchedule, importMatchSchedule } from '../lib/api';
 
-function timeStr(iso: string) {
-  const d = new Date(iso);
-  const h = d.getUTCHours().toString().padStart(2, '0');
-  const m = d.getUTCMinutes().toString().padStart(2, '0');
-  return `${h}:${m}`;
-}
+// Amsterdam time, whatever the device's zone
+const timeStr = (iso: string) => formatTime(iso);
 
 function MatchRow({ m }: { m: MatchSchedule }) {
   return (
@@ -33,14 +30,14 @@ function MatchRow({ m }: { m: MatchSchedule }) {
 }
 
 export default function MatchProgramPage() {
-  const today = formatDate(new Date());
+  const today = todayAmsterdam();
   const [date, setDate] = useState<string>(today);
   const [location, setLocation] = useState<LocationFilter>('HOME');
   const { data, isLoading, isError, error, refetch } = useMatchSchedule(date, location);
 
   const title = useMemo(() => {
-    const d = new Date(date + 'T00:00:00Z');
-    return d.toUTCString().slice(0, 16);
+    // Noon UTC lies on that same day in Amsterdam
+    return formatAmsterdamDate(`${date}T12:00:00Z`, {weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'});
   }, [date]);
 
   return (

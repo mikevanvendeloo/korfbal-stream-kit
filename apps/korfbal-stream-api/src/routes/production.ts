@@ -4,6 +4,7 @@ import {prisma} from '../services/prisma';
 import * as productionStateService from '../services/productionState';
 import {getSetting, PRODUCTION_TEAM_NAMES_KEY} from '../services/appSettings';
 import {resolveSeasonId} from '../services/season';
+import {parseOptionalInstant} from '../utils/time';
 
 // Import all production sub-routers
 import {productionPersonsRouter} from './production/production-persons';
@@ -260,7 +261,9 @@ productionRouter.put('/:id', async (req, res, next) => {
     }
 
     if (req.body.liveTime !== undefined) {
-      data.liveTime = req.body.liveTime ? new Date(req.body.liveTime) : null;
+      const liveTime = parseOptionalInstant(req.body.liveTime);
+      if (liveTime === 'invalid') return res.status(400).json({ error: 'Invalid liveTime' });
+      data.liveTime = liveTime;
     }
 
     const updated = await prisma.production.update({ where: { id }, data });

@@ -11,6 +11,7 @@ import {broadcastState} from '../../services/productionState';
 import {emitToOrganization} from '../../services/socket';
 import {findPositionByName, positionKey, SHOWCALLER_POSITION} from '../../domain/positionSkill';
 import {findOrCreatePosition} from '../../services/positions';
+import {excelCellToDate, parseInstant, parseOptionalInstant} from '../../utils/time';
 
 export const productionCallsheetsRouter: Router = Router();
 
@@ -345,8 +346,9 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
     const note = req.body?.note != null ? String(req.body.note) : null;
     const color = req.body?.color != null ? String(req.body.color) : null;
     const durationSec = Number(req.body?.durationSec);
-    const timeStart = req.body?.timeStart ? new Date(req.body.timeStart) : null;
-    const timeEnd = req.body?.timeEnd ? new Date(req.body.timeEnd) : null;
+    const timeStart = parseOptionalInstant(req.body?.timeStart);
+    const timeEnd = parseOptionalInstant(req.body?.timeEnd);
+    if (timeStart === 'invalid' || timeEnd === 'invalid') return res.status(400).json({ error: 'Invalid timeStart or timeEnd' });
     const orderIndex = req.body?.orderIndex != null ? Number(req.body.orderIndex) : 0;
     const isInVenue = req.body?.isInVenue === true;
     const isInLivestream = req.body?.isInLivestream !== false; // Default true
@@ -418,8 +420,12 @@ productionCallsheetsRouter.put('/callsheet-items/:itemId', async (req, res, next
     if (req.body?.title != null) data.title = String(req.body.title).trim();
     if (req.body?.note != null) data.note = String(req.body.note);
     if (req.body?.color != null) data.color = String(req.body.color);
-    if (req.body?.timeStart != null) data.timeStart = req.body.timeStart ? new Date(req.body.timeStart) : null;
-    if (req.body?.timeEnd != null) data.timeEnd = req.body.timeEnd ? new Date(req.body.timeEnd) : null;
+    for (const field of ['timeStart', 'timeEnd'] as const) {
+      if (req.body?.[field] == null) continue;
+      const value = parseOptionalInstant(req.body[field]);
+      if (value === 'invalid') return res.status(400).json({ error: `Invalid ${field}` });
+      data[field] = value;
+    }
     if (req.body?.durationSec != null) data.durationSec = Number(req.body.durationSec);
     if (req.body?.orderIndex != null) data.orderIndex = Number(req.body.orderIndex);
     if (req.body?.isInVenue != null) data.isInVenue = req.body.isInVenue === true;
@@ -567,10 +573,9 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem, async
 
     const toDateMaybe = (v: any): Date | null => {
       if (v == null || v === '') return null;
-      if (v instanceof Date) return v;
-      const s = String(v);
-      const d = new Date(s);
-      return isNaN(d.getTime()) ? null : d;
+      // Times in the sheet are Amsterdam times (see excelCellToDate)
+      if (v instanceof Date) return excelCellToDate(v);
+      return parseInstant(String(v));
     };
 
     rows.forEach((row, idx) => {

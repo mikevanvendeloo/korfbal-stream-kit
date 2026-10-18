@@ -1,6 +1,6 @@
 import {prisma} from './prisma';
 import {getCurrentState} from './productionState';
-import {SEASON_TIME_ZONE} from './season';
+import {formatTime} from '../utils/time';
 import {loadInterviewNames, resolveInterviewPlaceholders} from './interviewPlaceholders';
 
 export type TimingState = 'normal' | 'warning' | 'overtime';
@@ -41,10 +41,6 @@ export type CallsheetTiming = {
   nextState: TimingState;
 };
 
-const timeFormatter = new Intl.DateTimeFormat('nl-NL', {
-  timeZone: SEASON_TIME_ZONE, hour: '2-digit', minute: '2-digit', hour12: false,
-});
-
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** "04:32", "-00:12" or "1:02:03": the way the callsheet shows a time. */
@@ -65,8 +61,9 @@ export function formatVmixTimer(seconds: number | null): string {
   return `${pad(Math.floor(abs / 3600))}:${pad(Math.floor((abs % 3600) / 60))}:${pad(abs % 60)}`;
 }
 
+/** "19:30": a start time in Amsterdam time, whatever the server's zone. */
 export function formatStartTime(date: Date | null): string {
-  return date ? timeFormatter.format(date) : '';
+  return formatTime(date);
 }
 
 export function timingState(seconds: number | null, warningSeconds: number): TimingState {

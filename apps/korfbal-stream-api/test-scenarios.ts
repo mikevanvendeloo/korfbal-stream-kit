@@ -78,7 +78,11 @@ export async function ensureOrganization(db: PrismaClient, slug = TEST_ORGANIZAT
 
 /** The season containing a date (1 July – 30 June); created when the database lacks it. */
 export async function seasonForDate(db: PrismaClient, date: Date) {
-  const startYear = date.getMonth() >= 6 ? date.getFullYear() : date.getFullYear() - 1;
+  // Year and month in Amsterdam (like services/season.ts), not in the zone the tests run in
+  const parts = new Intl.DateTimeFormat('en-US', {timeZone: 'Europe/Amsterdam', year: 'numeric', month: 'numeric'}).formatToParts(date);
+  const year = Number(parts.find((p) => p.type === 'year')?.value);
+  const month = Number(parts.find((p) => p.type === 'month')?.value);
+  const startYear = month >= 7 ? year : year - 1;
   return db.season.upsert({where: {startYear}, update: {}, create: {startYear, name: `${startYear}/${startYear + 1}`}});
 }
 

@@ -4,6 +4,7 @@ import {ChevronLeft, ChevronRight, FastForward, MoreVertical, Play, Square} from
 import type {ProductionEvent} from '../hooks/useLiveState';
 import {REMAINING_PRESETS, type ShowControls} from '../hooks/useShowControls';
 import {InterviewText} from './InterviewText';
+import {formatTime} from '../lib/time';
 
 type TimedEvent = ProductionEvent & { calculatedTime: Date | null };
 type Remaining = { minutes: string; seconds: string; isNegative: boolean; rawSeconds: number } | null;
@@ -24,7 +25,7 @@ export type ShowCallerPhoneProps = {
   controls: ShowControls;
 };
 
-const hhmm = (d: Date | null) => (d ? d.toLocaleTimeString('nl-NL', {hour: '2-digit', minute: '2-digit', hour12: false}) : '--:--');
+const hhmm = (d: Date | null) => formatTime(d, {fallback: '--:--'});
 const duration = (sec: number | null) => (sec == null ? '' : `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`);
 
 function remainingStyle(remaining: Remaining) {

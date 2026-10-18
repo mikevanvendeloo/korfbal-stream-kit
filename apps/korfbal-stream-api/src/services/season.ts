@@ -4,8 +4,9 @@ import {prisma} from './prisma';
 import {getSetting, setSetting} from './appSettings';
 import {getOrganizationId} from './organizationContext';
 import {dateColumnToIsoDay, isoDayToDateColumn} from '../utils/dayDate';
+import {AMSTERDAM_TIME_ZONE, amsterdamParts, amsterdamToUtc} from '../utils/time';
 
-export const SEASON_TIME_ZONE = 'Europe/Amsterdam';
+export const SEASON_TIME_ZONE = AMSTERDAM_TIME_ZONE;
 export const ACTIVE_SEASON_ID_KEY = 'activeSeasonId';
 
 export type SeasonDb = Pick<PrismaClient, 'season'> | Pick<Prisma.TransactionClient, 'season'>;
@@ -19,54 +20,8 @@ export class SeasonError extends Error {
   }
 }
 
-interface LocalDateParts {
-  year: number;
-  month: number;
-  day: number;
-  hour: number;
-  minute: number;
-  second: number;
-}
-
-const localPartsFormatter = new Intl.DateTimeFormat('en-US', {
-  timeZone: SEASON_TIME_ZONE,
-  year: 'numeric',
-  month: 'numeric',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: 'numeric',
-  second: 'numeric',
-  hourCycle: 'h23',
-});
-
-function localParts(date: Date): LocalDateParts {
-  const parts = Object.fromEntries(
-    localPartsFormatter.formatToParts(date).map((p) => [p.type, p.value]),
-  ) as Record<string, string>;
-  return {
-    year: Number(parts.year),
-    month: Number(parts.month),
-    day: Number(parts.day),
-    hour: Number(parts.hour),
-    minute: Number(parts.minute),
-    second: Number(parts.second),
-  };
-}
-
-function timeZoneOffsetMs(instant: Date): number {
-  const p = localParts(instant);
-  const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
-  return asUtc - Math.floor(instant.getTime() / 1000) * 1000;
-}
-
-function localToUtc(year: number, monthIndex: number, day: number, h: number, m: number, s: number, ms: number): Date {
-  const naive = Date.UTC(year, monthIndex, day, h, m, s, ms);
-  const firstGuess = naive - timeZoneOffsetMs(new Date(naive));
-  return new Date(naive - timeZoneOffsetMs(new Date(firstGuess)));
-}
-
 export function seasonStartYearForDate(date: Date): number {
-  const {year, month} = localParts(date);
+  const {year, month} = amsterdamParts(date);
   return month >= 7 ? year : year - 1;
 }
 
@@ -98,8 +53,8 @@ export function assertValidSeasonStartYear(startYear: number): void {
 
 export function seasonDateRange(startYear: number): { startDate: Date; endDate: Date } {
   return {
-    startDate: localToUtc(startYear, 6, 1, 0, 0, 0, 0),
-    endDate: localToUtc(startYear + 1, 5, 30, 23, 59, 59, 999),
+    startDate: amsterdamToUtc(startYear, 7, 1),
+    endDate: amsterdamToUtc(startYear + 1, 6, 30, 23, 59, 59, 999),
   };
 }
 

@@ -2,6 +2,7 @@ import {useParams} from 'react-router-dom';
 import {useCrewReport} from '../hooks/useCallsheet';
 import {useProduction} from '../hooks/useProductions';
 import {MdDownload} from 'react-icons/md';
+import {formatDateTime, formatTime as formatAmsterdamTime} from '../lib/time';
 
 export default function ProductionTimingReportPage() {
   const params = useParams<{ id: string }>();
@@ -15,17 +16,8 @@ export default function ProductionTimingReportPage() {
   if (!data) return <div className="container py-6 text-gray-800 dark:text-gray-100">Geen data gevonden</div>;
 
   const formatTime = (dateStr: string | null | undefined) => {
-    if (!dateStr) return '-';
-    try {
-      return new Date(dateStr).toLocaleTimeString('nl-NL', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      });
-    } catch (e) {
-      return '-';
-    }
+    // Amsterdam time, whatever the device's zone
+    return formatAmsterdamTime(dateStr, {seconds: true, fallback: '-'});
   };
 
   const formatDuration = (seconds: number | null | undefined) => {
@@ -172,7 +164,7 @@ export default function ProductionTimingReportPage() {
       </div>
 
       <div className="mt-8 text-xs text-gray-400 text-center">
-        Dit rapport is gegenereerd op {new Date().toLocaleString('nl-NL')}
+        Dit rapport is gegenereerd op {formatDateTime(new Date())}
       </div>
     </div>
   );

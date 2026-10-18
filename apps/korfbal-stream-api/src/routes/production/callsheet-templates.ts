@@ -5,6 +5,7 @@ import ExcelJS from 'exceljs';
 import {prisma} from '../../services/prisma';
 import {findPositionByName, SHOWCALLER_POSITION} from '../../domain/positionSkill';
 import {NotFoundError} from '../../middleware/error';
+import {contentDisposition} from '../../utils/attachment';
 
 export const callSheetTemplateRouter: Router = Router();
 const uploadMem = keepOrganizationContext(multer({ storage: multer.memoryStorage() }).single('file'));
@@ -565,7 +566,7 @@ callSheetTemplateRouter.get('/:id/export', async (req, res, next) => {
     });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="draaiboek-${template.name}.xlsx"`);
+    res.setHeader('Content-Disposition', contentDisposition(`draaiboek-${template.name}.xlsx`));
 
     await workbook.xlsx.write(res);
     res.end();
@@ -707,7 +708,7 @@ callSheetTemplateRouter.get('/:id/export-json', async (req, res, next) => {
     };
 
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="template-${template.name.replace(/\s+/g, '-')}.json"`);
+    res.setHeader('Content-Disposition', contentDisposition(`template-${template.name}.json`));
     return res.json(exportData);
   } catch (err) {
     return next(err);

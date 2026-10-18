@@ -12,21 +12,15 @@ import {MdClose, MdDownload, MdSchedule} from 'react-icons/md';
 import PlayerCard from '../components/PlayerCard';
 import {Link, Navigate, NavLink, useParams} from "react-router-dom";
 import {adminPaths, REPORT_TABS, ReportTab} from "../lib/adminPaths";
+import {amsterdamDay, formatDate as formatAmsterdamDate, formatTime as formatAmsterdamTime, todayAmsterdam} from '../lib/time';
 
+// Amsterdam time, whatever the device's zone (a day "YYYY-MM-DD" reads as that same day)
 function formatDate(date: string | Date) {
-  return new Date(date).toLocaleDateString('nl-NL', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  });
+  return formatAmsterdamDate(date, {day: 'numeric', month: 'short', year: 'numeric'});
 }
 
 function formatTime(date: string | Date) {
-  return new Date(date).toLocaleTimeString('nl-NL', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
+  return formatAmsterdamTime(date);
 }
 
 // --- Generic Table Component ---
@@ -127,10 +121,10 @@ function DailyOccupancyReport() {
 
       const defaultDate = nextProd?.matchSchedule?.date || sortedProductions[0].matchSchedule?.date;
       if (defaultDate) {
-        setDate(new Date(defaultDate).toISOString().split('T')[0]);
+        setDate(amsterdamDay(defaultDate));
       }
     } else if (!date && !productionsData) {
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(todayAmsterdam());
     }
   }, [sortedProductions, date, productionsData]);
 
@@ -203,7 +197,7 @@ function DailyOccupancyReport() {
     if (!interviewsData || !date) return [];
     // Filter productions that match the selected date AND (have interviews OR have remarks OR have matchSponsor)
     return interviewsData.filter((p: any) => {
-      const pDate = new Date(p.date).toISOString().split('T')[0];
+      const pDate = amsterdamDay(p.date);
       const hasInterviews = p.homeInterviews.length > 0 || p.awayInterviews.length > 0;
       const hasRemarks = !!p.remarks;
       const hasSponsor = !!p.matchSponsor || !!p.ballSponsor;
@@ -223,7 +217,7 @@ function DailyOccupancyReport() {
           >
             {sortedProductions.length === 0 && <option value="">Geen producties gevonden</option>}
             {sortedProductions.map(p => {
-              const pDate = p.matchSchedule?.date ? new Date(p.matchSchedule.date).toISOString().split('T')[0] : '';
+              const pDate = p.matchSchedule?.date ? amsterdamDay(p.matchSchedule.date) : '';
               return (
                 <option key={p.id} value={pDate}>
                   {p.matchSchedule ? `${formatDate(p.matchSchedule.date)} - ${p.matchSchedule.homeTeamName} vs ${p.matchSchedule.awayTeamName}` : `Productie ${p.id}`}
@@ -465,10 +459,10 @@ function OccupancyByPositionReport() {
 
       const defaultDate = nextProd?.matchSchedule?.date || sortedProductions[0].matchSchedule?.date;
       if (defaultDate) {
-        setDate(new Date(defaultDate).toISOString().split('T')[0]);
+        setDate(amsterdamDay(defaultDate));
       }
     } else if (!date && !productionsData) {
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(todayAmsterdam());
     }
   }, [sortedProductions, date, productionsData]);
 
@@ -488,7 +482,7 @@ function OccupancyByPositionReport() {
           >
             {sortedProductions.length === 0 && <option value="">Geen producties gevonden</option>}
             {sortedProductions.map(p => {
-              const pDate = p.matchSchedule?.date ? new Date(p.matchSchedule.date).toISOString().split('T')[0] : '';
+              const pDate = p.matchSchedule?.date ? amsterdamDay(p.matchSchedule.date) : '';
               return (
                 <option key={p.id} value={pDate}>
                   {p.matchSchedule ? `${formatDate(p.matchSchedule.date)} - ${p.matchSchedule.homeTeamName} vs ${p.matchSchedule.awayTeamName}` : `Productie ${p.id}`}
