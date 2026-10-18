@@ -50,10 +50,11 @@ Onder **Wedstrijden importeren** (klik om open te klappen) importeer je het prog
 
 ### Handmatige wedstrijden
 
-Voor wedstrijden die niet in het programma staan, zoals een oefenwedstrijd of een evenement, klik je op **Nieuwe Wedstrijd** en vul je **Datum & Tijd**, **Thuisploeg**, **Uitploeg** en eventueel de **Scheidsrechter** en een **Beschrijving** in. Een handmatige wedstrijd staat altijd in de lijst bij **Nieuwe productie**.
+Voor wedstrijden die niet in het programma staan, zoals een oefenwedstrijd of een evenement, klik je op **Nieuwe Wedstrijd** en vul je **Datum**, **Tijd**, **Thuisploeg**, **Uitploeg** en eventueel de **Scheidsrechter** en een **Beschrijving** in. Een handmatige wedstrijd staat altijd in de lijst bij **Nieuwe productie**.
+
+Typ de datum als `DD-MM-JJJJ` (bijvoorbeeld `07-11-2026`) en de tijd in 24-uursnotatie (`19:30`; kort typen mag ook: `1930` of `19.30`). Datum en tijd zijn Nederlandse tijd, ook op een laptop die op een andere tijdzone of taal staat. Een rood veld betekent dat de datum of tijd niet bestaat; **Opslaan** meldt dan *Vul een geldige datum (DD-MM-JJJJ) en tijd (uu:mm) in.*
 
 > - Een handmatige wedstrijd verwijderen gaat zonder bevestiging en verwijdert ook de productie van die wedstrijd.
-> - Bij **bewerken** staat de tijd een of twee uur te vroeg in het formulier. Corrigeer de tijd voordat je opslaat, anders schuift de wedstrijd op.
 > - De lijst toont alleen het actieve seizoen.
 
 ### Clubs & spelers

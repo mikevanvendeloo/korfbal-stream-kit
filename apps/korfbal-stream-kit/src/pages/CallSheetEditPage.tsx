@@ -12,7 +12,8 @@ import {
 import {useProductionSegments} from '../hooks/useProductions';
 import {usePositionsCatalog} from '../hooks/usePositions';
 import {adminPaths} from '../lib/adminPaths';
-import {formatTime, fromAmsterdamInput} from '../lib/time';
+import {formatTime} from '../lib/time';
+import DateTimeInputNL, {INVALID_DATE_TIME_MESSAGE} from '../components/DateTimeInputNL';
 
 export default function CallSheetEditPage() {
   const params = useParams<{ id: string; callSheetId: string }>();
@@ -38,8 +39,9 @@ export default function CallSheetEditPage() {
     note: '',
     color: '',
     durationSec: 0,
-    timeStart: '',
-    timeEnd: '',
+    // UTC ISO, '' for none, null while the fields hold something invalid (DateTimeInputNL)
+    timeStart: '' as string | null,
+    timeEnd: '' as string | null,
     orderIndex: 0,
     isInVenue: false,
     isInLivestream: true,
@@ -102,9 +104,11 @@ export default function CallSheetEditPage() {
       const payload: any = { ...form };
       if (!payload.cue) throw new Error('Cue is verplicht');
       if (!payload.title) throw new Error('Titel is verplicht');
-      // The fields mean Amsterdam time, whatever the device's zone
-      payload.timeStart = payload.timeStart ? fromAmsterdamInput(payload.timeStart) ?? undefined : undefined;
-      payload.timeEnd = payload.timeEnd ? fromAmsterdamInput(payload.timeEnd) ?? undefined : undefined;
+      if (payload.timeStart === null) throw new Error(`Begin: ${INVALID_DATE_TIME_MESSAGE}`);
+      if (payload.timeEnd === null) throw new Error(`Einde: ${INVALID_DATE_TIME_MESSAGE}`);
+      // Already UTC ISO: the fields mean Amsterdam time, whatever the device's zone
+      payload.timeStart = payload.timeStart || undefined;
+      payload.timeEnd = payload.timeEnd || undefined;
       await createItem.mutateAsync(payload as any);
       setForm({ cue: '', title: '', note: '', color: '', durationSec: 0, timeStart: '', timeEnd: '', orderIndex: 0, isInVenue: false, isInLivestream: true, isTimeAnchor: false, autoAdvance: false, anchorType: '', parentId: '', positionIds: []});
     } catch (e: any) {
@@ -375,14 +379,23 @@ export default function CallSheetEditPage() {
           <input type="number" value={form.orderIndex} onChange={(e) => setForm((f) => ({ ...f, orderIndex: Number(e.target.value||0) }))} className="bg-black/40 border border-white/10 rounded px-3 py-2 text-white focus:border-blue-500/50 outline-none" />
         </label>
 
-        <label className="text-xs flex flex-col gap-1.5">
-          <div className="font-bold text-white/40 uppercase">Begin (optioneel)</div>
-          <input type="datetime-local" value={form.timeStart} onChange={(e) => setForm((f) => ({ ...f, timeStart: e.target.value }))} className="bg-black/40 border border-white/10 rounded px-2 py-2 text-white text-[10px] outline-none" />
-        </label>
-        <label className="text-xs flex flex-col gap-1.5">
-          <div className="font-bold text-white/40 uppercase">Einde (optioneel)</div>
-          <input type="datetime-local" value={form.timeEnd} onChange={(e) => setForm((f) => ({ ...f, timeEnd: e.target.value }))} className="bg-black/40 border border-white/10 rounded px-2 py-2 text-white text-[10px] outline-none" />
-        </label>
+        {([
+          ['timeStart', 'Begin'],
+          ['timeEnd', 'Einde'],
+        ] as const).map(([key, name]) => (
+          <div key={key} role="group" aria-labelledby={`callsheet-item-${key}-legend`} className="text-xs flex flex-col gap-1.5 md:col-span-2">
+            <div id={`callsheet-item-${key}-legend`} className="font-bold text-white/40 uppercase">{name} (optioneel)</div>
+            <DateTimeInputNL
+              id={`callsheet-item-${key}`}
+              value={form[key]}
+              onChange={(value) => setForm((f) => ({ ...f, [key]: value }))}
+              dateLabel={<><span className="sr-only">{name} </span>Datum</>}
+              timeLabel={<><span className="sr-only">{name} </span>Tijd</>}
+              labelClassName="text-[10px] text-white/30"
+              inputClassName="bg-black/40 border border-white/10 rounded px-2 py-2 text-white outline-none focus:border-blue-500/50"
+            />
+          </div>
+        ))}
 
         <div className="md:col-span-2 flex items-center gap-4 h-full py-2">
           <label className="text-sm flex items-center gap-2 cursor-pointer select-none">

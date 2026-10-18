@@ -148,14 +148,21 @@ export class ManualMatchesPage {
     return this.page.getByRole('row').filter({hasText: `${home} vs ${away}`});
   }
 
-  /** The form's date and time field, as a datetime-local value ("2026-11-14T19:30"). */
+  /** The form's date field (DD-MM-JJJJ, "14-11-2026"). */
   dateField() {
-    return this.page.getByLabel('Datum & Tijd');
+    return this.page.getByLabel('Datum', {exact: true});
   }
 
-  async create(match: { date: string; home: string; away: string }) {
+  /** The form's time field (24-hour uu:mm, "19:30"). */
+  timeField() {
+    return this.page.getByLabel('Tijd', {exact: true});
+  }
+
+  /** `date` as DD-MM-JJJJ and `time` as uu:mm, both Amsterdam time. */
+  async create(match: { date: string; time: string; home: string; away: string }) {
     await this.page.getByRole('button', {name: 'Nieuwe Wedstrijd'}).click();
     await this.dateField().fill(match.date);
+    await this.timeField().fill(match.time);
     await this.page.getByLabel('Thuisploeg').fill(match.home);
     await this.page.getByLabel('Uitploeg').fill(match.away);
     await this.page.getByRole('button', {name: 'Opslaan'}).click();

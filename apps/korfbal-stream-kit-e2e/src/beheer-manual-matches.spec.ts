@@ -18,17 +18,19 @@ test('a manual match created at 19:30 shows 19:30 again when reopened', async ({
   // In November of the active season, so the list (active season) shows it; winter time, UTC+1
   const active = await (await request.get(`${apiUrl}/api/seasons/active`)).json();
   const day = `${active.startYear}-11-14`;
+  const dayNL = `14-11-${active.startYear}`;
 
   const matches = new ManualMatchesPage(page);
   await matches.open();
-  await matches.create({date: `${day}T19:30`, home: HOME, away: AWAY});
+  await matches.create({date: dayNL, time: '19:30', home: HOME, away: AWAY});
 
-  await expect(matches.row(HOME, AWAY)).toContainText(`14-11-${active.startYear} 19:30`);
+  await expect(matches.row(HOME, AWAY)).toContainText(`${dayNL} 19:30`);
   // Stored as UTC
   const stored = await db.matchSchedule.findFirstOrThrow({where: {homeTeamName: HOME, isManual: true}});
   expect(stored.date.toISOString()).toBe(`${day}T18:30:00.000Z`);
 
   await page.reload();
   await matches.edit(HOME, AWAY);
-  await expect(matches.dateField()).toHaveValue(`${day}T19:30`);
+  await expect(matches.dateField()).toHaveValue(dayNL);
+  await expect(matches.timeField()).toHaveValue('19:30');
 });
