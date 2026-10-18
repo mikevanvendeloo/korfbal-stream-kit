@@ -5,6 +5,7 @@ import {fetchFromMatchSource, MatchSourceError, type NormalizedMatchItem, sendMa
 import {INDOOR_IMPORT_DATE, MatchScheduleImportQuerySchema} from '../schemas/matchSchedule';
 import {createSeasonIdResolver, getActiveSeason, seasonNameForStartYear, seasonStartYearForDate} from '../services/season';
 import {dateColumnToIsoDay} from '../utils/dayDate';
+import {shiftProductionTimesForMatchDateChange} from '../services/matchChange';
 import {amsterdamDay, amsterdamDayRange, amsterdamInputToDate} from '../utils/time';
 
 export const matchRouter: Router = Router();
@@ -60,9 +61,11 @@ matchRouter.post('/matches/schedule/import', async (req, res) => {
         let inserted = 0;
         let updated = 0;
         for (const data of rows) {
-          const existing = await tx.matchSchedule.findFirst({where: {externalId: data.externalId}, select: {id: true}});
+          const existing = await tx.matchSchedule.findFirst({where: {externalId: data.externalId}, select: {id: true, date: true}});
           if (existing) {
             await tx.matchSchedule.update({where: {id: existing.id}, data});
+            // A moved match takes its production's times along
+            await shiftProductionTimesForMatchDateChange(tx, existing.id, existing.date, data.date);
             updated++;
           } else {
             await tx.matchSchedule.create({data});

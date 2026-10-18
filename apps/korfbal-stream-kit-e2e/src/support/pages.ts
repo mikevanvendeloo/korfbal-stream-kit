@@ -195,3 +195,41 @@ export class OrganizationPage {
     await this.keyRow(name).getByRole('button', {name: `Sleutel ${name} intrekken`}).click();
   }
 }
+
+/** Beheer → Producties → a production → Beschikbaarheid: presence per group and the minimum staffing. */
+export class AttendancePage {
+  constructor(private readonly page: Page) {}
+
+  async open(productionId: number) {
+    await this.page.goto(`/admin/producties/${productionId}/beschikbaarheid`);
+    await expect(this.page.getByRole('heading', {name: 'Aanwezigheid crew', level: 1})).toBeVisible();
+    await expect(this.summary()).toBeVisible();
+  }
+
+  group(label: 'Crew' | 'Entertainment') {
+    return this.page.getByRole('region', {name: new RegExp(`^${label}`)});
+  }
+
+  /** Names in a group, in the order shown */
+  async namesIn(label: 'Crew' | 'Entertainment') {
+    return (await this.group(label).locator('label').allTextContents()).map((name) => name.trim());
+  }
+
+  checkbox(name: string) {
+    return this.page.locator('label').filter({hasText: name}).getByRole('checkbox');
+  }
+
+  async markPresent(name: string) {
+    await this.checkbox(name).check();
+    await expect(this.checkbox(name)).toBeChecked();
+  }
+
+  /** "Minimale bezetting gehaald" or "Minimale bezetting nog niet gehaald: nog 1 camera" */
+  summary() {
+    return this.page.getByTestId('staffing-summary');
+  }
+
+  role(key: string) {
+    return this.page.getByTestId(`staffing-role-${key}`);
+  }
+}

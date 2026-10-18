@@ -4,13 +4,36 @@ Wie er bij een productie is en wat ieder doet, regel je op twee tabbladen van de
 
 ## Beschikbaarheid
 
-Op **Beschikbaarheid** (*Aanwezigheid crew*) vink je aan wie er bij deze productie aanwezig is. Bovenaan zie je hoeveel personen aanwezig zijn.
+Op **Beschikbaarheid** (*Aanwezigheid crew*) vink je aan wie er bij deze productie aanwezig is. Alle personen van je organisatie staan erop, op alfabet, in twee groepen:
+
+- **Entertainment**: personen van wie **alle** skills alleen bij posities met de categorie *Entertainment* horen, zoals presentatie, commentaar en analist;
+- **Crew**: alle anderen. Ook wie een technische of algemene skill heeft, en wie (nog) geen skills heeft.
+
+De groep volgt de categorie van de posities bij [Stamgegevens → Posities](/admin/handleiding/stamgegevens). Zet je een positie in een andere categorie, dan verhuizen de personen met die skill mee. Achter elke groep staat hoeveel personen er aanwezig zijn; onderaan het totaal.
 
 > Elk vinkje wordt **direct bewaard**. De knop **Opslaan** brengt je alleen terug naar het draaiboek, en **Annuleren** maakt niets ongedaan.
 >
 > Vink je iemand uit, dan blijven zijn posities staan. Haal die bij Bezetting weg.
 
 Alleen aanwezige personen kun je op het tabblad Bezetting een positie geven.
+
+### Minimale bezetting
+
+Bovenaan staat de **Minimale bezetting**: kun je met de aanwezige personen de uitzending draaien? Per rol zie je hoeveel personen er zijn en hoeveel er nodig zijn:
+
+| Rol | Nodig | Telt mee met de skill |
+|---|---|---|
+| Regisseur | 1 | Regie livestream |
+| Camera | 3 | Camera zoom (Camera links/rechts) en Camera overzicht; niet PTZ en niet Herhalingen |
+| Commentaar | 1, optioneel | Commentaar |
+| Presentatie | 1, optioneel | Presentatie |
+| Analist | 1, optioneel | Analist |
+
+- ✓ betekent gehaald, ✗ nog niet. Een optionele rol zonder persoon krijgt een grijs –: die houdt de minimale bezetting nooit tegen.
+- Iemand met meer skills telt **maar één keer**. Kan iemand regie én camera doen, dan telt hij voor één van de twee; de app kiest de verdeling waarmee de meeste rollen gevuld zijn, eerst de verplichte.
+- Onderaan staat **Minimale bezetting gehaald** (groen) of bijvoorbeeld **Minimale bezetting nog niet gehaald: nog 1 camera** (oranje). Het overzicht werkt bij met elk vinkje.
+
+> Staat er bij een rol *Vaardigheid … bestaat niet in deze organisatie*, dan heeft je organisatie die skill-code niet (bijvoorbeeld omdat hij is verwijderd). Die rol telt dan als niet gehaald. Voeg de skill met die code weer toe bij **Stamgegevens → Skills**.
 
 ## Bezetting
 

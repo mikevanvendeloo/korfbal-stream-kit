@@ -100,6 +100,7 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/production/:id': {read: (a) => `/api/production/${a.productionId}`},
   'GET /api/production/:id/callsheets': {read: (a) => `/api/production/${a.productionId}/callsheets`},
   'GET /api/production/:id/clocks': {read: (a) => `/api/production/${a.productionId}/clocks`, control: false},
+  'GET /api/production/:id/attendance': {read: (a) => `/api/production/${a.productionId}/attendance`},
   'GET /api/production/:id/crew': {read: (a) => `/api/production/${a.productionId}/crew`},
   'GET /api/production/:id/crew-report': {read: (a) => `/api/production/${a.productionId}/crew-report`},
   'GET /api/production/:id/events': {read: (a) => `/api/production/${a.productionId}/events`},

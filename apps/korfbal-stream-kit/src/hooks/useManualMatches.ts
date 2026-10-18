@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
+import { invalidateMatchDependents } from './useProductions';
 
 // This now represents a subset of the full MatchSchedule model
 const ManualMatchSchema = z.object({
@@ -61,10 +62,7 @@ export function useCreateManualMatch() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createManualMatch,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['manual-matches'] });
-      qc.invalidateQueries({ queryKey: ['production-matches'] }); // Also refetch production matches
-    },
+    onSuccess: () => invalidateMatchDependents(qc),
   });
 }
 
@@ -72,10 +70,7 @@ export function useUpdateManualMatch() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: updateManualMatch,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['manual-matches'] });
-      qc.invalidateQueries({ queryKey: ['production-matches'] });
-    },
+    onSuccess: () => invalidateMatchDependents(qc),
   });
 }
 
@@ -83,9 +78,6 @@ export function useDeleteManualMatch() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: deleteManualMatch,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['manual-matches'] });
-      qc.invalidateQueries({ queryKey: ['production-matches'] });
-    },
+    onSuccess: () => invalidateMatchDependents(qc),
   });
 }

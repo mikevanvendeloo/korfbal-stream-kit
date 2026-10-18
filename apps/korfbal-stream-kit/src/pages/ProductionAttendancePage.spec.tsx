@@ -1,24 +1,21 @@
-import {beforeEach, describe, expect, it, vi} from 'vitest';
-import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {beforeEach, describe, expect, it} from 'vitest';
+import {fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {MemoryRouter, Route, Routes} from 'react-router-dom';
 import {ThemeProvider} from '../theme/ThemeProvider';
 import ProductionAttendancePage from './ProductionAttendancePage';
 import React from 'react';
+import {mockApi} from '../test/organizations';
+import type {AttendancePerson, Staffing, StaffingRole} from '../hooks/useProductions';
 
 function renderWithProviders(ui: React.ReactNode, {route = '/admin/producties/1/beschikbaarheid'} = {}) {
-  const qc = new QueryClient({
-    defaultOptions: {
-      queries: {retry: false},
-      mutations: {retry: false},
-    },
-  });
+  const qc = new QueryClient({defaultOptions: {queries: {retry: false}, mutations: {retry: false}}});
   return render(
     <ThemeProvider>
       <QueryClientProvider client={qc}>
         <MemoryRouter initialEntries={[route]}>
           <Routes>
-            <Route path="/admin/producties/:id/beschikbaarheid" element={ui} />
+            <Route path="/admin/producties/:id/beschikbaarheid" element={ui}/>
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
@@ -26,209 +23,136 @@ function renderWithProviders(ui: React.ReactNode, {route = '/admin/producties/1/
   );
 }
 
+const person = (id: number, name: string, group: AttendancePerson['group'], present = false): AttendancePerson =>
+  ({id, name, gender: 'female', group, skills: [], productionPersonId: present ? 100 + id : null});
+
+const role = (key: string, label: string, filled: number, required: number, optional = false, extra: Partial<StaffingRole> = {}): StaffingRole => ({
+  key, label, singular: key, plural: key === 'camera' ? "camera's" : `${key}s`, required, optional, skillCodes: [key.toUpperCase()],
+  filled, personIds: [], unknownSkillCodes: [], met: filled >= required, ...extra,
+});
+
+/** What the API says: one camera short until "Bob" is present */
+function staffingFor(present: Set<number>): Staffing {
+  const cameras = present.has(2) ? 3 : 2;
+  return {
+    roles: [
+      role('regisseur', 'Regisseur', 1, 1),
+      role('camera', 'Camera', cameras, 3),
+      role('commentaar', 'Commentaar', 0, 1, true),
+      role('analist', 'Analist', 0, 1, true, {unknownSkillCodes: ['ANALIST']}),
+    ],
+    met: cameras === 3,
+    shortfall: cameras === 3 ? [] : [{key: 'camera', missing: 1, singular: 'camera', plural: "camera's"}],
+  };
+}
+
 describe('ProductionAttendancePage', () => {
+  let present: Set<number>;
+  let api: ReturnType<typeof mockApi>;
+
   beforeEach(() => {
-    vi.restoreAllMocks();
-
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: any, init?: any) => {
-      const url = typeof input === 'string' ? input : input.toString();
-      const u = new URL(url);
-
-      // Get production
-      if (u.pathname.match(/\/api\/production\/1$/) && (!init || init.method === 'GET')) {
+    present = new Set([1]);
+    const people = [
+      person(1, 'Zoë', 'crew'),
+      person(2, 'Bob', 'crew'),
+      person(3, 'émile', 'crew'),
+      person(4, 'Emma', 'crew'),
+      person(5, 'anna', 'crew'),
+      person(6, 'Ühlan', 'entertainment'),
+      person(7, 'Charlie', 'entertainment'),
+    ];
+    api = mockApi(({method, path, body}) => {
+      if (method === 'GET' && path === '/api/production/1') {
+        return {id: 1, matchScheduleId: 100, matchSchedule: {id: 100, homeTeamName: 'Fortuna/Ruitenheer 1', awayTeamName: 'Opponent'}};
+      }
+      if (method === 'GET' && path === '/api/production/1/attendance') {
         return {
-          ok: true,
-          json: async () => ({
-            id: 1,
-            matchScheduleId: 100,
-            createdAt: new Date().toISOString(),
-            matchSchedule: {id: 100, homeTeamName: 'Fortuna/Ruitenheer 1', awayTeamName: 'Opponent'},
-          }),
-        } as any;
+          persons: people.map((p) => ({...p, productionPersonId: present.has(p.id) ? 100 + p.id : null})),
+          staffing: staffingFor(present),
+        };
       }
-
-      // Production persons (attendance) - initially empty
-      if (u.pathname.match(/\/api\/production\/1\/persons$/) && (!init || init.method === 'GET')) {
-        return {ok: true, json: async () => []} as any;
+      if (method === 'GET' && path === '/api/production/1/persons') return [];
+      if (method === 'POST' && path === '/api/production/1/persons') {
+        const personId = (body as {personId: number}).personId;
+        present.add(personId);
+        return {id: 100 + personId, productionId: 1, personId};
       }
-
-      // List persons (all persons in the system) - now at /api/persons (not under production)
-      if (u.pathname.endsWith('/api/persons') && (!init || init.method === 'GET')) {
-        return {
-          ok: true,
-          json: async () => ({
-            items: [
-              {id: 1, name: 'Alice', gender: 'female', createdAt: new Date().toISOString()},
-              {id: 2, name: 'Bob', gender: 'male', createdAt: new Date().toISOString()},
-              {id: 3, name: 'Charlie', gender: 'male', createdAt: new Date().toISOString()},
-            ],
-            page: 1,
-            limit: 1000,
-            total: 3,
-            pages: 1,
-          }),
-        } as any;
+      const del = method === 'DELETE' && path.match(/^\/api\/production\/1\/persons\/(\d+)$/);
+      if (del) {
+        present.delete(Number(del[1]) - 100);
+        return {};
       }
-
-      // Add production person
-      if (u.pathname.match(/\/api\/production\/1\/persons$/) && init?.method === 'POST') {
-        const body = JSON.parse(init.body);
-        return {
-          ok: true,
-          json: async () => ({
-            id: 100 + body.personId,
-            productionId: 1,
-            personId: body.personId,
-            person: {
-              id: body.personId,
-              name: body.personId === 1 ? 'Alice' : body.personId === 2 ? 'Bob' : 'Charlie',
-              gender: body.personId === 2 ? 'male' : body.personId === 1 ? 'female' : 'male',
-            },
-            createdAt: new Date().toISOString(),
-          }),
-        } as any;
-      }
-
-      // Delete production person
-      if (u.pathname.match(/\/api\/production\/1\/persons\/\d+$/) && init?.method === 'DELETE') {
-        return {ok: true, status: 204} as any;
-      }
-
-      return {ok: false, status: 404} as any;
+      return {};
     });
   });
+
+  /** The checkbox in the card with this name */
+  const checkboxOf = (name: string) => within(screen.getByText(name).closest('label') as HTMLElement).getByRole('checkbox') as HTMLInputElement;
+
+  const namesIn = (group: string) =>
+    within(screen.getByTestId(`attendance-group-${group}`)).getAllByRole('checkbox').map((cb) => cb.closest('label')?.textContent);
 
   it('renders the attendance page with production info', async () => {
-    renderWithProviders(<ProductionAttendancePage />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Aanwezigheid crew')).toBeInTheDocument();
-      expect(screen.getByText('Fortuna/Ruitenheer 1 vs Opponent')).toBeInTheDocument();
-    });
+    renderWithProviders(<ProductionAttendancePage/>);
+    expect(await screen.findByText('Aanwezigheid crew')).toBeInTheDocument();
+    expect(await screen.findByText('Fortuna/Ruitenheer 1 vs Opponent')).toBeInTheDocument();
   });
 
-  it('shows all persons with checkboxes', async () => {
-    renderWithProviders(<ProductionAttendancePage />);
-
-    // Wait for loading to complete
-    await waitFor(() => {
-      expect(screen.queryByText('Laden…')).not.toBeInTheDocument();
-    }, {timeout: 5000});
-
-    // Debug: check what was fetched
-    const calls = (global.fetch as any).mock.calls;
-    const urls = calls.map((c: any) => typeof c[0] === 'string' ? c[0] : c[0].toString());
-    console.log('Fetched URLs:', urls);
-
-    // Check persons are shown
-    await waitFor(() => {
-      expect(screen.getByText('Alice')).toBeInTheDocument();
-      expect(screen.getByText('Bob')).toBeInTheDocument();
-      expect(screen.getByText('Charlie')).toBeInTheDocument();
-    }, {timeout: 5000});
-
-    // All checkboxes should be unchecked initially
-    const checkboxes = screen.getAllByRole('checkbox');
-    expect(checkboxes).toHaveLength(3);
-    checkboxes.forEach((cb) => {
-      expect((cb as HTMLInputElement).checked).toBe(false);
-    });
+  it('shows Crew and Entertainment, each in Dutch alphabetical order ignoring case and accents', async () => {
+    renderWithProviders(<ProductionAttendancePage/>);
+    await screen.findByTestId('attendance-group-crew');
+    expect(namesIn('crew')).toEqual(['anna', 'Bob', 'émile', 'Emma', 'Zoë']);
+    expect(namesIn('entertainment')).toEqual(['Charlie', 'Ühlan']);
+    expect(within(screen.getByTestId('attendance-group-crew')).getByRole('heading')).toHaveTextContent('Crew (1/5)');
+    expect(within(screen.getByTestId('attendance-group-entertainment')).getByRole('heading')).toHaveTextContent('Entertainment (0/2)');
+    expect(screen.getByText('1 van 7 aanwezig')).toBeInTheDocument();
   });
 
-  it('can mark a person as present by checking the checkbox', async () => {
-    renderWithProviders(<ProductionAttendancePage />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Alice')).toBeInTheDocument();
-    });
-
-    // Find Alice's checkbox
-    const aliceCheckbox = screen.getAllByRole('checkbox')[0] as HTMLInputElement;
-    expect(aliceCheckbox.checked).toBe(false);
-
-    // Check it
-    fireEvent.click(aliceCheckbox);
-
-    // Verify POST was called
-    await waitFor(() => {
-      const calls = (global.fetch as any).mock.calls;
-      const personPost = calls.find((call: any[]) => {
-        const url = typeof call[0] === 'string' ? call[0] : call[0].toString();
-        return url.includes('/production/1/persons') && call[1]?.method === 'POST';
-      });
-      expect(personPost).toBeDefined();
-      if (personPost) {
-        const body = JSON.parse(personPost[1].body);
-        expect(body.personId).toBe(1);
-      }
-    });
+  it('keeps the responsive grid per group', async () => {
+    renderWithProviders(<ProductionAttendancePage/>);
+    const grid = (await screen.findByText('Bob')).closest('label')?.parentElement;
+    expect(grid?.className).toContain('grid-cols-1');
+    expect(grid?.className).toContain('sm:grid-cols-2');
+    expect(grid?.className).toContain('md:grid-cols-3');
   });
 
-  it('shows attendance counter', async () => {
-    renderWithProviders(<ProductionAttendancePage />);
-
-    await waitFor(() => {
-      expect(screen.getByText('0 van 3 aanwezig')).toBeInTheDocument();
-    });
+  it('shows the minimum staffing checklist with optional roles and a missing skill code', async () => {
+    renderWithProviders(<ProductionAttendancePage/>);
+    const summary = await screen.findByTestId('staffing-summary');
+    expect(summary).toHaveTextContent('Minimale bezetting nog niet gehaald: nog 1 camera');
+    expect(summary.className).toContain('amber');
+    expect(screen.getByTestId('staffing-role-regisseur')).toHaveTextContent('✓Regisseur 1/1');
+    expect(screen.getByTestId('staffing-role-camera')).toHaveTextContent('✗Camera 2/3');
+    expect(screen.getByTestId('staffing-role-commentaar')).toHaveTextContent('–Commentaar 0/1 (optioneel)');
+    expect(screen.getByTestId('staffing-role-analist')).toHaveTextContent('Vaardigheid ANALIST bestaat niet in deze organisatie');
   });
 
-  it('displays responsive grid layout', async () => {
-    renderWithProviders(<ProductionAttendancePage />);
+  it('updates the checklist when a person is marked present', async () => {
+    renderWithProviders(<ProductionAttendancePage/>);
+    await screen.findByTestId('staffing-summary');
 
-    await waitFor(() => {
-      expect(screen.getByText('0 van 3 aanwezig')).toBeInTheDocument();
-    });
-    await waitFor(() => {
-      expect(screen.getByText('Alice')).toBeInTheDocument();
-    });
+    const bob = checkboxOf('Bob');
+    expect(bob.checked).toBe(false);
+    fireEvent.click(bob);
 
-    // Check that grid container exists - using data-testid or checking parent structure
-    const aliceLabel = screen.getByText('Alice').closest('label');
-    const gridContainer = aliceLabel?.parentElement;
-    expect(gridContainer).toBeInTheDocument();
-    expect(gridContainer?.className).toContain('grid');
-    expect(gridContainer?.className).toContain('grid-cols-1');
-    expect(gridContainer?.className).toContain('sm:grid-cols-2');
-    expect(gridContainer?.className).toContain('md:grid-cols-3');
-  });
-  it('can save and navigate back', async () => {
-    // Mock window.location.href
-    delete (window as any).location;
-    (window as any).location = {href: ''};
-
-    renderWithProviders(<ProductionAttendancePage />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Opslaan')).toBeInTheDocument();
-    });
-
-    // Click save button
-    fireEvent.click(screen.getByText('Opslaan'));
-
-    // Should show success message
-    await waitFor(() => {
-      expect(screen.getByText('Aanwezigheid opgeslagen!')).toBeInTheDocument();
-    });
-
-    // Should navigate after timeout (we can't easily test setTimeout in this context)
+    await waitFor(() => expect(screen.getByTestId('staffing-summary')).toHaveTextContent('Minimale bezetting gehaald'));
+    expect(screen.getByTestId('staffing-summary').className).toContain('green');
+    expect(screen.getByTestId('staffing-role-camera')).toHaveTextContent('✓Camera 3/3');
+    expect(checkboxOf('Bob').checked).toBe(true);
+    expect(api.calls.find((c) => c.method === 'POST')?.body).toEqual({personId: 2});
   });
 
-  it('can cancel and navigate back', async () => {
-    // Mock window.location.href
-    delete (window as any).location;
-    (window as any).location = {href: ''};
-
-    renderWithProviders(<ProductionAttendancePage />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Annuleren')).toBeInTheDocument();
-    });
-
-    // Click cancel button
-    fireEvent.click(screen.getByText('Annuleren'));
-
-    // Navigation happens but we can't easily verify in this test setup
+  it('marks a person absent with the id of their presence', async () => {
+    renderWithProviders(<ProductionAttendancePage/>);
+    await screen.findByTestId('staffing-summary');
+    fireEvent.click(checkboxOf('Zoë'));
+    await waitFor(() => expect(api.calls.some((c) => c.method === 'DELETE' && c.path === '/api/production/1/persons/101')).toBe(true));
+    await waitFor(() => expect(screen.getByText('0 van 7 aanwezig')).toBeInTheDocument());
   });
 
-
+  it('shows a save message', async () => {
+    renderWithProviders(<ProductionAttendancePage/>);
+    fireEvent.click(await screen.findByText('Opslaan'));
+    expect(await screen.findByText('Aanwezigheid opgeslagen!')).toBeInTheDocument();
+  });
 });

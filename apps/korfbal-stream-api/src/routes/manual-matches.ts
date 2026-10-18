@@ -3,6 +3,7 @@ import {prisma} from '../services/prisma';
 import {z} from 'zod';
 import {ensureSeasonForDate, resolveSeasonId} from '../services/season';
 import {parseInstant} from '../utils/time';
+import {shiftProductionTimesForMatchDateChange} from '../services/matchChange';
 
 export const manualMatchesRouter: Router = Router();
 
@@ -56,10 +57,18 @@ manualMatchesRouter.put('/:id', async (req, res, next) => {
     const id = Number(req.params.id);
     const data = ManualMatchSchema.parse(req.body);
     const season = await ensureSeasonForDate(data.date);
-    const updatedMatch = await prisma.matchSchedule.update({
-      where: { id },
-      data: { ...data, seasonId: season.id },
+    // The production's own times move with the match date, in the same transaction
+    const updatedMatch = await prisma.$transaction(async (tx) => {
+      const previous = await tx.matchSchedule.findUnique({ where: { id }, select: { date: true } });
+      if (!previous) return null;
+      const updated = await tx.matchSchedule.update({
+        where: { id },
+        data: { ...data, seasonId: season.id },
+      });
+      await shiftProductionTimesForMatchDateChange(tx, id, previous.date, updated.date);
+      return updated;
     });
+    if (!updatedMatch) return res.status(404).json({ error: 'Not found' });
     return res.json(updatedMatch);
   } catch (err) {
     return next(err);

@@ -35,6 +35,17 @@ LIVE volgt altijd de **actieve** productie. Klik bij de juiste productie op **Ac
 
 > **Verwijder** vraagt geen bevestiging en kan niet ongedaan worden gemaakt. Exporteer de productie eerst als je twijfelt.
 
+## Als de wedstrijd verschuift
+
+Wijzig je de datum of tijd van de wedstrijd (bij [Handmatige wedstrijden](/admin/handleiding/stamgegevens#handmatige-wedstrijden)), of zet een nieuwe [import](/admin/handleiding/instellingen#wedstrijden-importeren) de wedstrijd op een ander moment, dan schuift de productie mee:
+
+- de **livestream-start** schuift evenveel op als de wedstrijd. Gaat de wedstrijd van zaterdag 19:30 naar zondag 20:00, dan gaat een livestream-start van zaterdag 19:25 naar zondag 19:55;
+- de tijden in de **callsheet** en de geplande tijden van de items in LIVE schuiven ook mee.
+
+Het overzicht toont meteen de nieuwe datum, tijd en ploegnamen. Ook over de wissel naar zomer- of wintertijd blijft de livestream-start op dezelfde afstand van de aanvang.
+
+> Loopt de show van die productie op dat moment in LIVE, dan schuift er niets mee: alleen de wedstrijd krijgt de nieuwe tijd. Pas de livestream-start daarna zelf aan op het tabblad **Draaiboek**.
+
 ## Exporteren en importeren
 
 - **Exporteer** downloadt de hele productie als JSON-bestand: wedstrijd, crew met skills, posities, segmenten, titels, interviews, draaiboek en rapport.
@@ -49,7 +60,7 @@ Klik op de wedstrijd of op **Details**. Bovenaan staan de ploegen, de knop **Ope
 | Tabblad | Waarvoor |
 |---|---|
 | **Draaiboek** | Livestream-start, draaiboek kiezen, segmenten en callsheet |
-| **Beschikbaarheid** | Wie er aanwezig is |
+| **Beschikbaarheid** | Wie er aanwezig is, per groep (Crew en Entertainment), en of de minimale bezetting gehaald is |
 | **Bezetting** | Wie welke positie heeft, voor de hele productie en per segment |
 | **vMix-titels** | De naamtitels en de interviewkeuze |
 | **Rapport** | Productierapport, crewrapport en tijdsanalyse |

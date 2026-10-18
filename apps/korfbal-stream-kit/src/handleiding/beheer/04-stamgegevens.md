@@ -53,7 +53,7 @@ Onder **Wedstrijden importeren** (klik om open te klappen) importeer je het prog
 Voor wedstrijden die niet in het programma staan, zoals een oefenwedstrijd of een evenement, klik je op **Nieuwe Wedstrijd** en vul je **Datum & Tijd**, **Thuisploeg**, **Uitploeg** en eventueel de **Scheidsrechter** en een **Beschrijving** in. Een handmatige wedstrijd staat altijd in de lijst bij **Nieuwe productie**.
 
 > - Een handmatige wedstrijd verwijderen gaat zonder bevestiging en verwijdert ook de productie van die wedstrijd.
-> - Bij **bewerken** staat de tijd een of twee uur te vroeg in het formulier. Corrigeer de tijd voordat je opslaat, anders schuift de wedstrijd op.
+> - Wijzig je bij **bewerken** de datum of tijd, dan schuift de productie van die wedstrijd mee: livestream-start en callsheet-tijden (zie [Als de wedstrijd verschuift](/admin/handleiding/producties#als-de-wedstrijd-verschuift)).
 > - De lijst toont alleen het actieve seizoen.
 
 ### Clubs & spelers

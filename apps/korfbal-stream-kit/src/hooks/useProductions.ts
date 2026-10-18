@@ -1,8 +1,21 @@
-import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import {QueryClient, useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {createUrl, extractError} from '../lib/api';
 import {Position, PositionCategory, SegmentDefaultPosition} from "./usePositions";
 import {Person} from "./usePersons";
 import {useProductionTitles} from "./useTitles";
+
+/**
+ * After a match changed (manual edit or match import): the productions list shows the match's date
+ * and teams, and the server moved the production's own times along (services/matchChange.ts).
+ * ['production'] covers a production's detail, timing, callsheet and the match choice.
+ */
+export function invalidateMatchDependents(qc: QueryClient) {
+  return Promise.all([
+    qc.invalidateQueries({queryKey: ['manual-matches']}),
+    qc.invalidateQueries({queryKey: ['productions']}),
+    qc.invalidateQueries({queryKey: ['production']}),
+  ]);
+}
 
 export type Production = {
   id: number;
@@ -278,6 +291,62 @@ export function useProductionTiming(productionId: number) {
   });
 }
 
+export type AttendanceGroup = 'crew' | 'entertainment';
+
+export type AttendancePerson = {
+  id: number;
+  name: string;
+  gender: 'male' | 'female';
+  /** Entertainment when all skills belong to Entertainment positions; everyone else is Crew (API: domain/crewGroup.ts) */
+  group: AttendanceGroup;
+  skills: Array<{ code: string; name: string }>;
+  /** Set when the person is marked present */
+  productionPersonId: number | null;
+};
+
+/** One role of the minimum staffing (API: domain/minimumStaffing.ts, where the counts and skill codes live) */
+export type StaffingRole = {
+  key: string;
+  label: string;
+  singular: string;
+  plural: string;
+  required: number;
+  optional: boolean;
+  skillCodes: string[];
+  filled: number;
+  personIds: number[];
+  unknownSkillCodes: string[];
+  met: boolean;
+};
+
+export type Staffing = {
+  roles: StaffingRole[];
+  met: boolean;
+  shortfall: Array<{ key: string; missing: number; singular: string; plural: string }>;
+};
+
+export type ProductionAttendance = { persons: AttendancePerson[]; staffing: Staffing };
+
+function invalidateAttendance(qc: QueryClient, productionId: number) {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: ['production', productionId, 'persons'] }),
+    qc.invalidateQueries({ queryKey: ['production', productionId, 'attendance'] }),
+  ]);
+}
+
+/** Beschikbaarheid: every person (no paging) with group, skills and presence, plus the minimum staffing. */
+export function useProductionAttendance(productionId: number) {
+  return useQuery({
+    queryKey: ['production', productionId, 'attendance'],
+    enabled: !!productionId,
+    queryFn: async (): Promise<ProductionAttendance> => {
+      const res = await fetch(createUrl(`/api/production/${productionId}/attendance`));
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+  });
+}
+
 export function useProductionPersons(productionId: number) {
   return useQuery({
     queryKey: ['production', productionId, 'persons'],
@@ -302,7 +371,7 @@ export function useAddProductionPerson(productionId: number) {
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['production', productionId, 'persons'] }),
+    onSuccess: () => invalidateAttendance(qc, productionId),
   });
 }
 
@@ -313,7 +382,7 @@ export function useDeleteProductionPerson(productionId: number) {
       const res = await fetch(createUrl(`/api/production/${productionId}/persons/${id}`), { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['production', productionId, 'persons'] }),
+    onSuccess: () => invalidateAttendance(qc, productionId),
   });
 }
 
