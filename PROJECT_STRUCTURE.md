@@ -35,7 +35,7 @@ apps/korfbal-stream-api/
     │   ├── manual-matches.ts  # Manually entered matches
     │   ├── scoreboard.ts      # Proxy to venue scoreboard / shotclock
     │   ├── settings.ts        # App settings (vMix URL, sponsor/scoreboard/club config)
-    │   ├── seasons.ts         # Seasons (seizoenen): list, create, delete, active season
+    │   ├── seasons.ts         # Seasons (seizoenen): list, create, delete, active season, indoor start date
     │   ├── vmix.ts            # vMix data sources (sponsors, staff, titles, callsheet timing) + admin title templates
     │   ├── reports.ts         # Cross-production reports (occupancy, interviews, crew roles)
     │   ├── backup.ts          # Per-entity JSON backup export/import
@@ -196,7 +196,7 @@ No login (internal LAN tool), but every `/api` request needs an organization: `X
 | DELETE | /api/organizations/:id/logo | Remove the own logo |
 | GET | /api/match-source | Match import source of the chosen organization (`hasApiToken`, never the token) |
 | PUT | /api/match-source | Save provider, baseUrl, isEnabled, apiToken (absent keeps, null removes) |
-| POST | /api/match-source/test | Test the stored source: only ok or failed |
+| POST | /api/match-source/test | Test the stored source (asks for `1-weeks`): `{ok: true, matches}` or `{ok: false, error, code, hint}` with a category code (`SOURCE_*`, see `services/apiErrorCodes.ts`) |
 | GET | /api/organization/api-keys | API keys (name, prefix, createdAt, lastUsedAt, revokedAt) |
 | POST | /api/organization/api-keys | Create a key `{name}`: the full key is in this answer only |
 | DELETE | /api/organization/api-keys/:id | Revoke a key |
@@ -419,7 +419,7 @@ No login (internal LAN tool), but every `/api` request needs an organization: `X
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/match/matches/schedule | Fetch match schedule from provider |
-| POST | /api/match/matches/schedule/import | Import match schedule |
+| POST | /api/match/matches/schedule/import | Import match schedule. `?date=` DD-MM-YYYY or YYYY-MM-DD (from that day), `N-weeks` (from the current week; default `30-weeks`) or `indoor` (from `Season.indoorStartDate` of the active season). Failures: `{ok: false, error, code, hint}` (`INVALID_DATE`, `SOURCE_*`) |
 | GET | /api/manual-matches | List manual matches |
 | POST | /api/manual-matches | Create manual match |
 | PUT | /api/manual-matches/:id | Update manual match |
@@ -462,6 +462,7 @@ Season-bound endpoints (`GET /api/production`, `/api/production/matches`, `/api/
 | GET | /api/seasons/suggest-next | Suggested next season `{ startYear, name }` |
 | POST | /api/seasons | Create season `{ name: "2027/2028", activate? }` (409 if exists) |
 | PUT | /api/seasons/active | Set active season `{ seasonId }` |
+| PUT | /api/seasons/:id | Set the indoor competition start date `{ indoorStartDate: "DD-MM-YYYY" \| null }` (within the season) |
 | DELETE | /api/seasons/:id | Delete an empty, non-active season (409 otherwise) |
 
 ### vMix (`/api/vmix`, `/api/admin/vmix`)

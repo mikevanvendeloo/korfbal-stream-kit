@@ -9,8 +9,9 @@ Een seizoen loopt van 1 juli tot en met 30 juni. Wedstrijden, producties en spel
 Doe het in deze volgorde:
 
 1. **Seizoen → Nieuw seizoen**: vul de naam in (bijvoorbeeld `2026/2027`), laat **Direct activeren** aangevinkt en klik op **Seizoen aanmaken**.
-2. **Seizoen vullen → Wedstrijden importeren**: haalt het wedstrijdprogramma op, tot ongeveer 20 weken vooruit vanaf vandaag.
-3. **Seizoen vullen → Teams/spelers importeren**: haalt de ploegen en spelers van de Korfbal League op, met foto's.
+2. **Seizoenen → Start zaalcompetitie**: vul de eerste speeldag van de zaalcompetitie in (zie [Startdatum zaalcompetitie](#startdatum-zaalcompetitie)).
+3. **Seizoen vullen → Wedstrijden importeren** met **Zaalcompetitie**: haalt alle wedstrijden op vanaf die dag (zie [Wedstrijden importeren](#wedstrijden-importeren)).
+4. **Seizoen vullen → Teams/spelers importeren**: haalt de ploegen en spelers van de Korfbal League op, met foto's.
 4. **Club & Teams**: controleer de **Eigen Club** en vink de **Productie Teams** aan.
 5. Voeg eventueel [handmatige wedstrijden](/admin/handleiding/stamgegevens#competitie) toe en controleer spelers en foto's bij **Clubs & spelers**.
 
@@ -23,9 +24,45 @@ Doe het in deze volgorde:
 - **Actief seizoen**: welk seizoen je ziet in de lijsten van wedstrijden, producties en spelers. Kies er een en klik op **Actief seizoen opslaan**.
 - **Seizoen vullen**: de twee imports van hierboven.
 - **Nieuw seizoen**: een seizoen aanmaken.
-- **Seizoenen**: alle seizoenen met het aantal wedstrijden en spelers. Alleen een leeg seizoen dat niet actief is, kun je verwijderen.
+- **Seizoenen**: alle seizoenen met de **Start zaalcompetitie** en het aantal wedstrijden en spelers. Alleen een leeg seizoen dat niet actief is, kun je verwijderen.
 
 > Het actieve seizoen geldt voor **iedereen** tegelijk: wissel je het, dan wisselt het in alle browsers.
+
+### Startdatum zaalcompetitie
+
+De zaalcompetitie begint elk seizoen op een andere dag; het KNKV bepaalt die voor iedereen. Vul hem daarom **elk seizoen** in bij **Seizoenen**, in de kolom **Start zaalcompetitie**: typ de datum als `DD-MM-JJJJ` (bijvoorbeeld `07-11-2026`) en druk op Enter of klik ergens anders. Een rood veld betekent dat de datum niet bestaat; de datum moet ook binnen het seizoen liggen (1 juli t/m 30 juni). Maak het veld leeg om de datum te wissen.
+
+De startdatum geldt voor alle organisaties. De keuze **Zaalcompetitie** bij het importeren gebruikt de startdatum van het **actieve** seizoen.
+
+### Wedstrijden importeren
+
+Bij **Seizoen vullen** (en bij **Stamgegevens → Wedstrijdprogramma → Wedstrijden importeren**) kies je wat je importeert en klik je op **Wedstrijden importeren**:
+
+- **Zaalcompetitie (vanaf …)**: alle wedstrijden vanaf de startdatum van de zaalcompetitie tot het einde van het programma dat de bron al heeft gepubliceerd. Is er geen startdatum, dan staat de keuze uit met *Stel de startdatum van de zaalcompetitie in bij Seizoenen*.
+- **Vanaf datum of periode**, met in het veld:
+  - een dag als `DD-MM-JJJJ` (bijvoorbeeld `08-02-2026`): alles vanaf die dag tot het einde van het gepubliceerde programma. Een dag in het verleden mag ook.
+  - een aantal weken, bijvoorbeeld `30-weeks` (de standaard): geteld vanaf **de huidige week**. Alleen weken werken; `1-days` of `8-months` geven een fout.
+
+Na de import zie je hoeveel wedstrijden er per seizoen zijn binnengekomen, en hoeveel daarvan **nieuw** en **bijgewerkt** zijn.
+
+> Het advies: elk seizoen de startdatum invullen, daarna **Zaalcompetitie** importeren; later opnieuw importeren werkt bij. Een nieuwe import voegt wedstrijden toe die de bron inmiddels heeft gepubliceerd en werkt bestaande wedstrijden bij (tijd, veld, scheidsrechter).
+
+Gaat het mis, dan zie je wat er mis is en wat je kunt doen:
+
+| Foutmelding | Wat te doen |
+|---|---|
+| **Wedstrijdimport is niet ingesteld voor deze organisatie** | Vul bij **Overig → Organisatie → Wedstrijdimport** de bron, het adres en het token in, vink **Wedstrijdimport aan** aan en klik op **Opslaan**. |
+| **Ongeldige datum** of **Datum … bestaat niet** | Typ een dag als `DD-MM-JJJJ` (bijvoorbeeld `07-11-2026`) of een aantal weken (bijvoorbeeld `30-weeks`). Dagen of maanden als periode (`1-days`, `8-months`) werken niet. |
+| **De startdatum van de zaalcompetitie is niet ingesteld** | Vul bij **Instellingen → Seizoen → Seizoenen** de **Start zaalcompetitie** van het actieve seizoen in. |
+| **Token ongeldig of verlopen** | Vraag een nieuw token aan bij de wedstrijdbron, vul het in bij **Overig → Organisatie → Wedstrijdimport** en klik op **Opslaan**. |
+| **URL klopt niet** | Controleer het **Adres (URL)**; voor Sportclub Vrijwilligersmanagement is dat `https://api.sportclubvrijwilligersmanagement.nl/v1`. |
+| **De wedstrijdbron weigerde het verzoek** | Controleer de datum en het adres. Blijft het misgaan, neem dan contact op met de beheerder van de wedstrijdbron. |
+| **De wedstrijdbron gaf een serverfout** | Mogelijk klopt het datumformaat niet (gebruik `DD-MM-JJJJ` of `30-weeks`), of de bron heeft een storing. Probeer het later opnieuw. |
+| **De wedstrijdbron reageert niet op tijd** | Probeer het later opnieuw, of kies een kortere periode. |
+| **De wedstrijdbron is niet bereikbaar** | Controleer het **Adres (URL)** en of de server van StreamKit internet heeft. |
+| **De wedstrijdbron gaf een onverwacht antwoord** | Het adres wijst waarschijnlijk naar een website in plaats van naar de API. Controleer het **Adres (URL)** (eindigt meestal op `/v1`). |
+
+> De melding zegt alleen **wat voor** fout het is, nooit wat de bron precies terugstuurde. De details (statuscode, het antwoord van de bron, hoe lang het duurde) staan in het serverlog van de API (`docker logs`), zonder het token.
 
 ## Club & Teams
 

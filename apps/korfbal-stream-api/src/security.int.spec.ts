@@ -20,9 +20,10 @@ import {clearOrganizationLookupCache, ORGANIZATION_LOOKUP_TTL_MS} from './middle
 import {logger} from './utils/logger';
 import {getAssetsRoot} from './services/config';
 import {saveMatchSource} from './services/matchSchedule';
+import {recordingServer} from './test-support/recordingServer';
 import {prisma as appPrisma, prismaUnscoped} from './services/prisma';
 import {MissingOrganizationContextError, runWithOrganization} from './services/organizationContext';
-import {ensureOrganization, inTestOrganization, recordQueries, testDb as prisma, testOrganizationId, withoutOrganization} from '../test-helpers';
+import {ensureOrganization, inTestOrganization, recordQueries, TEST_ORGANIZATION_SLUG, testDb as prisma, testOrganizationId, withoutOrganization} from '../test-helpers';
 import {createProductionScenario, createTenantScenario, ProductionScenario, TenantScenario} from '../test-scenarios';
 
 /**
@@ -446,21 +447,6 @@ describe.runIf(runDb)('secrets (integration)', () => {
   });
 });
 
-/** A local HTTP server that records the requests it gets and answers with `answer`. */
-async function recordingServer(answer: {status: number; body: string}) {
-  const requests: http.IncomingHttpHeaders[] = [];
-  const urls: string[] = [];
-  const server = http.createServer((req, res) => {
-    requests.push(req.headers);
-    urls.push(req.url ?? '');
-    res.writeHead(answer.status, {'content-type': 'application/json'});
-    res.end(answer.body);
-  });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`;
-  return {url, requests, urls, close: () => new Promise<void>((resolve) => server.close(() => resolve()))};
-}
-
 describe.runIf(runDb)('match source token and address (integration)', () => {
   const TOKEN = 'sec-match-token-1a2b3c4d';
   const put = (body: Record<string, unknown>) => request(app).put('/api/match-source').send({provider: 'vrijwilligers', ...body});
@@ -505,26 +491,53 @@ describe.runIf(runDb)('match source token and address (integration)', () => {
     expect(saved.apiToken).toBeNull();
   });
 
-  it('answers the connection test with only ok or failed, nothing of the upstream answer', async () => {
-    const answers = [
-      {status: 418, body: JSON.stringify({error: 'upstream-detail-xyz', echo: TOKEN})},
-      {status: 200, body: '"html-page"'},
+  it('answers a failing source with a category only: no upstream body, headers, exact status or token', async () => {
+    // Upstreams that echo the Authorization header and their own details back
+    const echo = (status: number) => (req: http.IncomingMessage) => ({
+      status, body: JSON.stringify({statusCode: status, message: 'upstream-detail-xyz', authorization: req.headers.authorization, server: 'nginx/1.2.3'}),
+    });
+    const cases = [
+      {answer: echo(500), code: 'SOURCE_SERVER_ERROR'},
+      {answer: echo(503), code: 'SOURCE_SERVER_ERROR'},
+      {answer: echo(401), code: 'SOURCE_UNAUTHORIZED'},
+      {answer: echo(418), code: 'SOURCE_REJECTED'},
+      {answer: () => ({status: 200, body: `<html>${TOKEN} upstream-detail-xyz</html>`, contentType: 'text/html'}), code: 'SOURCE_INVALID_RESPONSE'},
     ];
-    for (const answer of answers) {
-      const upstream = await recordingServer(answer);
-      try {
-        await put({baseUrl: upstream.url, apiToken: TOKEN});
-        const failed = await request(app).post('/api/match-source/test');
-        expect(failed.status).toBe(502);
-        expect(failed.body).toEqual({ok: false, error: 'Geen verbinding met de wedstrijdbron'});
-      } finally {
-        await upstream.close();
+    const logged: string[] = [];
+    const capture = (...args: unknown[]) => void logged.push(JSON.stringify(args));
+    const spies = (['info', 'warn', 'error', 'debug'] as const).map((level) => vi.spyOn(logger, level).mockImplementation(capture as never));
+    try {
+      for (const {answer, code} of cases) {
+        const upstream = await recordingServer(answer);
+        try {
+          await put({baseUrl: upstream.url, apiToken: TOKEN});
+          for (const res of [await request(app).post('/api/match-source/test'), await request(app).post('/api/match/matches/schedule/import?date=08-02-2026')]) {
+            expect(res.body, code).toEqual({ok: false, code, error: expect.any(String), hint: expect.any(String)});
+            expect(res.text).not.toContain(TOKEN);
+            expect(res.text).not.toContain('upstream-detail-xyz');
+            expect(res.text).not.toContain('nginx');
+            expect(res.text).not.toMatch(/\b(418|503)\b/);
+            expect(res.headers['server']).toBeUndefined();
+          }
+          // The upstream did get the token: the echo really contained it
+          expect(upstream.requests[0].authorization).toBe(`Bearer ${TOKEN}`);
+        } finally {
+          await upstream.close();
+        }
       }
+      // The server log has the details (status, body), but never the token
+      const log = logged.join('\n');
+      expect(log).toContain('upstream-detail-xyz');
+      expect(log).toContain('"upstreamStatus":418');
+      expect(log).toContain(`"organization":"${TEST_ORGANIZATION_SLUG}"`);
+      expect(log).not.toContain(TOKEN);
+    } finally {
+      spies.forEach((s) => s.mockRestore());
     }
     const working = await recordingServer({status: 200, body: '[]'});
     try {
       await put({baseUrl: working.url, apiToken: TOKEN});
-      expect((await request(app).post('/api/match-source/test')).body).toEqual({ok: true});
+      expect((await request(app).post('/api/match-source/test')).body).toEqual({ok: true, matches: 0});
     } finally {
       await working.close();
     }
@@ -1352,6 +1365,11 @@ describe('cross-site writes (CSRF)', () => {
   it('refuses PUT, PATCH and DELETE from another site too, also on tenant routes and on another port', async () => {
     expect((await withoutOrganization(request(app).put('/api/organizations/1')).set('Origin', EVIL).send({isActive: false})).status).toBe(403);
     expect((await withoutOrganization(request(app).delete('/api/seasons/1')).set('Origin', EVIL)).status).toBe(403);
+    // The indoor competition start date of a season (global data)
+    const seasonPut = await withoutOrganization(request(app).put('/api/seasons/1')).set('Origin', EVIL).send({indoorStartDate: '07-11-2026'});
+    expect(seasonPut.status).toBe(403);
+    expect(seasonPut.body.code).toBe('CROSS_SITE_REFUSED');
+    expect((await withoutOrganization(request(app).put('/api/seasons/1')).set('Sec-Fetch-Site', 'cross-site').send({indoorStartDate: null})).status).toBe(403);
     expect((await request(app).patch('/api/sponsors/1').set('Origin', EVIL).send({})).status).toBe(403);
     expect((await request(app).post('/api/sponsors').set('Host', 'localhost:3333').set('Origin', 'http://localhost:9999').send({})).status).toBe(403);
     // Same site (another port) is not same-origin

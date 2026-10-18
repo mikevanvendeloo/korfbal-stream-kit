@@ -282,6 +282,7 @@ const ROUTES: Record<string, Probe> = {
   'PUT /api/production/segment-templates/items/:itemId': {write: (a) => `/api/production/segment-templates/items/${a.segmentTemplateItemId}`, body: () => NAME},
   'PUT /api/production/segments/:segmentId': {write: (a) => `/api/production/segments/${a.segmentId}`, body: () => NAME},
   'PUT /api/production/skills/:id': {write: (a) => `/api/production/skills/${a.skillId}`, body: () => NAME},
+  'PUT /api/seasons/:id': GLOBAL,
   'PUT /api/seasons/active': GLOBAL,
   'PUT /api/settings/club-config': OWN,
   'PUT /api/settings/scoreboard-config': OWN,

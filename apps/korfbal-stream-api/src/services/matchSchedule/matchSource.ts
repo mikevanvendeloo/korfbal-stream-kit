@@ -70,5 +70,11 @@ export async function getMatchScheduleProvider(): Promise<MatchScheduleProvider>
   const source = await getMatchSource();
   // The address is checked on save too; this also covers rows from before that check
   if (!source || !source.isEnabled || !isAllowedMatchSourceUrl(source.baseUrl)) throw new MatchSourceNotConfiguredError();
-  return createMatchScheduleProvider({...source, teamPrefixes: await ownTeamPrefixes()});
+  const teamPrefixes = await ownTeamPrefixes();
+  try {
+    return createMatchScheduleProvider({...source, teamPrefixes});
+  } catch {
+    // A provider this version doesn't know (a row from another version): not usable, so not configured
+    throw new MatchSourceNotConfiguredError();
+  }
 }

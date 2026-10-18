@@ -8,3 +8,5 @@ export {
   saveMatchSource,
   toMatchSourceDto,
 } from './matchSource';
+export {classifyMatchSourceError, fetchFromMatchSource, MatchSourceError, redactUpstreamBody, sendMatchImportError} from './matchSourceFetch';
+export type {MatchSourceErrorCode} from './matchSourceFetch';

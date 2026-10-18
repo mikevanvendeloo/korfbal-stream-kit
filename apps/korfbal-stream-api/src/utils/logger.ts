@@ -61,6 +61,11 @@ function getCircularReplacer() {
   };
 }
 
+// On a terminal the metadata is indented for reading; elsewhere (docker logs, files) every entry stays
+// on one line, so lines of different requests don't interleave and grep shows the whole entry.
+// LOG_PRETTY=true/false overrides the choice.
+const PRETTY = process.env.LOG_PRETTY ? process.env.LOG_PRETTY === 'true' : !!process.stdout.isTTY;
+
 const logFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.errors({ stack: true }),
@@ -84,7 +89,7 @@ const logFormat = winston.format.combine(
       try {
         // Gebruik nog steeds de 'getCircularReplacer' (of een simpele variant)
         // als een laatste vangnet voor eventuele *andere* circulaire objecten
-        msg += ` ${JSON.stringify(loggableMetadata, getCircularReplacer(), 2)}`;
+        msg += ` ${JSON.stringify(loggableMetadata, getCircularReplacer(), PRETTY ? 2 : undefined)}`;
       } catch (e: any) {
         msg += ` [Metadata serialization error: ${e.message}]`;
       }
@@ -104,10 +109,8 @@ export const logger = winston.createLogger({
   format: logFormat,
   transports: [
     new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        logFormat
-      ),
+      // Colour codes only on a terminal: in docker logs they show up as escape sequences
+      format: PRETTY ? winston.format.combine(winston.format.colorize(), logFormat) : logFormat,
     }),
     new winston.transports.File({
       filename: 'error.log',

@@ -9,7 +9,9 @@ import {
   prevWeekStr,
   useMatchSchedule,
 } from '../hooks/useMatchSchedule';
-import {importMatchSchedule, MatchSchedule} from '../lib/api';
+import {MatchSchedule} from '../lib/api';
+import MatchImportForm from '../components/MatchImportForm';
+import {useActiveSeason} from '../hooks/useSeasons';
 import {
   ColumnDef,
   flexRender,
@@ -109,6 +111,7 @@ export default function MatchSchedulePage() {
   const [date, setDate] = useState<string>(today);
   const [location, setLocation] = useState<LocationFilter>('HOME');
   const { data, isLoading, isError, error, refetch } = useMatchSchedule(date, location);
+  const { data: activeSeason } = useActiveSeason();
 
   const title = useMemo(() => {
     // Render the selected date in the browser's local timezone
@@ -204,18 +207,15 @@ export default function MatchSchedulePage() {
             <option value="AWAY">Away</option>
             <option value="ALL">All</option>
           </select>
-          <button
-            aria-label="import-default"
-            onClick={async () => {
-              await importMatchSchedule({date: '08-02-2026'});
-              await refetch();
-            }}
-            className="px-3 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100"
-          >
-            Import (default)
-          </button>
         </div>
       </div>
+
+      <details className="mb-4 rounded-md border border-gray-200 dark:border-gray-700 p-3" data-testid="match-schedule-import">
+        <summary className="cursor-pointer text-sm font-medium text-gray-800 dark:text-gray-100">Wedstrijden importeren</summary>
+        <div className="mt-3">
+          <MatchImportForm indoorStartDate={activeSeason?.indoorStartDate ?? null} onImported={() => void refetch()}/>
+        </div>
+      </details>
 
       <div className="flex items-center justify-between mb-4 gap-2">
         <div className="flex items-center gap-2">

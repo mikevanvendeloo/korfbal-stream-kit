@@ -5,13 +5,13 @@ import SeasonSettingsTab from './SeasonSettingsTab';
 
 type Season = {
   id: number; startYear: number; name: string; startDate: string; endDate: string;
-  isActive: boolean; matchCount: number; playerCount: number; createdAt: string;
+  isActive: boolean; matchCount: number; playerCount: number; indoorStartDate: string | null; createdAt: string;
 };
 
 const mk = (id: number, startYear: number, over: Partial<Season> = {}): Season => ({
   id, startYear, name: `${startYear}/${startYear + 1}`,
   startDate: `${startYear}-06-30T22:00:00.000Z`, endDate: `${startYear + 1}-06-30T21:59:59.999Z`,
-  isActive: false, matchCount: 0, playerCount: 0, createdAt: '2025-07-01T00:00:00.000Z',
+  isActive: false, matchCount: 0, playerCount: 0, indoorStartDate: null, createdAt: '2025-07-01T00:00:00.000Z',
   ...over,
 });
 
@@ -51,6 +51,11 @@ describe('SeasonSettingsTab', () => {
         if (body.activate) seasons = seasons.map(s => ({...s, isActive: false}));
         seasons = [created, ...seasons];
         return json(created, 201);
+      }
+      if (path.startsWith('/api/seasons/') && method === 'PUT') {
+        const id = Number(path.split('/').pop());
+        seasons = seasons.map(s => (s.id === id ? {...s, indoorStartDate: body.indoorStartDate} : s));
+        return json(seasons.find(s => s.id === id));
       }
       if (path.startsWith('/api/seasons/') && method === 'DELETE') {
         const id = Number(path.split('/').pop());
@@ -163,11 +168,51 @@ describe('SeasonSettingsTab', () => {
     expect(screen.queryByText(/Spelers: 40 nieuw/)).not.toBeInTheDocument();
   });
 
-  it('hints that the match program only imports ~20 weeks ahead when the active season has not started', async () => {
+  it('hints that a range counts from this week when the active season has not started', async () => {
     seasons = [mk(5, 2099, {isActive: true})];
     renderComponent();
     const hint = await screen.findByTestId('season-not-started-hint');
-    expect(hint).toHaveTextContent(/20 weken vooruit/);
+    expect(hint).toHaveTextContent(/telt vanaf deze week/);
+  });
+
+  it('imports 30 weeks by default when the indoor start date is not set', async () => {
+    renderComponent();
+    const fill = await screen.findByTestId('fill-season');
+    expect(within(fill).getByRole('radio', {name: /Zaalcompetitie/})).toBeDisabled();
+    expect(within(fill).getByTestId('indoor-start-missing')).toHaveTextContent('Stel de startdatum van de zaalcompetitie in bij Seizoenen');
+    fireEvent.click(within(fill).getByRole('button', {name: /wedstrijden importeren/i}));
+    await within(fill).findByTestId('match-import-result');
+    const call = calls.find(c => c.url.includes('/api/match/matches/schedule/import'));
+    expect(new URL(call!.url, 'http://localhost').searchParams.get('date')).toBe('30-weeks');
+  });
+
+  it('imports the indoor competition from the start date of the active season', async () => {
+    seasons = [mk(1, 2026, {isActive: true, indoorStartDate: '2026-11-07'})];
+    renderComponent();
+    const fill = await screen.findByTestId('fill-season');
+    const preset = within(fill).getByRole('radio', {name: 'Zaalcompetitie (vanaf 7 november 2026)'});
+    expect(preset).toBeEnabled();
+    expect(preset).toBeChecked();
+    fireEvent.click(within(fill).getByRole('button', {name: /wedstrijden importeren/i}));
+    await within(fill).findByTestId('match-import-result');
+    const call = calls.find(c => c.url.includes('/api/match/matches/schedule/import'));
+    expect(new URL(call!.url, 'http://localhost').searchParams.get('date')).toBe('indoor');
+  });
+
+  it('sets the indoor start date of a season as DD-MM-JJJJ', async () => {
+    renderComponent();
+    const field = await screen.findByLabelText('Start zaalcompetitie 2025/2026');
+    fireEvent.change(field, {target: {value: '31-02-2026'}});
+    fireEvent.blur(field);
+    expect(field).toHaveAttribute('aria-invalid', 'true');
+    expect(calls.some(c => c.method === 'PUT' && c.url.includes('/api/seasons/1'))).toBe(false);
+
+    fireEvent.change(field, {target: {value: '7-11-2025'}});
+    fireEvent.blur(field);
+    await waitFor(() => expect(calls.find(c => c.method === 'PUT' && c.url.includes('/api/seasons/1'))?.body).toEqual({indoorStartDate: '2025-11-07'}));
+    await waitFor(() => expect(screen.getByLabelText('Start zaalcompetitie 2025/2026')).toHaveValue('07-11-2025'));
+    // The preset follows
+    expect(await within(screen.getByTestId('fill-season')).findByRole('radio', {name: 'Zaalcompetitie (vanaf 7 november 2025)'})).toBeEnabled();
   });
 
   it('shows no not-started hint for a running season', async () => {

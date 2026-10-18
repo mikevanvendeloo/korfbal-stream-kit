@@ -1,5 +1,5 @@
 import {QueryClient, useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {createUrl, extractError} from '../lib/api';
+import {createUrl, extractError, matchImportError} from '../lib/api';
 import {followRenamedOrganization} from '../lib/organization';
 
 /** An organization as the API shows it (routes/organizations.ts → toOrganizationDto). */
@@ -153,10 +153,17 @@ export function useSaveMatchSource() {
   });
 }
 
-/** Tests the stored settings; the API answers only ok or failed (no details of the other server). */
+/**
+ * Tests the stored settings by asking the source for the coming week: the number of matches, or a
+ * MatchImportError with the category of the failure (never details of the other server).
+ */
 export function useTestMatchSource() {
   return useMutation({
-    mutationFn: async (): Promise<{ ok: true }> => json(await fetch(createUrl('/api/match-source/test'), {method: 'POST'})),
+    mutationFn: async (): Promise<{ ok: true; matches: number }> => {
+      const res = await fetch(createUrl('/api/match-source/test'), {method: 'POST'});
+      if (!res.ok) throw await matchImportError(res, 'Geen verbinding met de wedstrijdbron');
+      return res.json();
+    },
   });
 }
 

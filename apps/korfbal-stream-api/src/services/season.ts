@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {prisma} from './prisma';
 import {getSetting, setSetting} from './appSettings';
 import {getOrganizationId} from './organizationContext';
+import {dateColumnToIsoDay, isoDayToDateColumn} from '../utils/dayDate';
 
 export const SEASON_TIME_ZONE = 'Europe/Amsterdam';
 export const ACTIVE_SEASON_ID_KEY = 'activeSeasonId';
@@ -225,6 +226,24 @@ export async function setActiveSeason(id: number): Promise<Season> {
   return season;
 }
 
+/**
+ * Sets (ISO `YYYY-MM-DD`) or clears (null) the indoor competition start date of a season. The date
+ * must fall within the season (1 July to 30 June); a 400 SeasonError otherwise.
+ */
+export async function setSeasonIndoorStartDate(id: number, isoDay: string | null): Promise<Season> {
+  const season = await findSeasonOrThrow(id);
+  if (isoDay !== null) {
+    const first = `${season.startYear}-07-01`;
+    const last = `${season.startYear + 1}-06-30`;
+    if (isoDay < first || isoDay > last) {
+      throw new SeasonError(`De startdatum moet in seizoen ${season.name} liggen (1 juli ${season.startYear} t/m 30 juni ${season.startYear + 1})`, 400);
+    }
+  }
+  const updated = await prisma.season.update({where: {id}, data: {indoorStartDate: isoDay === null ? null : isoDayToDateColumn(isoDay)}});
+  clearSeasonCache();
+  return updated;
+}
+
 /** Largest value of a PostgreSQL `integer` column; larger ids would make Prisma throw instead of a 400. */
 export const MAX_SEASON_ID = 2147483647;
 
@@ -261,6 +280,8 @@ export interface SeasonDto {
   isActive: boolean;
   matchCount: number;
   playerCount: number;
+  /** Start of the indoor competition, `YYYY-MM-DD`, or null when not set */
+  indoorStartDate: string | null;
   createdAt: string;
 }
 
@@ -290,6 +311,7 @@ export function toSeasonDto(season: SeasonWithCounts, activeSeasonId: number): S
     isActive: season.id === activeSeasonId,
     matchCount: season._count.matches ?? 0,
     playerCount: season._count.players,
+    indoorStartDate: dateColumnToIsoDay(season.indoorStartDate),
     createdAt: season.createdAt.toISOString(),
   };
 }

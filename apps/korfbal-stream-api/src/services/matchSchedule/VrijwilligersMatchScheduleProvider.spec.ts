@@ -1,6 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import axios from 'axios';
-import {colorForTeam, VrijwilligersMatchScheduleProvider} from './VrijwilligersMatchScheduleProvider';
+import {colorForTeam, toUpstreamDate, VrijwilligersMatchScheduleProvider} from './VrijwilligersMatchScheduleProvider';
 import {InvalidMatchScheduleResponseError} from './MatchScheduleProvider';
 
 vi.mock('axios');
@@ -25,7 +25,8 @@ describe('VrijwilligersMatchScheduleProvider', () => {
     const [calledUrl] = mockedAxios.get.mock.calls[0];
     const url = new URL(calledUrl as string);
     expect(url.pathname).toBe('/v1/programs');
-    expect(url.searchParams.get('date')).toBe('2025-11-01');
+    // The source answers ISO with a server error: a single day goes as DD-MM-YYYY
+    expect(url.searchParams.get('date')).toBe('01-11-2025');
     expect(url.searchParams.get('reserves')).toBe('false');
     expect(url.searchParams.get('location')).toBe('HOME');
     expect(url.searchParams.get('levelType')).toBe('ALL');
@@ -229,6 +230,39 @@ describe('VrijwilligersMatchScheduleProvider', () => {
     const provider = makeProvider();
 
     await expect(provider.fetchMatches({date: '2025-11-01'})).rejects.toThrow('network error');
+  });
+
+  describe('the date the source gets', () => {
+    it('converts an ISO day to DD-MM-YYYY', () => {
+      expect(toUpstreamDate('2026-02-08')).toBe('08-02-2026');
+      expect(toUpstreamDate('2026-11-07')).toBe('07-11-2026');
+    });
+
+    it('passes ranges and DD-MM-YYYY through unchanged', () => {
+      expect(toUpstreamDate('30-weeks')).toBe('30-weeks');
+      expect(toUpstreamDate('1-weeks')).toBe('1-weeks');
+      expect(toUpstreamDate('08-02-2026')).toBe('08-02-2026');
+    });
+
+    it.each([
+      ['2026-02-08', '08-02-2026'],
+      ['08-02-2026', '08-02-2026'],
+      ['30-weeks', '30-weeks'],
+    ])('requests date=%s as %s', async (date, upstream) => {
+      mockedAxios.get = vi.fn().mockResolvedValue({data: []});
+      await makeProvider().fetchMatches({date});
+      expect(new URL(mockedAxios.get.mock.calls[0][0] as string).searchParams.get('date')).toBe(upstream);
+    });
+  });
+
+  it('treats an object without arrays (an error object) as an invalid answer', async () => {
+    mockedAxios.get = vi.fn().mockResolvedValue({data: {statusCode: 500, message: 'Internal server error'}});
+    await expect(makeProvider().fetchMatches({date: '30-weeks'})).rejects.toBeInstanceOf(InvalidMatchScheduleResponseError);
+  });
+
+  it('accepts an empty object as no matches', async () => {
+    mockedAxios.get = vi.fn().mockResolvedValue({data: {}});
+    expect(await makeProvider().fetchMatches({date: '30-weeks'})).toEqual([]);
   });
 
   describe('colorForTeam', () => {

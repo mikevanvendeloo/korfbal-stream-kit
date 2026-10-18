@@ -1,18 +1,13 @@
 import {Router} from 'express';
 import {MatchSourceInputSchema} from '../schemas/organization';
 import {
-  getMatchScheduleProvider,
+  fetchFromMatchSource,
   getMatchSource,
-  MatchSourceNotConfiguredError,
+  MatchSourceError,
   saveMatchSource,
+  sendMatchImportError,
   toMatchSourceDto,
 } from '../services/matchSchedule';
-import {logger} from '../utils/logger';
-
-function upstreamFailure(err: unknown): {status: number | null; code: string | null} {
-  const e = err as {response?: {status?: number}; code?: string} | null;
-  return {status: e?.response?.status ?? null, code: e?.code ?? null};
-}
 
 /** Match import settings of the chosen organization (Beheer → Organisatie → Wedstrijdimport). The token is never returned. */
 export const matchSourceRouter: Router = Router();
@@ -36,18 +31,17 @@ matchSourceRouter.put('/', async (req, res, next) => {
   }
 });
 
-// POST /api/match-source/test -> fetches today's matches with the stored settings: only ok or failed.
-// Nothing of the upstream answer (status, body, count, kind of failure) goes back: the address is
-// chosen by the caller, so details would make this a probe for other servers (and could echo the token).
-matchSourceRouter.post('/test', async (_req, res) => {
+// POST /api/match-source/test -> asks the source for the coming week with the stored settings and
+// answers {ok: true, matches} or {ok: false, error, code, hint}. A failure is only a category (token,
+// URL, server error, timeout, unreachable, unexpected answer): the address is chosen in Beheer, so the
+// upstream body, headers or exact status would make this a probe for other servers (and could echo the
+// token). The details go to the server log.
+matchSourceRouter.post('/test', async (_req, res, next) => {
   try {
-    const provider = await getMatchScheduleProvider();
-    await provider.fetchMatches({date: new Date().toISOString().slice(0, 10)});
-    return res.json({ok: true});
+    const matches = await fetchFromMatchSource({date: '1-weeks'});
+    return res.json({ok: true, matches: matches.length});
   } catch (err) {
-    if (err instanceof MatchSourceNotConfiguredError) return res.status(409).json({ok: false, error: err.message});
-    const {status, code} = upstreamFailure(err);
-    logger.warn('Match source test failed', {status, code});
-    return res.status(502).json({ok: false, error: 'Geen verbinding met de wedstrijdbron'});
+    if (err instanceof MatchSourceError) return sendMatchImportError(res, err.code);
+    return next(err);
   }
 });

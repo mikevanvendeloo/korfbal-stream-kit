@@ -274,26 +274,65 @@ describe('Match schedule import and list APIs', () => {
     expect(mockedAxios.get).not.toHaveBeenCalled();
   });
 
-  it('returns a specific 502 when upstream answers with something other than JSON', async () => {
+  it('returns SOURCE_INVALID_RESPONSE when upstream answers with something other than JSON', async () => {
     mockedAxios.get = vi.fn().mockResolvedValue({ data: '<html>Proxy error</html>', status: 200 });
 
     const res = await request(app).post('/api/match/matches/schedule/import');
     expect(res.status).toBe(502);
-    expect(res.body.error).toBe('Invalid response format from program API');
+    expect(res.body).toMatchObject({ ok: false, code: 'SOURCE_INVALID_RESPONSE', error: 'De wedstrijdbron gaf een onverwacht antwoord' });
+    expect(res.body.hint).toBeTruthy();
   });
 
-  it('returns 502 for an unknown match source provider', async () => {
+  it('treats an unknown match source provider as not configured', async () => {
     source.provider = 'does-not-exist';
     const res = await request(app).post('/api/match/matches/schedule/import');
-    expect(res.status).toBe(502);
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('SOURCE_NOT_CONFIGURED');
   });
 
   it('returns 409 when the organization has no (enabled) match source', async () => {
     source = null;
     const res = await request(app).post('/api/match/matches/schedule/import');
     expect(res.status).toBe(409);
-    expect(res.body.error).toBe('Wedstrijdimport is niet ingesteld voor deze organisatie');
+    expect(res.body).toMatchObject({ ok: false, code: 'SOURCE_NOT_CONFIGURED', error: 'Wedstrijdimport is niet ingesteld voor deze organisatie' });
+    expect(res.body.hint).toBeTruthy();
     expect(mockedAxios.get).not.toHaveBeenCalled();
+  });
+
+  it('imports 30 weeks by default', async () => {
+    mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
+
+    const res = await request(app).post('/api/match/matches/schedule/import');
+    expect(res.status).toBe(200);
+    expect(new URL(mockedAxios.get.mock.calls[0][0]).searchParams.get('date')).toBe('30-weeks');
+  });
+
+  it.each([
+    ['08-02-2026', '08-02-2026'],
+    ['2026-02-08', '08-02-2026'],
+    ['8-2-2026', '08-02-2026'],
+    ['20-weeks', '20-weeks'],
+  ])('sends date %s upstream as %s', async (date, upstream) => {
+    mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
+
+    const res = await request(app).post(`/api/match/matches/schedule/import?date=${date}`);
+    expect(res.status).toBe(200);
+    expect(new URL(mockedAxios.get.mock.calls[0][0]).searchParams.get('date')).toBe(upstream);
+  });
+
+  it.each(['31-02-2026', '2026-13-01', '8-months', '1-days', 'morgen', '2026-02-08T10:00:00Z'])('rejects date %s with INVALID_DATE', async (date) => {
+    mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
+
+    const res = await request(app).post(`/api/match/matches/schedule/import?date=${encodeURIComponent(date)}`);
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ ok: false, code: 'INVALID_DATE' });
+    expect(res.body.hint).toContain('DD-MM-JJJJ');
+    expect(mockedAxios.get).not.toHaveBeenCalled();
+  });
+
+  it('says which date does not exist', async () => {
+    const res = await request(app).post('/api/match/matches/schedule/import?date=31-02-2026');
+    expect(res.body.error).toBe('Datum 31-02-2026 bestaat niet');
   });
 });
 

@@ -1,5 +1,4 @@
 import React, {useEffect, useState} from 'react';
-import {useMutation, useQueryClient} from '@tanstack/react-query';
 import {
   SeasonDto,
   useCreateSeason,
@@ -7,10 +6,12 @@ import {
   useSeasons,
   useSetActiveSeason,
   useSuggestNextSeason,
+  useUpdateSeasonIndoorStart,
   validateSeasonName,
 } from '../../hooks/useSeasons';
 import {useImportLeagueTeams} from '../../hooks/useClubs';
-import {importMatchSchedule, MatchScheduleImportSeasonCount} from '../../lib/api';
+import MatchImportForm from '../../components/MatchImportForm';
+import DateInputNL from '../../components/DateInputNL';
 
 const cardClass = 'bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700';
 const cardTitleClass = 'text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-100 dark:border-gray-700 pb-2';
@@ -101,7 +102,17 @@ function ActiveSeasonSection({seasons}: { seasons: SeasonDto[] }) {
 
 function SeasonListSection({seasons}: { seasons: SeasonDto[] }) {
   const del = useDeleteSeason();
+  const updateIndoorStart = useUpdateSeasonIndoorStart();
   const [error, setError] = useState<string | null>(null);
+
+  async function handleIndoorStart(s: SeasonDto, value: string) {
+    setError(null);
+    try {
+      await updateIndoorStart.mutateAsync({id: s.id, indoorStartDate: value || null});
+    } catch (err) {
+      setError(`Startdatum opslaan mislukt: ${err instanceof Error ? err.message : 'onbekende fout'}`);
+    }
+  }
 
   async function handleDelete(s: SeasonDto) {
     if (!window.confirm(`Seizoen ${s.name} verwijderen?`)) return;
@@ -117,6 +128,10 @@ function SeasonListSection({seasons}: { seasons: SeasonDto[] }) {
     <section className={cardClass}>
       <h2 className={cardTitleClass}>Seizoenen</h2>
       {error && <div className={`${errorClass} mb-4`}>{error}</div>}
+      <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
+        Vul elk seizoen de <strong>Start zaalcompetitie</strong> in (DD-MM-JJJJ, de eerste speeldag van het KNKV). Daarmee importeer
+        je bij Seizoen vullen met <strong>Zaalcompetitie</strong> alle wedstrijden vanaf die dag.
+      </p>
       {seasons.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">Nog geen seizoenen.</p>
       ) : (
@@ -126,6 +141,7 @@ function SeasonListSection({seasons}: { seasons: SeasonDto[] }) {
               <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                 <th className="py-2 pr-4 font-medium">Seizoen</th>
                 <th className="py-2 pr-4 font-medium">Periode</th>
+                <th className="py-2 pr-4 font-medium">Start zaalcompetitie</th>
                 <th className="py-2 pr-4 font-medium text-right">Wedstrijden</th>
                 <th className="py-2 pr-4 font-medium text-right">Spelers</th>
                 <th className="py-2 font-medium sr-only">Acties</th>
@@ -145,6 +161,14 @@ function SeasonListSection({seasons}: { seasons: SeasonDto[] }) {
                       </span>
                     </td>
                     <td className="py-2 pr-4 text-gray-600 dark:text-gray-400">{formatDate(s.startDate)} – {formatDate(s.endDate)}</td>
+                    <td className="py-2 pr-4">
+                      <DateInputNL
+                        value={s.indoorStartDate ?? ''}
+                        onCommit={(value) => void handleIndoorStart(s, value)}
+                        aria-label={`Start zaalcompetitie ${s.name}`}
+                        className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                      />
+                    </td>
                     <td className="py-2 pr-4 text-right tabular-nums">{s.matchCount}</td>
                     <td className="py-2 pr-4 text-right tabular-nums">{s.playerCount}</td>
                     <td className="py-2 text-right">
@@ -254,14 +278,6 @@ function NewSeasonSection({onCreated}: { onCreated: (s: SeasonDto) => void }) {
   );
 }
 
-/** "12 wedstrijden in 2026/2027, 3 in 2025/2026" */
-function formatMatchImportBySeason(bySeason: MatchScheduleImportSeasonCount[]): string {
-  if (bySeason.length === 0) return 'Geen wedstrijden gevonden';
-  return bySeason
-    .map((s, i) => (i === 0 ? `${s.count} ${s.count === 1 ? 'wedstrijd' : 'wedstrijden'} in ${s.name}` : `${s.count} in ${s.name}`))
-    .join(', ');
-}
-
 function hasNotStarted(season: SeasonDto, now = new Date()) {
   const start = new Date(season.startDate);
   return !Number.isNaN(start.getTime()) && now < start;
@@ -272,11 +288,6 @@ function hasNotStarted(season: SeasonDto, now = new Date()) {
  * (via `key`) when the active season changes so results of a previous season never linger.
  */
 function FillSeasonSection({season, justCreated}: { season: SeasonDto; justCreated: boolean }) {
-  const qc = useQueryClient();
-  const importMatches = useMutation({
-    mutationFn: () => importMatchSchedule(),
-    onSuccess: () => qc.invalidateQueries(),
-  });
   const importTeams = useImportLeagueTeams();
   const sectionClass = justCreated
     ? 'p-6 rounded-lg border-2 border-blue-300 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-700'
@@ -297,33 +308,11 @@ function FillSeasonSection({season, justCreated}: { season: SeasonDto; justCreat
 
       <ol className="space-y-4">
         <li className="space-y-2">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <button
-              type="button"
-              onClick={() => importMatches.mutate()}
-              disabled={importMatches.isPending}
-              className={secondaryButtonClass}
-            >
-              {importMatches.isPending ? 'Importeren...' : 'Wedstrijden importeren'}
-            </button>
-            <div className="text-sm" aria-live="polite">
-              {importMatches.isSuccess && (
-                <span className="text-green-700 dark:text-green-300">
-                  {formatMatchImportBySeason(importMatches.data.bySeason ?? [])} ({importMatches.data.inserted} nieuw, {importMatches.data.updated} bijgewerkt)
-                </span>
-              )}
-              {importMatches.isError && (
-                <span className="text-red-700 dark:text-red-300">Import mislukt: {(importMatches.error as Error).message}</span>
-              )}
-              {!importMatches.isSuccess && !importMatches.isError && (
-                <span className="text-gray-500 dark:text-gray-400">Wedstrijden komen in het seizoen van hun speeldatum.</span>
-              )}
-            </div>
-          </div>
+          <MatchImportForm indoorStartDate={season.indoorStartDate ?? null}/>
           {hasNotStarted(season) && (
             <p className="text-xs text-amber-700 dark:text-amber-300" data-testid="season-not-started-hint">
-              Seizoen {season.name} begint pas op {formatDate(season.startDate)}. Het wedstrijdprogramma wordt tot ongeveer
-              20 weken vooruit vanaf vandaag geïmporteerd, dus wedstrijden van dit seizoen komen mogelijk pas later binnen.
+              Seizoen {season.name} begint pas op {formatDate(season.startDate)}. Een periode zoals 30-weeks telt vanaf deze week,
+              en de bron heeft alleen het programma dat al gepubliceerd is: importeer later opnieuw om nieuwe wedstrijden binnen te halen.
             </p>
           )}
         </li>

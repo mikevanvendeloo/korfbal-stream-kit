@@ -74,7 +74,6 @@ function refereeDisplay(user?: { privacy?: Privacy; fullName?: string } | null):
  */
 export function filterOfficials(officialsString?: string): string | null {
   if (!officialsString) return null;
-  logger.info("Filtering officials from string: " + officialsString);
   // Reguliere expressie om de rollen te matchen die je wilt verwijderen.
   // De pattern zoekt naar:
   // 1. Een ampersand (&) met spaties ervoor/erna (scheiding tussen officials)
@@ -96,7 +95,6 @@ export function filterOfficials(officialsString?: string): string | null {
 
   // Vervangt het gevonden deel (de eerste niet-scheidsrechter official en alles erna) door een lege string.
   const filteredString = officialsString.replace(regex, '');
-  logger.info("Filtered officials string: " + filteredString);
   // Extra schoonmaak: trimt eventuele overgebleven spaties of ampersands aan het einde (wat niet zou moeten gebeuren met de huidige regex, maar voor de zekerheid).
   return filteredString.trim().replace(/[\s&]*$/, '');
 }
@@ -177,6 +175,21 @@ function mapItem(item: any, teamPrefixes: string[]): NormalizedMatchItem | null 
   };
 }
 
+/** Upstream time limit; a setting object so tests can shorten it. */
+export const MATCH_SOURCE_TIMEOUT = {ms: 10_000};
+
+const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * The `date` param as the programs endpoint accepts it: a single day as DD-MM-YYYY ("from this day
+ * through the end of the published programme") or a range like `30-weeks` (from the current week).
+ * An ISO day (our internal form) is converted; the source answers ISO with a server error.
+ */
+export function toUpstreamDate(date: string): string {
+  const iso = ISO_DAY.exec(date.trim());
+  return iso ? `${iso[3]}-${iso[2]}-${iso[1]}` : date.trim();
+}
+
 /**
  * Fetches match schedule data from the vrijwilligers system
  * (api.sportclubvrijwilligersmanagement.nl "programs" endpoint).
@@ -194,7 +207,7 @@ export class VrijwilligersMatchScheduleProvider implements MatchScheduleProvider
     const {apiToken} = this;
 
     const url = new URL(`${this.baseUrl.replace(/\/$/, '')}/programs`);
-    url.searchParams.set('date', date);
+    url.searchParams.set('date', toUpstreamDate(date));
     url.searchParams.set('reserves', 'false');
     if (location !== undefined) url.searchParams.set('location', location);
     url.searchParams.set('levelType', 'ALL');
@@ -203,21 +216,22 @@ export class VrijwilligersMatchScheduleProvider implements MatchScheduleProvider
     const headers: Record<string, string> = {accept: 'application/json'};
     if (apiToken) headers['Authorization'] = `Bearer ${apiToken}`;
 
-    logger.info('Requesting match schedule using URL ' + url.toString());
-    const response = await axios.get(url.toString(), {headers, signal: AbortSignal.timeout(10000)});
+    // The token only goes in the header, never in the URL, so the URL is safe to log
+    logger.info('Match source request', {provider: 'vrijwilligers', url: url.toString()});
+    // No redirects: a redirect could lead past the https-only rule to an internal address (a 3xx is an
+    // unexpected answer: SOURCE_INVALID_RESPONSE)
+    const response = await axios.get(url.toString(), {headers, timeout: MATCH_SOURCE_TIMEOUT.ms, maxRedirects: 0});
 
     // API can return either an array of items or an object keyed by ISO date with arrays as values.
-    // Anything else (empty body, an HTML error page from a proxy, plain text) is not a valid answer.
+    // Anything else (empty body, an HTML error page from a proxy, plain text, an object without
+    // arrays such as an error object) is not a valid answer.
     const isArray = Array.isArray(response.data);
     const isObject = !!response.data && typeof response.data === 'object' && !isArray;
+    const objectValues = isObject ? Object.values(response.data as Record<string, unknown>) : [];
+    const isDateKeyedObject = isObject && (objectValues.length === 0 || objectValues.some(Array.isArray));
 
-    if (!isArray && !isObject) {
-      logger.error('Invalid response format from program API', {
-        status: response?.status,
-        url: url.toString(),
-        contentType: response?.headers?.['content-type'],
-      } as any);
-      throw new InvalidMatchScheduleResponseError();
+    if (!isArray && !isDateKeyedObject) {
+      throw new InvalidMatchScheduleResponseError(undefined, response.data);
     }
 
     // Log counts per date based on the raw shape

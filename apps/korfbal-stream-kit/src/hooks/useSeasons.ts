@@ -12,6 +12,8 @@ export interface SeasonDto {
   isActive: boolean;
   matchCount: number;
   playerCount: number;
+  /** Start of the indoor competition (YYYY-MM-DD), or null when not set */
+  indoorStartDate: string | null;
   createdAt: string;
 }
 
@@ -111,6 +113,26 @@ export function useCreateSeason() {
     },
     onSuccess: (season) => {
       if (season.isActive) return qc.invalidateQueries();
+      return qc.invalidateQueries({queryKey: seasonKeys.all});
+    },
+  });
+}
+
+/** Sets (YYYY-MM-DD) or clears (null) the indoor competition start date of a season. */
+export function useUpdateSeasonIndoorStart() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({id, indoorStartDate}: { id: number; indoorStartDate: string | null }): Promise<SeasonDto> => {
+      const res = await fetch(createUrl(`/api/seasons/${id}`), {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({indoorStartDate}),
+      });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+    onSuccess: (season) => {
+      if (season.isActive) qc.setQueryData(seasonKeys.active, season);
       return qc.invalidateQueries({queryKey: seasonKeys.all});
     },
   });
