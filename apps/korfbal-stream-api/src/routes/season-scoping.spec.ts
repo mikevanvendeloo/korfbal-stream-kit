@@ -21,7 +21,7 @@ describe('Season scoping of existing endpoints', () => {
         findMany: vi.fn(async () => []),
         create: vi.fn(async ({data}: any) => ({id: 1, ...data})),
         update: vi.fn(async ({where, data}: any) => ({id: where.id, ...data})),
-        findUnique: vi.fn(async ({where}: any) => ({id: where.id, date: new Date('2026-06-30T22:30:00.000Z')})),
+        findFirst: vi.fn(async ({where}: any) => ({id: where.id, date: new Date('2026-06-30T22:30:00.000Z')})),
       };
       // The update runs in a transaction with the production shift (services/matchChange.ts)
       prisma.production = {findMany: vi.fn(async () => [])};

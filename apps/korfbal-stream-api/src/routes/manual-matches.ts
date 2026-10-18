@@ -55,11 +55,13 @@ manualMatchesRouter.post('/', async (req, res, next) => {
 manualMatchesRouter.put('/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Ongeldig id' });
     const data = ManualMatchSchema.parse(req.body);
     const season = await ensureSeasonForDate(data.date);
     // The production's own times move with the match date, in the same transaction
     const updatedMatch = await prisma.$transaction(async (tx) => {
-      const previous = await tx.matchSchedule.findUnique({ where: { id }, select: { date: true } });
+      // Only manual matches: an imported match is updated by the next import
+      const previous = await tx.matchSchedule.findFirst({ where: { id, isManual: true }, select: { date: true } });
       if (!previous) return null;
       const updated = await tx.matchSchedule.update({
         where: { id },
@@ -79,7 +81,9 @@ manualMatchesRouter.put('/:id', async (req, res, next) => {
 manualMatchesRouter.delete('/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    await prisma.matchSchedule.delete({ where: { id } });
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Ongeldig id' });
+    const { count } = await prisma.matchSchedule.deleteMany({ where: { id, isManual: true } });
+    if (count === 0) return res.status(404).json({ error: 'Not found' });
     return res.status(204).send();
   } catch (err) {
     return next(err);

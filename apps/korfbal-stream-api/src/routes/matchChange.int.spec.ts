@@ -200,3 +200,26 @@ describe.runIf(runDb)('a moved match takes its production times along (integrati
     });
   });
 });
+
+describe.runIf(runDb)('the manual match routes only touch manual matches (integration)', () => {
+  let imported: ProductionScenario | undefined;
+  afterAll(async () => {
+    await imported?.cleanup();
+  });
+
+  it('answers 400 for an id that is not a number, on PUT and DELETE', async () => {
+    expect((await putManualMatch(Number.NaN, SATURDAY)).status).toBe(400);
+    expect((await request(app).put('/api/manual-matches/abc').send({date: SATURDAY.toISOString(), homeTeamName: 'A', awayTeamName: 'B'})).status).toBe(400);
+    expect((await request(app).delete('/api/manual-matches/abc')).status).toBe(400);
+  });
+
+  it('does not move or delete an imported match (the next import would put it back)', async () => {
+    imported = await createProductionScenario(prisma, {match: {date: SATURDAY, isManual: false, externalId: `imported-${Date.now()}`}});
+    const before = await inTestOrganization(() => prisma.matchSchedule.findUniqueOrThrow({where: {id: imported!.matchId}}));
+    expect((await putManualMatch(imported.matchId, SUNDAY)).status).toBe(404);
+    expect((await request(app).delete(`/api/manual-matches/${imported.matchId}`)).status).toBe(404);
+    const after = await inTestOrganization(() => prisma.matchSchedule.findUnique({where: {id: imported!.matchId}}));
+    expect(after?.date.toISOString()).toBe(before.date.toISOString());
+  });
+
+});
