@@ -54,4 +54,16 @@ describe('TimeInput24', () => {
     fireEvent.blur(screen.getByLabelText('Start'));
     expect(onCommit).not.toHaveBeenCalled();
   });
+
+  it('reports whether what was typed is a time, also when the value did not change', () => {
+    const onValidityChange = vi.fn();
+    render(<TimeInput24 aria-label="Start" value="19:45" onCommit={vi.fn()} onValidityChange={onValidityChange}/>);
+    const input = screen.getByLabelText('Start');
+    fireEvent.change(input, {target: {value: '25:00'}});
+    fireEvent.blur(input);
+    expect(onValidityChange).toHaveBeenLastCalledWith(false);
+    fireEvent.change(input, {target: {value: '19:45'}});
+    fireEvent.blur(input);
+    expect(onValidityChange).toHaveBeenLastCalledWith(true);
+  });
 });

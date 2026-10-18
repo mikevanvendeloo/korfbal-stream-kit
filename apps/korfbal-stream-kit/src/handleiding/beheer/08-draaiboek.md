@@ -35,7 +35,7 @@ Boven de lijst:
 
 ## De callsheet bewerken
 
-Met **Bewerk Draaiboek** open je de callsheet-items van deze productie. Per item kun je de titel, notitie, duur, **Zaal**/**Stream**, **Auto**, het tijdanker, de koppeling met een ander item en de posities aanpassen; die wijzigingen worden direct bewaard. Onderaan voeg je met **Nieuw item toevoegen** een item toe.
+Met **Bewerk Draaiboek** open je de callsheet-items van deze productie. Per item kun je de titel, notitie, duur, **Zaal**/**Stream**, **Auto**, het tijdanker, de koppeling met een ander item en de posities aanpassen; die wijzigingen worden direct bewaard. Onderaan voeg je met **Nieuw item toevoegen** een item toe. **Begin** en **Einde** zijn optioneel: vul per tijd een **Datum** (`DD-MM-JJJJ`) en een **Tijd** in 24-uursnotatie (`19:30`) in, of laat beide leeg. Alleen een datum of een ongeldige tijd geeft de melding *Vul een geldige datum (DD-MM-JJJJ) en tijd (uu:mm) in.* en het item wordt niet toegevoegd.
 
 - **Tijden herberekenen** rekent alle tijden opnieuw uit vanaf het tijdanker: bij *Start wedstrijd* vanaf de aanvang, bij *Start livestream* vanaf de livestream-start.
 - **PAS TOE OP LIVE VIEW** zet het bewerkte draaiboek door naar LIVE.
