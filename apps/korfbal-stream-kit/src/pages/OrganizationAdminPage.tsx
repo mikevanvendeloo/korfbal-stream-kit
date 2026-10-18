@@ -6,6 +6,7 @@ import {ApiKeysSection} from '../components/ApiKeys';
 import {MATCH_SOURCE_PROVIDERS, MatchSource, MatchSourceInput, MatchSourceProvider, useMatchSource, useSaveMatchSource, useTestMatchSource} from '../hooks/useOrganizations';
 import {adminPaths} from '../lib/adminPaths';
 import {ErrorBox, OrganizationLogoField, SuccessBox} from './OrganizationsAdminPage';
+import {MatchImportError} from '../lib/api';
 
 const sectionClass = 'bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700';
 const headingClass = 'text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-100 dark:border-gray-700 pb-2';
@@ -22,7 +23,7 @@ export function MatchSourceForm({source}: { source: MatchSource }) {
   const [baseUrl, setBaseUrl] = React.useState(source.baseUrl);
   const [isEnabled, setIsEnabled] = React.useState(source.isEnabled);
   const [token, setToken] = React.useState('');
-  const [message, setMessage] = React.useState<{ ok: boolean; text: string } | null>(null);
+  const [message, setMessage] = React.useState<{ ok: boolean; text: string; hint?: string } | null>(null);
 
   const dirty = provider !== source.provider || baseUrl !== source.baseUrl || isEnabled !== source.isEnabled || token !== '';
 
@@ -49,16 +50,25 @@ export function MatchSourceForm({source}: { source: MatchSource }) {
   async function onTest() {
     setMessage(null);
     try {
-      await test.mutateAsync();
-      setMessage({ok: true, text: 'Verbinding gelukt.'});
+      const {matches} = await test.mutateAsync();
+      setMessage({ok: true, text: `Verbinding gelukt (${matches} ${matches === 1 ? 'wedstrijd' : 'wedstrijden'}).`});
     } catch (err) {
-      setMessage({ok: false, text: (err as Error).message || 'Geen verbinding met de wedstrijdbron'});
+      setMessage({
+        ok: false,
+        text: (err as Error).message || 'Geen verbinding met de wedstrijdbron',
+        hint: err instanceof MatchImportError ? err.hint : undefined,
+      });
     }
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      {message && (message.ok ? <SuccessBox>{message.text}</SuccessBox> : <ErrorBox>{message.text}</ErrorBox>)}
+      {message && (message.ok ? <SuccessBox>{message.text}</SuccessBox> : (
+        <ErrorBox>
+          <p className="font-medium break-words">{message.text}</p>
+          {message.hint && <p className="mt-1 text-sm break-words" data-testid="match-source-hint">{message.hint}</p>}
+        </ErrorBox>
+      ))}
       <div>
         <label htmlFor="match-source-provider" className={labelClass}>Bron</label>
         <select id="match-source-provider" className={inputClass} value={provider} onChange={(e) => setProvider(e.target.value as MatchSourceProvider)}>

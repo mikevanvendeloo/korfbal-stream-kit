@@ -1,19 +1,41 @@
 import {Router} from 'express';
-import {z} from 'zod';
 import {logger} from '../utils/logger';
 import {prisma} from '../services/prisma';
-import {getMatchScheduleProvider, InvalidMatchScheduleResponseError, MatchSourceNotConfiguredError, type NormalizedMatchItem} from '../services/matchSchedule';
-import {MatchScheduleImportQuerySchema} from '../schemas/matchSchedule';
-import {createSeasonIdResolver, seasonNameForStartYear, seasonStartYearForDate} from '../services/season';
+import {fetchFromMatchSource, MatchSourceError, type NormalizedMatchItem, sendMatchImportError} from '../services/matchSchedule';
+import {INDOOR_IMPORT_DATE, MatchScheduleImportQuerySchema} from '../schemas/matchSchedule';
+import {createSeasonIdResolver, getActiveSeason, seasonNameForStartYear, seasonStartYearForDate} from '../services/season';
+import {dateColumnToIsoDay} from '../utils/dayDate';
 
 export const matchRouter: Router = Router();
 
-// POST /api/match/matches/schedule/import
+// POST /api/match/matches/schedule/import?date=&location=
+// date: DD-MM-YYYY or YYYY-MM-DD (from that day through the end of the published programme), N-weeks
+// (from the current week; default 30-weeks) or `indoor` (from the indoor competition start date of
+// the active season). Failures answer {ok: false, error, code, hint} (services/apiErrorCodes.ts).
 matchRouter.post('/matches/schedule/import', async (req, res) => {
   try {
-    const {date, location} = MatchScheduleImportQuerySchema.parse(req.query);
+    const query = MatchScheduleImportQuerySchema.safeParse(req.query);
+    if (!query.success) {
+      const issue = query.error.issues[0];
+      if (issue?.path[0] === 'date') return sendMatchImportError(res, 'INVALID_DATE', issue.code === 'custom' ? issue.message : undefined);
+      return res.status(400).json({ok: false, error: issue?.message || 'Invalid query'});
+    }
+    let {date} = query.data;
+    const {location} = query.data;
+    if (date === INDOOR_IMPORT_DATE) {
+      const season = await getActiveSeason();
+      const indoorStart = dateColumnToIsoDay(season.indoorStartDate);
+      if (!indoorStart) {
+        return res.status(400).json({
+          ok: false, code: 'INVALID_DATE',
+          error: `De startdatum van de zaalcompetitie is niet ingesteld voor seizoen ${season.name}`,
+          hint: 'Stel de startdatum van de zaalcompetitie in bij Seizoenen (Instellingen → Seizoen).',
+        });
+      }
+      date = indoorStart;
+    }
 
-    const items = await (await getMatchScheduleProvider()).fetchMatches({date, location});
+    const items = await fetchFromMatchSource({date, location});
 
     // Resolve (and create when missing) each match's season, derived from the match date, before
     // the transaction: seasons are idempotent, so one left over after a rolled-back import is harmless,
@@ -55,14 +77,12 @@ matchRouter.post('/matches/schedule/import', async (req, res) => {
     const bySeason = [...bySeasonStartYear.entries()]
       .sort(([a], [b]) => b - a)
       .map(([, seasonCount]) => seasonCount);
-    logger.info('Program import: persistence summary', {inserted, updated, total: items.length, bySeason} as any);
-    return res.json({ok: true, inserted, updated, total: items.length, bySeason});
+    logger.info('Program import done', {date, fetched: items.length, created: inserted, updated, bySeason});
+    return res.json({ok: true, date, inserted, updated, total: items.length, bySeason});
   } catch (err: any) {
-    if (err instanceof z.ZodError) return res.status(400).json({error: err.issues?.[0]?.message || 'Invalid query'});
-    if (err instanceof MatchSourceNotConfiguredError) return res.status(409).json({error: err.message});
+    if (err instanceof MatchSourceError) return sendMatchImportError(res, err.code);
     logger.error('Program import failed', {error: err?.message});
-    if (err instanceof InvalidMatchScheduleResponseError) return res.status(502).json({error: err.message});
-    return res.status(502).json({error: 'Failed to import program'});
+    return res.status(500).json({ok: false, error: 'Wedstrijden opslaan mislukt'});
   }
 });
 

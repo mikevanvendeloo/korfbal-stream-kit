@@ -3,8 +3,8 @@
 // the existing vrijwilligers-system adapter, without touching the route layer.
 
 export interface MatchScheduleFetchParams {
-  // Passed through to the provider as-is (e.g. an ISO date or a relative
-  // range like '20-weeks', depending on what the provider supports).
+  // An ISO day (YYYY-MM-DD) or a range in weeks like '30-weeks'. The provider converts it to the
+  // format its source accepts.
   date: string;
   location?: string;
 }
@@ -36,7 +36,7 @@ export interface MatchScheduleProvider {
 // (e.g. an HTML error page from a proxy). Lets the route report it distinctly
 // from network errors.
 export class InvalidMatchScheduleResponseError extends Error {
-  constructor(message = 'Invalid response format from program API') {
+  constructor(message = 'Invalid response format from program API', /** The answer, for the server log only */ readonly body?: unknown) {
     super(message);
     this.name = 'InvalidMatchScheduleResponseError';
   }

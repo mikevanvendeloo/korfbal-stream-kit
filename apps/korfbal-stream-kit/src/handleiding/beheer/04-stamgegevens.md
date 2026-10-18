@@ -46,7 +46,7 @@ Op **Persons** maak je met **Nieuw persoon** een crewlid aan: **Naam**, **Geslac
 
 Het **Wedstrijdprogramma** toont de geïmporteerde wedstrijden per dag. Blader met de pijlen per dag of week, en kies **Home**, **Away** of **All**.
 
-> Gebruik voor het importeren de knop **Wedstrijden importeren** bij [Instellingen → Seizoen](/admin/handleiding/instellingen). De knop **Import (default)** op dit scherm werkt niet.
+Onder **Wedstrijden importeren** (klik om open te klappen) importeer je het programma op dezelfde manier als bij [Instellingen → Seizoen](/admin/handleiding/instellingen#wedstrijden-importeren): **Zaalcompetitie** of een eigen datum (`DD-MM-JJJJ`) of periode (`30-weeks`).
 
 ### Handmatige wedstrijden
 

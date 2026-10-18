@@ -10,11 +10,12 @@ import {
   seasonNameForStartYear,
   seasonStartYearForDate,
   setActiveSeason,
+  setSeasonIndoorStartDate,
   toSeasonDto,
 } from '../services/season';
 import {emitSeasonChanged} from '../services/socket';
 import {runWithoutOrganization} from '../services/organizationContext';
-import {CreateSeasonSchema, SeasonIdParamSchema, SetActiveSeasonSchema} from '../schemas/season';
+import {CreateSeasonSchema, SeasonIdParamSchema, SetActiveSeasonSchema, UpdateSeasonSchema} from '../schemas/season';
 
 export const seasonsRouter: Router = Router();
 
@@ -95,6 +96,23 @@ seasonsRouter.put('/active', async (req, res, next) => {
     const season = await setActiveSeason(seasonId);
     const dto = await seasonDtoById(season.id, season.id);
     await emitSeasonChangedFor(season.id);
+    return res.json(dto);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// PUT /api/seasons/:id {indoorStartDate: "DD-MM-YYYY" | "YYYY-MM-DD" | null}
+seasonsRouter.put('/:id', async (req, res, next) => {
+  try {
+    const id = SeasonIdParamSchema.parse(req.params.id);
+    const parsed = UpdateSeasonSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return res.status(400).json({error: parsed.error.issues[0]?.message ?? 'Ongeldig seizoen'});
+    await setSeasonIndoorStartDate(id, parsed.data.indoorStartDate);
+    const active = await getActiveSeason();
+    const dto = await seasonDtoById(id, active.id);
+    // Other browsers refresh their active season (the import preset uses its start date)
+    if (active.id === id) await emitSeasonChangedFor(id);
     return res.json(dto);
   } catch (err) {
     return next(err);

@@ -5,17 +5,17 @@ import { expect, test, TEST_ORGANIZATION_SLUG } from './support/fixtures';
 
 type Season = {
   id: number; startYear: number; name: string; startDate: string; endDate: string;
-  isActive: boolean; matchCount: number; playerCount: number; createdAt: string;
+  isActive: boolean; matchCount: number; playerCount: number; indoorStartDate: string | null; createdAt: string;
 };
 
 const mk = (id: number, startYear: number, over: Partial<Season> = {}): Season => ({
   id, startYear, name: `${startYear}/${startYear + 1}`,
   startDate: `${startYear}-06-30T22:00:00.000Z`, endDate: `${startYear + 1}-06-30T21:59:59.999Z`,
-  isActive: false, matchCount: 0, playerCount: 0, createdAt: '2025-07-01T00:00:00.000Z',
+  isActive: false, matchCount: 0, playerCount: 0, indoorStartDate: null, createdAt: '2025-07-01T00:00:00.000Z',
   ...over,
 });
 
-async function mockSeasonApi(page: Page) {
+async function mockSeasonApi(page: Page, importDates: (string | null)[] = []) {
   let seasons: Season[] = [mk(1, 2025, { isActive: true, matchCount: 12, playerCount: 80 })];
   let nextId = 2;
 
@@ -45,12 +45,18 @@ async function mockSeasonApi(page: Page) {
       seasons = seasons.map(s => ({ ...s, isActive: s.id === body.seasonId }));
       return route.fulfill({ json: seasons.find(s => s.id === body.seasonId) });
     }
+    if (pathname.startsWith('/api/seasons/') && method === 'PUT') {
+      const id = Number(pathname.split('/').pop());
+      seasons = seasons.map(s => (s.id === id ? { ...s, indoorStartDate: body.indoorStartDate } : s));
+      return route.fulfill({ json: seasons.find(s => s.id === id) });
+    }
     if (pathname.startsWith('/api/seasons/') && method === 'DELETE') {
       const id = Number(pathname.split('/').pop());
       seasons = seasons.filter(s => s.id !== id);
       return route.fulfill({ status: 204, body: '' });
     }
     if (pathname === '/api/match/matches/schedule/import') {
+      importDates.push(new URL(req.url()).searchParams.get('date'));
       return route.fulfill({
         json: {
           ok: true, inserted: 7, updated: 2, total: 9,
@@ -66,8 +72,35 @@ async function mockSeasonApi(page: Page) {
 }
 
 test.describe('Seizoen instellingen', () => {
+  const importDates: (string | null)[] = [];
+
   test.beforeEach(async ({ page }) => {
-    await mockSeasonApi(page);
+    importDates.length = 0;
+    await mockSeasonApi(page, importDates);
+  });
+
+  test('sets the indoor start date and imports the Zaalcompetitie from it', async ({ page }) => {
+    await page.goto('/admin/instellingen');
+    const fill = page.getByTestId('fill-season');
+    const preset = fill.getByRole('radio', { name: /Zaalcompetitie/ });
+    await expect(preset).toBeDisabled();
+    await expect(fill.getByText('Stel de startdatum van de zaalcompetitie in bij Seizoenen')).toBeVisible();
+
+    const start = page.getByLabel('Start zaalcompetitie 2025/2026');
+    await start.fill('1-11-2025');
+    await start.press('Enter');
+    await expect(start).toHaveValue('01-11-2025');
+
+    await expect(fill.getByRole('radio', { name: 'Zaalcompetitie (vanaf 1 november 2025)' })).toBeEnabled();
+    await fill.getByRole('radio', { name: 'Zaalcompetitie (vanaf 1 november 2025)' }).check();
+    await fill.getByRole('button', { name: 'Wedstrijden importeren' }).click();
+    await expect(fill.getByTestId('match-import-result')).toContainText('(7 nieuw, 2 bijgewerkt)');
+    expect(importDates).toEqual(['indoor']);
+
+    // The free field: a date or a range
+    await fill.getByLabel('Vanaf datum of periode').fill('08-02-2026');
+    await fill.getByRole('button', { name: 'Wedstrijden importeren' }).click();
+    await expect.poll(() => importDates).toEqual(['indoor', '08-02-2026']);
   });
 
   test('shows the active season badge in the nav and opens the Seizoen tab', async ({ page }) => {

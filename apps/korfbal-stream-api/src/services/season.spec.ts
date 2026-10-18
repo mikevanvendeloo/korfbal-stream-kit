@@ -238,7 +238,7 @@ describe('season persistence helpers', () => {
 describe('toSeasonDto', () => {
   it('maps a season with counts to the REST contract', () => {
     const dto = toSeasonDto(
-      {id: 3, startYear: 2026, name: '2026/2027', createdAt: new Date('2026-08-01T00:00:00Z'), _count: {matches: 4, players: 9}},
+      {id: 3, startYear: 2026, name: '2026/2027', indoorStartDate: new Date('2026-11-07T00:00:00Z'), createdAt: new Date('2026-08-01T00:00:00Z'), _count: {matches: 4, players: 9}},
       3,
     );
     expect(dto).toEqual({
@@ -250,7 +250,13 @@ describe('toSeasonDto', () => {
       isActive: true,
       matchCount: 4,
       playerCount: 9,
+      indoorStartDate: '2026-11-07',
       createdAt: '2026-08-01T00:00:00.000Z',
     });
+  });
+
+  it('maps a season without an indoor start date to null', () => {
+    const dto = toSeasonDto({id: 3, startYear: 2026, name: '2026/2027', indoorStartDate: null, createdAt: new Date(), _count: {players: 0}}, 1);
+    expect(dto.indoorStartDate).toBeNull();
   });
 });

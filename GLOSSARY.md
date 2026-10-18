@@ -21,7 +21,10 @@ A secret of an Organisatie for devices that can't choose one: vMix data sources 
 The skills, positions with links, title templates, callsheet templates and segment templates every new Organisatie gets (`applyStandardSet`). Idempotent: only adds what is missing. Fortuna's own crew and sponsors are not part of it.
 
 **Wedstrijdbron** (match source)
-Where an Organisatie's match schedule is imported from (`MatchSource`): provider (now Sportclub Vrijwilligersmanagement), address (https) and token. The token is never shown, only whether it is set; changing provider or address clears it. Managed at Beheer → Overig → Organisatie → Wedstrijdimport.
+Where an Organisatie's match schedule is imported from (`MatchSource`): provider (now Sportclub Vrijwilligersmanagement), address (https) and token. The token is never shown, only whether it is set; changing provider or address clears it. Managed at Beheer → Overig → Organisatie → Wedstrijdimport. A failing source is reported as a category (`SOURCE_*` code with a Dutch message and hint), never with the source's own answer.
+
+**Zaalcompetitie** (indoor competition)
+The indoor part of the korfball season (roughly November to April). Its start date is national (KNKV) and differs per season, so it is stored on the global Season (`indoorStartDate`, Beheer → Instellingen → Seizoen → Seizoenen). The match import preset **Zaalcompetitie** (`date=indoor`) imports from that date through the end of the published programme.
 
 ## Production & Show
 

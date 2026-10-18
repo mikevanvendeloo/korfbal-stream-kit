@@ -10,7 +10,9 @@ Match schedules are imported from the external KNKV competition API or created m
 - `POST /api/match/matches/schedule/import`
 - Fetches matches from `config.matchScheduleBaseUrl` with configurable date range
 - Upserts by `externalId` (from external API)
-- Returns `{ ok, inserted, updated, total }`
+- `date`: DD-MM-YYYY or YYYY-MM-DD (from that day through the end of the published programme), `N-weeks` (from the current week, default `30-weeks`) or `indoor` (from the indoor competition start date of the active season). Normalized to ISO; the provider sends a day upstream as DD-MM-YYYY (the source answers ISO with a 500)
+- Returns `{ ok, date, inserted, updated, total, bySeason }`
+- Failures return `{ ok: false, error, code, hint }`: `INVALID_DATE` (400), `SOURCE_NOT_CONFIGURED` (409), or a category of the source failure (`SOURCE_UNAUTHORIZED`, `SOURCE_NOT_FOUND`, `SOURCE_REJECTED`, `SOURCE_SERVER_ERROR`, `SOURCE_TIMEOUT`, `SOURCE_UNREACHABLE`, `SOURCE_INVALID_RESPONSE`); never the upstream body, headers or exact status
 
 **Normalization applied during import:**
 - Team color assigned based on known team names (Fortuna/Ruitenheer divisions J1–J23)

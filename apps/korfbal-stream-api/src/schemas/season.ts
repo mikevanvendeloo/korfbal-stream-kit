@@ -1,5 +1,6 @@
 import {z} from 'zod';
 import {parseSeasonName, SeasonIdParamSchema, SeasonIdSchema} from '../services/season';
+import {parseDay} from '../utils/dayDate';
 
 export {SeasonIdParamSchema, SeasonIdSchema};
 
@@ -24,5 +25,18 @@ export const CreateSeasonSchema = z.object({
 export const SetActiveSeasonSchema = z.object({
   seasonId: SeasonIdSchema,
 });
+
+/** A day as DD-MM-YYYY or YYYY-MM-DD, normalized to ISO `YYYY-MM-DD`. */
+const DaySchema = z.string().trim().transform((value, ctx) => {
+  const day = parseDay(value);
+  if (day.ok) return day.iso;
+  ctx.addIssue({code: z.ZodIssueCode.custom, message: day.reason === 'impossible' ? `Datum ${value} bestaat niet` : 'Gebruik DD-MM-JJJJ, bijvoorbeeld 07-11-2026'});
+  return z.NEVER;
+});
+
+/** PUT /api/seasons/:id: the indoor competition start date; null clears it. */
+export const UpdateSeasonSchema = z.object({
+  indoorStartDate: DaySchema.nullable(),
+}).strict();
 
 export type CreateSeasonInput = z.infer<typeof CreateSeasonSchema>;

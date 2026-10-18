@@ -25,12 +25,14 @@ model Sponsor {
 }
 
 model Season {
-  id        Int             @id @default(autoincrement())
-  startYear Int             @unique
-  name      String          @unique
-  createdAt DateTime        @default(now())
-  matches   MatchSchedule[]
-  players   Player[]
+  id              Int             @id @default(autoincrement())
+  startYear       Int             @unique
+  name            String          @unique
+  /// Start of the indoor competition (national, KNKV); the match import preset "Zaalcompetitie" imports from this date
+  indoorStartDate DateTime?       @db.Date
+  createdAt       DateTime        @default(now())
+  matches         MatchSchedule[]
+  players         Player[]
 }
 
 model MatchSchedule {

@@ -18,7 +18,7 @@ const endpoints = {
 };
 
 let source = {provider: 'vrijwilligers', baseUrl: 'https://api.example.nl/v1', isEnabled: true, hasApiToken: true, configured: true, updatedAt: '2026-10-01T10:00:00.000Z'};
-let testAnswer: Response | {ok: true} = {ok: true};
+let testAnswer: Response | {ok: true; matches: number} = {ok: true, matches: 12};
 
 function api() {
   return mockApi(({method, path, body}: ApiCall) => {
@@ -45,7 +45,7 @@ describe('OrganizationAdminPage', () => {
   beforeEach(() => {
     chooseOrganization(FORTUNA.slug);
     source = {provider: 'vrijwilligers', baseUrl: 'https://api.example.nl/v1', isEnabled: true, hasApiToken: true, configured: true, updatedAt: '2026-10-01T10:00:00.000Z'};
-    testAnswer = {ok: true};
+    testAnswer = {ok: true, matches: 12};
     Object.assign(navigator, {clipboard: {writeText: vi.fn().mockResolvedValue(undefined)}});
   });
   afterEach(() => {
@@ -87,11 +87,29 @@ describe('OrganizationAdminPage', () => {
     expect(screen.getByLabelText('Token')).toHaveValue('');
 
     fireEvent.click(screen.getByRole('button', {name: 'Test verbinding'}));
-    expect(await screen.findByText('Verbinding gelukt.')).toBeInTheDocument();
+    expect(await screen.findByText('Verbinding gelukt (12 wedstrijden).')).toBeInTheDocument();
 
-    testAnswer = jsonResponse({ok: false, error: 'Geen verbinding met de wedstrijdbron'}, 502);
+    testAnswer = jsonResponse({ok: false, error: 'De wedstrijdbron is niet bereikbaar', code: 'SOURCE_UNREACHABLE', hint: 'Controleer het Adres (URL).'}, 502);
     fireEvent.click(screen.getByRole('button', {name: 'Test verbinding'}));
-    expect(await screen.findByText('Geen verbinding met de wedstrijdbron')).toBeInTheDocument();
+    expect(await screen.findByText('De wedstrijdbron is niet bereikbaar')).toBeInTheDocument();
+  });
+
+  it('shows the category of a failed connection test with its hint', async () => {
+    api();
+    testAnswer = jsonResponse({ok: false, error: 'Token ongeldig of verlopen', code: 'SOURCE_UNAUTHORIZED', hint: 'Vul een nieuw token in en sla op.'}, 502);
+    renderInOrganization(<OrganizationAdminPage/>);
+    fireEvent.click(await screen.findByRole('button', {name: 'Test verbinding'}));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Token ongeldig of verlopen');
+    expect(screen.getByTestId('match-source-hint')).toHaveTextContent('Vul een nieuw token in en sla op.');
+  });
+
+  it('says "1 wedstrijd" for a single match', async () => {
+    api();
+    testAnswer = {ok: true, matches: 1};
+    renderInOrganization(<OrganizationAdminPage/>);
+    fireEvent.click(await screen.findByRole('button', {name: 'Test verbinding'}));
+    expect(await screen.findByText('Verbinding gelukt (1 wedstrijd).')).toBeInTheDocument();
   });
 
   it('lists the API keys by name and prefix, and revokes one after a confirm', async () => {

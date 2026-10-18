@@ -39,7 +39,26 @@ Hier stel je in waar het wedstrijdprogramma van deze organisatie vandaan komt (d
 
 - Het token wordt **nooit getoond**. Je ziet alleen **Token: ingesteld** of **Token: niet ingesteld**. Met **Token verwijderen** haal je het weg.
 - Wijzig je de **bron** of het **adres**, dan wordt het opgeslagen token **gewist** (zodat het niet naar een ander adres gaat). Vul het dan in hetzelfde formulier opnieuw in.
-- **Test verbinding** probeert de opgeslagen instellingen en zegt alleen **Verbinding gelukt** of **Geen verbinding met de wedstrijdbron**. Sla wijzigingen eerst op.
+- **Test verbinding** vraagt met de opgeslagen instellingen de wedstrijden van deze week op. Gaat het goed, dan zie je **Verbinding gelukt (N wedstrijden)**; anders wat er mis is en wat je kunt doen (zie de tabel hieronder). Sla wijzigingen eerst op.
+
+Welke datums je bij het importeren kunt gebruiken (`DD-MM-JJJJ`, `30-weeks` of **Zaalcompetitie**) staat bij [Wedstrijden importeren](/admin/handleiding/instellingen#wedstrijden-importeren).
+
+#### Foutmeldingen
+
+| Foutmelding | Wat te doen |
+|---|---|
+| **Wedstrijdimport is niet ingesteld voor deze organisatie** | Vul bij **Overig → Organisatie → Wedstrijdimport** de bron, het adres en het token in, vink **Wedstrijdimport aan** aan en klik op **Opslaan**. |
+| **Ongeldige datum** of **Datum … bestaat niet** | Typ een dag als `DD-MM-JJJJ` (bijvoorbeeld `07-11-2026`) of een aantal weken (bijvoorbeeld `30-weeks`). Dagen of maanden als periode (`1-days`, `8-months`) werken niet. |
+| **De startdatum van de zaalcompetitie is niet ingesteld** | Vul bij **Instellingen → Seizoen → Seizoenen** de **Start zaalcompetitie** van het actieve seizoen in. |
+| **Token ongeldig of verlopen** | Vraag een nieuw token aan bij de wedstrijdbron, vul het in bij **Overig → Organisatie → Wedstrijdimport** en klik op **Opslaan**. |
+| **URL klopt niet** | Controleer het **Adres (URL)**; voor Sportclub Vrijwilligersmanagement is dat `https://api.sportclubvrijwilligersmanagement.nl/v1`. |
+| **De wedstrijdbron weigerde het verzoek** | Controleer de datum en het adres. Blijft het misgaan, neem dan contact op met de beheerder van de wedstrijdbron. |
+| **De wedstrijdbron gaf een serverfout** | Mogelijk klopt het datumformaat niet (gebruik `DD-MM-JJJJ` of `30-weeks`), of de bron heeft een storing. Probeer het later opnieuw. |
+| **De wedstrijdbron reageert niet op tijd** | Probeer het later opnieuw, of kies een kortere periode. |
+| **De wedstrijdbron is niet bereikbaar** | Controleer het **Adres (URL)** en of de server van StreamKit internet heeft. |
+| **De wedstrijdbron gaf een onverwacht antwoord** | Het adres wijst waarschijnlijk naar een website in plaats van naar de API. Controleer het **Adres (URL)** (eindigt meestal op `/v1`). |
+
+> De melding zegt alleen **wat voor** fout het is, nooit wat de bron precies terugstuurde. De details (statuscode, het antwoord van de bron, hoe lang het duurde) staan in het serverlog van de API (`docker logs`), zonder het token.
 
 ### API-sleutels
 

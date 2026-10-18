@@ -1,6 +1,11 @@
 import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {BrowserRouter} from 'react-router-dom';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import MatchSchedulePage from './MatchSchedulePage';
+
+const withQueryClient = (ui: React.ReactElement) => (
+  <QueryClientProvider client={new QueryClient({defaultOptions: {queries: {retry: false}, mutations: {retry: false}}})}>{ui}</QueryClientProvider>
+);
 
 function setupFetchMock() {
   const original = global.fetch as any;
@@ -95,11 +100,11 @@ describe('MatchProgramPage', () => {
     mockNow('2025-11-01T00:00:00.000Z');
     const { restore, mock } = setupFetchMock();
 
-    render(
+    render(withQueryClient(
       <BrowserRouter>
         <MatchSchedulePage />
       </BrowserRouter>
-    );
+    ));
 
     // Wait initial load
     await waitFor(() => expect(screen.getAllByText('Alpha Team').length).toBeGreaterThanOrEqual(1));
@@ -157,20 +162,21 @@ it('triggers import with default params and refreshes the list', async () => {
   // @ts-expect-error Test
   global.fetch = fetchMock;
 
-  render(
+  render(withQueryClient(
     <BrowserRouter>
       <MatchSchedulePage />
     </BrowserRouter>
-  );
+  ));
 
   // Wait initial load
   await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
-  // Click Import (default)
-  fireEvent.click(screen.getByLabelText('import-default'));
+  // Import with the default range (no indoor start date: the free field with 30-weeks)
+  fireEvent.click(screen.getByRole('button', {name: 'Wedstrijden importeren'}));
 
   await waitFor(() => {
-    expect(calls.some((c) => c.url.includes('/match/matches/schedule/import') && c.method === 'POST')).toBe(true);
+    const importCall = calls.find((c) => c.url.includes('/match/matches/schedule/import') && c.method === 'POST');
+    expect(new URL(importCall!.url).searchParams.get('date')).toBe('30-weeks');
     // After import, a GET should be called again
     const getCalls = calls.filter((c) => c.url.includes('/match/matches/schedule') && c.method === 'GET');
     expect(getCalls.length).toBeGreaterThanOrEqual(2);

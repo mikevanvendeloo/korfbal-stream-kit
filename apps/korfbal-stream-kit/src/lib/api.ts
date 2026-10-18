@@ -240,6 +240,8 @@ export async function fetchMatchSchedule(params: { date: string; location?: 'HOM
 export type MatchScheduleImportSeasonCount = { seasonId: number; name: string; count: number };
 export type MatchScheduleImportResult = {
   ok: boolean;
+  /** The date that was imported from: ISO day (YYYY-MM-DD) or a range like 30-weeks */
+  date?: string;
   inserted: number;
   updated: number;
   total: number;
@@ -247,15 +249,29 @@ export type MatchScheduleImportResult = {
   bySeason: MatchScheduleImportSeasonCount[];
 };
 
+/** A refused match import or connection test: the API's `error` with its category `code` and `hint`. */
+export class MatchImportError extends Error {
+  constructor(message: string, readonly code?: string, readonly hint?: string) {
+    super(message);
+    this.name = 'MatchImportError';
+  }
+}
+
+/** Reads `{error, code, hint}` of a failed match import / connection test into a MatchImportError. */
+export async function matchImportError(res: Response, fallback: string): Promise<MatchImportError> {
+  const body: { error?: unknown; code?: unknown; hint?: unknown } = await res.json().catch(() => ({}));
+  const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v : undefined);
+  return new MatchImportError(text(body?.error) ?? `${fallback} (${res.status})`, text(body?.code), text(body?.hint));
+}
+
+/** `date`: DD-MM-JJJJ, a range like 30-weeks (default, from the current week), or `indoor` (from the indoor start date of the active season). */
 export async function importMatchSchedule(params?: { date?: string; location?: 'HOME' | 'AWAY' | 'ALL' }): Promise<MatchScheduleImportResult> {
   const url = createUrl('/api/match/matches/schedule/import');
   if (params?.date) url.searchParams.set('date', params.date);
   if (params?.location) url.searchParams.set('location', params.location);
 
   const res = await fetch(url.toString(), {method: 'POST'});
-  if (!res.ok) {
-    throw new Error(`Failed to import match schedule: ${res.status}`);
-  }
+  if (!res.ok) throw await matchImportError(res, 'Wedstrijden importeren mislukt');
   return res.json();
 }
 

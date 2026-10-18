@@ -65,6 +65,7 @@ services:
 | `SCOREBOARD_BASE_URL` / `SHOTCLOCK_BASE_URL` | nee | Adressen van het scorebord en de schotklok in de zaal |
 | `HOST_IP` | nee | IP van de host, zodat de vMix-endpoints het juiste adres tonen |
 | `LOG_LEVEL` | nee | `error`, `warn`, `info` (standaard) of `debug` |
+| `LOG_PRETTY` | nee | `true`: metadata ingesprongen en in kleur. Standaard alleen op een terminal; in `docker logs` staat elke regel met zijn JSON op één regel |
 | `SKIP_SEED` | nee | `true` bij de migratiejob: alleen migreren, niet seeden (bijv. na het terugzetten van een backup) |
 
 De vMix-pc's (één of meer, bijvoorbeeld een stream- en een scherm-pc) en andere instellingen stel je in via Beheer in de Kit.
