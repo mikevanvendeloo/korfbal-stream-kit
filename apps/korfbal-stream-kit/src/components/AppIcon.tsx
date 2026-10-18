@@ -7,7 +7,7 @@ export default function AppIcon({ className = '' }: Readonly<AppIconProps>) {
   return (
     <img
       src="/logo-small.png"
-      alt="Korfbal Stream Kit Logo"
+      alt="Korfbal Streamz Kit Logo"
       className={className}
     />
   );

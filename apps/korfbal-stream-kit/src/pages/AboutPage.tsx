@@ -10,7 +10,7 @@ export default function AboutPage() {
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100 flex flex-col items-center">
       <AppLogo className="h-48 mb-6" />
-      <h1 className="text-2xl font-bold mb-4">Over Korfbal Stream Kit</h1>
+      <h1 className="text-2xl font-bold mb-4">Over Korfbal Streamz Kit</h1>
 
       <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 w-full max-w-md">
         <div className="space-y-4">
@@ -38,7 +38,7 @@ export default function AboutPage() {
           Deze applicatie is ontwikkeld om korfbal livestreams te ondersteunen met data, graphics en planning.
         </p>
         <p className="mt-2">
-          &copy; {new Date().getFullYear()} Korfbal Stream Kit
+          &copy; {new Date().getFullYear()} Korfbal Streamz Kit
         </p>
       </div>
     </div>
