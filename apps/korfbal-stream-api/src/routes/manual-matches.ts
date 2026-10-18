@@ -3,6 +3,7 @@ import {prisma} from '../services/prisma';
 import {z} from 'zod';
 import {ensureSeasonForDate, resolveSeasonId} from '../services/season';
 import {parseInstant} from '../utils/time';
+import {shiftProductionTimesForMatchDateChange} from '../services/matchChange';
 
 export const manualMatchesRouter: Router = Router();
 
@@ -54,12 +55,22 @@ manualMatchesRouter.post('/', async (req, res, next) => {
 manualMatchesRouter.put('/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Ongeldig id' });
     const data = ManualMatchSchema.parse(req.body);
     const season = await ensureSeasonForDate(data.date);
-    const updatedMatch = await prisma.matchSchedule.update({
-      where: { id },
-      data: { ...data, seasonId: season.id },
+    // The production's own times move with the match date, in the same transaction
+    const updatedMatch = await prisma.$transaction(async (tx) => {
+      // Only manual matches: an imported match is updated by the next import
+      const previous = await tx.matchSchedule.findFirst({ where: { id, isManual: true }, select: { date: true } });
+      if (!previous) return null;
+      const updated = await tx.matchSchedule.update({
+        where: { id },
+        data: { ...data, seasonId: season.id },
+      });
+      await shiftProductionTimesForMatchDateChange(tx, id, previous.date, updated.date);
+      return updated;
     });
+    if (!updatedMatch) return res.status(404).json({ error: 'Not found' });
     return res.json(updatedMatch);
   } catch (err) {
     return next(err);
@@ -70,7 +81,9 @@ manualMatchesRouter.put('/:id', async (req, res, next) => {
 manualMatchesRouter.delete('/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    await prisma.matchSchedule.delete({ where: { id } });
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Ongeldig id' });
+    const { count } = await prisma.matchSchedule.deleteMany({ where: { id, isManual: true } });
+    if (count === 0) return res.status(404).json({ error: 'Not found' });
     return res.status(204).send();
   } catch (err) {
     return next(err);

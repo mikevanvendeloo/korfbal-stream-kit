@@ -76,6 +76,7 @@ apps/korfbal-stream-api/
     │   ├── production.ts              # Production report data loading
     │   ├── reportSponsors.ts          # Match/ball sponsor name → sponsor logo (report page + PDF)
     │   ├── productionState.ts         # In-memory live state per organization (active production/event, clocks)
+    │   ├── matchChange.ts             # A moved match shifts its production's liveTime, callsheet item and planned event times (not while live)
     │   ├── socket.ts                  # Socket.io server, room org:<id> per handshake, emitToOrganization, broadcastState()
     │   ├── timeSyncService.ts         # Production time / countdown
     │   ├── venueClockSyncService.ts   # Sync with venue scoreboard clock
@@ -92,7 +93,9 @@ apps/korfbal-stream-api/
     │   ├── clubs.ts           # Team-name normalization, club lookup by team name
     │   └── array-utils.ts     # shuffle helper
     ├── domain/
-    │   └── positionSkill.ts   # Position name -> required skill code mapping
+    │   ├── positionSkill.ts   # Position name -> required skill code mapping
+    │   ├── crewGroup.ts       # Crew/Entertainment group of a person from the categories of their skills' positions
+    │   └── minimumStaffing.ts # Minimum staffing rule (roles, counts, skill codes) with a one-person-one-role matching
     └── middleware/
         ├── organizationContext.ts # X-Organization → organization context (401/403 with code), global routes exempt, 5 s slug cache
         ├── apiKey.ts          # API key (?key= / X-Api-Key) on feed routes (FEED_API_PATHS), kept out of logs
@@ -290,6 +293,7 @@ No login (internal LAN tool), but every `/api` request needs an organization: `X
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/production/:id/persons | List persons attached to production |
+| GET | /api/production/:id/attendance | Beschikbaarheid: every person of the organization with group (`crew`/`entertainment`, `domain/crewGroup.ts`), skills and presence (`productionPersonId`), plus the minimum staffing of the people present (`domain/minimumStaffing.ts`) |
 | POST | /api/production/:id/persons | Attach person to production |
 | DELETE | /api/production/:id/persons/:productionPersonId | Detach person |
 | GET | /api/production/:id/person-positions | List person-position assignments |
@@ -421,10 +425,10 @@ No login (internal LAN tool), but every `/api` request needs an organization: `X
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/match/matches/schedule | Fetch match schedule from provider |
-| POST | /api/match/matches/schedule/import | Import match schedule. `?date=` DD-MM-YYYY or YYYY-MM-DD (from that day), `N-weeks` (from the current week; default `30-weeks`) or `indoor` (from `Season.indoorStartDate` of the active season). Failures: `{ok: false, error, code, hint}` (`INVALID_DATE`, `SOURCE_*`) |
+| POST | /api/match/matches/schedule/import | Import match schedule. An updated match whose date moved shifts its production's times (`services/matchChange.ts`). `?date=` DD-MM-YYYY or YYYY-MM-DD (from that day), `N-weeks` (from the current week; default `30-weeks`) or `indoor` (from `Season.indoorStartDate` of the active season). Failures: `{ok: false, error, code, hint}` (`INVALID_DATE`, `SOURCE_*`) |
 | GET | /api/manual-matches | List manual matches |
 | POST | /api/manual-matches | Create manual match |
-| PUT | /api/manual-matches/:id | Update manual match |
+| PUT | /api/manual-matches/:id | Update manual match; a moved date shifts the production's `liveTime`, callsheet item times and planned event times by the same delta (`services/matchChange.ts`, not while that production is live) |
 | DELETE | /api/manual-matches/:id | Delete manual match |
 
 ### Scoreboard (`/api/scoreboard`)

@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { formatDate as formatAmsterdamDate, formatTime, todayAmsterdam } from '../lib/time';
 import { useMatchSchedule, nextDayStr, prevDayStr, nextWeekStr, prevWeekStr, LocationFilter } from '../hooks/useMatchSchedule';
 import { MatchSchedule, importMatchSchedule } from '../lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateMatchDependents } from '../hooks/useProductions';
 
 // Amsterdam time, whatever the device's zone
 const timeStr = (iso: string) => formatTime(iso);
@@ -34,6 +36,7 @@ export default function MatchProgramPage() {
   const [date, setDate] = useState<string>(today);
   const [location, setLocation] = useState<LocationFilter>('HOME');
   const { data, isLoading, isError, error, refetch } = useMatchSchedule(date, location);
+  const qc = useQueryClient();
 
   const title = useMemo(() => {
     // Noon UTC lies on that same day in Amsterdam
@@ -50,7 +53,7 @@ export default function MatchProgramPage() {
             <option value="AWAY">Away</option>
             <option value="ALL">All</option>
           </select>
-          <button aria-label="import-default" onClick={async () => { await importMatchSchedule(); await refetch(); }} className="px-3 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100">Import (default)</button>
+          <button aria-label="import-default" onClick={async () => { await importMatchSchedule(); await Promise.all([refetch(), invalidateMatchDependents(qc)]); }} className="px-3 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100">Import (default)</button>
           <button onClick={() => refetch()} className="px-3 py-1 rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100">Refresh</button>
         </div>
       </div>

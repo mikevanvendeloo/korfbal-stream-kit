@@ -67,6 +67,15 @@ describe('ProductionsAdminPage', () => {
     expect(screen.getByText(/Opp/)).toBeInTheDocument();
   });
 
+  it('has no ID column', async () => {
+    renderWithProviders(<ProductionsAdminPage />);
+    await screen.findByText(/Fortuna\/Ruitenheer 1/);
+    const headers = screen.getAllByRole('columnheader').map((th) => th.textContent);
+    expect(headers).toEqual(['Datum/Tijd', 'Match', 'Acties']);
+    // The id (1) isn't shown as a cell of its own
+    expect(screen.getAllByRole('cell').map((td) => td.textContent)).not.toContain('1');
+  });
+
   it('can create a production by selecting a match', async () => {
     renderWithProviders(<ProductionsAdminPage />);
 

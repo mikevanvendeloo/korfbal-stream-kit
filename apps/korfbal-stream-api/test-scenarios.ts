@@ -1,4 +1,5 @@
 import {AsyncLocalStorage} from 'node:async_hooks';
+import {randomUUID} from 'node:crypto';
 import {Prisma, PrismaClient} from '@prisma/client';
 
 /**
@@ -48,6 +49,25 @@ export type ScenarioOptions = {
   /** Production segments, in order (name and minutes) */
   segments?: Array<{ naam: string; duurInMinuten: number }>;
   report?: Partial<Prisma.ProductionReportUncheckedCreateWithoutProductionInput>;
+  /** The production's broadcast start (Production.liveTime) */
+  liveTime?: Date;
+  /** Also a callsheet with one item per `items` entry, with the same planned times as the events */
+  callSheet?: boolean;
+  /** People of the organization with skills (by Skill.code), optionally marked present at the production */
+  crew?: ScenarioPerson[];
+  /**
+   * Category of the position made for a skill code the organization doesn't have yet (or that no
+   * position uses); default TECHNICAL. Existing skills keep their own positions.
+   */
+  skillCategories?: Record<string, 'TECHNICAL' | 'ENTERTAINMENT' | 'GENERAL'>;
+};
+
+export type ScenarioPerson = {
+  name: string;
+  /** Skill codes; a code the organization lacks is created (and removed again by cleanup) */
+  skills?: string[];
+  /** Marked present at the scenario's production */
+  present?: boolean;
 };
 
 export const DEFAULT_ITEMS: ScenarioItem[] = [
@@ -64,6 +84,10 @@ export type ProductionScenario = {
   eventIds: string[];
   /** Position id per name */
   positionIds: Record<string, number>;
+  /** Person id per name (`crew`) */
+  personIds: Record<string, number>;
+  /** Callsheet item ids in the order of `items` (`callSheet: true`) */
+  callSheetItemIds: string[];
   organizationId: number;
   cleanup: () => Promise<void>;
 };
@@ -129,6 +153,7 @@ async function buildScenario(db: PrismaClient, organizationId: number, options: 
       organizationId,
       matchScheduleId: match.id,
       isActive: !!options.active,
+      liveTime: options.liveTime ?? null,
       ...(options.report ? {productionReport: {create: {...options.report, organizationId}}} : {}),
       ...(options.segments ? {segments: {create: options.segments.map((s, i) => ({...s, volgorde: i + 1, organizationId}))}} : {}),
     },
@@ -152,16 +177,64 @@ async function buildScenario(db: PrismaClient, organizationId: number, options: 
     plannedStart += durationSec * 1000;
   }
 
+  const callSheetItemIds: string[] = [];
+  if (options.callSheet) {
+    const events = await db.productionEvent.findMany({where: {organizationId, id: {in: eventIds}}});
+    const callSheet = await db.callSheet.create({data: {organizationId, productionId: production.id, name: 'Scenario draaiboek'}});
+    // In show order (`events` comes back in any order)
+    for (const event of eventIds.flatMap((id) => events.filter((e) => e.id === id))) {
+      const item = await db.callSheetItem.create({
+        data: {
+          organizationId, id: randomUUID(), callSheetId: callSheet.id, cue: `C${event.order}`, title: event.title,
+          durationSec: event.durationSec ?? 0, orderIndex: event.order, timeStart: event.plannedStartTime, timeEnd: event.plannedEndTime,
+        },
+      });
+      callSheetItemIds.push(item.id);
+    }
+  }
+
+  // Crew: skills by code (created when missing, with a position so they have a category), people, presence
+  const createdSkills: number[] = [];
+  const personIds: Record<string, number> = {};
+  const skillIds = new Map<string, number>(); // code → id, for every code in `crew`
+  for (const code of new Set((options.crew ?? []).flatMap((p) => p.skills ?? []))) {
+    const existing = await db.skill.findFirst({where: {organizationId, code}, include: {Position: {select: {id: true}}}});
+    const skill = existing ?? await db.skill.create({data: {organizationId, code, name: code, nameMale: code, nameFemale: code}});
+    if (!existing) createdSkills.push(skill.id);
+    if (!existing?.Position.length) {
+      const position = await db.position.create({
+        data: {organizationId, name: `Scenario ${code} ${Date.now()}-${++counter}`, skillId: skill.id, category: options.skillCategories?.[code] ?? 'TECHNICAL'},
+      });
+      createdPositions.push(position.id);
+    }
+    skillIds.set(code, skill.id);
+  }
+  for (const person of options.crew ?? []) {
+    const created = await db.person.create({
+      data: {
+        organizationId, name: person.name, gender: 'female',
+        skills: {create: (person.skills ?? []).map((code) => ({organizationId, skillId: Number(skillIds.get(code))}))},
+      },
+    });
+    personIds[person.name] = created.id;
+    if (person.present) await db.productionPerson.create({data: {organizationId, productionId: production.id, personId: created.id}});
+  }
+
   return {
     productionId: production.id,
     matchId: match.id,
     eventIds,
     positionIds,
+    personIds,
+    callSheetItemIds,
     organizationId,
     cleanup: () => runWithOrganization(organizationId, async () => {
       await db.production.deleteMany({where: {organizationId, id: production.id}});
       await db.matchSchedule.deleteMany({where: {organizationId, id: match.id}});
+      const people = Object.values(personIds);
+      if (people.length) await db.person.deleteMany({where: {organizationId, id: {in: people}}});
       if (createdPositions.length) await db.position.deleteMany({where: {organizationId, id: {in: createdPositions}}});
+      if (createdSkills.length) await db.skill.deleteMany({where: {organizationId, id: {in: createdSkills}}});
       if (previouslyActive.length) await db.production.updateMany({where: {organizationId, id: {in: previouslyActive}}, data: {isActive: true}});
     }),
   };

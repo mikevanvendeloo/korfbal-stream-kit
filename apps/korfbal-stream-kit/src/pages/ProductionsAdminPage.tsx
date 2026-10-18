@@ -129,7 +129,6 @@ export default function ProductionsAdminPage() {
       <table className="min-w-full border border-gray-200 dark:border-gray-800 text-sm">
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
-                <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">ID</th>
                 <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Datum/Tijd</th>
                 <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Match</th>
                 <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Acties</th>
@@ -138,7 +137,6 @@ export default function ProductionsAdminPage() {
             <tbody>
               {(prods?.items || []).map((p) => (
                 <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-900">
-                  <td className="p-2 border-b border-gray-200 dark:border-gray-800">{p.id}</td>
                   <td className="p-2 border-b border-gray-200 dark:border-gray-800 whitespace-nowrap">
                     {formatProductionTime(p.matchSchedule.date, p.liveTime)}
                   </td>
