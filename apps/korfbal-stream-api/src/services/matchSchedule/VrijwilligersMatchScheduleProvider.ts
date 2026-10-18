@@ -74,7 +74,6 @@ function refereeDisplay(user?: { privacy?: Privacy; fullName?: string } | null):
  */
 export function filterOfficials(officialsString?: string): string | null {
   if (!officialsString) return null;
-  logger.info("Filtering officials from string: " + officialsString);
   // Reguliere expressie om de rollen te matchen die je wilt verwijderen.
   // De pattern zoekt naar:
   // 1. Een ampersand (&) met spaties ervoor/erna (scheiding tussen officials)
@@ -96,7 +95,6 @@ export function filterOfficials(officialsString?: string): string | null {
 
   // Vervangt het gevonden deel (de eerste niet-scheidsrechter official en alles erna) door een lege string.
   const filteredString = officialsString.replace(regex, '');
-  logger.info("Filtered officials string: " + filteredString);
   // Extra schoonmaak: trimt eventuele overgebleven spaties of ampersands aan het einde (wat niet zou moeten gebeuren met de huidige regex, maar voor de zekerheid).
   return filteredString.trim().replace(/[\s&]*$/, '');
 }
@@ -220,7 +218,9 @@ export class VrijwilligersMatchScheduleProvider implements MatchScheduleProvider
 
     // The token only goes in the header, never in the URL, so the URL is safe to log
     logger.info('Match source request', {provider: 'vrijwilligers', url: url.toString()});
-    const response = await axios.get(url.toString(), {headers, timeout: MATCH_SOURCE_TIMEOUT.ms});
+    // No redirects: a redirect could lead past the https-only rule to an internal address (a 3xx is an
+    // unexpected answer: SOURCE_INVALID_RESPONSE)
+    const response = await axios.get(url.toString(), {headers, timeout: MATCH_SOURCE_TIMEOUT.ms, maxRedirects: 0});
 
     // API can return either an array of items or an object keyed by ISO date with arrays as values.
     // Anything else (empty body, an HTML error page from a proxy, plain text, an object without

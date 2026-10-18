@@ -29,13 +29,15 @@ export const MATCH_SOURCE_PROVIDERS = ['vrijwilligers'] as const;
  * Read at call time, so tests can switch NODE_ENV.
  */
 export function isAllowedMatchSourceUrl(url: string): boolean {
-  let protocol: string;
+  let parsed: URL;
   try {
-    protocol = new URL(url).protocol;
+    parsed = new URL(url);
   } catch {
     return false;
   }
-  return protocol === 'https:' || (protocol === 'http:' && process.env.NODE_ENV !== 'production');
+  // No user:password in the URL: it would end up in the logs; the token field is for credentials
+  if (parsed.username || parsed.password) return false;
+  return parsed.protocol === 'https:' || (parsed.protocol === 'http:' && process.env.NODE_ENV !== 'production');
 }
 
 /**
@@ -44,7 +46,7 @@ export function isAllowedMatchSourceUrl(url: string): boolean {
  */
 export const MatchSourceInputSchema = z.object({
   provider: z.enum(MATCH_SOURCE_PROVIDERS),
-  baseUrl: z.string().trim().url().refine(isAllowedMatchSourceUrl, 'Alleen https-adressen'),
+  baseUrl: z.string().trim().url().refine(isAllowedMatchSourceUrl, 'Alleen https-adressen, zonder gebruikersnaam of wachtwoord'),
   apiToken: z.string().trim().min(1).max(2000).nullable().optional(),
   isEnabled: z.boolean().optional(),
 }).strict();

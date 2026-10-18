@@ -269,3 +269,70 @@ describe.runIf(runDb)('match import against the source (integration)', () => {
     });
   });
 });
+
+describe.runIf(runDb)('match source hardening (integration)', () => {
+  afterAll(async () => {
+    await prisma.matchSource.deleteMany({});
+  });
+
+  it('does not follow a redirect (it could lead past the https rule to an internal address)', async () => {
+    const internal = await recordingServer({status: 200, body: '[]'});
+    const redirecting = await recordingServer({status: 302, body: '', headers: {location: `${internal.url}/programs`}});
+    const logs = captureLogs();
+    try {
+      await put(redirecting.url);
+      const res = await testConnection();
+      expect(res.body).toMatchObject({ok: false, code: 'SOURCE_INVALID_RESPONSE'});
+      expect(redirecting.urls).toHaveLength(1);
+      expect(internal.urls).toEqual([]);
+    } finally {
+      logs.restore();
+      await Promise.all([internal.close(), redirecting.close()]);
+    }
+  });
+
+  it('refuses a URL with a user name or password (it would end up in the logs)', async () => {
+    const res = await request(app).put('/api/match-source')
+      .send({provider: 'vrijwilligers', baseUrl: 'https://user:geheim@wedstrijden.example/v1', apiToken: TOKEN});
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(res.body)).not.toContain('geheim');
+  });
+
+  it('keeps the token out of the log also when the source echoes it escaped, encoded or in other case', async () => {
+    const odd = 'Tok"en\\/+ä9';
+    const upstream = await recordingServer(() => ({
+      status: 500,
+      body: JSON.stringify({json: odd, url: `x?t=${encodeURIComponent(odd)}`, upper: odd.toUpperCase()}),
+    }));
+    const logs = captureLogs();
+    try {
+      await request(app).put('/api/match-source').send({provider: 'vrijwilligers', baseUrl: upstream.url, apiToken: odd, isEnabled: true});
+      await importMatches('08-02-2026');
+      const all = logs.all();
+      expect(all).toContain('[token]');
+      for (const form of [odd, JSON.stringify(odd).slice(1, -1), encodeURIComponent(odd), odd.toUpperCase()]) {
+        expect(all).not.toContain(form);
+        expect(all).not.toContain(JSON.stringify(form).slice(1, -1));
+      }
+    } finally {
+      logs.restore();
+      await upstream.close();
+    }
+  });
+
+  it('does not log referee names from the source (privacy, and no forged log lines)', async () => {
+    const upstream = await recordingServer({status: 200, body: JSON.stringify([
+      {...item('hard-1'), refereeProviderName: 'Geheime Scheids\nFORGED line (Scheidsrechter)'},
+    ])});
+    const logs = captureLogs();
+    try {
+      await put(upstream.url);
+      expect((await importMatches('08-02-2026')).status).toBe(200);
+      expect(logs.all()).not.toContain('Geheime Scheids');
+    } finally {
+      logs.restore();
+      await upstream.close();
+      await inTestOrganization(() => prisma.matchSchedule.deleteMany({where: {externalId: 'hard-1'}}));
+    }
+  });
+});

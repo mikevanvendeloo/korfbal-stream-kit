@@ -47,6 +47,7 @@ export function classifyMatchSourceError(err: unknown): MatchSourceErrorCode | n
 }
 
 const BODY_LOG_LIMIT = 500;
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * The upstream body for the server log: at most ~500 characters, without the token or anything that
@@ -65,7 +66,11 @@ export function redactUpstreamBody(body: unknown, token?: string | null): string
     }
   }
   // Redact before cutting, so a token on the cut can't leave a piece behind
-  if (token) text = text.split(token).join('[token]');
+  if (token) {
+    // Also as it appears JSON-escaped or URL-encoded in an echo, in any case
+    const forms = new Set([token, JSON.stringify(token).slice(1, -1), encodeURIComponent(token)]);
+    for (const form of forms) text = text.replace(new RegExp(escapeRegExp(form), 'gi'), '[token]');
+  }
   text = text
     .replace(/(authorization["']?\s*[:=]\s*["']?)(?:bearer\s+)?[^\s"',;}]+/gi, '$1[verwijderd]')
     .replace(/\bbearer\s+[^\s"',;}]+/gi, 'Bearer [verwijderd]');

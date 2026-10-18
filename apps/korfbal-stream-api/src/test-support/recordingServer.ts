@@ -2,7 +2,7 @@ import http from 'node:http';
 import type {AddressInfo} from 'node:net';
 
 /** What the recording server answers; `hang: true` never answers (for timeouts). */
-export type RecordedAnswer = {status: number; body: string; contentType?: string; hang?: boolean};
+export type RecordedAnswer = {status: number; body: string; contentType?: string; headers?: Record<string, string>; hang?: boolean};
 
 /**
  * A local HTTP server that stands in for an external source (the match source): it records the
@@ -20,7 +20,7 @@ export async function recordingServer(answer: RecordedAnswer | ((req: http.Incom
       hanging.add(res);
       return;
     }
-    res.writeHead(a.status, {'content-type': a.contentType ?? 'application/json'});
+    res.writeHead(a.status, {'content-type': a.contentType ?? 'application/json', ...a.headers});
     res.end(a.body);
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
