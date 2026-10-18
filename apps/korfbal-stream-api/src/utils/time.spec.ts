@@ -111,6 +111,19 @@ describe('utils/time (Europe/Amsterdam)', () => {
     });
   });
 
+  it('refuses years outside 1900-2200 (the database and Intl would fail on them)', () => {
+    expect(parseInstant('9999-12-31T23:59:59-14:00')).toBeNull();
+    expect(parseInstant('1899-12-31T23:00:00Z')).toBeNull();
+    expect(parseInstant(new Date(8.64e15))).toBeNull();
+    expect(parseInstant('2200-06-01T12:00:00Z')?.toISOString()).toBe('2200-06-01T12:00:00.000Z');
+  });
+
+  it('gives null for an Excel cell at the edge of the Date range instead of throwing', () => {
+    expect(() => excelCellToDate(new Date(8.64e15))).not.toThrow();
+    expect(excelCellToDate(new Date(8.64e15))).toBeNull();
+    expect(excelCellToDate(new Date(-8.64e15))).toBeNull();
+  });
+
   it('reads an Excel time cell (wall clock as UTC) as Amsterdam time', () => {
     expect(excelCellToDate(new Date('2026-11-14T19:30:00.000Z'))?.toISOString()).toBe('2026-11-14T18:30:00.000Z');
     expect(excelCellToDate(new Date('2026-06-13T19:30:00.000Z'))?.toISOString()).toBe('2026-06-13T17:30:00.000Z');

@@ -1,5 +1,6 @@
 import {Router} from 'express';
 import {prisma} from '../../services/prisma';
+import {contentDisposition} from '../../utils/attachment';
 
 export const segmentTemplatesRouter: Router = Router();
 
@@ -365,7 +366,7 @@ segmentTemplatesRouter.get('/:id/export-json', async (req, res, next) => {
     };
 
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename=segment-template-${tpl.name.replace(/\s+/g, '-').toLowerCase()}.json`);
+    res.setHeader('Content-Disposition', contentDisposition(`segment-template-${tpl.name.toLowerCase()}.json`));
     return res.json(payload);
   } catch (err) {
     return next(err);

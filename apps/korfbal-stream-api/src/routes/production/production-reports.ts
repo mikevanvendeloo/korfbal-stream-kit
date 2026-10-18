@@ -11,6 +11,7 @@ import {getAssetsRoot} from "../../services/config";
 import {findSponsorByName, sponsorLogoFile, sponsorLogoPath} from "../../services/reportSponsors";
 import {assertProductionExists} from '../../services/production';
 import {amsterdamDay, formatTime} from '../../utils/time';
+import {contentDisposition} from '../../utils/attachment';
 
 export const productionReportsRouter: Router = Router();
 
@@ -174,7 +175,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
 
     const filename = `Productie_Rapport_${matchSchedule.homeTeamName.replace(/[^a-z0-9]/gi, '_')}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', contentDisposition(filename));
     doc.pipe(res);
 
     // Helper functie om club logo te vinden en renderen
@@ -752,7 +753,7 @@ productionReportsRouter.get('/:id/report/markdown', async (req, res, next) => {
     // Set response headers
     const filename = `Productie_Positie_Overzicht_${match.homeTeamName.replace(/[^a-z0-9]/gi, '_')}_${amsterdamDay(matchDate)}.md`;
     res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', contentDisposition(filename));
 
     return res.send(markdown);
   } catch (err) {
@@ -1001,7 +1002,7 @@ productionReportsRouter.get('/:id/report/whatsapp', async (req, res, next) => {
     // Set response headers
     const filename = `Productie_Positie_Overzicht_${match.homeTeamName.replace(/[^a-z0-9]/gi, '_')}_${amsterdamDay(matchDate)}.txt`;
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', contentDisposition(filename));
 
     return res.send(text);
   } catch (err) {

@@ -156,9 +156,22 @@ describe.runIf(runDb)('Amsterdam time in text for vMix and reports (integration)
       expect(res.body.date).toBe('2026-11-14T18:30:00.000Z');
     });
 
-    it.each(['nonsense', '2026-02-31T18:30:00Z', 42])('production liveTime %j', async (liveTime) => {
+    it.each(['nonsense', '2026-02-31T18:30:00Z', 42, '9999-12-31T23:59:59-14:00'])('production liveTime %j', async (liveTime) => {
       const res = await request(app).put(`/api/production/${show.productionId}`).send({liveTime});
       expect(res.status).toBe(400);
+    });
+
+    it('a location that is not one value gives 400', async () => {
+      expect((await request(app).get('/api/match/matches/schedule?location[]=HOME')).status).toBe(400);
+      expect((await request(app).get('/api/match/matches/schedule?location=HOME&location=AWAY')).status).toBe(400);
+    });
+
+    it('the production export file name cannot change the download header', async () => {
+      await prisma.matchSchedule.update({where: {id: show.matchId}, data: {homeTeamName: `Thuis"; filename*=UTF-8''evil.html`, awayTeamName: 'Ωmega'}});
+      const res = await request(app).get(`/api/production/${show.productionId}/export`);
+      expect(res.status).toBe(200);
+      expect(res.headers['content-disposition']).toMatch(/^attachment; filename="production-[A-Za-z0-9._-]+-export\.json"$/);
+      expect(res.headers['content-disposition']).not.toContain('filename*');
     });
 
     it('callsheet item times', async () => {

@@ -7,6 +7,7 @@ import {logger} from '../../utils/logger';
 import {ensureSeasonForDate} from '../../services/season';
 import {amsterdamDay, parseInstant} from '../../utils/time';
 import {migrateLegacySeasonAssets} from '../../services/seasonAssetMigration';
+import {contentDisposition} from '../../utils/attachment';
 
 export const productionExportImportRouter: Router = Router();
 
@@ -234,7 +235,7 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
 
     const dateString = amsterdamDay(production.matchSchedule.date);
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="production-${dateString}-${production.matchSchedule.homeTeamName}-${production.matchSchedule.awayTeamName}-export.json"`);
+    res.setHeader('Content-Disposition', contentDisposition(`production-${dateString}-${production.matchSchedule.homeTeamName}-${production.matchSchedule.awayTeamName}-export.json`));
     return res.json(exportData);
   } catch (err) {
     return next(err);

@@ -178,7 +178,17 @@ export function fromAmsterdamInput(value: unknown): string | null {
  * an offset, or an Amsterdam time without zone. Anything else (garbage, numbers, 31-02) → null, so
  * routes can answer 400 instead of failing in the database.
  */
+/** Years a time from outside may have; anything else is a typo (or an attempt), not a match or show. */
+const MIN_YEAR = 1900;
+const MAX_YEAR = 2200;
+const inRange = (d: Date | null): Date | null =>
+  d && !Number.isNaN(d.getTime()) && d.getUTCFullYear() >= MIN_YEAR && d.getUTCFullYear() <= MAX_YEAR ? d : null;
+
 export function parseInstant(value: unknown): Date | null {
+  return inRange(parseInstantUnchecked(value));
+}
+
+function parseInstantUnchecked(value: unknown): Date | null {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
   const p = parseInput(value);
   if (!p) return null;
@@ -202,7 +212,8 @@ export function parseOptionalInstant(value: unknown): Date | null | 'invalid' {
  * 19:30Z), while the crew means Amsterdam time.
  */
 export function excelCellToDate(cell: Date): Date | null {
-  if (Number.isNaN(cell.getTime())) return null;
+  // Out of range first: near the edge of the Date range the zone lookup itself would throw
+  if (!inRange(cell)) return null;
   return amsterdamToUtc(
     cell.getUTCFullYear(), cell.getUTCMonth() + 1, cell.getUTCDate(),
     cell.getUTCHours(), cell.getUTCMinutes(), cell.getUTCSeconds(), cell.getUTCMilliseconds(),

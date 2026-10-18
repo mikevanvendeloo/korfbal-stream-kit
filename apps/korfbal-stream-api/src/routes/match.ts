@@ -91,7 +91,8 @@ matchRouter.post('/matches/schedule/import', async (req, res) => {
 matchRouter.get('/matches/schedule', async (req, res) => {
   try {
     const dateStr = req.query.date == null || req.query.date === '' ? amsterdamDay(new Date()) : String(req.query.date);
-    const location = ((req.query.location as string) || 'HOME').toUpperCase();
+    if (req.query.location !== undefined && typeof req.query.location !== 'string') return res.status(400).json({error: 'Invalid location'});
+    const location = (req.query.location || 'HOME').toUpperCase();
     if (!amsterdamInputToDate(dateStr) || dateStr.length !== 10) return res.status(400).json({error: 'Invalid date (YYYY-MM-DD)'});
 
     // The Amsterdam day, whatever the server's zone
