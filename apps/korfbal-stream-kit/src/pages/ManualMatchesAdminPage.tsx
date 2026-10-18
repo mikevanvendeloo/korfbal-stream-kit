@@ -1,24 +1,44 @@
 import React, { useState } from 'react';
 import { useManualMatches, useCreateManualMatch, useUpdateManualMatch, useDeleteManualMatch, ManualMatch, ManualMatchInput } from '../hooks/useManualMatches';
 import { MdAdd, MdDelete, MdEdit } from 'react-icons/md';
-import { useForm } from 'react-hook-form';
-import { formatDateTime, fromAmsterdamInput, toAmsterdamInputValue } from '../lib/time';
+import { Controller, useForm } from 'react-hook-form';
+import { formatDateTime } from '../lib/time';
+import DateTimeInputNL, { INVALID_DATE_TIME_MESSAGE } from '../components/DateTimeInputNL';
+
+// date: UTC ISO, '' when empty, null while the fields hold something invalid
+type MatchFormValues = Omit<ManualMatchInput, 'date'> & { date: string | null };
 
 function MatchFormModal({ match, onSave, onCancel }: { match?: ManualMatch, onSave: (data: ManualMatchInput) => void, onCancel: () => void }) {
-  const { register, handleSubmit, formState: { errors } } = useForm<ManualMatchInput>({
-    // The field shows and means Amsterdam time, whatever the device's zone
-    defaultValues: match ? { ...match, date: toAmsterdamInputValue(match.date) } : {},
+  const { register, control, handleSubmit, formState: { errors } } = useForm<MatchFormValues>({
+    // The fields show and mean Amsterdam time, whatever the device's zone
+    defaultValues: match ? { ...match } : { date: '' },
   });
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md">
         <h2 className="text-xl font-semibold mb-4">{match ? 'Wedstrijd Bewerken' : 'Nieuwe Wedstrijd'}</h2>
-        <form onSubmit={handleSubmit(onSave)} className="space-y-4">
+        <form onSubmit={handleSubmit((data) => onSave({ ...data, date: data.date as string }))} className="space-y-4">
           <div>
-            <label htmlFor="manual-match-date" className="block text-sm font-medium">Datum & Tijd</label>
-            <input id="manual-match-date" type="datetime-local" {...register('date', { required: true })} className="w-full p-2 border rounded bg-white dark:bg-gray-900" />
-            {errors.date && <p className="text-red-500 text-xs mt-1">Datum is verplicht.</p>}
+            <Controller
+              name="date"
+              control={control}
+              rules={{ validate: (v) => (v === null ? INVALID_DATE_TIME_MESSAGE : v ? true : 'Datum is verplicht.') }}
+              render={({ field }) => (
+                <DateTimeInputNL
+                  id="manual-match"
+                  value={field.value}
+                  onChange={field.onChange}
+                  dateLabel="Datum"
+                  timeLabel="Tijd"
+                  labelClassName="block text-sm font-medium"
+                  inputClassName="p-2 border rounded bg-white dark:bg-gray-900"
+                  required
+                  describedBy={errors.date ? 'manual-match-date-error' : undefined}
+                />
+              )}
+            />
+            {errors.date && <p id="manual-match-date-error" role="alert" className="text-red-500 text-xs mt-1">{errors.date.message}</p>}
           </div>
           <div>
             <label htmlFor="manual-match-home" className="block text-sm font-medium">Thuisploeg</label>
@@ -57,15 +77,11 @@ export default function ManualMatchesAdminPage() {
   const [isCreating, setIsCreating] = useState(false);
 
   const handleSave = async (data: ManualMatchInput) => {
-    const payload = {
-      ...data,
-      date: fromAmsterdamInput(data.date) ?? data.date,
-    };
-
+    // data.date is already UTC ISO (DateTimeInputNL)
     if (editingMatch) {
-      await updateMatch.mutateAsync({ ...editingMatch, ...payload });
+      await updateMatch.mutateAsync({ ...editingMatch, ...data });
     } else {
-      await createMatch.mutateAsync(payload);
+      await createMatch.mutateAsync(data);
     }
     setEditingMatch(undefined);
     setIsCreating(false);

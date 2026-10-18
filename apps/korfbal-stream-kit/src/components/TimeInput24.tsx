@@ -29,13 +29,15 @@ type Props = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChan
   value: string;
   /** Called with "HH:mm" (or '' when cleared) once the field is left or Enter is pressed, and only when it changed. */
   onCommit: (value: string) => void;
+  /** Called on every commit and on Escape: false when what was typed isn't a valid time (the field turns red), true otherwise. */
+  onValidityChange?: (valid: boolean) => void;
 };
 
 /**
  * Time field that always uses the 24-hour clock. A native time input follows the browser's
  * language and may show AM/PM, which the crew doesn't use.
  */
-export default function TimeInput24({value, onCommit, className = '', ...rest}: Props) {
+export default function TimeInput24({value, onCommit, onValidityChange, className = '', ...rest}: Props) {
   const [draft, setDraft] = React.useState(value);
   const [invalid, setInvalid] = React.useState(false);
 
@@ -48,9 +50,11 @@ export default function TimeInput24({value, onCommit, className = '', ...rest}: 
     const parsed = parseTime24(draft);
     if (parsed === null) {
       setInvalid(true);
+      onValidityChange?.(false);
       return;
     }
     setInvalid(false);
+    onValidityChange?.(true);
     setDraft(parsed);
     if (parsed !== value) onCommit(parsed);
   }
@@ -75,6 +79,7 @@ export default function TimeInput24({value, onCommit, className = '', ...rest}: 
         } else if (e.key === 'Escape') {
           setDraft(value);
           setInvalid(false);
+          onValidityChange?.(true);
         }
       }}
       className={`w-20 font-mono tabular-nums ${invalid ? 'border-red-500 dark:border-red-500' : ''} ${className}`}
