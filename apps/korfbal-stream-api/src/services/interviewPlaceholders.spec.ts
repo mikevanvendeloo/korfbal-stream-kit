@@ -7,6 +7,10 @@ const awayMatch: InterviewNames = {
     HOME: {PLAYER: 'Sanne de Vries', COACH: 'Jan Jansen'},
     AWAY: {PLAYER: 'Kim Bakker', COACH: null},
   },
+  people: {
+    HOME: {PLAYER: {name: 'Sanne de Vries', shirtNo: 7, photoUrl: null}, COACH: {name: 'Jan Jansen', shirtNo: null, photoUrl: null}},
+    AWAY: {PLAYER: {name: 'Kim Bakker', shirtNo: 4, photoUrl: 'players/kim.png'}, COACH: null},
+  },
 };
 
 describe('interview placeholders', () => {
@@ -30,9 +34,17 @@ describe('interview placeholders', () => {
   it('shows a short label when nobody is selected yet, and ignores case', () => {
     expect(splitInterviewPlaceholders('Interview {Coach-Uit}', awayMatch)).toEqual([
       {text: 'Interview ', resolved: null},
-      {text: 'coach uit', resolved: false},
+      {text: 'coach uit', resolved: false, side: 'AWAY', role: 'COACH'},
     ]);
     expect(resolveInterviewPlaceholders('Interview {coach-thuis}', null)).toBe('Interview coach thuis');
+  });
+
+  it('tells whom each placeholder names, following the own club', () => {
+    expect(splitInterviewPlaceholders('{speler-eigen:kort} en {coach-tegenstander}', awayMatch)).toEqual([
+      {text: 'K. Bakker', resolved: true, side: 'AWAY', role: 'PLAYER'},
+      {text: ' en ', resolved: null},
+      {text: 'Jan Jansen', resolved: true, side: 'HOME', role: 'COACH'},
+    ]);
   });
 
   it('leaves other text and unknown placeholders alone', () => {

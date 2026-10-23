@@ -124,7 +124,7 @@ apps/korfbal-stream-kit/src/
 │   ├── PersonsAdminPage.tsx, SkillsAdminPage.tsx, PositionsAdminPage.tsx
 │   ├── ProductionAttendancePage.tsx, ProductionStaffingPage.tsx, CrewReportPage.tsx
 │   ├── ProductionReportPage.tsx, ProductionTimingReportPage.tsx, ReportsPage.tsx (/admin/rapportages/:tab)
-│   ├── ProductionTitlesPage.tsx, LiveVmixPage.tsx (LIVE), VmixConnectionPage.tsx, VmixDatasourcesPage.tsx, VmixTemplatesPage.tsx
+│   ├── ProductionTitlesPage.tsx, LiveVmixPage.tsx (LIVE), InterviewsPage.tsx (LIVE → Interviews), VmixConnectionPage.tsx, VmixDatasourcesPage.tsx, VmixTemplatesPage.tsx
 │   ├── SponsorsPage.tsx, SponsorSlidesPage.tsx
 │   ├── ClubsPage.tsx, MatchSchedulePage.tsx, ManualMatchesAdminPage.tsx, MatchProgramPage.tsx
 │   ├── ScoreboardPage.tsx, QRAdminPage.tsx, AboutPage.tsx
@@ -138,6 +138,7 @@ apps/korfbal-stream-kit/src/
 │       ├── ClubSettingsTab.tsx        # Own club config
 │       └── BackupSettingsTab.tsx      # Backup export/import (for the chosen organization)
 ├── components/ShowCallerPhone.tsx # Show Caller on phones (< 768 px): now, next, later, controls at the bottom
+├── components/InterviewAvatar.tsx, FallbackImage.tsx, InterviewPhotosToggle.tsx # Interview photos (photo / number / initials), the "Interviewfoto's" switch (hooks/useInterviewPhotos.ts)
 ├── handleiding/               # User manual: live/*.md and beheer/*.md, ManualView, HelpButton, helpTopics (route → chapter)
 ├── components/                # Feature components
 │   ├── OrganizationGate.tsx   # Start screen, chosen organization context (useCurrentOrganization), OrganizationSwitcher (nav)
@@ -392,7 +393,8 @@ No login (internal LAN tool), but every `/api` request needs an organization: `X
 | DELETE | /api/production/:id/titles/:titleId | Delete title definition |
 | PATCH | /api/production/:id/titles:reorder | Reorder title definitions |
 | GET | /api/production/:id/interviews | List interview subjects |
-| GET | /api/production/:id/interview-names | Selected interview names per side/role + own club side (for `{coach-uit}` placeholders) |
+| GET | /api/production/:id/interview-names | Selected interview names per side/role + own club side (for `{coach-uit}` placeholders), plus `people` (name, shirtNo, photoUrl) for the photos next to them |
+| GET | /api/production/:id/interview-cards | The chosen interviews for LIVE → Interviews: `{items: [{id, side, role, title, name, shirtNo, photoUrl, teamName}]}`. PUT `/interviews` emits socket `interviews_updated` `{productionId}` to the organization |
 | PUT | /api/production/:id/interviews | Replace interview subjects |
 | GET | /api/production/:id/interviews/options | Interview subject options |
 | GET | /api/production/:id/report | Get production report |

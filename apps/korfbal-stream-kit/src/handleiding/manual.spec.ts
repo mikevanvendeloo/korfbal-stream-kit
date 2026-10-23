@@ -81,6 +81,8 @@ describe('help topics', () => {
 
   it('opens the chapter about the current screen', () => {
     expect(manualPath(helpTopicFor('/show-caller/7/regie'))).toBe('/handleiding/show-caller');
+    expect(manualPath(helpTopicFor('/interviews'))).toBe('/handleiding/interviews');
+    expect(manualChapters('live').some((c) => c.slug === 'interviews')).toBe(true);
     expect(manualPath(helpTopicFor('/admin/producties/5/beschikbaarheid'))).toBe('/admin/handleiding/bezetting#beschikbaarheid');
     expect(manualPath(helpTopicFor('/admin/producties/5'))).toBe('/admin/handleiding/draaiboek');
     expect(manualPath(helpTopicFor('/admin/stamgegevens/vmix-koppeling'))).toBe('/admin/handleiding/vmix');

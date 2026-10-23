@@ -112,6 +112,7 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/production/:id/events/:eventId': {read: (a) => `/api/production/${a.productionId}/events/${a.eventId}`},
   'GET /api/production/:id/events/positions': {read: (a) => `/api/production/${a.productionId}/events/positions`},
   'GET /api/production/:id/export': {read: (a) => `/api/production/${a.productionId}/export`},
+  'GET /api/production/:id/interview-cards': {read: (a) => `/api/production/${a.productionId}/interview-cards`},
   'GET /api/production/:id/interview-names': {read: (a) => `/api/production/${a.productionId}/interview-names`},
   'GET /api/production/:id/interviews': {read: (a) => `/api/production/${a.productionId}/interviews`},
   'GET /api/production/:id/interviews/options': {read: (a) => `/api/production/${a.productionId}/interviews/options`, control: false},

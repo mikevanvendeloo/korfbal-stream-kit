@@ -1,6 +1,6 @@
 # Aan de slag met LIVE
 
-LIVE is het deel van Korfbal StreamKit dat de crew tijdens een uitzending gebruikt. Je ziet hier de actieve productie, je eigen callsheet, de Show Caller, het scorebord en de vMix-bediening. Alles wat je ziet volgt de productie die in Beheer **actief** is gezet.
+LIVE is het deel van Korfbal StreamKit dat de crew tijdens een uitzending gebruikt. Je ziet hier de actieve productie, je eigen callsheet, de Show Caller, de interviews, het scorebord en de vMix-bediening. Alles wat je ziet volgt de productie die in Beheer **actief** is gezet.
 
 ## Organisatie kiezen
 
@@ -23,6 +23,7 @@ Bovenin staat altijd dezelfde balk:
 | **Scoreboard** | Score, wedstrijdklok en schotklok op een zwart scherm |
 | **Callsheet** | Jouw items, per positie, met de tijden en wat er nu gebeurt |
 | **Show Caller** | Het hele draaiboek, en de knoppen om de show door te zetten |
+| **Interviews** | Wie er geïnterviewd wordt: foto, naam, rugnummer en ploeg |
 | **vMix** | Countdown-timer en de callsheet naar vMix voor presentator en analist |
 
 Op een telefoon of tablet staat in de balk alleen het logo, **LIVE** en de naam van het scherm waar je bent. Met de **menuknop** (drie streepjes) open je de onderdelen, je organisatie (om te wisselen), **Beheer**, **Over deze app** en het donkere thema.

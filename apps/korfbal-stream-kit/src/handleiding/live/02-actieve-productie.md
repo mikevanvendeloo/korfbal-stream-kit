@@ -25,7 +25,7 @@ Rechts staan de interviews. In het blok **Interview selectie** kies je per ploeg
 
 De lijsten tonen de spelers en coaches van de club van die ploeg, voor dit seizoen. Is een lijst leeg, dan herkent de app de club bij de teamnaam niet, of zijn de spelers van dat seizoen nog niet geïmporteerd (beide in Beheer).
 
-Druk daarna op **Interview opslaan**. Pas dan is de keuze bewaard. De kaart **Interviews** toont dan de gekozen personen met foto, en de namen verschijnen binnen ongeveer 10 seconden op de callsheets en in de vMix-titels.
+Druk daarna op **Interview opslaan**. Pas dan is de keuze bewaard. De kaart **Interviews** toont dan de gekozen personen met foto, en de namen verschijnen meteen (zonder verbinding binnen ongeveer 10 seconden) op de callsheets, met een kleine foto, op het scherm [Interviews](/handleiding/interviews) en in de vMix-titels.
 
 > **Let op:** opslaan vervangt de hele interviewkeuze van deze productie. Een lijst die op **— kies —** staat, wist dat interview. Kies daarom altijd alle vier opnieuw voordat je opslaat.
 

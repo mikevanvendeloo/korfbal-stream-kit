@@ -27,7 +27,7 @@ De tijden schuiven automatisch mee met de werkelijkheid: zodra de Show Caller na
 
 ## In de callsheet staat "coach uit" in plaats van een naam
 
-Er is nog geen interview gekozen, of de keuze is niet opgeslagen. Kies de interviews op **Actieve productie** en druk op **Interview opslaan**. Binnen ongeveer 10 seconden staan de namen in de callsheet.
+Er is nog geen interview gekozen, of de keuze is niet opgeslagen. Kies de interviews op **Actieve productie** en druk op **Interview opslaan**. De namen staan dan meteen in de callsheet (uiterlijk binnen ongeveer 10 seconden).
 
 ## Er staat "Pagina niet gevonden"
 

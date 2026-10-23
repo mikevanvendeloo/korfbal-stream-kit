@@ -13,6 +13,7 @@ const RULES: Array<[RegExp, HelpTopic]> = [
   [/^\/show-caller(\/|$)/, {part: 'live', chapter: 'show-caller'}],
   [/^\/scoreboard(\/|$)/, {part: 'live', chapter: 'scorebord'}],
   [/^\/vmix(\/|$)/, {part: 'live', chapter: 'vmix'}],
+  [/^\/interviews(\/|$)/, {part: 'live', chapter: 'interviews'}],
   [/^\/$/, {part: 'live', chapter: 'actieve-productie'}],
 
   // Beheer: per production tab

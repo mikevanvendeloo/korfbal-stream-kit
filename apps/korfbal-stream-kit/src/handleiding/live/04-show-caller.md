@@ -49,11 +49,17 @@ Op een telefoon krijgt de Show Caller een eigen, eenvoudige weergave, gemaakt om
 - **Daarna voor jou**: de items die daarna komen voor je positie (en items voor iedereen), met tijd en duur. Via het menu (de drie puntjes) wissel je naar **alle items**.
 - In het blok **Nu**, bij **Zet**: **15s**, **30s** en **60s** zetten de resterende tijd van het huidige item meteen op die waarde.
 - Onderaan, onder je duim: **Stop**, **Vorig** en een grote knop **Volgend**. Voor de start staat daar **Start show**. Stop vraagt eerst om bevestiging.
-- In het menu (drie puntjes): **Wissel positie**, **Callsheet view**, **Tijden herberekenen**, **Herstart show** en **Draaiboek resetten**. Herstarten en resetten vragen eerst om bevestiging.
+- In het menu (drie puntjes): **Interviewfoto's: aan** (of **uit**) om de foto's te wisselen, **Wissel positie**, **Callsheet view**, **Tijden herberekenen**, **Herstart show** en **Draaiboek resetten**. Herstarten en resetten vragen eerst om bevestiging.
 
 Lukt een actie niet, bijvoorbeeld *volgend* bij het laatste item, dan zie je bovenaan een melding. Tik erop om hem weg te halen.
 
 > **Scherm aan houden.** De Show Caller vraagt de telefoon het scherm aan te laten. Dat lukt alleen als de app via **https** wordt geopend. Via een gewoon `http://`-adres in de zaal gaat het scherm na de ingestelde tijd toch uit: zet die tijd op je telefoon dan tijdelijk langer.
+
+## Interviewfoto's
+
+Bij het item dat **nu** loopt en het **volgende** item staat naast elke ingevulde interviewnaam (zoals `{speler-thuis}`) een kleine foto van die speler of coach, met het rugnummer erachter. Zonder foto staat het rugnummer in het rondje; zonder rugnummer, en bij coaches, de initialen. Bij de andere items staat alleen de naam. Dat geldt op de telefoon en op een groot scherm.
+
+De foto's staan standaard aan. Zet ze uit met **Interviewfoto's** in het tandwiel, of op de telefoon in het menu (drie puntjes). Die keuze wordt op je apparaat onthouden en geldt ook voor de callsheet. Meer over de foto's in [De callsheet](/handleiding/callsheet#interviewfoto-s); alle gekozen interviews in het groot staan op [Interviews](/handleiding/interviews).
 
 ## Automatisch doorgaan
 
@@ -66,6 +72,7 @@ Een item met **Auto** gaat aan het einde van zijn duur vanzelf door naar het vol
 | **Lettergrootte** | S, M, L of XL voor jouw scherm |
 | **Auto Scroll** | Houdt het actieve item in het midden (standaard aan) |
 | **Focus Mode** | Verbergt alles wat niet voor jouw positie is (alleen als je een positie hebt gekozen) |
+| **Interviewfoto's** | **AAN** of **UIT**: de kleine foto's naast de interviewnamen (zie [Interviewfoto's](#interviewfoto-s)). Standaard aan, en onthouden op je apparaat. |
 | **Callsheet view** | Naar de callsheet van dezelfde positie |
 | **Wissel Positie** | Een andere positie kiezen, of *Alle Items* |
 | **Tijden herberekenen** | Rekent alle tijden opnieuw uit vanaf het moment dat het actieve item begon. Geen bevestiging. |

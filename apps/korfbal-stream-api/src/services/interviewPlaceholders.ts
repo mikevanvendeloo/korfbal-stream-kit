@@ -14,9 +14,13 @@ export const INTERVIEW_PLACEHOLDER = /\{(speler|coach)-(thuis|uit|eigen|tegensta
 
 export type Side = 'HOME' | 'AWAY';
 export type Role = 'PLAYER' | 'COACH';
+/** The chosen person behind a placeholder, for the small photo next to the name. */
+export type InterviewPerson = { name: string; shirtNo: number | null; photoUrl: string | null };
 export type InterviewNames = {
   ownSide: Side;
   names: Record<Side, Record<Role, string | null>>;
+  /** The same choice as `names`, with shirt number and photo */
+  people: Record<Side, Record<Role, InterviewPerson | null>>;
 };
 
 export function shortName(name: string, format?: string): string {
@@ -26,7 +30,8 @@ export function shortName(name: string, format?: string): string {
   return format.toLowerCase() === 'kort' ? `${parts[0][0]}. ${rest}` : rest;
 }
 
-export type PlaceholderSegment = { text: string; resolved: boolean | null };
+/** Plain text has resolved: null; a placeholder has resolved true (a name) or false (a fallback label), plus whom it names. */
+export type PlaceholderSegment = { text: string; resolved: boolean | null; side?: Side; role?: Role };
 
 /** Splits text into plain parts (resolved: null), names (true) and fallback labels (false). */
 export function splitInterviewPlaceholders(text: string, names: InterviewNames | null): PlaceholderSegment[] {
@@ -44,8 +49,8 @@ export function splitInterviewPlaceholders(text: string, names: InterviewNames |
       : sideKey === 'eigen' ? ownSide : ownSide === 'HOME' ? 'AWAY' : 'HOME';
     const name = names?.names[side][role];
     segments.push(name
-      ? {text: shortName(name, format), resolved: true}
-      : {text: `${roleWord.toLowerCase()} ${sideKey}`, resolved: false});
+      ? {text: shortName(name, format), resolved: true, side, role}
+      : {text: `${roleWord.toLowerCase()} ${sideKey}`, resolved: false, side, role});
     last = index + raw.length;
   }
   if (last < text.length) segments.push({text: text.slice(last), resolved: null});
@@ -83,17 +88,25 @@ export async function loadInterviewNames(productionId: number): Promise<Intervie
     where: {id: productionId},
     select: {
       matchSchedule: {select: {homeTeamName: true, awayTeamName: true, isHomeMatch: true}},
-      interviewSubjects: {select: {side: true, role: true, titleDefinitionId: true, player: {select: {name: true}}}, orderBy: {id: 'asc'}},
+      interviewSubjects: {
+        select: {side: true, role: true, titleDefinitionId: true, player: {select: {name: true, shirtNo: true, photoUrl: true}}},
+        orderBy: {id: 'asc'},
+      },
     },
   });
   if (!production) return null;
 
   const names: InterviewNames['names'] = {HOME: {PLAYER: null, COACH: null}, AWAY: {PLAYER: null, COACH: null}};
+  const people: InterviewNames['people'] = {HOME: {PLAYER: null, COACH: null}, AWAY: {PLAYER: null, COACH: null}};
   for (const subject of production.interviewSubjects) {
     if (subject.side === 'NONE') continue;
     const side = subject.side as Side;
     const role = subject.role as Role;
-    if (!names[side][role] || subject.titleDefinitionId == null) names[side][role] = subject.player.name;
+    if (!names[side][role] || subject.titleDefinitionId == null) {
+      const {name, shirtNo, photoUrl} = subject.player;
+      names[side][role] = name;
+      people[side][role] = {name, shirtNo: shirtNo ?? null, photoUrl: photoUrl ?? null};
+    }
   }
-  return {ownSide: await ownSideFor(productionId, production.matchSchedule), names};
+  return {ownSide: await ownSideFor(productionId, production.matchSchedule), names, people};
 }

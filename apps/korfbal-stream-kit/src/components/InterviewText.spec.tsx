@@ -4,6 +4,9 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {InterviewNamesProvider, InterviewText} from './InterviewText';
 
+// No socket connection in jsdom: the refresh on 'interviews_updated' is tested in InterviewsPage.spec
+vi.mock('../lib/socket', () => ({getSharedSocket: () => ({on: vi.fn(), off: vi.fn()})}));
+
 function renderAt(text: string, withProvider = true) {
   const content = <span data-testid="text"><InterviewText text={text}/></span>;
   return render(

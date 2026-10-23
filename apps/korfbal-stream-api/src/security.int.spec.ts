@@ -1110,6 +1110,52 @@ describe.runIf(runDb)('live state per organization (integration)', () => {
   });
 });
 
+describe.runIf(runDb)('interview choice event per organization (integration)', () => {
+  const IA = 'sec-interview-a';
+  const IB = 'sec-interview-b';
+  let club: {id: number; name: string};
+  let show: ProductionScenario;
+
+  beforeAll(async () => {
+    const organizationId = await ensureOrganization(prisma, IA, 'Sec Interview A');
+    await ensureOrganization(prisma, IB, 'Sec Interview B');
+    // The PUT resolves the match's clubs by team name: a club with a name of its own
+    const name = `SecInterview Club ${Date.now()}`;
+    club = await prisma.club.create({data: {name, shortName: name, slug: `sec-interview-${Date.now()}`}});
+    show = await createProductionScenario(prisma, {organizationId, match: {homeTeamName: name, awayTeamName: 'SecInterview Gast'}});
+  });
+
+  afterAll(async () => {
+    await show?.cleanup();
+    if (club) await prisma.club.deleteMany({where: {id: club.id}});
+    await prisma.organization.deleteMany({where: {slug: {in: [IA, IB]}}});
+  });
+
+  it('tells only the own organization\'s clients that the interview choice changed', async () => {
+    const url = await socketServerUrl();
+    const [clientA, clientB, clientNone] = await Promise.all([connectClient(url, {organization: IA}), connectClient(url, {organization: IB}), connectClient(url)]);
+    try {
+      const res = await request(app).put(`/api/production/${show.productionId}/interviews`).set('X-Organization', IA).send({items: [], replaceAll: true});
+      expect(res.status, res.text).toBe(200);
+      await waitFor(() => clientA.events.some((e) => e.event === 'interviews_updated'));
+      expect(clientA.events.find((e) => e.event === 'interviews_updated')?.payload).toBe(JSON.stringify([{productionId: show.productionId}]));
+      // Give a wrongly addressed event time to arrive
+      await new Promise((r) => setTimeout(r, 200));
+      expect(clientB.events.some((e) => e.event === 'interviews_updated')).toBe(false);
+      expect(clientNone.events.some((e) => e.event === 'interviews_updated')).toBe(false);
+
+      // Another organization can't change it, so nothing is sent
+      clientA.events.length = 0;
+      const foreign = await request(app).put(`/api/production/${show.productionId}/interviews`).set('X-Organization', IB).send({items: [], replaceAll: true});
+      expect(foreign.status).toBe(404);
+      await new Promise((r) => setTimeout(r, 200));
+      expect([...clientA.events, ...clientB.events].some((e) => e.event === 'interviews_updated')).toBe(false);
+    } finally {
+      for (const c of [clientA, clientB, clientNone]) c.socket.close();
+    }
+  });
+});
+
 describe.runIf(runDb)('background services per organization (integration)', () => {
   const PA = 'sec-push-a';
   const PB = 'sec-push-b';
