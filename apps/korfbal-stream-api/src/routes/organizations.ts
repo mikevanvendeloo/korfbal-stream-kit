@@ -5,6 +5,8 @@ import {prisma} from '../services/prisma';
 import {getAssetsRoot} from '../services/config';
 import {createOrganizationWithStandardSet} from '../services/standardSet';
 import {saveImage, singleImage} from '../services/imageUpload';
+import {ORGANIZATION_LOGO_DIR, organizationLogoRelPath} from '../services/sponsorLogos';
+import {renameOrganizationLogoFiles} from '../services/logoStorage';
 import {OrganizationCreateSchema, OrganizationUpdateSchema} from '../schemas/organization';
 import {logger} from '../utils/logger';
 import {resumeOrganization, stopOrganization} from '../services/organizationLifecycle';
@@ -16,8 +18,6 @@ import {clearOrganizationLookupCache} from '../middleware/organizationContext';
  */
 export const organizationsRouter: Router = Router();
 
-export const ORGANIZATION_LOGO_DIR = 'organizations';
-
 type OrganizationWithClub = Organization & {club: Pick<Club, 'logoUrl'> | null};
 
 export function initials(name: string): string {
@@ -25,12 +25,15 @@ export function initials(name: string): string {
   return (words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? '?').slice(0, 2)).toUpperCase();
 }
 
-/** The organization as the API shows it. `displayLogoUrl` (relative to /storage, or http): own logo, else the club's. */
+/**
+ * The organization as the API shows it. `logoUrl` is the stored file name (`<slug>.<ext>`);
+ * `displayLogoUrl` (relative to /storage, or http): own logo (organizations/<slug>.<ext>), else the club's.
+ */
 export function toOrganizationDto(organization: OrganizationWithClub) {
   const {club, ...rest} = organization;
   return {
     ...rest,
-    displayLogoUrl: organization.logoUrl ?? club?.logoUrl ?? null,
+    displayLogoUrl: organizationLogoRelPath(organization) ?? club?.logoUrl ?? null,
     initials: initials(organization.name),
   };
 }
@@ -99,7 +102,14 @@ organizationsRouter.put('/:id', async (req, res, next) => {
     const parsed = OrganizationUpdateSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({error: 'Ongeldige organisatie', issues: parsed.error.issues});
     if (!(await clubExists(parsed.data.clubId))) return res.status(400).json({error: 'Club bestaat niet'});
-    const updated = await prisma.organization.update({where: {id: existing.id}, data: parsed.data, include: withClub});
+    const renaming = !!parsed.data.slug && parsed.data.slug !== existing.slug;
+    // The stored logo name follows the slug (organizations/<slug>.<ext>)
+    const logo = renaming ? organizationLogoRelPath({slug: parsed.data.slug!, logoUrl: existing.logoUrl}) : null;
+    const data = logo ? {...parsed.data, logoUrl: path.basename(logo)} : parsed.data;
+    const update = () => prisma.organization.update({where: {id: existing.id}, data, include: withClub});
+    // A new slug moves its logo files along: files first, moved back when the update fails; 409 when
+    // something for the new slug is already on disk (services/logoStorage.ts)
+    const updated = renaming ? await renameOrganizationLogoFiles(existing.slug, parsed.data.slug!, update) : await update();
     // A renamed slug or a switched-off organization takes effect on the next request, not after the cache
     clearOrganizationLookupCache();
     // Switched off: its live show, timers and sockets stop now, not at the next restart
@@ -112,17 +122,18 @@ organizationsRouter.put('/:id', async (req, res, next) => {
   }
 });
 
-// POST /api/organizations/:id/logo (multipart, field "file") -> storage/organizations/<id>.<ext>
-// Keyed on the id, not the slug: a slug can be renamed and then taken by a new organization.
+// POST /api/organizations/:id/logo (multipart, field "file") -> storage/organizations/<slug>.<ext>
+// Only the file name is stored. A slug rename moves the file, so a new organization that later takes
+// the old slug starts without a logo.
 organizationsRouter.post('/:id/logo', singleImage('file'), async (req, res, next) => {
   try {
     const organization = await findOrganization(Number(req.params.id));
     if (!organization) return res.status(404).json({error: 'Organisatie niet gevonden'});
     if (!req.file) return res.status(400).json({error: 'Geen bestand ontvangen'});
-    const fileName = saveImage(path.join(getAssetsRoot(), ORGANIZATION_LOGO_DIR), String(organization.id), req.file);
+    const fileName = saveImage(path.join(getAssetsRoot(), ORGANIZATION_LOGO_DIR), organization.slug, req.file);
     const updated = await prisma.organization.update({
       where: {id: organization.id},
-      data: {logoUrl: `${ORGANIZATION_LOGO_DIR}/${fileName}`},
+      data: {logoUrl: fileName},
       include: withClub,
     });
     clearOrganizationLookupCache();

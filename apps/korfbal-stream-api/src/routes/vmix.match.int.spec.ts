@@ -48,7 +48,7 @@ describe.runIf(runDb)('vMix match info data source (integration)', () => {
       accommodation: 'Sporthal',
       referees: 'J. de Vries & P. Bakker',
       ballSponsor: 'Vmixmatch Balsponsor',
-      ballSponsorLogo: 'http://10.0.0.5:3333/uploads/sponsors/vmixmatch.png',
+      ballSponsorLogo: 'http://10.0.0.5:3333/uploads/sponsors/test-org/vmixmatch.png',
       matchSponsor: '',
     });
   });

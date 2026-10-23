@@ -38,7 +38,7 @@ apps/korfbal-stream-api/
     │   ├── seasons.ts         # Seasons (seizoenen): list, create, delete, active season, indoor start date
     │   ├── vmix.ts            # vMix data sources (sponsors, staff, titles, callsheet timing) + admin title templates
     │   ├── reports.ts         # Cross-production reports (occupancy, interviews, crew roles)
-    │   ├── backup.ts          # Per-entity JSON backup export/import
+    │   ├── backup.ts          # Per-entity JSON backup export/import, image zip (services/backupImages.ts)
     │   ├── show-control.ts    # Live show control (start/next/previous/reset/stop, clock)
     │   ├── time.ts            # Production time / countdown / venue clock
     │   ├── production.ts      # Production CRUD + activate; mounts production/* sub-routers
@@ -531,3 +531,4 @@ Season-bound endpoints (`GET /api/production`, `/api/production/matches`, `/api/
 |--------|------|-------------|
 | GET | /api/backup/{entity}/export | Export entity as JSON; entity = segment-templates, persons, skills, positions, matches, producties, clubs, sponsors, settings |
 | POST | /api/backup/{entity}/import | Import entity from JSON; same entities |
+| GET | /api/backup/images | Zip of the chosen organization's images (sponsors/<slug>/, organizations/<slug>.<ext>, used club logos and player photos), paths relative to ASSETS_DIR |

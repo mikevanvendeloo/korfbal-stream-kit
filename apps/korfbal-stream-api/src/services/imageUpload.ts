@@ -3,10 +3,13 @@ import path from 'node:path';
 import multer from 'multer';
 import type {RequestHandler} from 'express';
 import {keepOrganizationContext} from '../middleware/organizationContext';
+import {unsafeImageReason} from './imageSafety';
 
 /**
  * Logo uploads (organizations, sponsors): only png/jpeg/gif/webp, checked on the file's content, not
  * on its name or the type the browser claims. No SVG: it can carry scripts and is served same-origin.
+ * Also refused: an image above 4096×4096 pixels (by its header) or a PNG with broken data
+ * (services/imageSafety.ts), so a small file can't make a report decode gigabytes later.
  */
 const IMAGE_TYPES: Array<{extension: string; mimeTypes: string[]; matches: (b: Buffer) => boolean}> = [
   {extension: '.png', mimeTypes: ['image/png'], matches: (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))},
@@ -45,6 +48,8 @@ export function singleImage(field = 'file'): RequestHandler {
 export function imageExtension(file: Express.Multer.File): string {
   const type = IMAGE_TYPES.find((t) => t.matches(file.buffer));
   if (!type) throw new ImageUploadError(NOT_AN_IMAGE);
+  const unsafe = unsafeImageReason(file.buffer);
+  if (unsafe) throw new ImageUploadError(`Afbeelding geweigerd: ${unsafe}`);
   return type.extension;
 }
 

@@ -5,7 +5,8 @@ import {prisma} from '../../services/prisma';
 import {PositionCategory} from '@prisma/client';
 import {getProductionReportData, ProductionWithData} from "../../services/production";
 import {logger} from "../../utils/logger";
-import {findSponsorByName, pdfImage, sponsorLogoFile, sponsorLogoPath} from "../../services/reportSponsors";
+import {findSponsorByName, pdfImage, pdfImageData} from "../../services/reportSponsors";
+import {currentOrganizationRef, sponsorLogoRelPath} from "../../services/sponsorLogos";
 import {assertProductionExists} from '../../services/production';
 import {amsterdamDay, formatTime} from '../../utils/time';
 import {contentDisposition} from '../../utils/attachment';
@@ -166,6 +167,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
 
     const { production, attendees, crewByCategory, interviews, sponsors } = await getProductionReportData(id);
+    const organization = await currentOrganizationRef();
     const { matchSchedule, productionReport } = production;
 
     let doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -190,11 +192,11 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
         });
 
         if (club?.logoUrl) {
-          // club.logoUrl can come from an import: only a png/jpeg inside the assets dir (sponsorLogoFile checks both)
-          const logoPath = sponsorLogoFile(club.logoUrl);
-          if (logoPath) {
+          // club.logoUrl can come from an import: only a safe png/jpeg inside the assets dir (pdfImageData checks it)
+          const logo = pdfImageData(club.logoUrl);
+          if (logo) {
             // renderClubLogo verwacht xPos als het midden van het logo, dus trek logoSize / 2 af voor de linkerrand
-            doc.image(logoPath, xPos - logoSize / 2, yPos, { width: logoSize, height: logoSize, fit: [logoSize, logoSize] });
+            doc.image(logo, xPos - logoSize / 2, yPos, { width: logoSize, height: logoSize, fit: [logoSize, logoSize] });
           } else {
             logger.warn(`Logo not found for team ${teamName} at ${club.logoUrl}`)
           }
@@ -354,13 +356,13 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
       if (!name) return;
       doc.fontSize(12).font('Helvetica-Bold').text(label);
       doc.font('Helvetica').fontSize(10).text(name);
-      const logoPath = sponsorLogoPath(findSponsorByName(name, sponsors));
+      const logoPath = sponsorLogoRelPath(organization, findSponsorByName(name, sponsors)?.logoUrl);
       const logo = pdfImage(logoPath);
       const note = (text: string) => doc.fillColor('gray').fontSize(9).text(text).fillColor('black');
       if (logo?.status === 'ok') {
         const top = doc.y + 4;
         try {
-          doc.image(logo.file, doc.page.margins.left, top, { fit: [140, 50] });
+          doc.image(logo.data, doc.page.margins.left, top, { fit: [140, 50] });
           doc.y = top + 54;
         } catch (err) {
           logger.warn('Sponsor logo could not be drawn in the report', { logoPath, err } as any);
@@ -423,7 +425,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
             try {
               // Teken het kader waar de foto in MOET komen, en plaats de afbeelding daarin
               doc.rect(xPos, currentY, imageWidth, imageHeight).clip();
-              doc.image(photo.file, xPos, currentY, {
+              doc.image(photo.data, xPos, currentY, {
                 width: imageWidth
               });
               currentY += imageHeight + 1;

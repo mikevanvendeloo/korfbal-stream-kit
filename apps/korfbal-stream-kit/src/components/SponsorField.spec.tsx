@@ -4,8 +4,8 @@ import {describe, expect, it} from 'vitest';
 import SponsorField, {sponsorLogoSrc} from './SponsorField';
 
 const sponsors = [
-  {id: 1, name: 'Bakkerij Jansen', displayName: null, logoUrl: 'bakkerij-jansen.png'},
-  {id: 2, name: 'AKB Financial Services', displayName: 'AKB', logoUrl: 'akb.png'},
+  {id: 1, name: 'Bakkerij Jansen', displayName: null, logoUrl: 'bakkerij-jansen.png', logoSrc: '/uploads/sponsors/fortuna/bakkerij-jansen.png'},
+  {id: 2, name: 'AKB Financial Services', displayName: 'AKB', logoUrl: 'akb.png', logoSrc: '/uploads/sponsors/fortuna/akb.png'},
 ];
 
 function Field({initial = ''}: { initial?: string }) {
@@ -18,7 +18,7 @@ describe('SponsorField', () => {
     render(<Field/>);
     expect(screen.getByText('Geen sponsor')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Balsponsor:'), {target: {value: 'Bakkerij Jansen'}});
-    expect(screen.getByRole('img', {name: 'Logo Bakkerij Jansen'}).getAttribute('src')).toBe('/uploads/sponsors/bakkerij-jansen.png');
+    expect(screen.getByRole('img', {name: 'Logo Bakkerij Jansen'}).getAttribute('src')).toBe('/uploads/sponsors/fortuna/bakkerij-jansen.png');
     expect((screen.getByLabelText('Balsponsor (vrije tekst)') as HTMLInputElement).value).toBe('Bakkerij Jansen');
   });
 
@@ -46,7 +46,7 @@ describe('SponsorField', () => {
     fireEvent.error(screen.getByRole('img', {name: 'Logo Bakkerij Jansen'}));
     fireEvent.change(screen.getByLabelText('Balsponsor:'), {target: {value: 'AKB Financial Services'}});
     const akb = screen.getByRole('img', {name: 'Logo AKB Financial Services'});
-    expect(akb.getAttribute('src')).toBe('/uploads/sponsors/akb.png');
+    expect(akb.getAttribute('src')).toBe('/uploads/sponsors/fortuna/akb.png');
     expect(akb.style.visibility).toBe('');
     expect(screen.queryByText('Logo niet gevonden')).toBeNull();
 
@@ -56,10 +56,11 @@ describe('SponsorField', () => {
     expect(screen.getByText('Logo niet gevonden')).toBeTruthy();
   });
 
-  it('builds the logo URL for an organization logo and a legacy file name', () => {
-    expect(sponsorLogoSrc({id: 3, name: 'X', logoUrl: '7/x-logo.webp'})).toBe('/uploads/sponsors/7/x-logo.webp');
-    expect(sponsorLogoSrc({id: 4, name: 'Y', logoUrl: 'Oud Logo.png'})).toBe('/uploads/sponsors/Oud%20Logo.png');
-    expect(sponsorLogoSrc({id: 5, name: 'Z', logoUrl: null})).toBeNull();
+  it('uses logoSrc from the API, never a path built from logoUrl', () => {
+    // The API builds the URL (the directory follows from the slug); the kit never builds it from logoUrl
+    expect(sponsorLogoSrc({logoSrc: '/uploads/sponsors/knkv/x-logo.webp'})).toBe('/uploads/sponsors/knkv/x-logo.webp');
+    expect(sponsorLogoSrc({logoSrc: undefined})).toBeNull();
+    expect(sponsorLogoSrc({logoSrc: null})).toBeNull();
   });
 
   it('prints the name and the logo, not the form fields', () => {

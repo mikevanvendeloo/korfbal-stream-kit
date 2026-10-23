@@ -8,6 +8,7 @@ import {ensureSeasonForDate} from '../../services/season';
 import {amsterdamDay, parseInstant} from '../../utils/time';
 import {migrateLegacySeasonAssets} from '../../services/seasonAssetMigration';
 import {contentDisposition} from '../../utils/attachment';
+import {titlePartsForCreate} from '../../services/backupFields';
 
 export const productionExportImportRouter: Router = Router();
 
@@ -118,6 +119,7 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
         homeScore: production.matchSchedule.homeScore,
         awayScore: production.matchSchedule.awayScore,
         color: production.matchSchedule.color,
+        isManual: production.matchSchedule.isManual,
         seasonName: production.matchSchedule.season?.name
       },
       production: {
@@ -427,7 +429,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
               order: tData.order,
               enabled: tData.enabled,
               parts: {
-                create: tData.parts
+                create: titlePartsForCreate(tData.parts)
               }
             }
           });

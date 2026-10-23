@@ -8,7 +8,14 @@ import {parseInstant} from '../utils/time';
 import {PersonInputSchema} from '../schemas/person';
 import {SkillInputSchema} from '../schemas/skill';
 import {SponsorInputSchema} from '../schemas/sponsor';
-import {resolveClientLogoUrl} from '../services/sponsorLogos';
+import {currentOrganizationRef, resolveClientLogoUrl} from '../services/sponsorLogos';
+import {migrateLogoStorage} from '../services/logoStorage';
+import {titlePartsForCreate} from '../services/backupFields';
+import {organizationImagePaths, streamImagesZip} from '../services/backupImages';
+import {contentDisposition} from '../utils/attachment';
+import {amsterdamDay} from '../utils/time';
+import {z} from 'zod';
+import {Prisma} from '@prisma/client';
 import {
   ACTIVE_SEASON_ID_KEY,
   createSeasonIdResolver,
@@ -17,6 +24,7 @@ import {
 import {migrateLegacySeasonAssets} from '../services/seasonAssetMigration';
 import {getSetting, GLOBAL_SETTING_KEYS, setSetting} from '../services/appSettings';
 import {getOwnClubId, setOwnClubId} from '../services/ownClub';
+import {clearOrganizationLookupCache} from '../middleware/organizationContext';
 
 export const backupRouter: Router = Router();
 
@@ -26,6 +34,13 @@ export const ACTIVE_SEASON_NAME_EXPORT_KEY = 'activeSeasonName';
 const LEGACY_OWN_CLUB_ID_KEY = 'ownClubId';
 // Club ids are serial per database (the clubs restore matches on slug): the own club also goes out by slug
 const OWN_CLUB_SLUG_EXPORT_KEY = 'ownClubSlug';
+/** Settings-backup key for the chosen organization's details: {name, slug, logoUrl, clubSlug, isActive}. */
+export const ORGANIZATION_DETAILS_EXPORT_KEY = 'organizationDetails';
+/** Settings-backup key for the seasons' indoor start dates, by season name (seasons are global): [{seasonName, indoorStartDate}]. */
+export const SEASON_INDOOR_START_EXPORT_KEY = 'seasonIndoorStartDates';
+
+/** A sponsor in a backup: the normal input plus the fields only a backup carries. */
+const SponsorBackupSchema = SponsorInputSchema.extend({ categories: z.string().nullable().optional() });
 
 // Version for segment template JSON
 const SEGMENT_TEMPLATE_JSON_VERSION = 1 as const;
@@ -361,6 +376,9 @@ backupRouter.get('/producties/export', async (_req, res, next) => {
       })),
       productionEvents: p.productionEvents.map(ev => ({
         id: ev.id,
+        callSheetItemId: ev.callSheetItemId,
+        parentId: ev.parentId,
+        metadata: ev.metadata,
         title: ev.title,
         status: ev.status,
         order: ev.order,
@@ -436,7 +454,8 @@ backupRouter.get('/sponsors/export', async (_req, res, next) => {
       websiteUrl: s.websiteUrl,
       logoUrl: s.logoUrl,
       categories: s.categories,
-      displayName: (s as any).displayName
+      displayName: (s as any).displayName,
+      enabled: s.enabled
     }));
 
     res.setHeader('Content-Type', 'application/json');
@@ -468,11 +487,47 @@ backupRouter.get('/settings/export', async (_req, res, next) => {
     const season = typeof activeSeasonId === 'number' ? await prisma.season.findUnique({ where: { id: activeSeasonId } }) : null;
     if (season) exportData.push({ key: ACTIVE_SEASON_NAME_EXPORT_KEY, value: season.name });
 
+    // The organization itself (its slug only for reference: a restore never changes the target's slug)
+    const organization = await prisma.organization.findUnique({ where: { id: requireOrganizationId() }, include: { club: { select: { slug: true } } } });
+    if (organization) {
+      exportData.push({
+        key: ORGANIZATION_DETAILS_EXPORT_KEY,
+        value: { name: organization.name, slug: organization.slug, logoUrl: organization.logoUrl, clubSlug: organization.club?.slug ?? null, isActive: organization.isActive },
+      });
+    }
+    // Seasons are global, so they aren't restored; their indoor start date is, by name, when it is missing
+    const seasons = (await prisma.season.findMany({ orderBy: { startYear: 'asc' } })).filter((s) => s.indoorStartDate instanceof Date);
+    if (seasons.length) {
+      exportData.push({
+        key: SEASON_INDOOR_START_EXPORT_KEY,
+        value: seasons.map((s) => ({ seasonName: s.name, indoorStartDate: s.indoorStartDate!.toISOString().slice(0, 10) })),
+      });
+    }
+
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', 'attachment; filename=settings.json');
     return res.json(exportData);
   } catch (err) {
     logger.error('GET /api/backup/settings/export failed', err as any);
+    return next(err);
+  }
+});
+
+// GET /api/backup/images
+// A zip of the chosen organization's image files under their paths relative to ASSETS_DIR
+// (sponsors/<slug>/…, organizations/<slug>.<ext>, and the shared clubs/… logos and player photos its
+// data uses: services/backupImages.ts), so it unpacks straight into storage/. Streamed.
+backupRouter.get('/images', async (_req, res, next) => {
+  try {
+    const organization = await currentOrganizationRef();
+    const paths = await organizationImagePaths();
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', contentDisposition(`afbeeldingen-${organization.slug}-${amsterdamDay(new Date())}.zip`));
+    const files = await streamImagesZip(paths, res);
+    logger.info(`Image backup of ${organization.slug}: ${files} files`);
+  } catch (err) {
+    logger.error('GET /api/backup/images failed', err as any);
+    if (res.headersSent) return res.destroy(err as Error);
     return next(err);
   }
 });
@@ -877,7 +932,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                   order: tData.order,
                   enabled: tData.enabled,
                   parts: {
-                    create: tData.parts
+                    create: titlePartsForCreate(tData.parts)
                   }
                 }
               });
@@ -936,7 +991,8 @@ backupRouter.post('/producties/import', async (req, res, next) => {
             }
           }
 
-          // 10. CallSheets
+          // 10. CallSheets (old item id -> new item id over all callsheets, for the events below)
+          const callSheetItemIds = new Map<string, string>();
           if (Array.isArray(item.callSheets)) {
             await tx.callSheet.deleteMany({ where: { productionId: production.id } });
             for (const csData of item.callSheets) {
@@ -972,7 +1028,10 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                       productionSegmentId: seg?.id || null
                     }
                   });
-                  if (iData.id) itemIdMap.set(String(iData.id), callSheetItem.id);
+                  if (iData.id) {
+                    itemIdMap.set(String(iData.id), callSheetItem.id);
+                    callSheetItemIds.set(String(iData.id), callSheetItem.id);
+                  }
 
                   if (Array.isArray(iData.positions)) {
                     for (const posName of iData.positions) {
@@ -999,10 +1058,14 @@ backupRouter.post('/producties/import', async (req, res, next) => {
           if (Array.isArray(item.productionEvents)) {
             await tx.productionEvent.deleteMany({ where: { productionId: production.id } });
 
+            const eventIds = new Map<string, string>();
             for (const evData of item.productionEvents) {
+              const callSheetItemId = evData.callSheetItemId ? callSheetItemIds.get(String(evData.callSheetItemId)) ?? null : null;
               const event = await tx.productionEvent.create({
                 data: {
                   productionId: production.id,
+                  callSheetItemId,
+                  metadata: evData.metadata == null ? Prisma.DbNull : evData.metadata,
                   title: evData.title,
                   status: evData.status,
                   order: evData.order,
@@ -1020,6 +1083,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                   autoAdvance: evData.autoAdvance
                 }
               });
+              if (evData.id) eventIds.set(String(evData.id), event.id);
 
               if (Array.isArray(evData.positions)) {
                 for (const posName of evData.positions) {
@@ -1032,6 +1096,11 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                   });
                 }
               }
+            }
+            for (const evData of item.productionEvents) {
+              const id = evData.id && eventIds.get(String(evData.id));
+              const parentId = evData.parentId && eventIds.get(String(evData.parentId));
+              if (id && parentId) await tx.productionEvent.update({ where: { id }, data: { parentId } });
             }
           }
         });
@@ -1136,14 +1205,16 @@ backupRouter.post('/sponsors/import', async (req, res, next) => {
     const data = req.body;
     if (!Array.isArray(data)) return res.status(400).json({ error: 'Array expected' });
     let created = 0, updated = 0;
+    const organization = await currentOrganizationRef();
     for (const item of data) {
       try {
         // The export writes null for an empty displayName; the schema wants it left out
-        const input = SponsorInputSchema.parse(Object.fromEntries(Object.entries(item ?? {}).filter(([, v]) => v !== null)));
+        const input = SponsorBackupSchema.parse(Object.fromEntries(Object.entries(item ?? {}).filter(([, v]) => v !== null)));
         const existing = await prisma.sponsor.findFirst({ where: { name: input.name } });
-        // Own logos and legacy file names (backups from before organizations) are restored; another
-        // organization's directory is not taken over
-        const logoUrl = resolveClientLogoUrl(input.logoUrl, requireOrganizationId(), existing?.logoUrl ?? null, { lenient: true, allowLegacy: true });
+        // Only the file name is restored: it resolves in the chosen organization's own directory
+        // (sponsors/<slug>/), whatever organization the backup came from. The files come with the
+        // image download (GET /api/backup/images).
+        const logoUrl = resolveClientLogoUrl(input.logoUrl, organization, existing?.logoUrl ?? null, { lenient: true, fromBackup: true });
         if (existing) {
           await prisma.sponsor.update({ where: { id: existing.id }, data: { ...input, logoUrl } as any });
           updated++;
@@ -1153,6 +1224,8 @@ backupRouter.post('/sponsors/import', async (req, res, next) => {
         }
       } catch (_) { /* an invalid row is skipped */ }
     }
+    // A backup from before organizations names files in the shared directory: take them into sponsors/<slug>/
+    await migrateLogoStorage({ organizationIds: [requireOrganizationId()] }).catch((err) => logger.error('Moving logos after the sponsors restore failed', err as any));
     return res.json({ ok: true, created, updated });
   } catch (err) {
     logger.error('POST /api/backup/sponsors/import failed', err as any);
@@ -1178,6 +1251,14 @@ backupRouter.post('/settings/import', async (req, res, next) => {
         const value = item.value ?? null;
         if (GLOBAL_SETTING_KEYS.has(key) || key === ACTIVE_SEASON_NAME_EXPORT_KEY) {
           logger.info(`Skipping setting ${key} from backup: it holds for the whole installation, not one organization`);
+          continue;
+        }
+        if (key === ORGANIZATION_DETAILS_EXPORT_KEY) {
+          if (await restoreOrganizationDetails(value)) updated++;
+          continue;
+        }
+        if (key === SEASON_INDOOR_START_EXPORT_KEY) {
+          updated += await restoreIndoorStartDates(value);
           continue;
         }
         if (key === OWN_CLUB_SLUG_EXPORT_KEY) {
@@ -1207,3 +1288,69 @@ backupRouter.post('/settings/import', async (req, res, next) => {
     return next(err);
   }
 });
+
+const OrganizationDetailsSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  logoUrl: z.string().nullable().optional(),
+  clubSlug: z.string().nullable().optional(),
+});
+
+/**
+ * Takes over name, own club (by club slug) and logo file name into the chosen organization. Never its
+ * slug or whether it is active: those belong to the target. The logo name is stored as `<slug>.<ext>`
+ * of the target, so it resolves to organizations/<target slug>.<ext> (put the file there from the
+ * image download).
+ */
+async function restoreOrganizationDetails(value: unknown): Promise<boolean> {
+  const parsed = OrganizationDetailsSchema.safeParse(value);
+  if (!parsed.success) {
+    logger.warn('Skipping organization details from backup: invalid');
+    return false;
+  }
+  const organizationId = requireOrganizationId();
+  const target = await prisma.organization.findUnique({ where: { id: organizationId } });
+  if (!target) return false;
+  const ext = parsed.data.logoUrl ? /\.(png|jpe?g|gif|webp)$/i.exec(parsed.data.logoUrl)?.[0].toLowerCase() : undefined;
+  const data: { name: string; logoUrl?: string | null } = { name: parsed.data.name };
+  if (parsed.data.logoUrl === null) data.logoUrl = null;
+  else if (ext) data.logoUrl = `${target.slug}${ext}`;
+  await prisma.organization.update({ where: { id: organizationId }, data });
+  clearOrganizationLookupCache();
+  if (parsed.data.clubSlug) {
+    const club = await prisma.club.findUnique({ where: { slug: parsed.data.clubSlug }, select: { id: true } });
+    if (!club || !(await setOwnClubId(club.id))) logger.warn('Own club from backup not found: club left as it is', { clubSlug: parsed.data.clubSlug });
+  }
+  return true;
+}
+
+const IndoorStartDatesSchema = z.array(z.object({
+  seasonName: z.string().min(1),
+  indoorStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+}));
+
+/**
+ * Sets a season's indoor start date from the backup, by season name, only when that season exists
+ * and has none yet. Never creates a season and never overwrites another date (logged instead).
+ */
+async function restoreIndoorStartDates(value: unknown): Promise<number> {
+  const parsed = IndoorStartDatesSchema.safeParse(value);
+  if (!parsed.success) {
+    logger.warn('Skipping season indoor start dates from backup: invalid');
+    return 0;
+  }
+  let changed = 0;
+  for (const { seasonName, indoorStartDate } of parsed.data) {
+    const date = new Date(`${indoorStartDate}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime())) continue;
+    const season = await prisma.season.findUnique({ where: { name: seasonName } });
+    if (!season) {
+      logger.info(`Indoor start date from backup skipped: season ${seasonName} does not exist here`);
+    } else if (!season.indoorStartDate) {
+      await prisma.season.update({ where: { id: season.id }, data: { indoorStartDate: date } });
+      changed++;
+    } else if (season.indoorStartDate.toISOString().slice(0, 10) !== indoorStartDate) {
+      logger.warn(`Indoor start date from backup skipped: season ${seasonName} already has ${season.indoorStartDate.toISOString().slice(0, 10)} (backup: ${indoorStartDate})`);
+    }
+  }
+  return changed;
+}

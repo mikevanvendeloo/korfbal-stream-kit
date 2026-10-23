@@ -2,7 +2,9 @@ import request from 'supertest';
 import app from '../main';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import ExcelJS from 'exceljs';
-import {testOrganizationId} from '../../test-helpers';
+import fs from 'node:fs';
+import path from 'node:path';
+import {getAssetsRoot} from '../services/config';
 
 // Mock prisma client methods used by the routes
 import * as prismaSvc from '../services/prisma';
@@ -163,14 +165,15 @@ describe('Sponsors Excel upload API', () => {
     expect(preserved.displayName).toBe('Original Display');
   });
 
-  it('takes the Logo column only for a logo in the organization\'s own directory', async () => {
-    // The test organization: id 1 in unit tests (test-setup.ts), the real one with a database
-    const own = process.env.REQUIRE_DB === 'true' ? await testOrganizationId() : 1;
+  it('takes the Logo column only for a file in the organization\'s own directory (sponsors/<slug>/)', async () => {
+    const own = path.join(getAssetsRoot(), 'sponsors', 'test-org', 'eigen.png');
+    fs.mkdirSync(path.dirname(own), { recursive: true });
+    fs.writeFileSync(own, 'png');
     const buf = await makeWorkbookBuffer([
-      { Name: 'Eigen', Labels: 'Brons', Website: 'https://eigen.example', Logo: `${own}/eigen.png` },
+      { Name: 'Eigen', Labels: 'Brons', Website: 'https://eigen.example', Logo: 'eigen.png' },
       { Name: 'Plat', Labels: 'Brons', Website: 'https://plat.example', Logo: 'A&B.png' },
-      { Name: 'Vreemd', Labels: 'Brons', Website: 'https://vreemd.example', Logo: `${own + 1}/vreemd.png` },
-      { Name: 'Pad', Labels: 'Brons', Website: 'https://pad.example', Logo: `${own}/../${own + 1}/x.png` },
+      { Name: 'Vreemd', Labels: 'Brons', Website: 'https://vreemd.example', Logo: 'bestaat-niet.png' },
+      { Name: 'Pad', Labels: 'Brons', Website: 'https://pad.example', Logo: '../test-org/eigen.png' },
       { Name: 'Leeg', Labels: 'Brons', Website: 'https://leeg.example' },
     ]);
 
@@ -182,8 +185,10 @@ describe('Sponsors Excel upload API', () => {
     expect(res.body.created).toBe(5);
     const list = await request(app).get('/api/sponsors?limit=100');
     const logo = (name: string) => list.body.items.find((s: any) => s.name === name).logoUrl;
-    expect(logo('Eigen')).toBe(`${own}/eigen.png`);
+    expect(logo('Eigen')).toBe('eigen.png');
+    expect(list.body.items.find((s: any) => s.name === 'Eigen').logoSrc).toBe('/uploads/sponsors/test-org/eigen.png');
     for (const name of ['Plat', 'Vreemd', 'Pad', 'Leeg']) expect(logo(name), name).toBeNull();
+    fs.rmSync(own, { force: true });
   });
 });
 

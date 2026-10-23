@@ -2,6 +2,7 @@ import {useState} from "react";
 import {createUrl} from "../../lib/api";
 import {useCurrentOrganization} from "../../components/OrganizationGate";
 import {todayAmsterdam} from '../../lib/time';
+import {downloadFromApi} from '../../lib/download';
 
 type Entity = {
   id: string;
@@ -51,6 +52,18 @@ export default function BackupPage() {
     }
   };
 
+  const handleImages = async () => {
+    try {
+      setLoading('images');
+      await downloadFromApi(createUrl('/api/backup/images').toString(), `afbeeldingen-${todayAmsterdam()}.zip`);
+      setStatus(prev => ({ ...prev, images: 'Afbeeldingen gedownload' }));
+    } catch (err: any) {
+      setStatus(prev => ({ ...prev, images: `Fout bij downloaden: ${err.message}` }));
+    } finally {
+      setLoading(null);
+    }
+  };
+
   const handleImport = async (entity: Entity, file: File) => {
     try {
       setLoading(`import-${entity.id}`);
@@ -95,7 +108,7 @@ export default function BackupPage() {
         Een backup bevat de gegevens van <strong>{organizationName}</strong>, en een restore zet ze terug in{' '}
         <strong>{organizationName}</strong>: de gegevens van andere organisaties blijven ongemoeid. Ook een oude backup (van
         voor de organisaties) komt in {organizationName}. Uitzondering: <em>Clubs</em> (met spelers) zijn gedeeld door alle
-        organisaties. API-sleutels en het token van de wedstrijdimport zitten niet in de backup.
+        organisaties. API-sleutels en de wedstrijdimport (adres en token) zitten niet in de backup. Afbeeldingen download je apart.
       </p>
 
       <div className="space-y-6">
@@ -135,6 +148,26 @@ export default function BackupPage() {
             </div>
           </div>
         ))}
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+          <div className="mb-4 sm:mb-0 min-w-0">
+            <h3 className="font-medium text-gray-900 dark:text-gray-100">Afbeeldingen</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Sponsorlogo's, het logo van {organizationName} en de clublogo's en spelersfoto's die de gegevens gebruiken, als zip:
+              pak uit in de map storage/.
+            </p>
+            {status.images && (
+              <p className={`text-sm mt-1 ${status.images.includes('Fout') ? 'text-red-500' : 'text-green-500'}`}>{status.images}</p>
+            )}
+          </div>
+          <button
+            onClick={handleImages}
+            disabled={!!loading}
+            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+          >
+            {loading === 'images' ? 'Downloaden...' : 'Afbeeldingen downloaden'}
+          </button>
+        </div>
       </div>
     </div>
   );

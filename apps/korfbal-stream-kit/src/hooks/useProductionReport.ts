@@ -2,7 +2,8 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {createUrl, extractError} from '../lib/api';
 import {PositionCategory} from './usePositions';
 
-export type ReportSponsor = { id: number; name: string; displayName?: string | null; logoUrl: string | null };
+/** `logoSrc`: the URL of the logo, built by the API (the kit never builds a logo path itself) */
+export type ReportSponsor = { id: number; name: string; displayName?: string | null; logoUrl: string | null; logoSrc?: string | null };
 
 export type ProductionReportData = {
   production: {
