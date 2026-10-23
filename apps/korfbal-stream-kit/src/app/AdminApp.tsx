@@ -209,7 +209,7 @@ function Nav() {
   };
 
   return (
-    <header className="border-b border-gray-200 dark:border-gray-800">
+    <header className="border-b border-gray-200 dark:border-gray-800 print:hidden">
       <div className="container flex items-center justify-between py-3">
         <nav className="flex items-center gap-6 text-sm">
           <Link to={adminPaths.home} className="font-semibold text-gray-900 dark:text-gray-100"><AppIcon className={"w-16 h-16 mr-2"}/>Korfbal Streamz Kit</Link>

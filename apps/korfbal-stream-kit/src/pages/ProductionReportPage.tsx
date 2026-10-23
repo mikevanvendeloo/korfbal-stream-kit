@@ -15,6 +15,8 @@ import ClubLogo from '../components/ClubLogo';
 import {useProductionTiming} from '../hooks/useProductions';
 import {PositionCategory} from "../hooks/usePositions";
 import SponsorField from '../components/SponsorField';
+// A plain link can't send X-Organization (401): downloads go through fetch
+import {downloadExport} from '../lib/download';
 import {formatDateTime, formatTime} from '../lib/time';
 
 const categoryLabels: Record<PositionCategory, string> = {
@@ -108,37 +110,34 @@ export default function ProductionReportPage() {
   const homeClub = matchClub(data.production.homeTeam, clubs);
   const awayClub = matchClub(data.production.awayTeam, clubs);
 
-  console.log(JSON.stringify(data, null,2));
   const entertainmentRoles = data.enriched?.crewByCategory[PositionCategory.ENTERTAINMENT] || [];
   const technicalRoles = data?.enriched?.crewByCategory[PositionCategory.TECHNICAL] || [];
   const generalRoles = data?.enriched?.crewByCategory[PositionCategory.GENERAL] || [];
 
   return (
-    <div className="container py-6 text-gray-800 dark:text-gray-100">
+    <div className="container py-6 text-gray-800 dark:text-gray-100 print:text-black print:py-0">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-xl font-semibold flex items-center gap-2">
           <MdAssignment className="text-blue-500" />
           <span>Productie rapport</span>
         </h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <a
-            href={getProductionReportPdfUrl(productionId).toString()}
-            target="_blank"
-            rel="noopener noreferrer"
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+          <button
+            type="button"
+            onClick={() => downloadExport(getProductionReportPdfUrl(productionId).toString(), 'productie-rapport.pdf')}
             className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2 transition-colors text-sm"
           >
             <MdPictureAsPdf />
             <span>PDF</span>
-          </a>
-          <a
-            href={getProductionReportMarkdownUrl(productionId).toString()}
-            target="_blank"
-            rel="noopener noreferrer"
+          </button>
+          <button
+            type="button"
+            onClick={() => downloadExport(getProductionReportMarkdownUrl(productionId).toString(), 'productie-rapport.md')}
             className="px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-800 flex items-center gap-2 transition-colors text-sm"
           >
             <FaMarkdown />
             <span>Markdown</span>
-          </a>
+          </button>
           <button
             onClick={handleCopyWhatsApp}
             className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2 transition-colors text-sm"
@@ -354,7 +353,7 @@ export default function ProductionReportPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 print:grid-cols-2 gap-4">
           <SponsorField id="match-sponsor" label="Wedstrijdsponsor" value={matchSponsor} onChange={setMatchSponsor} sponsors={data.sponsors}/>
           <SponsorField id="ball-sponsor" label="Balsponsor" value={ballSponsor} onChange={setBallSponsor} sponsors={data.sponsors}/>
         </div>
@@ -381,7 +380,7 @@ export default function ProductionReportPage() {
           />
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 print:hidden">
           <button
             onClick={handleSave}
             disabled={saveMutation.isPending}

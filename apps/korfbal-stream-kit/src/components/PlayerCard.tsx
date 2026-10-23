@@ -22,7 +22,7 @@ export function PhotoCard({ photoUrl, name, className = ''}: Readonly<PhotoCardP
     <div className={`w-48 h-48 overflow-hidden rounded-lg mb-3 bg-gray-100 dark:bg-gray-800 relative ${className}`}>
       {imageUrl ? (
         <div
-          className="w-full h-full bg-cover"
+          className="w-full h-full bg-cover [print-color-adjust:exact] [-webkit-print-color-adjust:exact]"
           style={{
             backgroundImage: `url("${imageUrl}")`,
             backgroundPosition: 'center 0%', // Zoom in slightly on the upper part

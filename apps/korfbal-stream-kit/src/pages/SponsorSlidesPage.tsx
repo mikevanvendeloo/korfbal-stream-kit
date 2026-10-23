@@ -6,6 +6,7 @@ import {
   uploadPlayerImage
 } from '../lib/api';
 import {MdDelete, MdFileDownload, MdRefresh, MdUploadFile} from 'react-icons/md';
+import FallbackImage from '../components/FallbackImage';
 
 export default function SponsorSlidesPage() {
   const [players, setPlayers] = useState<PlayerImage[]>([]);
@@ -146,10 +147,8 @@ export default function SponsorSlidesPage() {
               className="mt-2 max-h-96 overflow-auto border border-gray-200 dark:border-gray-700 rounded-md divide-y divide-gray-100 dark:divide-gray-800">
               {players.map((p) => (
                 <li key={p.id} className="flex items-center gap-3 px-3 py-2">
-                  <img alt="" src={`/uploads/${p.filename}`} className="h-24 w-24 object-cover rounded"
-                       onError={(e) => {
-                         (e.currentTarget as any).style.visibility = 'hidden';
-                       }}/>
+                  <FallbackImage alt="" src={`/uploads/${p.filename}`} className="h-24 w-24 object-cover rounded"
+                                 fallback={<span className="h-24 w-24 shrink-0 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center text-xs text-gray-400 text-center">Foto niet gevonden</span>}/>
                   <div className="flex flex-col">
                     <span className="text-gray-800 dark:text-gray-100">{p.subject}</span>
                     <span className="text-xs text-gray-500">{p.filename}</span>
