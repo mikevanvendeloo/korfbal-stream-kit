@@ -15,6 +15,8 @@ import ClubLogo from '../components/ClubLogo';
 import {useProductionTiming} from '../hooks/useProductions';
 import {PositionCategory} from "../hooks/usePositions";
 import SponsorField from '../components/SponsorField';
+// A plain link can't send X-Organization (401): downloads go through fetch
+import {downloadExport} from '../lib/download';
 import {formatDateTime, formatTime} from '../lib/time';
 
 const categoryLabels: Record<PositionCategory, string> = {
@@ -120,24 +122,22 @@ export default function ProductionReportPage() {
           <span>Productie rapport</span>
         </h1>
         <div className="flex flex-wrap items-center gap-2 print:hidden">
-          <a
-            href={getProductionReportPdfUrl(productionId).toString()}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => downloadExport(getProductionReportPdfUrl(productionId).toString(), 'productie-rapport.pdf')}
             className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2 transition-colors text-sm"
           >
             <MdPictureAsPdf />
             <span>PDF</span>
-          </a>
-          <a
-            href={getProductionReportMarkdownUrl(productionId).toString()}
-            target="_blank"
-            rel="noopener noreferrer"
+          </button>
+          <button
+            type="button"
+            onClick={() => downloadExport(getProductionReportMarkdownUrl(productionId).toString(), 'productie-rapport.md')}
             className="px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-800 flex items-center gap-2 transition-colors text-sm"
           >
             <FaMarkdown />
             <span>Markdown</span>
-          </a>
+          </button>
           <button
             onClick={handleCopyWhatsApp}
             className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2 transition-colors text-sm"
