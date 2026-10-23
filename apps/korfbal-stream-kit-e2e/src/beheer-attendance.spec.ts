@@ -67,18 +67,21 @@ test('marking people present until the minimum staffing is reached', async ({pag
 });
 
 test('the Bezetting column fits a phone screen', async ({page, makeShow}) => {
-  await page.setViewportSize({width: 360, height: 740});
   const show = await makeShow({active: false, crew: [{name: `${P} Telefoon`, skills: ['CAMERA_ZOOM'], present: true}]});
   const productions = new ProductionsPage(page);
-  await productions.open();
-  await expect(productions.staffing(show.productionId)).toContainText('✗ nog 1 regisseur');
-  // The list never makes the page wider than the screen: the table scrolls in its own box, the badge
-  // truncates. (Measured on the page content: the Beheer menu bar above it is not part of this screen.)
-  const widths = await page.evaluate(() => {
-    const main = document.querySelector('main')!;
-    const badge = document.querySelector('[data-testid^="staffing-"]')!.getBoundingClientRect();
-    return {content: main.scrollWidth, screen: document.documentElement.clientWidth, badgeWidth: badge.width};
-  });
-  expect(widths.content).toBeLessThanOrEqual(widths.screen);
-  expect(widths.badgeWidth).toBeLessThanOrEqual(160);
+  // 320 as well: fonts differ per system (CI is wider than a Mac), so leave room below 360
+  for (const width of [360, 320]) {
+    await page.setViewportSize({width, height: 740});
+    await productions.open();
+    await expect(productions.staffing(show.productionId)).toContainText('✗ nog 1 regisseur');
+    // The list never makes the page wider than the screen: the table scrolls in its own box, the badge
+    // truncates. (Measured on the page content: the Beheer menu bar above it is not part of this screen.)
+    const widths = await page.evaluate(() => {
+      const main = document.querySelector('main')!;
+      const badge = document.querySelector('[data-testid^="staffing-"]')!.getBoundingClientRect();
+      return {content: main.scrollWidth, screen: document.documentElement.clientWidth, badgeWidth: badge.width};
+    });
+    expect(widths.content, `content width at ${width}px`).toBeLessThanOrEqual(widths.screen);
+    expect(widths.badgeWidth).toBeLessThanOrEqual(160);
+  }
 });

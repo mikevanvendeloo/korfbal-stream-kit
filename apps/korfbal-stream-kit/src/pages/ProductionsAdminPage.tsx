@@ -100,9 +100,10 @@ export default function ProductionsAdminPage() {
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
-      <div className="flex items-center justify-between mb-3">
-        <h1 className="text-xl font-semibold">Productions</h1>
-        <div className="flex gap-2">
+      {/* Wraps on a phone: the buttons go under the title instead of making the page wider */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h1 className="text-xl font-semibold min-w-0">Productions</h1>
+        <div className="flex flex-wrap gap-2">
           <input
             type="file"
             ref={fileInputRef}
