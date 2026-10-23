@@ -94,12 +94,15 @@ Backup en restore gaan over de **gekozen organisatie** (de naam staat op het tab
 
 Een restore **vult aan en werkt bij**, hij wist niets. Bestaande gegevens worden herkend (personen en sponsors op naam, skills op code, posities op naam, wedstrijden op hun code of datum en teams) en overschreven met wat in het bestand staat. Een productie die al bestaat, krijgt de segmenten, titels, interviews en het draaiboek uit het bestand.
 
+**Instellingen** bevat ook de gegevens van de organisatie zelf (naam, eigen club en logo) en de startdatum van de zaalcompetitie per seizoen. Een restore neemt naam, club en logo over in de gekozen organisatie, maar nooit haar **slug**. De startdatum van de zaalcompetitie komt alleen terug bij een seizoen dat al bestaat en nog geen datum heeft.
+
+### Afbeeldingen downloaden
+
+Met **Afbeeldingen downloaden** krijg je een zip met de sponsorlogo's en het logo van de organisatie, plus de clublogo's en spelersfoto's die haar gegevens gebruiken. Pak de zip uit in de map `storage/` van de server: de bestanden staan er al in de goede mappen (`sponsors/<slug>/…`, `organizations/<slug>.png`, `clubs/…`, `seasons/…`). Zet je de backup terug in een organisatie met een **andere slug**, hernoem dan na het uitpakken de map `sponsors/<oude slug>` naar `sponsors/<nieuwe slug>` (en zo ook het logo in `organizations/`). In de backup zelf staat alleen de bestandsnaam van een logo.
+
 > **Niet** in de backup:
-> - de API-sleutels en het token van de wedstrijdimport ([Organisaties](/admin/handleiding/organisaties));
-> - afbeeldingen (logo's en spelerfoto's): bewaar de map `storage` apart;
+> - de API-sleutels en de wedstrijdimport (adres en token) ([Organisaties](/admin/handleiding/organisaties));
 > - draaiboek-templates, titel-templates en de standaardbezetting per segment (draaiboek-templates kun je wel los exporteren);
 > - de koppelingen tussen posities.
 >
 > Zet een volledige backup terug in deze volgorde: Skills, Posities, Personen, Clubs, Wedstrijden, Producties, Sponsors, Segment templates, Instellingen.
->
-> Een restore van sponsors zet alle sponsors weer op actief.

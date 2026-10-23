@@ -1,4 +1,5 @@
 import {prisma} from './prisma';
+import {currentOrganizationRef, withLogoSrc} from './sponsorLogos';
 import {PositionCategory, Prisma} from '@prisma/client';
 import {NotFoundError} from '../middleware/error';
 
@@ -109,7 +110,9 @@ export async function getProductionReportData(productionId: number) {
   };
 
   // --- SPONSORS ---
-  const sponsors = await prisma.sponsor.findMany({ orderBy: { name: 'asc' } });
+  // With logoSrc: the kit shows the logo from it and never builds the path itself
+  const organization = await currentOrganizationRef();
+  const sponsors = (await prisma.sponsor.findMany({ orderBy: { name: 'asc' } })).map((s) => withLogoSrc(organization, s));
 
   return {
     production,

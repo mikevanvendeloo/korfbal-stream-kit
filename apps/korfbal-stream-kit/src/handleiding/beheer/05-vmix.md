@@ -94,7 +94,7 @@ Welke **sponsortypes** in de ticker, carrousel en slides meedoen, stel je in bij
 ### Afbeeldingen
 
 - **Wedstrijdinformatie** geeft volledige adressen van logo's; die kun je direct in een title-afbeelding gebruiken.
-- **Carrousel** en **Slides** geven alleen de **bestandsnaam** van een logo. Zet in vMix het adres ervoor: `http://<server>:<poort>/uploads/sponsors/`.
+- **Carrousel** en **Slides** geven alleen de **bestandsnaam** van een logo. Zet in vMix het adres ervoor: `http://<server>:<poort>/uploads/sponsors/<slug>/`, met de slug van je organisatie (bijvoorbeeld `fortuna`).
 
 ### Let op
 

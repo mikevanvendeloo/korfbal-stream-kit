@@ -1,6 +1,7 @@
 import {prisma} from './prisma';
 import {findClubByTeamName} from '../utils/clubs';
-import {findSponsorByName, sponsorLogoPath} from './reportSponsors';
+import {findSponsorByName} from './reportSponsors';
+import {currentOrganizationRef, sponsorLogoRelPath} from './sponsorLogos';
 import {formatDate, formatTime} from '../utils/time';
 
 
@@ -124,8 +125,9 @@ export async function loadActiveMatchInput(): Promise<MatchInput | null> {
     findClubByTeamName(prisma, match.awayTeamName),
     report?.matchSponsor || report?.ballSponsor ? prisma.sponsor.findMany() : Promise.resolve([]),
   ]);
+  const organization = sponsors.length ? await currentOrganizationRef() : null;
   const sponsor = (name: string | null | undefined) =>
-    name ? {name, logoPath: sponsorLogoPath(findSponsorByName(name, sponsors))} : null;
+    name ? {name, logoPath: organization ? sponsorLogoRelPath(organization, findSponsorByName(name, sponsors)?.logoUrl) : null} : null;
 
   return {
     productionId: production.id,

@@ -35,6 +35,7 @@ import {apiKeysRouter} from './routes/apiKeys';
 import {organizationsRouter} from './routes/organizations';
 import {matchSourceRouter} from './routes/matchSource';
 import {applyStandardSetWhereMissing} from './services/standardSet';
+import {migrateLogoStorage} from './services/logoStorage';
 
 const app: Express = express();
 /** The HTTP server with Socket.io; tests listen on it to connect socket clients. */
@@ -269,7 +270,8 @@ const openapi = {
           name: { type: 'string' },
           type: { type: 'string', enum: ['premium', 'goud', 'zilver', 'brons'] },
           websiteUrl: { type: 'string' },
-          logoUrl: {type: 'string', nullable: true, description: 'Set by POST /api/sponsors/{id}/logo: <organizationId>/<file> (older logos: a plain file name)'},
+          logoUrl: {type: 'string', nullable: true, description: 'File name, set by POST /api/sponsors/{id}/logo; the file is in sponsors/<organization slug>/'},
+          logoSrc: {type: 'string', nullable: true, description: 'URL to show the logo: /uploads/sponsors/<organization slug>/<file>'},
           createdAt: {type: 'string', format: 'date-time'},
         },
       },
@@ -280,7 +282,7 @@ const openapi = {
           name: {type: 'string'},
           type: {type: 'string', enum: ['premium', 'goud', 'zilver', 'brons']},
           websiteUrl: {type: 'string'},
-          logoUrl: {type: 'string', nullable: true, description: 'Only a logo in the organization\'s own directory (<organizationId>/<file>); null removes it'},
+          logoUrl: {type: 'string', nullable: true, description: 'Only the file name of a logo in the organization\'s own directory; null removes it'},
         },
       },
       SponsorUpdate: {
@@ -289,7 +291,7 @@ const openapi = {
           name: {type: 'string'},
           type: {type: 'string', enum: ['premium', 'goud', 'zilver', 'brons']},
           websiteUrl: {type: 'string'},
-          logoUrl: {type: 'string', nullable: true, description: 'Only a logo in the organization\'s own directory (<organizationId>/<file>); null removes it'},
+          logoUrl: {type: 'string', nullable: true, description: 'Only the file name of a logo in the organization\'s own directory; null removes it'},
         },
       },
     },
@@ -334,6 +336,10 @@ if (process.env.NODE_ENV !== 'test') {
     });
     await applyStandardSetWhereMissing().catch((err) => {
       logger.error('Adding the standard set to new organizations failed', err as any);
+    });
+    // Logos from the id directories and the shared legacy directory into sponsors/<slug>/ (idempotent)
+    await migrateLogoStorage().catch((err) => {
+      logger.error('Moving logos into the slug directories failed', err as any);
     });
     httpServer.listen(port, () => {
       logger.info(`🚀 API Server running on http://localhost:${port}`);

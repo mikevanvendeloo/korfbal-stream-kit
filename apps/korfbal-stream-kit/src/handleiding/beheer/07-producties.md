@@ -4,6 +4,22 @@ Een **productie** is één uitzending van één wedstrijd: het draaiboek, de cre
 
 Het overzicht toont de producties van het **actieve seizoen**, de nieuwste bovenaan. De actieve productie heeft het groene label **Active**.
 
+## De kolom Bezetting
+
+De kolom **Bezetting** laat per productie zien of de **minimale bezetting** gehaald is: genoeg mensen die op het tabblad **Beschikbaarheid** als aanwezig zijn aangevinkt, met de juiste skills (1 regisseur en 3 camera's).
+
+| Je ziet | Betekenis |
+|---|---|
+| groen **✓ Gehaald** | De minimale bezetting is rond. |
+| oranje **✗ nog 1 camera** (of bijvoorbeeld *nog 1 regisseur en 2 camera's*) | Er is iemand aanwezig, maar deze rollen ontbreken nog. |
+| grijs **Nog niemand aanwezig** | Er is nog niemand als aanwezig aangevinkt. |
+
+- Houd de muis op het label voor de hele lijst: per rol hoeveel mensen er zijn, ook de optionele rollen (Commentaar, Presentatie, Analist). Die tellen niet mee voor *Gehaald*.
+- Klik op het label om naar het tabblad **Beschikbaarheid** van die productie te gaan.
+- Iemand telt maar voor één rol: een regisseur die ook camera kan, vult alleen de regie.
+
+Op een telefoon past de tabel niet in de breedte: veeg dan over de tabel naar links om de kolommen **Bezetting** en **Acties** te zien. Een lange tekst wordt afgekort; de volledige tekst staat in de tooltip en op het tabblad **Beschikbaarheid**.
+
 ## Een productie aanmaken
 
 1. Klik op **Nieuw**.

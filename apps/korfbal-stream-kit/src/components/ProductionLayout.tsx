@@ -33,7 +33,7 @@ export default function ProductionLayout() {
 
   return (
     <>
-      <div className="container pt-6 text-gray-800 dark:text-gray-100">
+      <div className="container pt-6 text-gray-800 dark:text-gray-100 print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-4">
             <Link to={adminPaths.productions} title="Terug naar productieoverzicht"

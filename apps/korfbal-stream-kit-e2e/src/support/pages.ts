@@ -244,6 +244,21 @@ export class OrganizationPage {
 }
 
 /** Beheer → Producties → a production → Beschikbaarheid: presence per group and the minimum staffing. */
+/** Beheer → Producties: the productions list with its Bezetting column. */
+export class ProductionsPage {
+  constructor(private readonly page: Page) {}
+
+  async open() {
+    await this.page.goto('/admin/producties');
+    await expect(this.page.getByRole('columnheader', {name: 'Bezetting'})).toBeVisible();
+  }
+
+  /** "✓ Gehaald", "✗ nog 1 camera" or "Nog niemand aanwezig"; links to Beschikbaarheid */
+  staffing(productionId: number) {
+    return this.page.getByTestId(`staffing-${productionId}`);
+  }
+}
+
 export class AttendancePage {
   constructor(private readonly page: Page) {}
 

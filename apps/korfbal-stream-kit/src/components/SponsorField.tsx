@@ -1,4 +1,5 @@
 import type {ReportSponsor} from '../hooks/useProductionReport';
+import FallbackImage from './FallbackImage';
 
 const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
 
@@ -10,10 +11,15 @@ export function findSponsorByName(name: string, sponsors: ReportSponsor[]): Repo
     ?? sponsors.find((s) => s.displayName && normalize(s.displayName) === wanted);
 }
 
-export const sponsorLogoSrc = (sponsor: ReportSponsor | undefined) =>
-  sponsor?.logoUrl ? `/uploads/sponsors/${sponsor.logoUrl}` : null;
+/** The URL of a sponsor logo: `logoSrc` from the API (the directory follows from the organization's slug). */
+export const sponsorLogoSrc = (sponsor: Pick<ReportSponsor, 'logoSrc'> | undefined) => sponsor?.logoSrc || null;
 
-/** Pick a sponsor from the list or type a name; a name that matches a sponsor shows its logo. */
+const placeholder = (text: string) => <span className="text-xs text-gray-400 print:text-gray-600 text-center">{text}</span>;
+
+/**
+ * Pick a sponsor from the list or type a name; a name that matches a sponsor shows its logo.
+ * Printed (Ctrl/Cmd+P) it shows the name as text and the logo, without the form fields.
+ */
 export default function SponsorField({id, label, value, onChange, sponsors}: {
   id: string; label: string; value: string; onChange: (value: string) => void; sponsors: ReportSponsor[];
 }) {
@@ -21,10 +27,11 @@ export default function SponsorField({id, label, value, onChange, sponsors}: {
   const logo = sponsorLogoSrc(sponsor);
 
   return (
-    <div className="border rounded p-4 dark:border-gray-700">
+    <div className="border rounded p-4 dark:border-gray-700 print:border-gray-300 break-inside-avoid">
       <label htmlFor={id} className="block text-sm font-medium mb-2">{label}:</label>
       <div className="flex gap-4 items-start">
-        <div className="flex-1 min-w-0">
+        <div data-testid={`${id}-print-name`} className="hidden print:block flex-1 min-w-0 break-words">{value.trim() || '—'}</div>
+        <div className="flex-1 min-w-0 print:hidden">
           <select
             id={id}
             value={sponsor?.name ?? ''}
@@ -43,12 +50,13 @@ export default function SponsorField({id, label, value, onChange, sponsors}: {
             placeholder="Of typ hier een vrije tekst sponsor naam"
           />
         </div>
-        <div className="w-36 h-20 shrink-0 rounded border border-gray-200 dark:border-gray-700 bg-white flex items-center justify-center p-2">
+        <div data-testid={`${id}-logo`}
+             className="w-36 h-20 shrink-0 rounded border border-gray-200 dark:border-gray-700 print:border-gray-300 bg-white flex items-center justify-center p-2">
           {logo ? (
-            <img src={logo} alt={`Logo ${sponsor?.name}`} className="max-h-full max-w-full object-contain"
-                 onError={(e) => ((e.currentTarget.style.visibility = 'hidden'))}/>
+            <FallbackImage src={logo} alt={`Logo ${sponsor?.name}`} className="max-h-full max-w-full object-contain"
+                           fallback={placeholder('Logo niet gevonden')}/>
           ) : (
-            <span className="text-xs text-gray-400 text-center">{value.trim() ? 'Geen logo' : 'Geen sponsor'}</span>
+            placeholder(value.trim() ? 'Geen logo' : 'Geen sponsor')
           )}
         </div>
       </div>

@@ -6,7 +6,7 @@ export const SponsorInputSchema = z.object({
   name: z.string().min(1),
   type: SponsorTypeEnum,
   websiteUrl: z.string().url(),
-  /** Set by an upload; only a value in the organization's own directory is accepted (services/sponsorLogos.ts), null removes it */
+  /** File name, set by an upload; only a file in the organization's own directory sponsors/<slug>/ is accepted (services/sponsorLogos.ts), null removes it */
   logoUrl: z.string().nullable().optional(),
   displayName: z.string().optional(),
   enabled: z.boolean().optional().default(true),

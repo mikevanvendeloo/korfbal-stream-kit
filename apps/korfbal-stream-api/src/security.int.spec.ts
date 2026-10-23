@@ -25,6 +25,7 @@ import {prisma as appPrisma, prismaUnscoped} from './services/prisma';
 import {MissingOrganizationContextError, runWithOrganization} from './services/organizationContext';
 import {ensureOrganization, inTestOrganization, recordQueries, TEST_ORGANIZATION_SLUG, testDb as prisma, testOrganizationId, withoutOrganization} from '../test-helpers';
 import {createProductionScenario, createTenantScenario, ProductionScenario, TenantScenario} from '../test-scenarios';
+import {makeCorruptRgbaPng, makeJpegHeader, makePngBomb} from '../test-images';
 
 /**
  * Security tests for organizations: isolation (phase 1), live state per organization, socket rooms,
@@ -37,6 +38,13 @@ const A = 'sec-alpha';
 
 /** 1x1 transparent PNG */
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+
+/** Supertest parser that keeps a binary body (a zip) as a Buffer. */
+function binary(res: NodeJS.ReadableStream, done: (err: Error | null, body: Buffer) => void) {
+  const chunks: Buffer[] = [];
+  res.on('data', (chunk: Buffer) => chunks.push(chunk));
+  res.on('end', () => done(null, Buffer.concat(chunks)));
+}
 
 function filesUnder(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
@@ -686,40 +694,107 @@ describe.runIf(runDb)('uploads (integration)', () => {
     await prisma.organization.update({where: {id: organizationId}, data: {logoUrl: null}});
   });
 
-  it('stores an organization logo as organizations/<id>.<ext>, whatever the file is called', async () => {
+  it('stores an organization logo as organizations/<slug>.<ext> (only the file name in the database), whatever the file is called', async () => {
     const before = new Set(filesUnder(root()));
     const res = await request(app).post(`/api/organizations/${organizationId}/logo`).attach('file', PNG, {filename: '../../../evil.png', contentType: 'image/png'});
     expect(res.status, res.text).toBe(200);
-    expect(res.body.logoUrl).toBe(`organizations/${organizationId}.png`);
+    expect(res.body.logoUrl).toBe(`${TEST_ORGANIZATION_SLUG}.png`);
+    expect(res.body.displayLogoUrl).toBe(`organizations/${TEST_ORGANIZATION_SLUG}.png`);
     const added = filesUnder(root()).filter((f) => !before.has(f));
     expect(added.every((f) => f.startsWith(path.join(root(), 'organizations') + path.sep))).toBe(true);
-    expect(fs.existsSync(path.join(root(), 'organizations', `${organizationId}.png`))).toBe(true);
+    expect(fs.existsSync(path.join(root(), 'organizations', `${TEST_ORGANIZATION_SLUG}.png`))).toBe(true);
   });
 
-  it('does not let a new organization with a freed slug overwrite the old organization\'s logo', async () => {
+  it('moves the logo files with a slug rename, so a new organization with the freed slug starts empty and overwrites nothing', async () => {
     const old = await ensureOrganization(prisma, 'sec-slug-old', 'Oud');
     let reused: number | undefined;
+    const sponsorFile = (slug: string) => path.join(root(), 'sponsors', slug, 'oud-sponsor.png');
     try {
       expect((await request(app).post(`/api/organizations/${old}/logo`).attach('file', PNG, {filename: 'a.png', contentType: 'image/png'})).status).toBe(200);
-      const oldFile = path.join(root(), 'organizations', `${old}.png`);
-      const oldBytes = fs.readFileSync(oldFile);
-      expect((await request(app).put(`/api/organizations/${old}`).send({slug: 'sec-slug-renamed'})).status).toBe(200);
-      reused = (await request(app).post('/api/organizations').send({name: 'Nieuw', slug: 'sec-slug-old'})).body.id;
+      const sponsor = (await request(app).post('/api/sponsors').set('X-Organization', 'sec-slug-old').send({name: 'Oud Sponsor', type: 'goud', websiteUrl: 'https://oud.example'})).body;
+      expect((await request(app).post(`/api/sponsors/${sponsor.id}/logo`).set('X-Organization', 'sec-slug-old').attach('file', PNG, {filename: 'x.png', contentType: 'image/png'})).body.logoSrc)
+        .toBe('/uploads/sponsors/sec-slug-old/oud-sponsor.png');
+      const oldBytes = fs.readFileSync(path.join(root(), 'organizations', 'sec-slug-old.png'));
+
+      const renamed = await request(app).put(`/api/organizations/${old}`).send({slug: 'sec-slug-renamed'});
+      expect(renamed.status, renamed.text).toBe(200);
+      expect(renamed.body.logoUrl).toBe('sec-slug-renamed.png');
+      expect(renamed.body.displayLogoUrl).toBe('organizations/sec-slug-renamed.png');
+      // The files moved along: nothing is left under the old slug
+      expect(fs.existsSync(path.join(root(), 'organizations', 'sec-slug-old.png'))).toBe(false);
+      expect(fs.existsSync(path.join(root(), 'sponsors', 'sec-slug-old'))).toBe(false);
+      expect(fs.existsSync(sponsorFile('sec-slug-renamed'))).toBe(true);
+      expect((await request(app).get(`/api/sponsors/${sponsor.id}`).set('X-Organization', 'sec-slug-renamed')).body.logoSrc)
+        .toBe('/uploads/sponsors/sec-slug-renamed/oud-sponsor.png');
+
+      // A new organization takes the old slug: no logo, an empty sponsor directory
+      const created = await request(app).post('/api/organizations').send({name: 'Nieuw', slug: 'sec-slug-old'});
+      reused = created.body.id;
+      expect(created.body.displayLogoUrl).toBeNull();
+      expect((await request(app).get('/api/backup/images').set('X-Organization', 'sec-slug-old').buffer(true).parse(binary)).body.toString('latin1'))
+        .not.toContain('oud-sponsor');
+      // Its own sponsor with the same logo name does not show the other organization's file
+      const same = await request(app).post('/api/backup/sponsors/import').set('X-Organization', 'sec-slug-old')
+        .send([{name: 'Oud Sponsor', type: 'goud', websiteUrl: 'https://nieuw.example', logoUrl: 'oud-sponsor.png'}]);
+      expect(same.status).toBe(200);
+      expect(fs.existsSync(sponsorFile('sec-slug-old'))).toBe(false);
       const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
       const res = await request(app).post(`/api/organizations/${reused}/logo`).attach('file', gif, {filename: 'b.gif', contentType: 'image/gif'});
-      expect(res.body.logoUrl).toBe(`organizations/${reused}.gif`);
-      expect(fs.readFileSync(oldFile).equals(oldBytes)).toBe(true);
-      expect((await prisma.organization.findUnique({where: {id: old}}))?.logoUrl).toBe(`organizations/${old}.png`);
+      expect(res.body.logoUrl).toBe('sec-slug-old.gif');
+      expect(fs.readFileSync(path.join(root(), 'organizations', 'sec-slug-renamed.png')).equals(oldBytes)).toBe(true);
+      expect((await prisma.organization.findUnique({where: {id: old}}))?.logoUrl).toBe('sec-slug-renamed.png');
     } finally {
       await prisma.organization.deleteMany({where: {id: {in: [old, reused ?? -1]}}});
+      for (const slug of ['sec-slug-old', 'sec-slug-renamed']) {
+        fs.rmSync(path.join(root(), 'sponsors', slug), {recursive: true, force: true});
+        for (const ext of ['.png', '.gif']) fs.rmSync(path.join(root(), 'organizations', `${slug}${ext}`), {force: true});
+      }
+      clearOrganizationLookupCache();
     }
   });
 
-  it('refuses non-images for the organization logo, also when they claim to be one', async () => {
-    const html = Buffer.from('<script>alert(1)</script>');
-    expect((await request(app).post(`/api/organizations/${organizationId}/logo`).attach('file', html, {filename: 'x.html', contentType: 'text/html'})).status).toBe(400);
-    expect((await request(app).post(`/api/organizations/${organizationId}/logo`).attach('file', html, {filename: 'x.png', contentType: 'image/png'})).status).toBe(400);
-    expect((await request(app).post(`/api/organizations/${organizationId}/logo`).attach('file', html, {filename: 'x.svg', contentType: 'image/svg+xml'})).status).toBe(400);
+  it('refuses a slug rename (409, nothing changed) when files for the new slug are already there', async () => {
+    const org = await ensureOrganization(prisma, 'sec-move-a', 'Move A');
+    const stale = path.join(root(), 'sponsors', 'sec-move-taken');
+    try {
+      fs.mkdirSync(path.join(root(), 'sponsors', 'sec-move-a'), {recursive: true});
+      fs.writeFileSync(path.join(root(), 'sponsors', 'sec-move-a', 'eigen.png'), PNG);
+      fs.mkdirSync(stale, {recursive: true});
+      fs.writeFileSync(path.join(stale, 'vreemd.png'), PNG);
+      const res = await request(app).put(`/api/organizations/${org}`).send({slug: 'sec-move-taken'});
+      expect(res.status).toBe(409);
+      expect(res.body.error).toMatch(/sponsors\/sec-move-taken/);
+      expect((await prisma.organization.findUnique({where: {id: org}}))?.slug).toBe('sec-move-a');
+      expect(fs.existsSync(path.join(root(), 'sponsors', 'sec-move-a', 'eigen.png'))).toBe(true);
+      expect(fs.readdirSync(stale)).toEqual(['vreemd.png']);
+
+      // Also an organization logo file for the new slug blocks it
+      fs.rmSync(stale, {recursive: true, force: true});
+      fs.mkdirSync(path.join(root(), 'organizations'), {recursive: true});
+      fs.writeFileSync(path.join(root(), 'organizations', 'sec-move-taken.webp'), 'x');
+      expect((await request(app).put(`/api/organizations/${org}`).send({slug: 'sec-move-taken'})).status).toBe(409);
+    } finally {
+      await prisma.organization.deleteMany({where: {id: org}});
+      for (const p of ['sponsors/sec-move-a', 'sponsors/sec-move-taken', 'organizations/sec-move-taken.webp']) fs.rmSync(path.join(root(), p), {recursive: true, force: true});
+      clearOrganizationLookupCache();
+    }
+  });
+
+  it('moves the files back when the database refuses the new slug', async () => {
+    const org = await ensureOrganization(prisma, 'sec-back-a', 'Back A');
+    const other = await ensureOrganization(prisma, 'sec-back-b', 'Back B');
+    try {
+      fs.mkdirSync(path.join(root(), 'sponsors', 'sec-back-a'), {recursive: true});
+      fs.writeFileSync(path.join(root(), 'sponsors', 'sec-back-a', 'eigen.png'), PNG);
+      // sec-back-b exists but has no files on disk: the move goes through, the unique slug fails
+      const res = await request(app).put(`/api/organizations/${org}`).send({slug: 'sec-back-b'});
+      expect(res.status).toBe(409);
+      expect(fs.existsSync(path.join(root(), 'sponsors', 'sec-back-a', 'eigen.png'))).toBe(true);
+      expect(fs.existsSync(path.join(root(), 'sponsors', 'sec-back-b'))).toBe(false);
+    } finally {
+      await prisma.organization.deleteMany({where: {id: {in: [org, other]}}});
+      fs.rmSync(path.join(root(), 'sponsors', 'sec-back-a'), {recursive: true, force: true});
+    }
   });
 
   it('refuses organization slugs that could leave the logo directory', async () => {
@@ -730,11 +805,12 @@ describe.runIf(runDb)('uploads (integration)', () => {
     expect((await request(app).put(`/api/organizations/${organizationId}`).send({slug: '../evil'})).status).toBe(400);
   });
 
-  it('stores a sponsor logo in the organization\'s own directory (by id), whatever the file is called', async () => {
+  it('stores a sponsor logo in sponsors/<slug>/ with only the file name in the database, whatever the file is called', async () => {
     const res = await request(app).post(`/api/sponsors/${sponsorId}/logo`).attach('file', PNG, {filename: '../../../../etc/evil.png', contentType: 'image/png'});
     expect(res.status, res.text).toBe(200);
-    expect(res.body.logoUrl).toBe(`${organizationId}/sec-upload-sponsor.png`);
-    expect(fs.existsSync(path.join(root(), 'sponsors', String(organizationId), 'sec-upload-sponsor.png'))).toBe(true);
+    expect(res.body.logoUrl).toBe('sec-upload-sponsor.png');
+    expect(res.body.logoSrc).toBe(`/uploads/sponsors/${TEST_ORGANIZATION_SLUG}/sec-upload-sponsor.png`);
+    expect(fs.existsSync(path.join(root(), 'sponsors', TEST_ORGANIZATION_SLUG, 'sec-upload-sponsor.png'))).toBe(true);
     expect(fs.existsSync(path.join(root(), 'etc', 'evil.png'))).toBe(false);
   });
 
@@ -746,34 +822,56 @@ describe.runIf(runDb)('uploads (integration)', () => {
       const created = await request(app).post('/api/sponsors').send({name: 'Sec Legacy Sponsor', type: 'goud', websiteUrl: 'https://legacy.example'});
       expect(created.status).toBe(201);
       expect(created.body.logoUrl).toBeNull();
+      // Only in the shared legacy directory, not in the own one
       expect((await request(app).post('/api/sponsors').send({name: 'Sec Legacy 2', type: 'goud', websiteUrl: 'https://legacy.example', logoUrl: 'sec-legacy-sponsor.png'})).status).toBe(400);
       await prisma.sponsor.delete({where: {id: created.body.id}});
     } finally {
       fs.rmSync(legacy, {force: true});
     }
     const renamed = await request(app).put(`/api/sponsors/${sponsorId}`).send({name: 'Sec Upload Sponsor Nieuw'});
-    expect(renamed.body.logoUrl).toBe(`${organizationId}/sec-upload-sponsor.png`);
+    expect(renamed.body.logoUrl).toBe('sec-upload-sponsor.png');
     // The edit form sends the current value back
     expect((await request(app).put(`/api/sponsors/${sponsorId}`).send({name: 'Sec Upload Sponsor', logoUrl: renamed.body.logoUrl})).body.logoUrl)
-      .toBe(`${organizationId}/sec-upload-sponsor.png`);
+      .toBe('sec-upload-sponsor.png');
   });
 
   it('does not take over another organization\'s logo through a client logoUrl, also not in an import', async () => {
     const other = await ensureOrganization(prisma, 'sec-logo-other', 'Logo Ander');
+    const theirs = path.join(root(), 'sponsors', 'sec-logo-other', 'hun-logo.png');
+    fs.mkdirSync(path.dirname(theirs), {recursive: true});
+    fs.writeFileSync(theirs, PNG);
     try {
-      const foreign = `${other}/hun-logo.png`;
-      expect((await request(app).put(`/api/sponsors/${sponsorId}`).send({logoUrl: foreign})).status).toBe(400);
-      expect((await request(app).post('/api/sponsors').send({name: 'Sec Foreign', type: 'goud', websiteUrl: 'https://f.example', logoUrl: foreign})).status).toBe(400);
-      expect((await request(app).post('/api/backup/sponsors/import').send([{name: 'Sec Foreign', type: 'goud', websiteUrl: 'https://f.example', logoUrl: foreign}])).status).toBe(200);
-      expect((await prisma.sponsor.findFirst({where: {name: 'Sec Foreign'}}))?.logoUrl).toBeNull();
-      // A backup from before organizations keeps its plain file names (shown only; nothing writes there)
+      for (const foreign of [`${other}/hun-logo.png`, 'sec-logo-other/hun-logo.png', '../sec-logo-other/hun-logo.png', 'hun-logo.png']) {
+        expect((await request(app).put(`/api/sponsors/${sponsorId}`).send({logoUrl: foreign})).status, foreign).toBe(400);
+        expect((await request(app).post('/api/sponsors').send({name: 'Sec Foreign', type: 'goud', websiteUrl: 'https://f.example', logoUrl: foreign})).status, foreign).toBe(400);
+      }
+      // A backup keeps the file name only: it resolves in the own directory, never in theirs
+      expect((await request(app).post('/api/backup/sponsors/import').send([{name: 'Sec Foreign', type: 'goud', websiteUrl: 'https://f.example', logoUrl: `${other}/hun-logo.png`}])).status).toBe(200);
+      const restored = await prisma.sponsor.findFirst({where: {name: 'Sec Foreign'}});
+      expect(restored?.logoUrl).toBe('hun-logo.png');
+      expect((await request(app).get(`/api/sponsors/${restored!.id}`)).body.logoSrc).toBe(`/uploads/sponsors/${TEST_ORGANIZATION_SLUG}/hun-logo.png`);
+      expect((await request(app).post('/api/backup/sponsors/import').send([{name: 'Sec Path', type: 'goud', websiteUrl: 'https://p.example', logoUrl: '../sec-logo-other/hun-logo.png'}])).status).toBe(200);
+      expect((await prisma.sponsor.findFirst({where: {name: 'Sec Path'}}))?.logoUrl).toBeNull();
+      // A backup from before organizations keeps its plain file names
       await request(app).post('/api/backup/sponsors/import').send([{name: 'Sec Legacy Restore', type: 'goud', websiteUrl: 'https://l.example', logoUrl: 'oud-logo.png'}]);
       expect((await prisma.sponsor.findFirst({where: {name: 'Sec Legacy Restore'}}))?.logoUrl).toBe('oud-logo.png');
-      expect((await prisma.sponsor.findUnique({where: {id: sponsorId}}))?.logoUrl).toBe(`${organizationId}/sec-upload-sponsor.png`);
+      expect((await prisma.sponsor.findUnique({where: {id: sponsorId}}))?.logoUrl).toBe('sec-upload-sponsor.png');
+      expect(fs.readFileSync(theirs).equals(PNG)).toBe(true);
     } finally {
-      await prisma.sponsor.deleteMany({where: {name: {in: ['Sec Foreign', 'Sec Legacy Restore']}}});
+      await prisma.sponsor.deleteMany({where: {name: {in: ['Sec Foreign', 'Sec Path', 'Sec Legacy Restore']}}});
       await prisma.organization.delete({where: {id: other}});
+      fs.rmSync(path.dirname(theirs), {recursive: true, force: true});
     }
+  });
+
+  it('refuses an image above the pixel limit and a PNG with broken data at upload', async () => {
+    for (const [name, image] of [['bomb', makePngBomb()], ['corrupt', makeCorruptRgbaPng()], ['jpeg', makeJpegHeader(20000, 20000)]] as const) {
+      const sponsor = await request(app).post(`/api/sponsors/${sponsorId}/logo`).attach('file', image, {filename: `${name}.png`, contentType: 'image/png'});
+      expect(sponsor.status, name).toBe(400);
+      expect(sponsor.body.error, name).toMatch(/^Afbeelding geweigerd/);
+      expect((await request(app).post(`/api/organizations/${organizationId}/logo`).attach('file', image, {filename: `${name}.png`, contentType: 'image/png'})).status, name).toBe(400);
+    }
+    expect((await prisma.sponsor.findUnique({where: {id: sponsorId}}))?.logoUrl).toBe('sec-upload-sponsor.png');
   });
 
   it('has no generic upload endpoint (it kept .html/.svg and served them same-origin: stored XSS)', async () => {
@@ -787,7 +885,7 @@ describe.runIf(runDb)('uploads (integration)', () => {
     const html = Buffer.from('<html></html>');
     expect((await request(app).post(`/api/sponsors/${sponsorId}/logo`).attach('file', html, {filename: 'x.html', contentType: 'text/html'})).status).toBe(400);
     expect((await request(app).post(`/api/sponsors/${sponsorId}/logo`).attach('file', html, {filename: 'x.png', contentType: 'image/png'})).status).toBe(400);
-    expect((await prisma.sponsor.findUnique({where: {id: sponsorId}}))?.logoUrl).toBe(`${organizationId}/sec-upload-sponsor.png`);
+    expect((await prisma.sponsor.findUnique({where: {id: sponsorId}}))?.logoUrl).toBe('sec-upload-sponsor.png');
   });
 });
 

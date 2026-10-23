@@ -9,8 +9,8 @@ import {AsyncLocalStorage} from 'node:async_hooks';
 // One instance per process, also when this module is loaded twice (test-scenarios.ts, shared with
 // the e2e tests, reaches it through the same global key instead of importing it)
 const STORAGE_KEY = Symbol.for('korfbal-stream.organization-context');
-const holder = globalThis as unknown as Record<symbol, AsyncLocalStorage<{organizationId: number}> | undefined>;
-const storage = (holder[STORAGE_KEY] ??= new AsyncLocalStorage<{organizationId: number}>());
+const holder = globalThis as unknown as Record<symbol, AsyncLocalStorage<{organizationId: number; slug?: string}> | undefined>;
+const storage = (holder[STORAGE_KEY] ??= new AsyncLocalStorage<{organizationId: number; slug?: string}>());
 
 export class MissingOrganizationContextError extends Error {
   constructor(what = 'This query') {
@@ -19,11 +19,15 @@ export class MissingOrganizationContextError extends Error {
   }
 }
 
-export function runWithOrganization<T>(organizationId: number, fn: () => T): T {
+/**
+ * Runs `fn` for the organization. `slug` (optional, the request middleware passes it from its cached
+ * lookup) saves a query where a path is built from the slug (logo directories).
+ */
+export function runWithOrganization<T>(organizationId: number, fn: () => T, slug?: string): T {
   if (!Number.isInteger(organizationId) || organizationId <= 0) {
     throw new Error(`Invalid organization id: ${organizationId}`);
   }
-  return storage.run({organizationId}, () => {
+  return storage.run({organizationId, slug}, () => {
     const result = fn();
     // Prisma queries are lazy: they run when `.then` is called. Call it here, inside the context, so
     // `await runWithOrganization(id, () => prisma.x.findMany())` doesn't run the query outside it.
@@ -42,6 +46,11 @@ export function runWithoutOrganization<T>(fn: () => T): T {
 
 export function getOrganizationId(): number | undefined {
   return storage.getStore()?.organizationId;
+}
+
+/** The slug of the organization in the context, when the code that set the context knew it. */
+export function getOrganizationSlug(): string | undefined {
+  return storage.getStore()?.slug;
 }
 
 export function requireOrganizationId(what?: string): number {

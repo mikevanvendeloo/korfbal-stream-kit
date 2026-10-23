@@ -1,17 +1,21 @@
-import React from 'react';
+import React, {ReactNode, useState} from 'react';
 
 type Props = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'onError'> & {
-  src: string | null | undefined;
-  /** Shown without a src, or when the image can't be loaded */
-  fallback: React.ReactNode;
+  src?: string | null;
+  alt?: string;
+  fallback: ReactNode;
 };
 
 /**
- * An image that shows `fallback` when it fails to load. A new `src` gets a new chance, so a photo
- * added later (or a corrected URL) appears without a reload; it never hides itself for good.
+ * An <img> that shows `fallback` when its file can't be loaded (or there is no `src`). The failure is
+ * remembered for that `src` only: React reuses the element, so a later, good `src` (another sponsor
+ * chosen, another player) shows again. Never hide a failed image through its style
+ * (`visibility`/`display`): that sticks to the element.
  */
 export function FallbackImage({src, fallback, alt = '', ...rest}: Props) {
-  const [failedSrc, setFailedSrc] = React.useState<string | null>(null);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
   if (!src || failedSrc === src) return <>{fallback}</>;
   return <img {...rest} src={src} alt={alt} onError={() => setFailedSrc(src)}/>;
 }
+
+export default FallbackImage;

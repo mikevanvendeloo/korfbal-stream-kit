@@ -20,6 +20,23 @@ Druk op **Opslaan** en kies daarna:
 
 > PDF, Markdown en WhatsApp gebruiken de **opgeslagen** gegevens. Sla dus eerst op.
 
+### Sponsorlogo's
+
+Naast de sponsor staat het logo. Je kunt ook zien:
+
+- **Geen sponsor**: er is nog niets gekozen of getypt;
+- **Geen logo**: de naam hoort niet bij een sponsor, of de sponsor heeft geen logo;
+- **Logo niet gevonden**: de sponsor heeft wel een logo, maar het bestand ontbreekt op de server. Dat gebeurt vooral bij oude sponsors. Upload het logo opnieuw bij **Stamgegevens → Sponsors**.
+
+Kies je daarna een andere sponsor, dan zie je gewoon diens logo.
+
+### Afdrukken
+
+Er zijn twee manieren:
+
+- **PDF** (aanbevolen). De logo's van wedstrijdsponsor en balsponsor staan erin als ze **PNG** of **JPG** zijn. Een **WebP**- of **GIF**-logo kan de PDF niet tonen: dan staat er *(logo niet afdrukbaar: webp)* (of *gif*) onder de naam. Ontbreekt het bestand, dan staat er *(logo niet gevonden)*. Wil je het logo in de PDF, upload dan een PNG- of JPG-versie bij de sponsor.
+- **Afdrukken vanuit de browser** (Ctrl+P, op een Mac Cmd+P) op het tabblad **Productierapport**. Het menu, de tabbladen en de knoppen worden niet afgedrukt. Bij de sponsors komen de naam en het logo op papier, in elk formaat dat de browser toont (ook WebP en GIF). Spelersfoto's worden ook afgedrukt.
+
 Bij **Aanwezig** staan personen in *cursief* die er wel waren, maar geen positie hadden.
 
 ## Crewrapport

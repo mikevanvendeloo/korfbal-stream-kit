@@ -1,14 +1,12 @@
 import {Router} from 'express';
 import PDFDocument from 'pdfkit';
-import path from 'node:path';
 import {z} from 'zod';
 import {prisma} from '../../services/prisma';
 import {PositionCategory} from '@prisma/client';
 import {getProductionReportData, ProductionWithData} from "../../services/production";
 import {logger} from "../../utils/logger";
-import fs from "node:fs";
-import {getAssetsRoot} from "../../services/config";
-import {findSponsorByName, sponsorLogoFile, sponsorLogoPath} from "../../services/reportSponsors";
+import {findSponsorByName, pdfImage, pdfImageData} from "../../services/reportSponsors";
+import {currentOrganizationRef, sponsorLogoRelPath} from "../../services/sponsorLogos";
 import {assertProductionExists} from '../../services/production';
 import {amsterdamDay, formatTime} from '../../utils/time';
 import {contentDisposition} from '../../utils/attachment';
@@ -169,6 +167,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
 
     const { production, attendees, crewByCategory, interviews, sponsors } = await getProductionReportData(id);
+    const organization = await currentOrganizationRef();
     const { matchSchedule, productionReport } = production;
 
     let doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -193,11 +192,11 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
         });
 
         if (club?.logoUrl) {
-          // club.logoUrl can come from an import: only a png/jpeg inside the assets dir (sponsorLogoFile checks both)
-          const logoPath = sponsorLogoFile(club.logoUrl);
-          if (logoPath) {
+          // club.logoUrl can come from an import: only a safe png/jpeg inside the assets dir (pdfImageData checks it)
+          const logo = pdfImageData(club.logoUrl);
+          if (logo) {
             // renderClubLogo verwacht xPos als het midden van het logo, dus trek logoSize / 2 af voor de linkerrand
-            doc.image(logoPath, xPos - logoSize / 2, yPos, { width: logoSize, height: logoSize, fit: [logoSize, logoSize] });
+            doc.image(logo, xPos - logoSize / 2, yPos, { width: logoSize, height: logoSize, fit: [logoSize, logoSize] });
           } else {
             logger.warn(`Logo not found for team ${teamName} at ${club.logoUrl}`)
           }
@@ -351,20 +350,30 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
     doc.moveDown(1);
     doc.x = doc.page.margins.left;
 
-    // Sponsors, each with its logo when the name matches a sponsor that has a PNG/JPEG logo
+    // Sponsors, each with its logo when the name matches a sponsor with a logo. PDFKit only draws
+    // PNG/JPEG (checked on the content): for a webp/gif logo or a missing file the PDF says so instead.
     const renderSponsor = (label: string, name: string | null | undefined) => {
       if (!name) return;
       doc.fontSize(12).font('Helvetica-Bold').text(label);
       doc.font('Helvetica').fontSize(10).text(name);
-      const logo = sponsorLogoFile(sponsorLogoPath(findSponsorByName(name, sponsors)));
-      if (logo) {
+      const logoPath = sponsorLogoRelPath(organization, findSponsorByName(name, sponsors)?.logoUrl);
+      const logo = pdfImage(logoPath);
+      const note = (text: string) => doc.fillColor('gray').fontSize(9).text(text).fillColor('black');
+      if (logo?.status === 'ok') {
         const top = doc.y + 4;
         try {
-          doc.image(logo, doc.page.margins.left, top, { fit: [140, 50] });
+          doc.image(logo.data, doc.page.margins.left, top, { fit: [140, 50] });
           doc.y = top + 54;
         } catch (err) {
-          logger.warn('Sponsor logo could not be drawn in the report', { logo, err } as any);
+          logger.warn('Sponsor logo could not be drawn in the report', { logoPath, err } as any);
+          note('(logo niet afdrukbaar)');
         }
+      } else if (logo?.status === 'unsupported') {
+        logger.warn(`Sponsor logo ${logoPath} is ${logo.format}; the PDF report only prints PNG or JPEG`);
+        note(`(logo niet afdrukbaar: ${logo.format})`);
+      } else if (logo?.status === 'missing') {
+        logger.warn(`Sponsor logo ${logoPath} not found for the PDF report`);
+        note('(logo niet gevonden)');
       }
       doc.x = doc.page.margins.left;
       doc.moveDown(1);
@@ -406,32 +415,27 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
 
         // Foto eronder
         if (person.photoUrl) {
-          const imagePath = path.join(getAssetsRoot(), person.photoUrl);
+          // Only a PNG/JPEG by content inside the assets dir: a webp named .png would make PDFKit throw
+          const photo = pdfImage(person.photoUrl);
 
-          if (fs.existsSync(imagePath)) {
+          if (photo?.status === 'ok') {
+            // Sla de huidige staat van het document op, en herstel hem altijd (ook als de foto faalt),
+            // anders blijft de clip staan en verdwijnt alles wat erna komt
+            doc.save();
             try {
-              // 1. Sla de huidige staat van het document op
-              doc.save();
-
-              // 1. Teken het kader waar de foto in MOET komen
+              // Teken het kader waar de foto in MOET komen, en plaats de afbeelding daarin
               doc.rect(xPos, currentY, imageWidth, imageHeight).clip();
-
-              // 2. Plaats de afbeelding
-              // We gebruiken 'cover' met exact dezelfde dimensies als de clip-rect.
-              // 'valign: top' zorgt dat we het hoofd zien.
-              doc.image(imagePath, xPos, currentY, {
+              doc.image(photo.data, xPos, currentY, {
                 width: imageWidth
               });
-
-              doc.restore(); // Herstel clip-staat zodat tekst weer zichtbaar is
-
-              // 3. Update currentY voor de rest van de content
-              // We voegen extra ruimte toe (bijv. 15px) na de afbeelding
               currentY += imageHeight + 1;
-
             } catch (e) {
               logger.warn(`Could not add image for ${person.name}: ${e}`);
+            } finally {
+              doc.restore();
             }
+          } else if (photo?.status === 'unsupported') {
+            logger.warn(`Photo of ${person.name} is ${photo.format}; the PDF report only prints PNG or JPEG`);
           }
         }
 

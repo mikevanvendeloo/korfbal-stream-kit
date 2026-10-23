@@ -14,9 +14,19 @@ function renderWithProviders(ui: React.ReactNode) {
   );
 }
 
+const roles = (regisseur: number, camera: number) => [
+  {key: 'regisseur', label: 'Regisseur', required: 1, filled: regisseur, optional: false, met: regisseur >= 1},
+  {key: 'camera', label: 'Camera', required: 3, filled: camera, optional: false, met: camera >= 3},
+  {key: 'commentaar', label: 'Commentaar', required: 1, filled: 0, optional: true, met: false},
+];
+const match = (id: number, home: string) => ({id, homeTeamName: home, awayTeamName: 'Opp', date: '2026-11-14T18:30:00.000Z'});
+const FIRST = {id: 1, matchScheduleId: 100, matchSchedule: match(100, 'Fortuna/Ruitenheer 1')};
+let listed: any[] = [FIRST];
+
 describe('ProductionsAdminPage', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    listed = [FIRST];
 
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: any, init?: any) => {
       const url = typeof input === 'string' ? input : input.toString();
@@ -24,9 +34,7 @@ describe('ProductionsAdminPage', () => {
 
       // List productions
       if (u.pathname.endsWith('/api/production') && (!init || init.method === 'GET')) {
-        return { ok: true, json: async () => ({ items: [
-          { id: 1, matchScheduleId: 100, createdAt: new Date().toISOString(), matchSchedule: { id: 100, homeTeamName: 'Fortuna/Ruitenheer 1', awayTeamName: 'Opp' } },
-        ], total: 1 }) } as any;
+        return { ok: true, json: async () => ({ items: listed, total: listed.length }) } as any;
       }
       // Matches for selection
       if (u.pathname.endsWith('/api/production/matches') && (!init || init.method === 'GET')) {
@@ -71,7 +79,7 @@ describe('ProductionsAdminPage', () => {
     renderWithProviders(<ProductionsAdminPage />);
     await screen.findByText(/Fortuna\/Ruitenheer 1/);
     const headers = screen.getAllByRole('columnheader').map((th) => th.textContent);
-    expect(headers).toEqual(['Datum/Tijd', 'Match', 'Acties']);
+    expect(headers).toEqual(['Datum/Tijd', 'Match', 'Bezetting', 'Acties']);
     // The id (1) isn't shown as a cell of its own
     expect(screen.getAllByRole('cell').map((td) => td.textContent)).not.toContain('1');
   });
@@ -104,6 +112,40 @@ describe('ProductionsAdminPage', () => {
       });
       expect(hasProductionPost).toBe(true);
     });
+  });
+
+  it('shows per production whether the minimum staffing is met, linking to Beschikbaarheid', async () => {
+    listed = [
+      {...FIRST, staffing: {presentCount: 4, met: true, shortfall: [], roles: roles(1, 3)}},
+      {id: 2, matchScheduleId: 101, matchSchedule: match(101, 'Fortuna/Ruitenheer 2'),
+        staffing: {presentCount: 2, met: false, shortfall: [{key: 'camera', missing: 1, singular: 'camera', plural: "camera's"}], roles: roles(1, 2)}},
+      {id: 3, matchScheduleId: 102, matchSchedule: match(102, 'Fortuna/Ruitenheer 3'),
+        staffing: {presentCount: 0, met: false, shortfall: [
+          {key: 'regisseur', missing: 1, singular: 'regisseur', plural: 'regisseurs'},
+          {key: 'camera', missing: 3, singular: 'camera', plural: "camera's"},
+        ], roles: roles(0, 0)}},
+    ];
+    renderWithProviders(<ProductionsAdminPage />);
+
+    const met = await screen.findByTestId('staffing-1');
+    expect(met.textContent).toBe('✓ Gehaald');
+    expect(met.className).toContain('bg-green-100');
+    expect(met.getAttribute('href')).toBe('/admin/producties/1/beschikbaarheid');
+    expect(met.getAttribute('title')).toContain('Regisseur: 1/1 ✓');
+    expect(met.getAttribute('title')).toContain('Commentaar (optioneel): 0/1 ✗');
+
+    const short = screen.getByTestId('staffing-2');
+    expect(short.textContent).toBe('✗ nog 1 camera');
+    expect(short.className).toContain('bg-amber-100');
+    expect(short.getAttribute('title')).toContain('Camera: 2/3 ✗');
+
+    const nobody = screen.getByTestId('staffing-3');
+    expect(nobody.textContent).toBe('Nog niemand aanwezig');
+    expect(nobody.className).toContain('text-gray-600');
+
+    // Never wider than a phone screen: the text truncates, the table scrolls in its own box
+    for (const badge of [met, short, nobody]) expect(badge.className).toContain('truncate');
+    expect(met.closest('table')?.parentElement?.className).toContain('overflow-x-auto');
   });
 
   it('shows attendance button for each production', async () => {

@@ -23,6 +23,8 @@ export type Production = {
   isActive: boolean;
   liveTime?: string;
   callSheetTemplateId?: number | null;
+  /** Only in the list (GET /api/production): the minimum staffing of the people present */
+  staffing?: StaffingSummary;
   matchSchedule?: {
     id: number;
     homeTeamName: string;
@@ -327,10 +329,20 @@ export type Staffing = {
 
 export type ProductionAttendance = { persons: AttendancePerson[]; staffing: Staffing };
 
+/** The minimum staffing per production in the productions list (API: services/productionStaffing.ts) */
+export type StaffingSummary = {
+  presentCount: number;
+  met: boolean;
+  shortfall: Staffing['shortfall'];
+  roles: Array<Pick<StaffingRole, 'key' | 'label' | 'required' | 'filled' | 'optional' | 'met'>>;
+};
+
 function invalidateAttendance(qc: QueryClient, productionId: number) {
   return Promise.all([
     qc.invalidateQueries({ queryKey: ['production', productionId, 'persons'] }),
     qc.invalidateQueries({ queryKey: ['production', productionId, 'attendance'] }),
+    // The Bezetting column of the productions list
+    qc.invalidateQueries({ queryKey: ['productions'] }),
   ]);
 }
 
