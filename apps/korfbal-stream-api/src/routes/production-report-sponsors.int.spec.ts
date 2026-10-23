@@ -1,6 +1,7 @@
 import request from 'supertest';
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import app from '../main';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {getAssetsRoot} from '../services/config';
@@ -69,5 +70,105 @@ describe.runIf(runDb)('production report sponsors (integration)', () => {
     await request(app).post(`/api/production/${productionId}/report`).send({matchSponsor: 'Vrije tekst sponsor', ballSponsor: null});
     const withoutLogo = await request(app).get(`/api/production/${productionId}/report/pdf`).buffer(true).parse(binary);
     expect(imageCount(withoutLogo.body)).toBe(0);
+  });
+});
+
+/** The images drawn on the pages: PDFKit names them /I1, /I2, … in the (uncompressed) page resources; a transparency mask has no name. */
+const drawnImages = (pdf: Buffer) => new Set(pdf.toString('latin1').match(/\/I\d+ \d+ 0 R/g) ?? []).size;
+
+/** The text of the PDF: PDFKit compresses the page content and writes text as hex strings in TJ arrays. */
+function pdfText(pdf: Buffer): string {
+  const raw = pdf.toString('latin1');
+  const texts: string[] = [];
+  for (const match of raw.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
+    let content: string;
+    try {
+      content = zlib.inflateSync(Buffer.from(match[1], 'latin1')).toString('latin1');
+    } catch {
+      continue; // an image stream, or not deflated
+    }
+    for (const tj of content.matchAll(/\[([^\]]*)\]\s*TJ/g)) {
+      texts.push([...tj[1].matchAll(/<([0-9a-fA-F]*)>/g)].map((h) => Buffer.from(h[1], 'hex').toString('latin1')).join(''));
+    }
+  }
+  return texts.join('\n');
+}
+
+describe.runIf(runDb)('production report PDF: sponsor logos (integration)', () => {
+  const stamp = Date.now();
+  const dir = path.join(getAssetsRoot(), 'sponsors');
+  // A logo of each kind; the org-style path `<organizationId>/<file>` and a legacy plain file name
+  const files = {
+    match: `pdf-match-${stamp}.png`,
+    webp: `pdf-webp-${stamp}.webp`,
+    fakePng: `pdf-fake-${stamp}.png`, // really webp: the name must not fool the PDF
+    missing: `pdf-missing-${stamp}.png`,
+  };
+  // Smallest valid WEBP header (PDFKit can't draw it; it only needs to be recognised)
+  const WEBP = Buffer.concat([Buffer.from('RIFF'), Buffer.from([0x1a, 0, 0, 0]), Buffer.from('WEBPVP8L'), Buffer.alloc(14)]);
+  let show: ProductionScenario;
+  let orgDir: string;
+  let ballLogoUrl: string;
+  const sponsorIds: number[] = [];
+
+  const pdf = async () => {
+    const res = await request(app).get(`/api/production/${show.productionId}/report/pdf`).buffer(true).parse(binary);
+    expect(res.status).toBe(200);
+    expect(res.body.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(res.body.toString('latin1').trimEnd().endsWith('%%EOF')).toBe(true);
+    return res.body as Buffer;
+  };
+  const setSponsors = (matchSponsor: string | null, ballSponsor: string | null) =>
+    request(app).post(`/api/production/${show.productionId}/report`).send({matchSponsor, ballSponsor}).expect(200);
+
+  beforeAll(async () => {
+    show = await createProductionScenario(prisma, {items: []});
+    orgDir = path.join(dir, String(show.organizationId));
+    fs.mkdirSync(orgDir, {recursive: true});
+    fs.writeFileSync(path.join(dir, files.match), PNG); // legacy: a plain file name
+    const ballFile = `pdf-ball-${stamp}.png`;
+    fs.writeFileSync(path.join(orgDir, ballFile), PNG); // since organizations: <organizationId>/<file>
+    ballLogoUrl = `${show.organizationId}/${ballFile}`;
+    fs.writeFileSync(path.join(dir, files.webp), WEBP);
+    fs.writeFileSync(path.join(dir, files.fakePng), WEBP);
+    const make = async (name: string, logoUrl: string) =>
+      sponsorIds.push((await prisma.sponsor.create({data: {name, type: 'goud', logoUrl, websiteUrl: 'https://example.org'}})).id);
+    await make(`PDF Wedstrijd ${stamp}`, files.match);
+    await make(`PDF Bal ${stamp}`, ballLogoUrl);
+    await make(`PDF Webp ${stamp}`, files.webp);
+    await make(`PDF Nep ${stamp}`, files.fakePng);
+    await make(`PDF Kwijt ${stamp}`, files.missing);
+  });
+
+  afterAll(async () => {
+    await show.cleanup();
+    await prisma.sponsor.deleteMany({where: {id: {in: sponsorIds}}});
+    for (const file of Object.values(files)) fs.rmSync(path.join(dir, file), {force: true});
+    fs.rmSync(path.join(getAssetsRoot(), 'sponsors', ballLogoUrl), {force: true});
+  });
+
+  it('prints the match sponsor and the ball sponsor with their PNG logos (legacy and organization paths)', async () => {
+    await setSponsors(`PDF Wedstrijd ${stamp}`, `PDF Bal ${stamp}`);
+    const body = await pdf();
+    expect(drawnImages(body)).toBe(2);
+    const text = pdfText(body);
+    expect(text).toContain('Wedstrijdsponsor');
+    expect(text).toContain('Balsponsor');
+    expect(text).not.toContain('logo niet');
+  });
+
+  it('prints a note instead of a webp logo, also one named .png, and the PDF stays whole', async () => {
+    await setSponsors(`PDF Webp ${stamp}`, `PDF Nep ${stamp}`);
+    const body = await pdf();
+    expect(drawnImages(body)).toBe(0);
+    const notes = pdfText(body).match(/\(logo niet afdrukbaar: webp\)/g) ?? [];
+    expect(notes).toHaveLength(2);
+  });
+
+  it('prints a note for a logo file that is gone, next to a logo that prints', async () => {
+    await setSponsors(`PDF Kwijt ${stamp}`, `PDF Bal ${stamp}`);
+    const body = await pdf();
+    expect(drawnImages(body)).toBe(1);
+    expect(pdfText(body)).toContain('(logo niet gevonden)');
   });
 });

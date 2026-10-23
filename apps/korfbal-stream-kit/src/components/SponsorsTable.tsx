@@ -13,6 +13,18 @@ import IconButton from './IconButton';
 import {MdCheck, MdClose, MdDelete, MdEdit} from 'react-icons/md';
 import {RiVipCrown2Fill} from 'react-icons/ri';
 import {FaMedal} from 'react-icons/fa';
+import FallbackImage from './FallbackImage';
+import {sponsorLogoSrc} from './SponsorField';
+
+/** The logo in its box; a missing file shows "?" with a title (rows are reused after sorting/deleting). */
+function SponsorLogo({sponsor}: { sponsor: Sponsor }) {
+  const src = sponsorLogoSrc(sponsor);
+  if (!src) return <span className="text-xs text-gray-400" title="Geen logo">–</span>;
+  return (
+    <FallbackImage src={src} alt={sponsor.name} className="max-h-full max-w-full object-contain"
+                   fallback={<span className="text-xs text-gray-400" title="Logo niet gevonden">?</span>}/>
+  );
+}
 
 export type SponsorsTableProps = {
   data: Sponsor[];
@@ -74,7 +86,7 @@ export function SponsorsTable({ data, onEdit, onDelete, onToggleEnabled }: Spons
         cell: (info) => (
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 flex-shrink-0 bg-gray-50 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center overflow-hidden">
-                <img src={`/uploads/sponsors/${info.getValue()}`} alt={String(info.row.original.name)} className="max-h-full max-w-full object-contain" onError={(e) => ((e.currentTarget.style.visibility = 'hidden'))} />
+                <SponsorLogo sponsor={info.row.original}/>
             </div>
             <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[150px] hidden sm:inline-block" title={String(info.getValue())}>{String(info.getValue())}</span>
           </div>
@@ -138,7 +150,7 @@ export function SponsorsTable({ data, onEdit, onDelete, onToggleEnabled }: Spons
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3 overflow-hidden">
                 <div className="h-12 w-12 flex-shrink-0 bg-gray-50 dark:bg-gray-900 rounded p-1 border border-gray-100 dark:border-gray-700 flex items-center justify-center">
-                    <img src={`/uploads/sponsors/${row.original.logoUrl}`} alt={row.original.name} className="max-h-full max-w-full object-contain" onError={(e) => ((e.currentTarget.style.visibility = 'hidden'))} />
+                    <SponsorLogo sponsor={row.original}/>
                 </div>
                 <div className="min-w-0">
                   <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">{row.original.name}</div>

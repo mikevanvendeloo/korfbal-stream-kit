@@ -1,5 +1,5 @@
 import {expect, test} from './support/fixtures';
-import {AttendancePage} from './support/pages';
+import {AttendancePage, ProductionsPage} from './support/pages';
 
 /**
  * Beschikbaarheid: people per group (Crew/Entertainment), and the minimum staffing that turns green
@@ -21,6 +21,11 @@ test('marking people present until the minimum staffing is reached', async ({pag
       {name: `${P} Zonder skills`},
     ],
   });
+  // Beheer → Producties: nobody present yet
+  const productions = new ProductionsPage(page);
+  await productions.open();
+  await expect(productions.staffing(show.productionId)).toHaveText('Nog niemand aanwezig');
+
   const attendance = new AttendancePage(page);
   await attendance.open(show.productionId);
 
@@ -39,6 +44,12 @@ test('marking people present until the minimum staffing is reached', async ({pag
   await expect(attendance.summary()).toHaveText('Minimale bezetting nog niet gehaald: nog 1 camera');
   await expect(attendance.role('camera')).toContainText('Camera 2/3');
 
+  // The productions list says what is still missing, and links back to Beschikbaarheid
+  await productions.open();
+  await expect(productions.staffing(show.productionId)).toHaveText('✗ nog 1 camera');
+  await productions.staffing(show.productionId).click();
+  await expect(attendance.summary()).toHaveText('Minimale bezetting nog niet gehaald: nog 1 camera');
+
   // Optional roles never hold the minimum back
   await expect(attendance.role('commentaar')).toContainText('Commentaar 0/1 (optioneel)');
 
@@ -49,4 +60,25 @@ test('marking people present until the minimum staffing is reached', async ({pag
 
   await attendance.markPresent(`${P} Eva`);
   await expect(attendance.role('commentaar')).toContainText('Commentaar 1/1');
+
+  // Beheer → Producties: ✓ for this production
+  await productions.open();
+  await expect(productions.staffing(show.productionId)).toHaveText('✓ Gehaald');
+});
+
+test('the Bezetting column fits a phone screen', async ({page, makeShow}) => {
+  await page.setViewportSize({width: 360, height: 740});
+  const show = await makeShow({active: false, crew: [{name: `${P} Telefoon`, skills: ['CAMERA_ZOOM'], present: true}]});
+  const productions = new ProductionsPage(page);
+  await productions.open();
+  await expect(productions.staffing(show.productionId)).toContainText('✗ nog 1 regisseur');
+  // The list never makes the page wider than the screen: the table scrolls in its own box, the badge
+  // truncates. (Measured on the page content: the Beheer menu bar above it is not part of this screen.)
+  const widths = await page.evaluate(() => {
+    const main = document.querySelector('main')!;
+    const badge = document.querySelector('[data-testid^="staffing-"]')!.getBoundingClientRect();
+    return {content: main.scrollWidth, screen: document.documentElement.clientWidth, badgeWidth: badge.width};
+  });
+  expect(widths.content).toBeLessThanOrEqual(widths.screen);
+  expect(widths.badgeWidth).toBeLessThanOrEqual(160);
 });

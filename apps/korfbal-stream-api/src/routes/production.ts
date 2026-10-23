@@ -4,6 +4,7 @@ import {prisma} from '../services/prisma';
 import * as productionStateService from '../services/productionState';
 import {getSetting, PRODUCTION_TEAM_NAMES_KEY} from '../services/appSettings';
 import {resolveSeasonId} from '../services/season';
+import {staffingSummaries} from '../services/productionStaffing';
 import {parseOptionalInstant} from '../utils/time';
 
 // Import all production sub-routers
@@ -209,7 +210,9 @@ productionRouter.get('/', async (req, res, next) => {
       },
       include: { matchSchedule: true },
     });
-    return res.json({ items, total: items.length });
+    // The "Bezetting" column: the minimum staffing of every production, in a fixed number of queries
+    const staffing = await staffingSummaries(items.map((p) => p.id));
+    return res.json({ items: items.map((p) => ({ ...p, staffing: staffing.get(p.id) })), total: items.length });
   } catch (err) {
     return next(err);
   }

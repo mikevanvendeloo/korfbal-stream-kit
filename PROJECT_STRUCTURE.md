@@ -74,7 +74,8 @@ apps/korfbal-stream-api/
     │   ├── season.ts                  # Season derivation (1 Jul–30 Jun), active season, seasonId resolution, asset dirs
     │   ├── seasonAssetMigration.ts    # Startup job: moves legacy player photos/team-responses into storage/seasons/<YYYY-YYYY>/
     │   ├── production.ts              # Production report data loading
-    │   ├── reportSponsors.ts          # Match/ball sponsor name → sponsor logo (report page + PDF)
+    │   ├── reportSponsors.ts          # Match/ball sponsor name → sponsor logo (report page + PDF); pdfImage(): PNG/JPEG by magic bytes, else a note
+    │   ├── productionStaffing.ts      # Minimum staffing summary for many productions at once (productions list "Bezetting")
     │   ├── productionState.ts         # In-memory live state per organization (active production/event, clocks)
     │   ├── matchChange.ts             # A moved match shifts its production's liveTime, callsheet item and planned event times (not while live)
     │   ├── socket.ts                  # Socket.io server, room org:<id> per handshake, emitToOrganization, broadcastState()
@@ -278,7 +279,7 @@ No login (internal LAN tool), but every `/api` request needs an organization: `X
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/production | List productions |
+| GET | /api/production | List productions, each with `staffing` (`{presentCount, met, shortfall, roles}`, `services/productionStaffing.ts`: the people present of all productions in one query) |
 | POST | /api/production | Create production |
 | GET | /api/production/matches | List matches available for productions |
 | GET | /api/production/:id | Get production |

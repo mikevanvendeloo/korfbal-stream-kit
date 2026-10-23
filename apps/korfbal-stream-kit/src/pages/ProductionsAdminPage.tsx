@@ -12,6 +12,7 @@ import {
 import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdDownload, MdEdit, MdGroups, MdInfo, MdPlayCircle, MdUpload} from 'react-icons/md';
 import {adminPaths} from '../lib/adminPaths';
+import StaffingBadge from '../components/StaffingBadge';
 import {downloadExport} from '../lib/download';
 import {formatDate, formatDateTime, formatTime} from '../lib/time';
 
@@ -126,11 +127,14 @@ export default function ProductionsAdminPage() {
         </div>
       )}
 
+      {/* On a phone the table scrolls inside this box, so the page itself never gets wider than the screen */}
+      <div className="max-w-full overflow-x-auto">
       <table className="min-w-full border border-gray-200 dark:border-gray-800 text-sm">
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
                 <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Datum/Tijd</th>
                 <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Match</th>
+                <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Bezetting</th>
                 <th className="text-left p-2 border-b border-gray-200 dark:border-gray-800">Acties</th>
               </tr>
             </thead>
@@ -150,8 +154,11 @@ export default function ProductionsAdminPage() {
                       </a>
                     </div>
                   </td>
+                  <td className="p-2 border-b border-gray-200 dark:border-gray-800 min-w-0">
+                    <StaffingBadge productionId={p.id} staffing={p.staffing}/>
+                  </td>
                   <td className="p-2 border-b border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <IconButton ariaLabel="Edit production" title="Wijzig" onClick={() => setEditing({ id: p.id, matchScheduleId: p.matchScheduleId })}>
                         <MdEdit className="w-5 h-5" />
                       </IconButton>
@@ -200,6 +207,7 @@ export default function ProductionsAdminPage() {
               ))}
             </tbody>
           </table>
+      </div>
 
       {editing && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
