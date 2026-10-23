@@ -1,6 +1,9 @@
 import request from 'supertest';
 import app from '../main';
+import fs from 'node:fs';
+import path from 'node:path';
 import {describe, expect, it, vi} from 'vitest';
+import {getAssetsRoot} from '../services/config';
 
 // Mock Prisma service with in-memory array so tests do not require Postgres
 vi.mock('../services/prisma', () => {
@@ -9,7 +12,7 @@ vi.mock('../services/prisma', () => {
     prisma: {
       // The organization middleware resolves X-Organization (test-setup.ts sends the test organization)
       organization: {
-        findUnique: async ({ where }: any) => (where.slug === 'test-org' ? { id: 1, slug: 'test-org', name: 'Test', isActive: true } : null),
+        findUnique: async ({ where }: any) => (where.slug === 'test-org' || where.id === 1 ? { id: 1, slug: 'test-org', name: 'Test', isActive: true } : null),
       },
       sponsor: {
         findMany: async ({ where, skip = 0, take = data.length }: any = {}) => {
@@ -58,12 +61,17 @@ describe('Sponsors API', () => {
     });
   });
 
-  it('accepts a logoUrl only in the organization\'s own directory (test organization: id 1)', async () => {
+  it('accepts a logoUrl only for a file in the organization\'s own directory (sponsors/test-org/)', async () => {
     const base = { type: 'premium', websiteUrl: 'https://logo.example' };
-    const own = await request(app).post('/api/sponsors').send({ ...base, name: 'Eigen logo', logoUrl: '1/eigen-logo.png' });
+    const file = path.join(getAssetsRoot(), 'sponsors', 'test-org', 'eigen-logo.png');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, 'png');
+    const own = await request(app).post('/api/sponsors').send({ ...base, name: 'Eigen logo', logoUrl: 'eigen-logo.png' });
+    fs.rmSync(file, { force: true });
     expect(own.status).toBe(201);
-    expect(own.body.logoUrl).toBe('1/eigen-logo.png');
-    for (const logoUrl of ['acme-bv.png', '2/vreemd.png', '1/../2/x.png', '../1/x.png', '1/x.svg', '1/sub/x.png', '/1/x.png']) {
+    expect(own.body.logoUrl).toBe('eigen-logo.png');
+    expect(own.body.logoSrc).toBe('/uploads/sponsors/test-org/eigen-logo.png');
+    for (const logoUrl of ['acme-bv.png', '1/eigen-logo.png', '2/vreemd.png', 'test-org/eigen-logo.png', '../test-org/eigen-logo.png', '../1/x.png', 'x.svg', '/eigen-logo.png']) {
       const res = await request(app).post('/api/sponsors').send({ ...base, name: 'Vreemd logo', logoUrl });
       expect(res.status, logoUrl).toBe(400);
       expect(res.body.error).toBe('Ongeldig logo: upload het logo bij de sponsor');

@@ -86,7 +86,7 @@ export async function organizationContext(req: Request, res: Response, next: Nex
       return sendApiError(res, 'ORGANIZATION_UNKNOWN');
     }
     res.locals.organization = organization;
-    return runWithOrganization(organization.id, () => next());
+    return runWithOrganization(organization.id, () => next(), organization.slug);
   } catch (err) {
     return next(err);
   }
@@ -99,7 +99,7 @@ async function withApiKeyOrganization(apiKey: string | null, res: Response, next
     // Unknown, revoked, or of an organization that was switched off: the key opens nothing
     if (!organization?.isActive) return sendApiError(res, 'API_KEY_INVALID');
     res.locals.organization = organization;
-    return runWithOrganization(organization.id, () => next());
+    return runWithOrganization(organization.id, () => next(), organization.slug);
   } catch (err) {
     return next(err);
   }

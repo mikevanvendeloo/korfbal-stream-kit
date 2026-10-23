@@ -6,7 +6,9 @@ import app from '../main';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {getAssetsRoot} from '../services/config';
 import {createProductionScenario, ProductionScenario} from '../../test-scenarios';
-import {testDb as prisma} from '../../test-helpers';
+import os from 'node:os';
+import {TEST_ORGANIZATION_SLUG, testDb as prisma} from '../../test-helpers';
+import {makeCorruptRgbaPng, makePngBomb} from '../../test-images';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 
@@ -24,7 +26,7 @@ function binary(res: request.Response, done: (err: Error | null, body: Buffer) =
 
 describe.runIf(runDb)('production report sponsors (integration)', () => {
   const logoName = `report-ball-sponsor-${Date.now()}.png`;
-  const logoFile = path.join(getAssetsRoot(), 'sponsors', logoName);
+  const logoFile = path.join(getAssetsRoot(), 'sponsors', TEST_ORGANIZATION_SLUG, logoName);
   let productionId: number;
   let show: ProductionScenario;
   let sponsorId: number;
@@ -50,7 +52,7 @@ describe.runIf(runDb)('production report sponsors (integration)', () => {
 
     const res = await request(app).get(`/api/production/${productionId}/report`);
     expect(res.body.report).toMatchObject({matchSponsor: 'Vrije tekst sponsor', ballSponsor: 'report int balsponsor'});
-    expect(res.body.sponsors).toContainEqual(expect.objectContaining({id: sponsorId, logoUrl: logoName}));
+    expect(res.body.sponsors).toContainEqual(expect.objectContaining({id: sponsorId, logoUrl: logoName, logoSrc: `/uploads/sponsors/${TEST_ORGANIZATION_SLUG}/${logoName}`}));
   });
 
   it('puts both sponsors in the texts and the matching logo in the PDF', async () => {
@@ -96,19 +98,22 @@ function pdfText(pdf: Buffer): string {
 
 describe.runIf(runDb)('production report PDF: sponsor logos (integration)', () => {
   const stamp = Date.now();
-  const dir = path.join(getAssetsRoot(), 'sponsors');
-  // A logo of each kind; the org-style path `<organizationId>/<file>` and a legacy plain file name
+  // The logos are in sponsors/<slug>/; the database has only the file name
+  const dir = path.join(getAssetsRoot(), 'sponsors', TEST_ORGANIZATION_SLUG);
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-outside-'));
   const files = {
     match: `pdf-match-${stamp}.png`,
+    ball: `pdf-ball-${stamp}.png`,
     webp: `pdf-webp-${stamp}.webp`,
     fakePng: `pdf-fake-${stamp}.png`, // really webp: the name must not fool the PDF
     missing: `pdf-missing-${stamp}.png`,
+    bomb: `pdf-bomb-${stamp}.png`, // claims 20000×20000 pixels
+    corrupt: `pdf-corrupt-${stamp}.png`, // RGBA with broken data: PDFKit never finished the PDF
+    link: `pdf-link-${stamp}.png`, // symlink to a file outside the assets dir
   };
   // Smallest valid WEBP header (PDFKit can't draw it; it only needs to be recognised)
   const WEBP = Buffer.concat([Buffer.from('RIFF'), Buffer.from([0x1a, 0, 0, 0]), Buffer.from('WEBPVP8L'), Buffer.alloc(14)]);
   let show: ProductionScenario;
-  let orgDir: string;
-  let ballLogoUrl: string;
   const sponsorIds: number[] = [];
 
   const pdf = async () => {
@@ -123,31 +128,35 @@ describe.runIf(runDb)('production report PDF: sponsor logos (integration)', () =
 
   beforeAll(async () => {
     show = await createProductionScenario(prisma, {items: []});
-    orgDir = path.join(dir, String(show.organizationId));
-    fs.mkdirSync(orgDir, {recursive: true});
-    fs.writeFileSync(path.join(dir, files.match), PNG); // legacy: a plain file name
-    const ballFile = `pdf-ball-${stamp}.png`;
-    fs.writeFileSync(path.join(orgDir, ballFile), PNG); // since organizations: <organizationId>/<file>
-    ballLogoUrl = `${show.organizationId}/${ballFile}`;
+    fs.mkdirSync(dir, {recursive: true});
+    fs.writeFileSync(path.join(dir, files.match), PNG);
+    fs.writeFileSync(path.join(dir, files.ball), PNG);
     fs.writeFileSync(path.join(dir, files.webp), WEBP);
     fs.writeFileSync(path.join(dir, files.fakePng), WEBP);
+    fs.writeFileSync(path.join(dir, files.bomb), makePngBomb());
+    fs.writeFileSync(path.join(dir, files.corrupt), makeCorruptRgbaPng());
+    fs.writeFileSync(path.join(outside, 'secret.png'), PNG);
+    fs.symlinkSync(path.join(outside, 'secret.png'), path.join(dir, files.link));
     const make = async (name: string, logoUrl: string) =>
       sponsorIds.push((await prisma.sponsor.create({data: {name, type: 'goud', logoUrl, websiteUrl: 'https://example.org'}})).id);
     await make(`PDF Wedstrijd ${stamp}`, files.match);
-    await make(`PDF Bal ${stamp}`, ballLogoUrl);
+    await make(`PDF Bal ${stamp}`, files.ball);
     await make(`PDF Webp ${stamp}`, files.webp);
     await make(`PDF Nep ${stamp}`, files.fakePng);
     await make(`PDF Kwijt ${stamp}`, files.missing);
+    await make(`PDF Bom ${stamp}`, files.bomb);
+    await make(`PDF Kapot ${stamp}`, files.corrupt);
+    await make(`PDF Link ${stamp}`, files.link);
   });
 
   afterAll(async () => {
     await show.cleanup();
     await prisma.sponsor.deleteMany({where: {id: {in: sponsorIds}}});
     for (const file of Object.values(files)) fs.rmSync(path.join(dir, file), {force: true});
-    fs.rmSync(path.join(getAssetsRoot(), 'sponsors', ballLogoUrl), {force: true});
+    fs.rmSync(outside, {recursive: true, force: true});
   });
 
-  it('prints the match sponsor and the ball sponsor with their PNG logos (legacy and organization paths)', async () => {
+  it('prints the match sponsor and the ball sponsor with their PNG logos from sponsors/<slug>/', async () => {
     await setSponsors(`PDF Wedstrijd ${stamp}`, `PDF Bal ${stamp}`);
     const body = await pdf();
     expect(drawnImages(body)).toBe(2);
@@ -169,6 +178,22 @@ describe.runIf(runDb)('production report PDF: sponsor logos (integration)', () =
     await setSponsors(`PDF Kwijt ${stamp}`, `PDF Bal ${stamp}`);
     const body = await pdf();
     expect(drawnImages(body)).toBe(1);
+    expect(pdfText(body)).toContain('(logo niet gevonden)');
+  });
+
+  it('refuses a decompression bomb and a corrupt RGBA PNG: the PDF is finished, with a note', async () => {
+    await setSponsors(`PDF Bom ${stamp}`, `PDF Kapot ${stamp}`);
+    const body = await pdf(); // a corrupt RGBA PNG used to leave this request hanging
+    expect(drawnImages(body)).toBe(0);
+    const text = pdfText(body);
+    expect(text).toMatch(/\(logo niet afdrukbaar: te groot \(20000×20000/);
+    expect(text).toContain('(logo niet afdrukbaar: beschadigde afbeelding)');
+  }, 10_000);
+
+  it('does not read a logo through a symlink out of the assets dir', async () => {
+    await setSponsors(`PDF Link ${stamp}`, null);
+    const body = await pdf();
+    expect(drawnImages(body)).toBe(0);
     expect(pdfText(body)).toContain('(logo niet gevonden)');
   });
 });

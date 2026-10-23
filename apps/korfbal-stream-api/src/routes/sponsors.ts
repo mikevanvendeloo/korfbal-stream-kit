@@ -7,8 +7,7 @@ import {prisma} from '../services/prisma';
 import {logger} from '../utils/logger';
 import {saveImage, singleImage} from '../services/imageUpload';
 import {keepOrganizationContext} from '../middleware/organizationContext';
-import {requireOrganizationId} from '../services/organizationContext';
-import {resolveClientLogoUrl, sponsorLogoDir, sponsorLogoUrl} from '../services/sponsorLogos';
+import {currentOrganizationRef, resolveClientLogoUrl, sponsorLogoDir, withLogoSrc} from '../services/sponsorLogos';
 import {
   normalizeLogoFilename,
   SponsorInputSchema,
@@ -58,7 +57,8 @@ sponsorsRouter.get('/', async (req, res, next) => {
     });
 
     const total = allMatches.length;
-    const items = allMatches.slice(skip, skip + limit);
+    const organization = await currentOrganizationRef();
+    const items = allMatches.slice(skip, skip + limit).map((s) => withLogoSrc(organization, s));
 
     return res.json({ items, page, limit, total, pages: Math.ceil(total / limit) || 1 });
   } catch (err) {
@@ -120,7 +120,7 @@ sponsorsRouter.get('/:id', async (req, res, next) => {
   try {
     const sponsor = await prisma.sponsor.findUnique({ where: { id } });
     if (!sponsor) return res.status(404).json({ error: 'No sponsor found with this id' });
-    return res.json(sponsor);
+    return res.json(withLogoSrc(await currentOrganizationRef(), sponsor));
   } catch (err) {
     logger.error('GET /sponsors/:id failed', err as any);
     return next(err);
@@ -130,18 +130,19 @@ sponsorsRouter.get('/:id', async (req, res, next) => {
 sponsorsRouter.post('/', async (req, res, next) => {
   try {
     const { name, type, websiteUrl, logoUrl, displayName, enabled } = SponsorInputSchema.parse(req.body);
+    const organization = await currentOrganizationRef();
     const created = await prisma.sponsor.create({
       data: {
         name,
         type,
         websiteUrl,
         // Never derived from the name (that would point at another organization's legacy file): set by an upload
-        logoUrl: resolveClientLogoUrl(logoUrl, requireOrganizationId(), null),
+        logoUrl: resolveClientLogoUrl(logoUrl, organization, null),
         displayName: displayName || null,
         enabled: enabled ?? true,
       },
     });
-    return res.status(201).json(created);
+    return res.status(201).json(withLogoSrc(organization, created));
   } catch (err) {
     logger.error('POST /sponsors failed', err as any);
     return next(err);
@@ -168,17 +169,17 @@ sponsorsRouter.post('/:id/logo',
         return res.status(400).json({ error: 'No file uploaded' });
       }
       const id = Number(req.params.id);
-      const organizationId = requireOrganizationId();
+      const organization = await currentOrganizationRef({ fresh: true });
       const sponsor = (req as any).sponsor as { name: string };
-      const fileName = saveImage(sponsorLogoDir(organizationId), normalizeLogoFilename(sponsor.name).replace(/\.png$/, ''), req.file);
-      const logoUrl = sponsorLogoUrl(organizationId, fileName);
+      // Only the file name is stored; the directory follows from the slug (services/sponsorLogos.ts)
+      const logoUrl = saveImage(sponsorLogoDir(organization), normalizeLogoFilename(sponsor.name).replace(/\.png$/, ''), req.file);
 
       const updatedSponsor = await prisma.sponsor.update({
         where: { id },
         data: { logoUrl },
       });
 
-      res.json(updatedSponsor);
+      res.json(withLogoSrc(organization, updatedSponsor));
     } catch (err) {
       logger.error(`POST /sponsors/${req.params.id}/logo failed`, err as any);
       return next(err);
@@ -195,8 +196,9 @@ sponsorsRouter.put('/:id', async (req, res, next) => {
     if (!existing) return res.status(404).json({ error: 'Niet gevonden' });
 
     const nextName = input.name ?? (existing as any).name;
-    // A rename keeps the logo; a new value must be in the organization's own directory
-    const nextLogo = resolveClientLogoUrl(input.logoUrl, requireOrganizationId(), existing.logoUrl);
+    // A rename keeps the logo; a new value must be a file in the organization's own directory
+    const organization = await currentOrganizationRef();
+    const nextLogo = resolveClientLogoUrl(input.logoUrl, organization, existing.logoUrl);
 
     const updated = await prisma.sponsor.update({
       where: { id },
@@ -209,7 +211,7 @@ sponsorsRouter.put('/:id', async (req, res, next) => {
         enabled: input.enabled === undefined ? existing.enabled : input.enabled,
       },
     });
-    return res.json(updated);
+    return res.json(withLogoSrc(organization, updated));
   } catch (err) {
     logger.error('PUT /sponsors/:id failed', err as any);
     return next(err);
@@ -272,6 +274,7 @@ sponsorsRouter.post('/upload-excel', uploadMem, async (req, res, next) => {
 
     let created = 0;
     let updated = 0;
+    const organization = await currentOrganizationRef();
     const problems: { row: number; reason: string }[] = [];
 
     const receivedNames: string[] = [];
@@ -329,7 +332,7 @@ sponsorsRouter.post('/upload-excel', uploadMem, async (req, res, next) => {
         type,
         websiteUrl: website,
         // Only a logo in the organization's own directory (e.g. from its own export); otherwise none until an upload
-        logoUrl: resolveClientLogoUrl(logo, requireOrganizationId(), null, {lenient: true}),
+        logoUrl: resolveClientLogoUrl(logo, organization, null, {lenient: true}),
         categories: categories || undefined,
         enabled: enabledRaw ? (enabledRaw === 'ja' || enabledRaw === 'yes' || enabledRaw === 'true' || enabledRaw === '1') : true,
       };

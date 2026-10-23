@@ -7,6 +7,10 @@ import {createTenantScenario, TenantScenario} from '../test-scenarios';
 import {runWithOrganization} from './services/organizationContext';
 import {setSetting} from './services/appSettings';
 import {createApiKey} from './services/apiKeys';
+import fs from 'node:fs';
+import path from 'node:path';
+import {getAssetsRoot} from './services/config';
+import {makePng} from '../test-images';
 
 /**
  * Leak test suite (design D4): organization A has one of everything, organization B looks at it.
@@ -66,6 +70,7 @@ const ROUTES: Record<string, Probe> = {
 
   'GET /api/admin/vmix/title-templates': {read: () => '/api/admin/vmix/title-templates'},
   'GET /api/backup/clubs/export': GLOBAL,
+  'GET /api/backup/images': {read: () => '/api/backup/images'},
   'GET /api/backup/matches/export': {read: () => '/api/backup/matches/export'},
   'GET /api/backup/persons/export': {read: () => '/api/backup/persons/export'},
   'GET /api/backup/positions/export': {read: () => '/api/backup/positions/export'},
@@ -343,11 +348,15 @@ describe.runIf(runDb)('leak test suite: organization B never sees or changes org
       await setSetting('vmixCallsheetPush', {enabled: false, input: MARKER});
       await setSetting('scoreboardUrl', `http://${MARKER.toLowerCase()}.example/scoreboard`);
     });
+    // A's sponsor logo on disk, for the image download (sponsors/<slug>/<logoUrl>)
+    fs.mkdirSync(path.join(getAssetsRoot(), 'sponsors', A), {recursive: true});
+    fs.writeFileSync(path.join(getAssetsRoot(), 'sponsors', A, `${MARKER.toLowerCase()}.png`), makePng());
   });
 
   afterAll(async () => {
     await a?.cleanup();
     await prisma.organization.deleteMany({where: {slug: B}});
+    fs.rmSync(path.join(getAssetsRoot(), 'sponsors', A), {recursive: true, force: true});
   });
 
   const reads = Object.entries(ROUTES).filter((e): e is [string, Read] => 'read' in e[1]);

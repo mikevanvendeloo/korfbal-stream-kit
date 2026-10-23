@@ -11,12 +11,8 @@ export function findSponsorByName(name: string, sponsors: ReportSponsor[]): Repo
     ?? sponsors.find((s) => s.displayName && normalize(s.displayName) === wanted);
 }
 
-/**
- * The URL of a sponsor logo (the API serves /uploads from ASSETS_DIR). `logoUrl` is `<organizationId>/<file>`
- * since organizations, or a plain file name for older logos; each part is encoded, the slash stays.
- */
-export const sponsorLogoSrc = (sponsor: ReportSponsor | undefined) =>
-  sponsor?.logoUrl ? `/uploads/sponsors/${sponsor.logoUrl.split('/').map(encodeURIComponent).join('/')}` : null;
+/** The URL of a sponsor logo: `logoSrc` from the API (the directory follows from the organization's slug). */
+export const sponsorLogoSrc = (sponsor: Pick<ReportSponsor, 'logoSrc'> | undefined) => sponsor?.logoSrc || null;
 
 const placeholder = (text: string) => <span className="text-xs text-gray-400 print:text-gray-600 text-center">{text}</span>;
 

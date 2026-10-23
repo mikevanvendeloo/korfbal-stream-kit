@@ -88,7 +88,7 @@ describe.runIf(runDb)('Organizations API (integration)', () => {
 
   it('removes an uploaded logo again (back to the club logo)', async () => {
     const org = await prisma.organization.findUniqueOrThrow({where: {slug: SLUG}});
-    await prisma.organization.update({where: {id: org.id}, data: {logoUrl: 'organizations/org-api-test.png'}});
+    await prisma.organization.update({where: {id: org.id}, data: {logoUrl: 'org-api-test.png'}});
     const res = await request(app).delete(`/api/organizations/${org.id}/logo`);
     expect(res.body).toMatchObject({logoUrl: null, displayLogoUrl: 'clubs/org-club.png'});
   });
