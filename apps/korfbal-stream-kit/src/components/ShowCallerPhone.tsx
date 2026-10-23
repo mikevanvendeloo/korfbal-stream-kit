@@ -4,6 +4,7 @@ import {ChevronLeft, ChevronRight, FastForward, MoreVertical, Play, Square} from
 import type {ProductionEvent} from '../hooks/useLiveState';
 import {REMAINING_PRESETS, type ShowControls} from '../hooks/useShowControls';
 import {InterviewText} from './InterviewText';
+import {useInterviewPhotos} from '../hooks/useInterviewPhotos';
 import {formatTime} from '../lib/time';
 
 type TimedEvent = ProductionEvent & { calculatedTime: Date | null };
@@ -58,6 +59,7 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [onlyMine, setOnlyMine] = React.useState(true);
+  const [photosOn, setPhotosOn] = useInterviewPhotos();
 
   const activeIndex = items.findIndex((e) => e.id === activeEventId);
   const active = activeIndex >= 0 ? items[activeIndex] : null;
@@ -94,6 +96,9 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
               Daarna: {onlyMine ? 'alleen mijn positie' : 'alle items'} <span className="text-gray-500">(wissel)</span>
             </button>
           )}
+          <button role="menuitemcheckbox" aria-checked={photosOn} className="w-full text-left px-4 py-3" onClick={() => { setPhotosOn(!photosOn); setMenuOpen(false); }}>
+            Interviewfoto's: {photosOn ? 'aan' : 'uit'} <span className="text-gray-500">(wissel)</span>
+          </button>
           <button role="menuitem" className="w-full text-left px-4 py-3" onClick={() => navigate(`/show-caller/${productionId}`)}>Wissel positie</button>
           <button role="menuitem" className="w-full text-left px-4 py-3"
                   onClick={() => navigate(positionSlug !== 'all' ? `/callsheet/${productionId}/${positionSlug}` : `/callsheet/${productionId}`)}>
@@ -134,9 +139,9 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
             </div>
             <div className="px-4 py-3 space-y-2">
               <h2 className={`text-2xl font-bold leading-tight ${isRelevant(active) ? '' : 'text-gray-500 dark:text-gray-400'}`}>
-                <InterviewText text={active.title}/>
+                <InterviewText text={active.title} photos/>
               </h2>
-              {active.note && <p className="text-base text-gray-600 dark:text-gray-300 italic"><InterviewText text={active.note}/></p>}
+              {active.note && <p className="text-base text-gray-600 dark:text-gray-300 italic"><InterviewText text={active.note} photos/></p>}
               <div className="flex items-center justify-between gap-2 text-sm text-gray-500 dark:text-gray-400">
                 <span>Duur {duration(active.durationSec)}</span>
                 {positionName && !isRelevant(active) && <span>niet voor jouw positie</span>}
@@ -172,7 +177,7 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
         {next ? (
           <>
             <h3 className={`mt-1 text-xl font-semibold leading-snug ${isRelevant(next) ? '' : 'text-gray-500 dark:text-gray-400'}`}>
-              <InterviewText text={next.title}/>
+              <InterviewText text={next.title} photos/>
             </h3>
             {positionName && !isRelevant(next) && <p className="text-sm text-gray-500">niet voor jouw positie</p>}
             <div className="mt-2"><Tags event={next} autoTimer={false}/></div>

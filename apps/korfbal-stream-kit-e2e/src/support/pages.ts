@@ -21,7 +21,7 @@ export class LiveNav {
   constructor(private readonly page: Page) {}
 
   /** On a phone the LIVE screens are behind the menu button. */
-  async open(screen: 'Actieve productie' | 'Scoreboard' | 'Callsheet' | 'Show Caller' | 'vMix') {
+  async open(screen: 'Actieve productie' | 'Scoreboard' | 'Callsheet' | 'Show Caller' | 'Interviews' | 'vMix') {
     await this.page.getByRole('button', {name: 'Menu openen'}).click();
     await this.page.getByRole('navigation', {name: 'LIVE'}).getByRole('link', {name: screen}).click();
   }
@@ -132,6 +132,46 @@ export class ShowCallerWide {
 
   async expectStopped() {
     await expect(this.page.getByTitle('Start Show')).toBeVisible();
+  }
+}
+
+/** LIVE → Interviews: one card per chosen interview of the active production. */
+export class InterviewsScreen {
+  readonly cards: Locator;
+
+  constructor(private readonly page: Page) {
+    this.cards = page.getByRole('list', {name: 'Gekozen interviews'});
+  }
+
+  async open() {
+    await this.page.goto('/interviews');
+    await expect(this.page.getByRole('heading', {name: 'Interviews', level: 1})).toBeVisible();
+  }
+
+  card(name: string) {
+    return this.cards.getByRole('listitem', {name});
+  }
+}
+
+/** LIVE → Callsheet of one position, with its gear menu. */
+export class CallSheetScreen {
+  constructor(private readonly page: Page) {}
+
+  async open(productionId: number, position: string) {
+    await this.page.goto(`/callsheet/${productionId}/${position}`);
+    await expect(this.page.getByTitle('Instellingen')).toBeVisible();
+  }
+
+  /** The small photos (or number / initials) next to the filled-in interview names */
+  interviewPeople() {
+    return this.page.getByTestId('interview-person');
+  }
+
+  /** Gear menu → Interviewfoto's (AAN/UIT); closes the menu again. */
+  async toggleInterviewPhotos() {
+    await this.page.getByTitle('Instellingen').click();
+    await this.page.getByRole('switch', {name: /Interviewfoto's/}).click();
+    await this.page.getByTitle('Instellingen').click();
   }
 }
 

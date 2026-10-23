@@ -4,6 +4,10 @@ import {prisma} from '../../services/prisma';
 import {findClubByTeamName} from '../../utils/clubs';
 import {logger} from '../../utils/logger';
 import {loadInterviewNames} from '../../services/interviewPlaceholders';
+import {emitToOrganization} from '../../services/socket';
+
+/** Socket event after the interview choice of a production changed; payload {productionId}. */
+export const INTERVIEWS_UPDATED_EVENT = 'interviews_updated';
 
 export const productionInterviewsRouter: Router = Router();
 
@@ -46,52 +50,82 @@ productionInterviewsRouter.get('/:id/interviews', async (req, res, next) => {
       orderBy: { id: 'asc' },
       include: { player: true, titleDefinition: true },
     });
-
-    // Sort items based on title definitions order if available
-    // 1. Get all title definitions for this production (or global templates if none)
-    // 2. Map interview items to their corresponding title definition order
-    // 3. Sort items based on that order
-
-    // Fetch title definitions for this production
-    let titleDefs = await (prisma as any).titleDefinition.findMany({
-      where: { productionId: id, enabled: true },
-      orderBy: { order: 'asc' },
-      select: { id: true, order: true }
-    });
-
-    // If no production-specific definitions, fetch global templates
-    if (titleDefs.length === 0) {
-      titleDefs = await (prisma as any).titleDefinition.findMany({
-        where: { productionId: null, enabled: true },
-        orderBy: { order: 'asc' },
-        select: { id: true, order: true }
-      });
-    }
-
-    // Create a map for quick lookup of order by titleDefinitionId
-    const orderMap = new Map<number, number>();
-    titleDefs.forEach((def: any, index: number) => {
-      orderMap.set(def.id, index);
-    });
-
-    // Sort items
-    const sortedItems = items.sort((a: any, b: any) => {
-      // If both have titleDefinitionId, sort by the order of that definition
-      if (a.titleDefinitionId && b.titleDefinitionId) {
-        const orderA = orderMap.get(a.titleDefinitionId) ?? Number.MAX_SAFE_INTEGER;
-        const orderB = orderMap.get(b.titleDefinitionId) ?? Number.MAX_SAFE_INTEGER;
-        if (orderA !== orderB) return orderA - orderB;
-      }
-
-      // Fallback to ID sorting if no title definition or same order (shouldn't happen for different defs)
-      return a.id - b.id;
-    });
-
-    return res.json(sortedItems);
+    return res.json(await sortByTitleOrder(id, items));
   } catch (err) {
     return next(err);
   }
 });
+
+// The chosen interviews as cards for the LIVE Interviews screen: only what the cards show
+productionInterviewsRouter.get('/:id/interview-cards', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+    const prod = await prisma.production.findUnique({
+      where: { id },
+      select: { matchSchedule: { select: { homeTeamName: true, awayTeamName: true } } },
+    });
+    if (!prod) return res.status(404).json({ error: 'Not found' });
+
+    const subjects = await prisma.interviewSubject.findMany({
+      where: { productionId: id },
+      orderBy: { id: 'asc' },
+      select: {
+        id: true, side: true, role: true, titleDefinitionId: true,
+        titleDefinition: { select: { name: true } },
+        player: { select: { name: true, shirtNo: true, photoUrl: true, club: { select: { name: true, shortName: true } } } },
+      },
+    });
+    const sorted = await sortByTitleOrder(id, subjects);
+    const teamName = (s: (typeof subjects)[number]) =>
+      s.side === 'HOME' ? prod.matchSchedule.homeTeamName
+        : s.side === 'AWAY' ? prod.matchSchedule.awayTeamName
+          : s.player.club?.shortName || s.player.club?.name || null;
+    return res.json({
+      items: sorted.map((s) => ({
+        id: s.id,
+        side: s.side,
+        role: s.role,
+        title: s.titleDefinition?.name ?? null,
+        name: s.player.name,
+        shirtNo: s.player.shirtNo ?? null,
+        photoUrl: s.player.photoUrl ?? null,
+        teamName: teamName(s),
+      })),
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/** Interview subjects in the order of their title definitions (the production's, else the templates), then by id. */
+async function sortByTitleOrder<T extends { id: number; titleDefinitionId: number | null }>(productionId: number, items: T[]): Promise<T[]> {
+  let titleDefs: Array<{ id: number }> = await prisma.titleDefinition.findMany({
+    where: { productionId, enabled: true },
+    orderBy: { order: 'asc' },
+    select: { id: true },
+  });
+  // If no production-specific definitions, use the templates
+  if (titleDefs.length === 0) {
+    titleDefs = await prisma.titleDefinition.findMany({
+      where: { productionId: null, enabled: true },
+      orderBy: { order: 'asc' },
+      select: { id: true },
+    });
+  }
+  const orderMap = new Map<number, number>();
+  titleDefs.forEach((def, index) => orderMap.set(def.id, index));
+
+  return [...items].sort((a, b) => {
+    // If both have titleDefinitionId, sort by the order of that definition
+    if (a.titleDefinitionId && b.titleDefinitionId) {
+      const orderA = orderMap.get(a.titleDefinitionId) ?? Number.MAX_SAFE_INTEGER;
+      const orderB = orderMap.get(b.titleDefinitionId) ?? Number.MAX_SAFE_INTEGER;
+      if (orderA !== orderB) return orderA - orderB;
+    }
+    return a.id - b.id;
+  });
+}
 
 // Bulk upsert interview subjects. Accepts array of InterviewSubjectInput; to delete, pass null playerId (not allowed by schema) or send an explicit list and 'replaceAll' flag.
 // Simpler: body = { items: InterviewSubjectInput[], replaceAll?: boolean }
@@ -186,6 +220,8 @@ productionInterviewsRouter.put('/:id/interviews', async (req, res, next) => {
       orderBy: { id: 'asc' },
       include: { player: true, titleDefinition: true },
     });
+    // LIVE screens (Interviews, callsheet photos) refetch at once instead of on their next poll
+    emitToOrganization(INTERVIEWS_UPDATED_EVENT, { productionId: id });
     return res.json(full);
   } catch (err) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid payload' });

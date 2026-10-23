@@ -3,7 +3,10 @@ import {MemoryRouter} from 'react-router-dom';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {ShowCallerPhone, ShowCallerPhoneProps} from './ShowCallerPhone';
 import {useShowControls} from '../hooks/useShowControls';
-import {fakeControls, isForRegie, remaining, showItems} from '../test/showCaller';
+import {fakeControls, isForRegie, remaining, showItem, showItems} from '../test/showCaller';
+import {StaticInterviewNames} from './InterviewText';
+import {interviewNames} from '../test/interviews';
+import {INTERVIEW_PHOTOS_STORAGE_KEY, resetInterviewPhotosForTests} from '../hooks/useInterviewPhotos';
 
 const items = showItems;
 
@@ -98,7 +101,7 @@ describe('ShowCallerPhone', () => {
   it('can show every later item instead of only this position', () => {
     renderPhone();
     fireEvent.click(screen.getByRole('button', {name: 'Show Caller menu'}));
-    fireEvent.click(screen.getByRole('menuitemcheckbox'));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', {name: /Daarna/}));
     const later = screen.getByRole('region', {name: 'Daarna'});
     expect(within(later).getAllByRole('listitem')).toHaveLength(3);
     expect(within(later).getByText('Camera naar de bank')).toBeTruthy();
@@ -108,6 +111,37 @@ describe('ShowCallerPhone', () => {
   it('shows a failed action instead of failing silently', () => {
     renderPhone({controls: fakeControls({error: 'Dit is het laatste item.'})});
     expect(screen.getByRole('alert').textContent).toBe('Dit is het laatste item.');
+  });
+
+  it('shows interview photos at now and next only, and the menu switches them off', () => {
+    window.localStorage.removeItem(INTERVIEW_PHOTOS_STORAGE_KEY);
+    resetInterviewPhotosForTests();
+    const withInterviews = [
+      showItem('n', 1, 'Interview {speler-thuis}', {status: 'ACTIVE'}),
+      showItem('v', 2, 'Interview {coach-uit}'),
+      showItem('l', 3, 'Interview {speler-uit}'),
+    ];
+    render(
+      <StaticInterviewNames names={interviewNames}>
+        <MemoryRouter>
+          <ShowCallerPhone productionId="47" positionSlug="all" positionName={null} items={withInterviews} activeEventId="n"
+                           remaining={remaining(30)} autoAdvanceEventId={null} isConnected systemTime="19:52:10"
+                           isRelevant={() => true} controls={fakeControls()}/>
+        </MemoryRouter>
+      </StaticInterviewNames>
+    );
+    expect(within(screen.getByRole('region', {name: 'Nu'})).getByRole('img', {name: 'Foto van Anna de Vries'})).toBeTruthy();
+    expect(within(screen.getByRole('region', {name: 'Volgende'})).getByRole('img', {name: 'Kees Coach'})).toBeTruthy();
+    // Later items: the name only
+    const later = screen.getByRole('region', {name: 'Daarna'});
+    expect(within(later).getByText('Interview Bram Bakker')).toBeTruthy();
+    expect(within(later).queryByRole('img')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', {name: 'Show Caller menu'}));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', {name: /Interviewfoto's: aan/}));
+    expect(screen.queryAllByTestId('interview-person')).toEqual([]);
+    expect(within(screen.getByRole('region', {name: 'Nu'})).getByText('Interview Anna de Vries')).toBeTruthy();
+    expect(window.localStorage.getItem(INTERVIEW_PHOTOS_STORAGE_KEY)).toBe('off');
   });
 });
 

@@ -10,6 +10,7 @@ import {REMAINING_PRESETS, useShowControls} from "../hooks/useShowControls";
 import {PHONE_QUERY, useMediaQuery} from "../hooks/useMediaQuery";
 import {useWakeLock} from "../hooks/useWakeLock";
 import {ShowCallerPhone} from "./ShowCallerPhone";
+import {InterviewPhotosToggle} from "./InterviewPhotosToggle";
 
 // Helper om een naam om te zetten naar een URL-vriendelijke slug
 const toSlug = (name: string) => {
@@ -199,6 +200,12 @@ export const ShowCallerView = () => {
     );
   }
 
+  // Interview photos only at the current and the next item (what Next makes active, as on the phone)
+  const inShowOrder = [...allItems].sort((a, b) => a.order - b.order);
+  const activeIndex = inShowOrder.findIndex((e) => e.id === activeEvent?.id);
+  const nextEventId = (activeIndex >= 0 ? inShowOrder[activeIndex + 1] : inShowOrder[0])?.id ?? null;
+  const photosAt = (id: string) => id === activeEvent?.id || id === nextEventId;
+
   return (
     <div className="bg-white dark:bg-gray-950 min-h-screen text-gray-900 dark:text-white flex flex-col font-sans selection:bg-blue-500/30">
       {/* Header met Clocks */}
@@ -284,6 +291,7 @@ export const ShowCallerView = () => {
                                                         {isFocusMode ? 'AAN' : 'UIT'}
                                                     </span>
                           </button>
+                          <InterviewPhotosToggle/>
                         </div>
 
                         <div className="pt-4 border-t border-gray-200 dark:border-white/5 space-y-3">
@@ -478,6 +486,7 @@ export const ShowCallerView = () => {
                     <div className="col-span-12">
                       <CallSheetItem
                         item={row.mainEvent}
+                        showInterviewPhotos={photosAt(row.mainEvent.id)}
                         isActive={isMainActive}
                         isAutoAdvanceScheduled={autoAdvanceEventId === row.mainEvent.id}
                         elapsedTime={activeEventElapsedTime}
@@ -495,6 +504,7 @@ export const ShowCallerView = () => {
                       {row.mainEvent.isInVenue && (
                         <CallSheetItem
                           item={row.mainEvent}
+                          showInterviewPhotos={photosAt(row.mainEvent.id)}
                           isActive={isMainActive}
                           isAutoAdvanceScheduled={autoAdvanceEventId === row.mainEvent.id}
                           elapsedTime={activeEventElapsedTime}
@@ -513,6 +523,7 @@ export const ShowCallerView = () => {
                           <CallSheetItem
                             key={item.id}
                             item={item}
+                            showInterviewPhotos={photosAt(item.id)}
                             isActive={isActive}
                             isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
                             elapsedTime={activeEventElapsedTime}
@@ -536,6 +547,7 @@ export const ShowCallerView = () => {
                       {row.mainEvent.isInLivestream && (
                         <CallSheetItem
                           item={row.mainEvent}
+                          showInterviewPhotos={photosAt(row.mainEvent.id)}
                           isActive={isMainActive}
                           isAutoAdvanceScheduled={autoAdvanceEventId === row.mainEvent.id}
                           elapsedTime={activeEventElapsedTime}
@@ -555,6 +567,7 @@ export const ShowCallerView = () => {
                           <CallSheetItem
                             key={item.id}
                             item={item}
+                            showInterviewPhotos={photosAt(item.id)}
                             isActive={isActive}
                             isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
                             elapsedTime={activeEventElapsedTime}

@@ -5,6 +5,8 @@ import {ShowCallerView} from './ShowCallerView';
 import {useMediaQuery} from '../hooks/useMediaQuery';
 import {useWakeLock} from '../hooks/useWakeLock';
 import {fakeControls, REGIE, remaining, showItem} from '../test/showCaller';
+import {StaticInterviewNames} from './InterviewText';
+import {interviewNames} from '../test/interviews';
 
 const controls = fakeControls();
 const regie = REGIE;
@@ -58,6 +60,34 @@ describe('ShowCallerView', () => {
     expect(screen.queryByRole('navigation', {name: 'Show bediening'})).toBeNull();
     expect(screen.getByText(/Stream draaiboek/i)).toBeTruthy();
     expect(screen.getAllByText('Welkom').length).toBeGreaterThan(0);
+  });
+
+  it('shows interview photos only at the current and the next item in the wide layout', () => {
+    vi.mocked(useMediaQuery).mockReturnValue(false);
+    const withInterviews = [
+      showItem('a', 1, 'Interview {coach-uit}', {status: 'COMPLETED'}),
+      showItem('b', 2, 'Interview {speler-thuis}', {status: 'ACTIVE'}),
+      showItem('c', 3, 'Interview {speler-uit}'),
+      showItem('d', 4, 'Nog een interview {coach-uit}'),
+    ];
+    live = {...live, allItems: withInterviews, activeEvent: withInterviews[1]};
+    render(
+      <StaticInterviewNames names={interviewNames}>
+        <MemoryRouter initialEntries={['/show-caller/47/regie-livestream']}>
+          <Routes><Route path="/show-caller/:productionId/:positionSlug" element={<ShowCallerView/>}/></Routes>
+        </MemoryRouter>
+      </StaticInterviewNames>
+    );
+    const people = screen.getAllByTestId('interview-person').map((p) => p.textContent);
+    expect(new Set(people)).toEqual(new Set(['Anna de Vries#7', '12Bram Bakker']));
+    // The others keep only the name
+    expect(screen.getAllByText('Nog een interview Kees Coach').length).toBeGreaterThan(0);
+    // The switch is in the gear menu
+    fireEvent.click(screen.getByTitle('Instellingen'));
+    fireEvent.click(screen.getByRole('switch', {name: /Interviewfoto's/}));
+    expect(screen.queryAllByTestId('interview-person')).toEqual([]);
+    fireEvent.click(screen.getByRole('switch', {name: /Interviewfoto's/}));
+    expect(screen.getAllByTestId('interview-person').length).toBeGreaterThan(0);
   });
 
   it('moves the show along with the buttons and the arrow keys', () => {

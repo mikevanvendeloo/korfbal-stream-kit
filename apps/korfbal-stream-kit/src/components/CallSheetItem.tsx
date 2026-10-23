@@ -13,9 +13,11 @@ interface Props {
   hideStreamVenueLabels?: boolean;
   isVenueItem?: boolean;
   isTimeAnchor?: boolean;
+  /** Photos of the chosen interview people next to their names (when the setting is on) */
+  showInterviewPhotos?: boolean;
 }
 
-export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled = false, elapsedTime = 0, remainingTimeDisplay = null, isPlaceholder = false, hideStreamVenueLabels = false, isVenueItem = false, isTimeAnchor = false }: Props) => {
+export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled = false, elapsedTime = 0, remainingTimeDisplay = null, isPlaceholder = false, hideStreamVenueLabels = false, isVenueItem = false, isTimeAnchor = false, showInterviewPhotos = true }: Props) => {
   const { fontSize } = useFontSize();
   const isActuallyPlaceholder = isPlaceholder || !item;
   const duration = item?.durationSec ?? 0;
@@ -126,7 +128,7 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
         <div className="flex-grow min-w-0 w-full">
           <div className="flex items-start justify-between gap-2">
             <h3 className={`font-bold ${getFontSizeClass('text-base', 'text-lg', 'text-3xl', 'text-5xl')} leading-tight pt-0.5 ${isActuallyPlaceholder ? 'invisible bg-gray-200 dark:bg-white/5 rounded h-6 w-1/3' : ''}`}>
-              {item?.title ? <InterviewText text={item.title}/> : '\u00A0'}
+              {item?.title ? <InterviewText text={item.title} photos={showInterviewPhotos}/> : '\u00A0'}
             </h3>
             {((duration >= 0) || isActuallyPlaceholder) && (
               <div
@@ -138,7 +140,7 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
             )}
           </div>
 
-          {item?.note && <p className={`${getFontSizeClass('text-[10px]', 'text-sm', 'text-xl', 'text-2xl')} text-gray-600 dark:text-gray-300/80 mt-2 italic leading-snug`}><InterviewText text={item.note}/></p>}
+          {item?.note && <p className={`${getFontSizeClass('text-[10px]', 'text-sm', 'text-xl', 'text-2xl')} text-gray-600 dark:text-gray-300/80 mt-2 italic leading-snug`}><InterviewText text={item.note} photos={showInterviewPhotos}/></p>}
           {(isActuallyPlaceholder || !item?.note) && (
             <p className={`${getFontSizeClass('text-[10px]', 'text-sm', 'text-base', 'text-lg')} text-gray-600 dark:text-gray-300/80 mt-1 italic border-t border-gray-200 dark:border-white/10 pt-1 ${isActuallyPlaceholder ? 'invisible' : ''}`}>
               &nbsp;

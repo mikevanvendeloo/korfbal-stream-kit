@@ -113,7 +113,11 @@ describe.runIf(runDb)('vMix callsheet timing (integration)', () => {
 
     const names = await request(app).get(`/api/production/${productionId}/interview-names`);
     expect(names.status).toBe(200);
-    expect(names.body).toEqual({ownSide: 'HOME', names: {HOME: {PLAYER: null, COACH: null}, AWAY: {PLAYER: null, COACH: 'Jan de Coach'}}});
+    expect(names.body).toEqual({
+      ownSide: 'HOME',
+      names: {HOME: {PLAYER: null, COACH: null}, AWAY: {PLAYER: null, COACH: 'Jan de Coach'}},
+      people: {HOME: {PLAYER: null, COACH: null}, AWAY: {PLAYER: null, COACH: {name: 'Jan de Coach', shirtNo: null, photoUrl: null}}},
+    });
 
     const timing = await request(app).get('/api/vmix/callsheet/timing?position=Callsheet Int Presentatie');
     expect(timing.body[0].nextTitle).toBe('Interview J. de Coach & speler thuis');

@@ -5,7 +5,8 @@ import {calculateEventTimes, useLiveState} from '../hooks/useLiveState';
 import {useEffect, useMemo, useRef, useState} from "react";
 import {MatchHeader} from "./MatchHeader";
 import {MdSettings} from "react-icons/md";
-import {useFontSize} from "../hooks/useFontSize"; // Helper om een naam om te zetten naar een URL-vriendelijke slug
+import {useFontSize} from "../hooks/useFontSize";
+import {InterviewPhotosToggle} from "./InterviewPhotosToggle";
 
 // Helper om een naam om te zetten naar een URL-vriendelijke slug
 const toSlug = (name: string) => {
@@ -367,6 +368,8 @@ export const CallSheetView = () => {
                                                         <span
                                                             className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-white/30">Weergave</span>
                                                     </div>
+
+                                                    <InterviewPhotosToggle/>
 
                                                     <button
                                                         onClick={() => {

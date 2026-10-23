@@ -1,10 +1,11 @@
 import React from 'react';
 import {Link, NavLink, Route, Routes, useLocation} from 'react-router-dom';
-import {MdClose, MdInfo, MdMenu, MdPlayCircleFilled, MdRecordVoiceOver, MdSettings, MdTableChart, MdVideocam, MdViewList} from 'react-icons/md';
+import {MdClose, MdInfo, MdMenu, MdMic, MdPlayCircleFilled, MdRecordVoiceOver, MdSettings, MdTableChart, MdVideocam, MdViewList} from 'react-icons/md';
 import ActiveProductionPage from '../pages/ActiveProductionPage';
 import ScoreboardPage from '../pages/ScoreboardPage';
 import LiveVmixPage from '../pages/LiveVmixPage';
 import AboutPage from '../pages/AboutPage';
+import InterviewsPage from '../pages/InterviewsPage';
 import ManualView from '../handleiding/ManualView';
 import HelpButton from '../handleiding/HelpButton';
 import LiveCallsheetEntry from '../pages/LiveCallsheetEntry';
@@ -23,6 +24,7 @@ const links = [
   {to: '/scoreboard', label: 'Scoreboard', icon: MdTableChart, end: false},
   {to: '/callsheet', label: 'Callsheet', icon: MdViewList, end: false},
   {to: '/show-caller', label: 'Show Caller', icon: MdRecordVoiceOver, end: false},
+  {to: '/interviews', label: 'Interviews', icon: MdMic, end: false},
   {to: '/vmix', label: 'vMix', icon: MdVideocam, end: false},
 ];
 
@@ -135,6 +137,7 @@ export default function LiveApp() {
             <Route path="show-caller" element={<LiveCallsheetEntry viewType="show-caller"/>}/>
             <Route path="show-caller/:productionId" element={<PositionSelector viewType="show-caller"/>}/>
             <Route path="show-caller/:productionId/:positionSlug" element={<InterviewNamesProvider><ShowCallerView/></InterviewNamesProvider>}/>
+            <Route path="interviews" element={<InterviewsPage/>}/>
             <Route path="vmix" element={<LiveVmixPage/>}/>
             <Route path="over" element={<AboutPage/>}/>
             <Route path="handleiding" element={<ManualView part="live"/>}/>

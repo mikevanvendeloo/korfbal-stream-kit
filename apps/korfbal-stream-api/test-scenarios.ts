@@ -60,6 +60,17 @@ export type ScenarioOptions = {
    * position uses); default TECHNICAL. Existing skills keep their own positions.
    */
   skillCategories?: Record<string, 'TECHNICAL' | 'ENTERTAINMENT' | 'GENERAL'>;
+  /** The interview choice: players (global, in a club made for the scenario) chosen for the production */
+  interviews?: ScenarioInterview[];
+};
+
+export type ScenarioInterview = {
+  side: 'HOME' | 'AWAY' | 'NONE';
+  role: 'PLAYER' | 'COACH';
+  name: string;
+  shirtNo?: number;
+  /** Player.photoUrl, relative to /uploads (e.g. `players/jan.png`) */
+  photoUrl?: string;
 };
 
 export type ScenarioPerson = {
@@ -88,6 +99,8 @@ export type ProductionScenario = {
   personIds: Record<string, number>;
   /** Callsheet item ids in the order of `items` (`callSheet: true`) */
   callSheetItemIds: string[];
+  /** Player id per name (`interviews`) */
+  playerIds: Record<string, number>;
   organizationId: number;
   cleanup: () => Promise<void>;
 };
@@ -220,6 +233,25 @@ async function buildScenario(db: PrismaClient, organizationId: number, options: 
     if (person.present) await db.productionPerson.create({data: {organizationId, productionId: production.id, personId: created.id}});
   }
 
+  // Interviews: players are global, so they get a club of their own that cleanup removes (cascading to them)
+  const playerIds: Record<string, number> = {};
+  let interviewClubId: number | null = null;
+  if (options.interviews?.length) {
+    const club = await db.club.create({data: {name: 'Scenario Club', shortName: 'Scenario', slug: `scenario-club-${Date.now()}-${++counter}`}});
+    interviewClubId = club.id;
+    for (const interview of options.interviews) {
+      const player = await db.player.create({
+        data: {
+          clubId: club.id, seasonId: match.seasonId, name: interview.name, shirtNo: interview.shirtNo ?? null,
+          photoUrl: interview.photoUrl ?? null, personType: interview.role === 'COACH' ? 'coach' : 'player',
+          function: interview.role === 'COACH' ? 'Coach' : 'Speler',
+        },
+      });
+      playerIds[interview.name] = player.id;
+      await db.interviewSubject.create({data: {organizationId, productionId: production.id, side: interview.side, role: interview.role, playerId: player.id}});
+    }
+  }
+
   return {
     productionId: production.id,
     matchId: match.id,
@@ -227,6 +259,7 @@ async function buildScenario(db: PrismaClient, organizationId: number, options: 
     positionIds,
     personIds,
     callSheetItemIds,
+    playerIds,
     organizationId,
     cleanup: () => runWithOrganization(organizationId, async () => {
       await db.production.deleteMany({where: {organizationId, id: production.id}});
@@ -235,6 +268,7 @@ async function buildScenario(db: PrismaClient, organizationId: number, options: 
       if (people.length) await db.person.deleteMany({where: {organizationId, id: {in: people}}});
       if (createdPositions.length) await db.position.deleteMany({where: {organizationId, id: {in: createdPositions}}});
       if (createdSkills.length) await db.skill.deleteMany({where: {organizationId, id: {in: createdSkills}}});
+      if (interviewClubId) await db.club.deleteMany({where: {id: interviewClubId}});
       if (previouslyActive.length) await db.production.updateMany({where: {organizationId, id: {in: previouslyActive}}, data: {isActive: true}});
     }),
   };
