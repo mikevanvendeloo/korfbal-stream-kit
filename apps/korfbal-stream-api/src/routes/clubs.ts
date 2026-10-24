@@ -8,6 +8,8 @@ import {logger} from "../utils/logger";
 import {getAssetsRoot} from "../services/config";
 import {Season} from '@prisma/client';
 import {resolveSeason, resolveSeasonId, seasonAssetDir} from '../services/season';
+import {clubAbbreviation, clubShortName} from '../utils/clubs';
+import {UpdateClubSchema} from '../schemas/club';
 
 export const clubsRouter: Router = Router();
 
@@ -413,7 +415,8 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
       }
     }
 
-    // Prepare club upsert
+    // Prepare club upsert. The lookup slug comes from the full raw short name (as it always has),
+    // so a re-import finds the same club; a club's slug never changes (photos and logos live under it).
     const baseSlug = slugify(shortName || baseName);
     let slug = baseSlug;
     const existingBySlug = await prisma.club.findUnique({where: {slug}}).catch(() => null);
@@ -429,16 +432,19 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
       logoLocal = await downloadFile(logoUrlRemote, 'clubs', slug);
     }
 
+    const logoUrl = logoLocal || logoUrlRemote || null;
     const clubData = {
       name: baseName,
-      shortName: shortName || baseName,
+      shortName: clubShortName(shortName || baseName) || baseName,
+      abbreviation: clubAbbreviation(shortName || baseName),
       slug,
-      logoUrl: logoLocal || logoUrlRemote || null,
+      logoUrl,
     } as any;
 
     let club = await prisma.club.findUnique({where: {slug}}).catch(() => null);
     if (club) {
-      club = await prisma.club.update({where: {id: club.id}, data: clubData});
+      // Name, short name and abbreviation may have been edited by hand: an import never overwrites them
+      club = await prisma.club.update({where: {id: club.id}, data: {logoUrl}});
       clubsUpdated++;
     } else {
       club = await prisma.club.create({data: clubData});
@@ -715,6 +721,21 @@ clubsRouter.delete('/:slug', async (req, res, next) => {
   }
 });
 
+// Edit a club's name, short name and abbreviation; the slug never changes (photos and logos live under it)
+clubsRouter.put('/:slug', async (req, res, next) => {
+  try {
+    const parsed = UpdateClubSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return res.status(400).json({error: parsed.error.issues[0]?.message ?? 'Ongeldige club'});
+    const slug = String(req.params.slug);
+    const club = await prisma.club.findUnique({where: {slug}});
+    if (!club) return res.status(404).json({error: 'Club not found'});
+    const updated = await prisma.club.update({where: {id: club.id}, data: parsed.data});
+    return res.json(updated);
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // List players for a club by slug (for dropdown)
 clubsRouter.get('/:slug/players', async (req, res, next) => {
   try {
@@ -746,6 +767,7 @@ clubsRouter.post('/', async (req, res, next) => {
       data: {
         name,
         shortName: shortName || name,
+        abbreviation: clubAbbreviation(shortName || name),
         slug,
         logoUrl: null, // Optional: handle logo upload if needed
       },

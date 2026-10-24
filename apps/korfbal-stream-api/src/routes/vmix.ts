@@ -764,7 +764,7 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
       {
         name: 'Wedstrijdinformatie (actieve productie)',
         url: `${baseUrl}/active-production/match`,
-        description: 'Teams, clublogo\'s, datum, aanvangs-, verzamel- en livetijd, zaal, veld, scheidsrechters, score, wedstrijd- en balsponsor (met logo).'
+        description: 'Teams, korte namen en afkortingen (homeAbbreviation/awayAbbreviation), clublogo\'s, datum, aanvangs-, verzamel- en livetijd, zaal, veld, scheidsrechters, score, wedstrijd- en balsponsor (met logo).'
       },
       {
         name: 'Active Production Staff',

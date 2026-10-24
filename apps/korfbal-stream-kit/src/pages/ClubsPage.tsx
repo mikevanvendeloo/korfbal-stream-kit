@@ -8,8 +8,10 @@ import {
   useDeletePlayer,
   useImportClubs,
   useImportLeagueTeams,
+  useUpdateClub,
   useUpdatePlayer,
-  useUploadPlayerImage
+  useUploadPlayerImage,
+  type Club,
 } from '../hooks/useClubs';
 import PlayerCard, {PhotoCard} from '../components/PlayerCard';
 import ClubLogo from '../components/ClubLogo';
@@ -54,10 +56,60 @@ function DeleteClubButton({slug, clubs, onDeleted}: {
   );
 }
 
+const inputClass = 'w-full px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-600';
+
+function EditClubForm({club, onClose}: { club: Club; onClose: () => void }) {
+  const update = useUpdateClub();
+  const [name, setName] = React.useState(club.name);
+  const [shortName, setShortName] = React.useState(club.shortName);
+  const [abbreviation, setAbbreviation] = React.useState(club.abbreviation ?? '');
+  const [error, setError] = React.useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await update.mutateAsync({slug: club.slug, name, shortName, ...(abbreviation.trim() ? {abbreviation} : {})});
+      onClose();
+    } catch (err) {
+      setError((err as Error)?.message || 'Opslaan mislukt');
+    }
+  }
+
+  return (
+    <div className="mb-6 p-3 border rounded bg-gray-50 dark:bg-gray-900 dark:border-gray-700">
+      <h3 className="font-medium mb-2">Club wijzigen</h3>
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <label className="block text-sm">
+          <div className="mb-1">Naam</div>
+          <input type="text" required maxLength={100} className={inputClass} value={name} onChange={(e) => setName(e.target.value)}/>
+        </label>
+        <label className="block text-sm">
+          <div className="mb-1">Korte naam</div>
+          <input type="text" required maxLength={100} className={inputClass} value={shortName} onChange={(e) => setShortName(e.target.value)}/>
+        </label>
+        <label className="block text-sm">
+          <div className="mb-1">Afkorting</div>
+          <input type="text" maxLength={5} pattern="[A-Za-z0-9]{1,5}" title="1 tot 5 letters of cijfers" className={`${inputClass} uppercase`}
+                 value={abbreviation} onChange={(e) => setAbbreviation(e.target.value)}/>
+        </label>
+        {error && <div className="md:col-span-3 text-sm text-red-600">{error}</div>}
+        <div className="md:col-span-3 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="px-3 py-1 border rounded">Annuleren</button>
+          <button type="submit" className="px-3 py-1 border rounded bg-blue-600 text-white" disabled={update.isPending}>Opslaan</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export default function ClubsPage() {
   const {data: clubs, isLoading, error} = useClubs();
   const [slug, setSlug] = React.useState<string | ''>('');
   const players = useClubPlayers(slug || null);
+  const [editingClub, setEditingClub] = React.useState(false);
+  // Another club chosen: close the edit form
+  React.useEffect(() => setEditingClub(false), [slug]);
 
   const importClubs = useImportClubs();
   const importLeague = useImportLeagueTeams();
@@ -305,11 +357,18 @@ export default function ClubsPage() {
               return (
                 <>
                   <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <ClubLogo logoUrl={club.logoUrl} alt={`${title} logo`} size="large" />
-                      <div className="text-lg font-medium">{title}</div>
+                      <div className="text-lg font-medium truncate">{title}</div>
+                      {club.abbreviation && <span className="text-xs px-1.5 py-0.5 border rounded text-gray-600 dark:text-gray-300 dark:border-gray-600">{club.abbreviation}</span>}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        className="px-3 py-1 border rounded"
+                        onClick={() => setEditingClub(!editingClub)}
+                      >
+                        Wijzig club
+                      </button>
                       <button
                         className="px-3 py-1 border rounded bg-green-600 text-white flex items-center gap-1"
                         onClick={openCreatePlayerForm}
@@ -319,6 +378,8 @@ export default function ClubsPage() {
                       <DeleteClubButton slug={club.slug} onDeleted={(nextSlug) => setSlug(nextSlug)} clubs={clubs || []}/>
                     </div>
                   </div>
+
+                  {editingClub && <EditClubForm key={club.slug} club={club} onClose={() => setEditingClub(false)}/>}
 
                   {playerFormMode && (
                     <div className="mb-6 p-3 border rounded bg-gray-50 dark:bg-gray-900 dark:border-gray-700">

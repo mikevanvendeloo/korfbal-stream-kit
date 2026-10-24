@@ -19,7 +19,10 @@ describe('ClubsPage', () => {
     { id: 2, name: 'Fortuna', shortName: 'Fortuna', slug: 'fortuna', logoUrl: 'clubs/fortuna.png' },
   ];
 
+  let puts: unknown[] = [];
+
   beforeEach(() => {
+    puts = [];
     vi.restoreAllMocks();
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : (input as URL).toString();
@@ -33,6 +36,10 @@ describe('ClubsPage', () => {
       }
       if (u.pathname === '/api/clubs/fortuna/players' && method === 'GET') {
         return { ok: true, json: async () => [] } as any;
+      }
+      if (u.pathname === '/api/clubs/ldodk' && method === 'PUT') {
+        puts.push(JSON.parse(String(init?.body)));
+        return { ok: true, json: async () => ({ ...clubs[0], ...JSON.parse(String(init?.body)) }) } as unknown as Response;
       }
       if (u.pathname === '/api/clubs/ldodk' && method === 'DELETE') {
         return { ok: true, status: 204, json: async () => ({ ok: true }) } as any;
@@ -67,5 +74,15 @@ describe('ClubsPage', () => {
     await waitFor(async () => {
       expect(await screen.findByText('Fortuna')).toBeInTheDocument();
     });
+  });
+
+  it('edits the selected club through the PUT', async () => {
+    renderWithProviders(<ClubsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Wijzig club' }));
+    fireEvent.change(screen.getByLabelText('Korte naam'), { target: { value: 'LDODK kort' } });
+    fireEvent.change(screen.getByLabelText('Afkorting'), { target: { value: 'ldo' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Opslaan' }));
+    await waitFor(() => expect(puts).toEqual([{ name: 'LDODK', shortName: 'LDODK kort', abbreviation: 'ldo' }]));
+    await waitFor(() => expect(screen.queryByText('Club wijzigen')).not.toBeInTheDocument());
   });
 });

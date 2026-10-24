@@ -14,7 +14,7 @@ describe('buildVmixMatchInfo', () => {
         refereeName: 'J. de Vries', reserveRefereeName: 'P. Bakker', description: 'Korfbal League',
         homeScore: 24, awayScore: 22, season: {name: '2026/2027'},
       },
-      homeClub: {shortName: 'Fortuna', logoUrl: 'clubs/fortuna.png'},
+      homeClub: {shortName: 'Fortuna', abbreviation: 'FOR', logoUrl: 'clubs/fortuna.png'},
       awayClub: {shortName: 'PKC', logoUrl: 'https://cdn.example.org/pkc.png'},
       matchSponsor: {name: 'Bakkerij Jansen', logoPath: 'sponsors/bakkerij-jansen.png'},
       ballSponsor: {name: 'Vrije tekst', logoPath: null},
@@ -23,7 +23,7 @@ describe('buildVmixMatchInfo', () => {
     expect(info).toEqual({
       productionId: '7',
       home: 'Fortuna/Ruitenheer 1', away: 'PKC 1', match: 'Fortuna/Ruitenheer 1 - PKC 1',
-      homeShort: 'Fortuna', awayShort: 'PKC',
+      homeShort: 'Fortuna', awayShort: 'PKC', homeAbbreviation: 'FOR', awayAbbreviation: '',
       homeLogo: 'http://10.0.0.5:3333/uploads/clubs/fortuna.png',
       awayLogo: 'https://cdn.example.org/pkc.png',
       date: 'zaterdag 17 oktober 2026', dateShort: '17-10-2026',

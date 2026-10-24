@@ -84,7 +84,7 @@ Elk adres eindigt op `key=<jouw-sleutel>`: vMix moet een **API-sleutel** van je 
 | **Sponsor Names (Ticker)** | Eén regel met alle sponsornamen, voor een lopende tekst. Premium eerst, verder in willekeurige volgorde. |
 | **Sponsor Carrousel** | Per sponsor naam, logo-bestandsnaam (*commercial*), type en website |
 | **Sponsor Slides** | Per spelerfoto drie sponsorlogo's, voor de pauzeschermen |
-| **Wedstrijdinformatie (actieve productie)** | Teams, clublogo's, datum, aanvang, verzamel- en livetijd, zaal, veld, scheidsrechters, score, wedstrijd- en balsponsor met logo |
+| **Wedstrijdinformatie (actieve productie)** | Teams, korte namen en **afkortingen** van de clubs (`homeAbbreviation`, `awayAbbreviation`; aan te passen bij [Clubs & spelers](/admin/handleiding/stamgegevens#clubs-spelers)), clublogo's, datum, aanvang, verzamel- en livetijd, zaal, veld, scheidsrechters, score, wedstrijd- en balsponsor met logo |
 | **Active Production Titles** | De naamtitels (functie + naam) van de actieve productie |
 | **Active Production Staff** | Een oudere bron met crewrollen |
 | **Callsheet Timing** | Het huidige en volgende callsheet-item met tijden, voor wie liever zelf ophaalt dan laat pushen |

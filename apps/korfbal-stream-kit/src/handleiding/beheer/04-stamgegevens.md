@@ -65,6 +65,9 @@ Kies bij **Kies club** een club om de spelers en coaches van het actieve seizoen
 - **Importeer alle teams** haalt alle ploegen en spelers van de Korfbal League op (hetzelfde als bij Instellingen → Seizoen).
 - Bij **Handmatige import** kun je één ploeg importeren met het team-id van league.korfbal.nl.
 - **Nieuwe club** maakt een club aan die niet in de League speelt, bijvoorbeeld je eigen club.
+- **Wijzig club** past de **Naam**, **Korte naam** en **Afkorting** van de gekozen club aan; klik op **Opslaan**. De afkorting (1 tot 5 letters of cijfers, bijvoorbeeld `FOR` of `KZ`) gebruik je voor logo's en het ledscherm en wordt in hoofdletters bewaard.
+
+De import neemt als korte naam het deel vóór de `/`: *Fortuna/Ruitenheer* wordt *Fortuna*. De afkorting maakt hij zelf uit de korte naam (maximaal 3 letters of cijfers: *Fortuna* → `FOR`, *DOS '46* → `DOS`, *Koog Zaandijk* → `KZ`). Een club die al bestaat, houdt bij een nieuwe import zijn naam, korte naam en afkorting, dus wat je met **Wijzig club** hebt aangepast, blijft staan. Logo en spelers worden wel bijgewerkt.
 
 Coaches staan bovenaan, daarna speelsters en spelers. Deze spelers verschijnen in de interviewkeuze van een productie.
 
