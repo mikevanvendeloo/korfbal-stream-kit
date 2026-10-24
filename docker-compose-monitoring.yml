@@ -1,0 +1,80 @@
+name: korfbal-monitoring
+
+services:
+  # ─── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    networks:
+      - korfbal-network
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+    mem_limit: 512m
+    memswap_limit: 512m
+    restart: unless-stopped
+
+  # ─── Grafana ───────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    networks:
+      - korfbal-network
+    depends_on:
+      - prometheus
+    environment:
+      TZ: Europe/Amsterdam
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-korfbal}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      # Automatisch de Prometheus-datasource aanmaken
+      GF_PROMETHEUS_DEFAULT_PORT: 9090
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3000:3000"
+    mem_limit: 256m
+    memswap_limit: 256m
+    restart: unless-stopped
+
+  # ─── cAdvisor (container-level metrics) ────────────────────────────────────
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    networks:
+      - korfbal-network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    ports:
+      - "8081:8080"
+    mem_limit: 256m
+    memswap_limit: 256m
+    restart: unless-stopped
+
+  # ─── PostgreSQL-exporter ───────────────────────────────────────────────────
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    networks:
+      - korfbal-network
+    environment:
+      DATA_SOURCE_NAME: "postgresql://fortuna:localtest@streamz-db:5432/streamz?sslmode=disable"
+    ports:
+      - "9187:9187"
+    mem_limit: 128m
+    memswap_limit: 128m
+    restart: unless-stopped
+    # Alleen relevant als de test-DB op hetzelfde netwerk draait (zie "Netwerk" hieronder)
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  korfbal-network:
+    external: true   # Deelt het netwerk met korfbal-localtest / korfbal-prod

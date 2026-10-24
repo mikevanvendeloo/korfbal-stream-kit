@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # cAdvisor – CPU, memory, net I/O per container
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  # PostgreSQL – verbindingen, transacties, locks, cache
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  # Node.js API – /metrics endpoint (zie stap 3 hieronder)
+  - job_name: korfbal-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["korfbal-streamz-api:3333"]
+        labels:
+          service: "korfbal-streamz-api"
+
+  # Nginx (optional – als je de stub-status module enabled hebt)
+  # - job_name: nginx
+  #   metrics_path: /nginx_status
+  #   static_configs:
+  #     - targets: ["korfbal-streamz-kit:8080"]

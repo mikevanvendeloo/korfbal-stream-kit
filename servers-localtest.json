@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "korfbal-localtest": {
+      "Name": "korfbal-localtest",
+      "Host": "streamz-db",
+      "Port": 5432,
+      "MaintenanceDB": "streamz",
+      "Username": "fortuna",
+      "Password": "localtest",
+      "SSLMode": "disable",
+      "Group": "korfbal"
+    }
+  }
+}

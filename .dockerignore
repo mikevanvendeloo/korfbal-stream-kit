@@ -33,6 +33,9 @@ coverage
 /data
 /data/**
 
+# Claude Code: agent worktrees are full copies of the repo (Nx would see every project twice)
+.claude
+
 # IDE/editor files
 .vscode
 .idea

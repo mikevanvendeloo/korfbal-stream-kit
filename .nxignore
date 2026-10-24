@@ -1,0 +1,2 @@
+# Agent worktrees are full copies of the repo; without this Nx sees every project twice
+.claude/worktrees
