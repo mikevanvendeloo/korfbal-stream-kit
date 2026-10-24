@@ -13,6 +13,8 @@ export type VmixMatchInfo = {
   match: string;
   homeShort: string;
   awayShort: string;
+  homeAbbreviation: string;
+  awayAbbreviation: string;
   homeLogo: string;
   awayLogo: string;
   date: string;
@@ -37,7 +39,7 @@ export type VmixMatchInfo = {
 };
 
 const EMPTY: VmixMatchInfo = {
-  productionId: '', home: '', away: '', match: '', homeShort: '', awayShort: '', homeLogo: '', awayLogo: '',
+  productionId: '', home: '', away: '', match: '', homeShort: '', awayShort: '', homeAbbreviation: '', awayAbbreviation: '', homeLogo: '', awayLogo: '',
   date: '', dateShort: '', kickoff: '', attendanceTime: '', liveStart: '', accommodation: '', field: '',
   referee: '', reserveReferee: '', referees: '', description: '', season: '', homeScore: '', awayScore: '', score: '',
   matchSponsor: '', matchSponsorLogo: '', ballSponsor: '', ballSponsorLogo: '',
@@ -56,8 +58,8 @@ type MatchInput = {
     accommodationName: string | null; fieldName: string | null; refereeName: string | null; reserveRefereeName: string | null;
     description: string | null; homeScore: number | null; awayScore: number | null; season?: { name: string } | null;
   };
-  homeClub?: { shortName: string; logoUrl: string | null } | null;
-  awayClub?: { shortName: string; logoUrl: string | null } | null;
+  homeClub?: { shortName: string; abbreviation?: string | null; logoUrl: string | null } | null;
+  awayClub?: { shortName: string; abbreviation?: string | null; logoUrl: string | null } | null;
   matchSponsor?: { name: string; logoPath: string | null } | null;
   ballSponsor?: { name: string; logoPath: string | null } | null;
 };
@@ -85,6 +87,8 @@ export function buildVmixMatchInfo(input: MatchInput | null, assetBaseUrl: strin
     match: `${match.homeTeamName} - ${match.awayTeamName}`,
     homeShort: input.homeClub?.shortName ?? '',
     awayShort: input.awayClub?.shortName ?? '',
+    homeAbbreviation: input.homeClub?.abbreviation ?? '',
+    awayAbbreviation: input.awayClub?.abbreviation ?? '',
     homeLogo: asset(input.homeClub?.logoUrl),
     awayLogo: asset(input.awayClub?.logoUrl),
     date: longDate(match.date),

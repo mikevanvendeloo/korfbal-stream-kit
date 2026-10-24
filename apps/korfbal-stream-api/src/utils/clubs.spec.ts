@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeTeamNameForClubMatch } from './clubs';
+import { clubAbbreviation, clubShortName, normalizeTeamNameForClubMatch } from './clubs';
 
 describe('normalizeTeamNameForClubMatch', () => {
   it('strips trailing plain numeral squad suffix', () => {
@@ -20,5 +20,35 @@ describe('normalizeTeamNameForClubMatch', () => {
 
   it('collapses internal whitespace and trims', () => {
     expect(normalizeTeamNameForClubMatch('  Fortuna   /  Ruitenheer   2 ')).toBe('Fortuna / Ruitenheer');
+  });
+});
+
+describe('clubShortName', () => {
+  it('takes the part before the first slash, trimmed', () => {
+    expect(clubShortName('Fortuna/Ruitenheer')).toBe('Fortuna');
+    expect(clubShortName(' LDODK / Rinsma Modeplein ')).toBe('LDODK');
+    expect(clubShortName('A/B/C')).toBe('A');
+  });
+
+  it('keeps a name without a slash as it is (trimmed)', () => {
+    expect(clubShortName('PKC')).toBe('PKC');
+    expect(clubShortName('  De Granaet ')).toBe('De Granaet');
+    expect(clubShortName(undefined)).toBe('');
+  });
+});
+
+describe('clubAbbreviation', () => {
+  it('derives up to three uppercase letters/digits from the short name', () => {
+    expect(clubAbbreviation('Fortuna')).toBe('FOR');
+    expect(clubAbbreviation('Dalto')).toBe('DAL');
+    expect(clubAbbreviation("DOS '46")).toBe('DOS');
+    expect(clubAbbreviation('KZ/Keukensale.com')).toBe('KZ');
+    expect(clubAbbreviation('Koog Zaandijk')).toBe('KZ');
+    expect(clubAbbreviation('Fortuna/Ruitenheer')).toBe('FOR');
+  });
+
+  it('is null when no letters or digits are left', () => {
+    expect(clubAbbreviation('  ')).toBeNull();
+    expect(clubAbbreviation("/'")).toBeNull();
   });
 });

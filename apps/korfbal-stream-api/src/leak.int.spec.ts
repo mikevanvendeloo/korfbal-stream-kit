@@ -271,6 +271,7 @@ const ROUTES: Record<string, Probe> = {
   'PUT /api/callsheets/templates/:id': {write: (a) => `/api/callsheets/templates/${a.callSheetTemplateId}`, body: () => NAME},
   'PUT /api/callsheets/templates/:id/reorder': {write: (a) => `/api/callsheets/templates/${a.callSheetTemplateId}/reorder`, body: (a) => ({itemIds: [a.callSheetTemplateItemId]})},
   'PUT /api/callsheets/templates/items/:itemId': {write: (a) => `/api/callsheets/templates/items/${a.callSheetTemplateItemId}`, body: () => NAME},
+  'PUT /api/clubs/:slug': GLOBAL,
   'PUT /api/manual-matches/:id': {write: (a) => `/api/manual-matches/${a.manualMatchId}`, body: () => ({homeTeamName: 'Overgenomen', awayTeamName: 'Overgenomen', date: new Date().toISOString()})},
   'PUT /api/match-source': OWN,
   'PUT /api/organizations/:id': GLOBAL,

@@ -21,6 +21,29 @@ export function normalizeTeamNameForClubMatch(input: string | null | undefined):
   return s;
 }
 
+/**
+ * The short name an import gives a club: the part before the first `/`, trimmed
+ * ("Fortuna/Ruitenheer" -> "Fortuna"). A name without `/` stays as it is (trimmed).
+ */
+export function clubShortName(raw: string | null | undefined): string {
+  const s = String(raw ?? '').trim();
+  const i = s.indexOf('/');
+  return i < 0 ? s : s.slice(0, i).trim();
+}
+
+/**
+ * The default abbreviation of a club (logos, LED screen), from its short name: the part before the `/`,
+ * uppercase letters/digits, max 3 characters ("Fortuna" -> "FOR", "DOS '46" -> "DOS", "KZ/Keukensale.com" -> "KZ").
+ * A name of several words that all start with a letter gives the initials ("Koog Zaandijk" -> "KZ").
+ * Null when nothing is left. Keep in sync with migration 20261024100000_club_short_name_before_slash.
+ */
+export function clubAbbreviation(raw: string | null | undefined): string | null {
+  const words = clubShortName(raw).toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+  const initials = words.length > 1 && words.every((w) => /^[A-Z]/.test(w));
+  const abbreviation = (initials ? words.map((w) => w[0]).join('') : words.join('')).slice(0, 3);
+  return abbreviation || null;
+}
+
 export async function findClubByTeamName(prisma: PrismaClient | any, teamName: string | null | undefined, log: typeof defaultLogger = defaultLogger): Promise<any | null> {
   if (!teamName) return null;
   const raw = String(teamName).trim();
@@ -58,4 +81,4 @@ export async function findClubByTeamName(prisma: PrismaClient | any, teamName: s
   return club;
 }
 
-export default { normalizeTeamNameForClubMatch, findClubByTeamName };
+export default { normalizeTeamNameForClubMatch, clubShortName, clubAbbreviation, findClubByTeamName };

@@ -2,7 +2,7 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {createUrl, extractError} from "../lib/api";
 import {seasonKeys} from "./useSeasons";
 
-export type Club = { id: number; name: string; shortName: string; slug: string; logoUrl?: string | null };
+export type Club = { id: number; name: string; shortName: string; abbreviation?: string | null; slug: string; logoUrl?: string | null };
 export type Player = { id: number; clubId: number; name: string; shirtNo?: number | null; gender?: 'male' | 'female' | null; photoUrl?: string | null; personType?: string | null; function?: string | null };
 
 export function useClubs() {
@@ -96,6 +96,23 @@ export function useCreateClub() {
       });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['clubs'] }),
+  });
+}
+
+/** PUT /api/clubs/:slug: name, short name and abbreviation; the slug never changes. */
+export function useUpdateClub() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({slug, ...input}: { slug: string; name?: string; shortName?: string; abbreviation?: string }) => {
+      const res = await fetch(createUrl(`/api/clubs/${slug}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json() as Promise<Club>;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['clubs'] }),
   });

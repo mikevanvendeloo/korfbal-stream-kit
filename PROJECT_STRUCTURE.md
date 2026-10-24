@@ -231,6 +231,7 @@ No login (internal LAN tool), but every `/api` request needs an organization: `X
 | POST | /api/clubs/import/league-teams | Import league teams |
 | GET | /api/clubs/:id/teams | List teams of a club |
 | GET | /api/clubs/:slug/players | List players of a club |
+| PUT | /api/clubs/:slug | Edit name, short name, abbreviation (slug never changes) |
 | DELETE | /api/clubs/:slug | Delete club |
 
 ### Players (`/api/players`)

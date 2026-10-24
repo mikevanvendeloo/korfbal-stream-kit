@@ -384,6 +384,8 @@ model Club {
   id            Int            @id @default(autoincrement())
   name          String
   shortName     String
+  /// Logos and the LED screen, e.g. "FOR"; derived from the short name on create, editable in Beheer
+  abbreviation  String?
   slug          String         @unique
   logoUrl       String?
   createdAt     DateTime       @default(now())

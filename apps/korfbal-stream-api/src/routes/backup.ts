@@ -13,6 +13,7 @@ import {migrateLogoStorage} from '../services/logoStorage';
 import {titlePartsForCreate} from '../services/backupFields';
 import {organizationImagePaths, streamImagesZip} from '../services/backupImages';
 import {contentDisposition} from '../utils/attachment';
+import {clubAbbreviation} from '../utils/clubs';
 import {amsterdamDay} from '../utils/time';
 import {z} from 'zod';
 import {Prisma} from '@prisma/client';
@@ -418,6 +419,7 @@ backupRouter.get('/clubs/export', async (_req, res, next) => {
     const exportData = items.map(c => ({
       name: c.name,
       shortName: c.shortName,
+      abbreviation: c.abbreviation,
       slug: c.slug,
       logoUrl: c.logoUrl,
       players: c.players.map(p => ({
@@ -950,6 +952,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                   data: {
                     name: intData.clubName,
                     shortName: intData.clubShortName,
+                    abbreviation: clubAbbreviation(intData.clubShortName || intData.clubName),
                     slug: intData.clubSlug,
                     logoUrl: intData.clubLogoUrl
                   }
@@ -1135,6 +1138,10 @@ backupRouter.post('/clubs/import', async (req, res, next) => {
         const clubData = {
           name: item.name,
           shortName: item.shortName || item.name,
+          // Older backups have no abbreviation: then an existing club keeps its own, a new one gets the default
+          ...(typeof item.abbreviation === 'string' || item.abbreviation === null
+            ? { abbreviation: item.abbreviation }
+            : {}),
           slug: item.slug,
           logoUrl: item.logoUrl
         };
@@ -1143,7 +1150,7 @@ backupRouter.post('/clubs/import', async (req, res, next) => {
           club = await prisma.club.update({ where: { id: club.id }, data: clubData });
           updated++;
         } else {
-          club = await prisma.club.create({ data: clubData });
+          club = await prisma.club.create({ data: { abbreviation: clubAbbreviation(clubData.shortName), ...clubData } });
           created++;
         }
 
