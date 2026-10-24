@@ -1,3 +1,4 @@
+import {useState} from 'react';
 import {createUrl} from '../lib/api';
 import {FallbackImage} from './FallbackImage';
 
@@ -24,9 +25,15 @@ export function shownShirtNo(person: AvatarPerson, role?: 'PLAYER' | 'COACH'): n
 
 const SIZES = {
   // Next to a name in a callsheet text: grows with the font size of that text
-  // (em counts from the avatar's own, smaller font: 2.2em here is about 1.5 times the surrounding text)
-  inline: 'w-[2.2em] h-[2.2em] text-[0.7em] align-middle',
-  card: 'w-24 h-24 sm:w-28 sm:h-28 text-4xl',
+  // (em counts from the avatar's own, smaller font: 4.4em here is about 3 times the surrounding text)
+  inline: 'w-[4.4em] h-[4.4em] text-[0.7em] align-middle',
+  card: 'w-48 h-48 sm:w-56 sm:h-56 text-7xl',
+} as const;
+
+/** After a click: about three times as large, and square-ish so the whole photo shows */
+const ENLARGED = {
+  inline: 'w-[13em] h-[13em] text-[0.7em] align-middle',
+  card: 'w-full max-w-[20rem] aspect-square h-auto text-8xl',
 } as const;
 
 type Props = {
@@ -41,8 +48,10 @@ type Props = {
  * is shown large in the circle; without a number (coaches) the initials.
  */
 export function InterviewAvatar({person, role, size = 'inline', className = ''}: Props) {
+  // A click makes it larger, another click small again
+  const [enlarged, setEnlarged] = useState(false);
   const shirtNo = shownShirtNo(person, role);
-  const box = `${SIZES[size]} shrink-0 rounded-full overflow-hidden ${className}`;
+  const box = `${enlarged ? ENLARGED[size] : SIZES[size]} shrink-0 ${enlarged ? 'rounded-2xl' : 'rounded-full'} overflow-hidden ${className}`;
   const fallback = shirtNo != null ? (
     <span role="img" aria-label={`${person.name}, rugnummer ${shirtNo}`}
           className={`${box} inline-flex items-center justify-center bg-blue-600 text-white font-black tabular-nums leading-none`}>
@@ -55,11 +64,20 @@ export function InterviewAvatar({person, role, size = 'inline', className = ''}:
     </span>
   );
   return (
-    <FallbackImage
-      src={playerPhotoUrl(person.photoUrl)}
-      alt={`Foto van ${person.name}`}
-      fallback={fallback}
-      className={`${box} inline-block object-cover object-top bg-gray-200 dark:bg-gray-700`}
-    />
+    <button
+      type="button"
+      aria-pressed={enlarged}
+      aria-label={enlarged ? `Foto van ${person.name} kleiner` : `Foto van ${person.name} groter`}
+      // Inside a callsheet/Show Caller item: the click only resizes the photo
+      onClick={(e) => { e.stopPropagation(); setEnlarged((v) => !v); }}
+      className="inline-block align-middle p-0 border-0 bg-transparent cursor-zoom-in aria-pressed:cursor-zoom-out max-w-full"
+    >
+      <FallbackImage
+        src={playerPhotoUrl(person.photoUrl)}
+        alt={`Foto van ${person.name}`}
+        fallback={fallback}
+        className={`${box} inline-block max-w-full object-cover object-top bg-gray-200 dark:bg-gray-700`}
+      />
+    </button>
   );
 }
