@@ -1,5 +1,7 @@
 # De Show Caller
 
+Tik of klik op een foto om hem groter te maken; nog een keer tikken maakt hem weer klein.
+
 De Show Caller ziet het hele draaiboek en zet de show door: hij bepaalt welk item nu bezig is. Iedere callsheet volgt wat hij doet.
 
 > **Er is maar één show.** De knoppen werken op de actieve productie, voor iedereen tegelijk, vanaf elk apparaat waarop de Show Caller open staat. Laat de knoppen dus over aan de Show Caller van dienst.

@@ -1,5 +1,7 @@
 # De callsheet
 
+Tik of klik op een foto om hem groter te maken; nog een keer tikken maakt hem weer klein.
+
 De callsheet laat per positie zien wat jij wanneer moet doen. Hij volgt de actieve productie en loopt live mee met de Show Caller.
 
 ## Je positie kiezen

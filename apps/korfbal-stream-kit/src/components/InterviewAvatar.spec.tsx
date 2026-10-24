@@ -40,4 +40,20 @@ describe('InterviewAvatar', () => {
     expect(initials('cher')).toBe('C');
     expect(initials('  ')).toBe('?');
   });
+
+  it('grows on a click and shrinks on the next, without clicking the item around it', () => {
+    let itemClicks = 0;
+    render(<div onClick={() => itemClicks++}><InterviewAvatar person={ANNA} role="PLAYER"/></div>);
+    const toggle = screen.getByRole('button', {name: 'Foto van Anna de Vries groter'});
+    const img = screen.getByRole('img', {name: 'Foto van Anna de Vries'});
+    const small = img.className;
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(toggle).toHaveAccessibleName('Foto van Anna de Vries kleiner');
+    expect(img.className).not.toBe(small);
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(img.className).toBe(small);
+    expect(itemClicks).toBe(0);
+  });
 });

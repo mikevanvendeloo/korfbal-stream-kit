@@ -1,5 +1,7 @@
 # Interviews
 
+Tik of klik op een foto om hem groter te maken; nog een keer tikken maakt hem weer klein.
+
 Het scherm **Interviews** laat zien wie er bij de actieve productie geïnterviewd wordt: per gekozen interview een grote kaart met foto, naam en rugnummer. Handig voor de presentator en de camera, ook op een telefoon.
 
 ## Openen
