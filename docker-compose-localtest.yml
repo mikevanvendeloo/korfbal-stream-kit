@@ -9,6 +9,7 @@
 #   Andere afbeeldingenmap:      LOCALTEST_STORAGE=/pad/naar/storage docker compose -f docker-compose-localtest.yml up -d
 #
 # Frontend: http://localhost   API: http://localhost:3334   Postgres: localhost:5433 (fortuna/streamz)
+# pgadmin:  http://localhost:5050   Grafana: http://localhost:3000
 # `down -v` wist alleen de database van deze testomgeving. Afbeeldingen (spelers, sponsors, clubs) staan op je
 # eigen schijf in ./storage, dus die blijven bij down/up en stroomuitval gewoon staan.
 name: korfbal-localtest
@@ -37,6 +38,9 @@ services:
       timeout: 5s
       retries: 30
       start_period: 60s
+    # --- Geheugenlimiet ---
+    mem_limit: 1024m
+    memswap_limit: 1024m
 
   # Draait de migraties die nog niet in de backup zaten (bijv. seizoenen). Geen seed: die zou de
   # herstelde personen/sponsors/templates bijwerken.
@@ -55,8 +59,11 @@ services:
       NODE_ENV: production
       SKIP_SEED: "true"
       DATABASE_URL: postgresql://fortuna:${LOCALTEST_DB_PASSWORD:-localtest}@streamz-db:5432/streamz?schema=public
-    command: ["node", "/app/seed/migrate-and-seed.cjs"]
+    command: ["node", "--max-old-space-size=384", "/app/seed/migrate-and-seed.cjs"]
     restart: "no"
+    # --- Geheugenlimiet ---
+    mem_limit: 512m
+    memswap_limit: 512m
 
   # De servicenaam moet korfbal-streamz-api blijven: nginx.conf proxyt daarnaartoe.
   korfbal-streamz-api:
@@ -89,6 +96,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # --- Geheugenlimiet ---
+    mem_limit: 1024m
+    memswap_limit: 1024m
+    # V8-heap mag niet groter dan de container-limiet minus ~256 MB (libuv, request buffers)
+    command: ["node", "--max-old-space-size=768", "/app/main.js"]
 
   korfbal-streamz-kit:
     build:
@@ -103,9 +115,36 @@ services:
       TZ: Europe/Amsterdam
     depends_on:
       - korfbal-streamz-api
+    # --- Geheugenlimiet ---
+    mem_limit: 256m
+    memswap_limit: 256m
+
+  # --- pgAdmin (optioneel, handig voor lokale inspectie) ---
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: korfbal-pgadmin-localtest
+    networks:
+      - korfbal-network
+    environment:
+      TZ: Europe/Amsterdam
+      PGADMIN_DEFAULT_EMAIL: admin@korfbal.nl
+      PGADMIN_DEFAULT_PASSWORD: ${LOCALTEST_PGADMIN_PASSWORD:-korfbal}
+      # Toont de lokale DB als favoriet bij opstart
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    volumes:
+      - ./servers-localtest.json:/pgadmin4/servers.json
+      - pgadmin-data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    depends_on:
+      - streamz-db
+    # --- Geheugenlimiet (pgAdmin4 is relatief zwaar door Chromium renderer) ---
+    mem_limit: 512m
+    memswap_limit: 512m
 
 volumes:
   db-data:
+  pgadmin-data:
 
 networks:
   korfbal-network:

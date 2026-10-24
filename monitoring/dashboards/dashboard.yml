@@ -1,0 +1,9 @@
+apiVersion: 1
+providers:
+  - name: "Korfbal Stream"
+    orgId: 1
+    folder: "Korfbal"
+    type: file
+    disableDeletion: false
+    options:
+      path: /etc/grafana/provisioning/dashboards

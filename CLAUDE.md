@@ -13,6 +13,7 @@ If ANY `TODO` comments remain in this file, you MUST complete ALL of the followi
 3. **Fill PROJECT_STRUCTURE.md**: If `PROJECT_STRUCTURE.md` exists and has TODO placeholders, edit that file too with the real project tree and API endpoints.
 4. **Fill GLOSSARY.md**: If `GLOSSARY.md` exists and has TODO placeholders, add the domain terms you discovered from the codebase.
 5. **Know your toolkit**: Read the agent definitions in `.claude/agents/` and skill definitions in `.claude/skills/`. Understand what each agent does and when to invoke it before starting any work.
+6. **Be aware of token usage and model limits**: Choose the model wisely for your task and take the token usage into account. Please ask the user if you expect a long running agent to prevent out-of-budget issues!
 
 **WHY THIS IS NON-NEGOTIABLE:**
 - Other agents and teammates read this file for context. If the TODOs remain unfilled, every agent you spawn will lack critical project information.
@@ -24,6 +25,7 @@ If ANY `TODO` comments remain in this file, you MUST complete ALL of the followi
 ## Project Overview
 
 Korfbal StreamKit is an Nx monorepo for a livestream production management system for korfbal (Dutch sport) events. It manages production crew callsheets, real-time show control, sponsor data feeds, and vMix graphics integration during live broadcasts. Used internally by production crews at Fortuna/Ruitenheer korfbal matches.
+However, this tool shows potential to become a product that runs in the cloud for other korfbal clubs and sports organizations, with multi-tenant support and a SaaS model. Since there still are local dependencies and connections to be made to i.e. vMix, the shotclock and scoreboard and later maybe the statistics system, a hybrid approach with an edge application that combines the local and remote functionality is envisioned. The current codebase is a monorepo with a backend API, frontend React app, and e2e tests.
 
 ## Tech Stack
 
