@@ -51,8 +51,8 @@ Via het **tandwiel** linksboven. Deze instellingen gelden alleen voor jouw scher
 - **Lettergrootte**: S, M, L of XL. Dit wordt op je apparaat onthouden en geldt ook voor de Show Caller.
 - **Interviewfoto's**: **AAN** of **UIT**, de kleine foto's naast de interviewnamen (zie [Interviewfoto's](#interviewfoto-s)). Wordt op je apparaat onthouden.
 - **Show Caller**: hetzelfde draaiboek in de Show Caller-weergave (alleen kijken, tenzij je de knoppen gebruikt).
-- **Kolommen**: toon **2 Posities** (standaard) of **3 Posities** naast elkaar. Zet je beide uit, dan zie je alleen je eigen positie.
-- **Positie Instellingen**: kies welke positie in kolom 1, 2 en 3 staat. Kolom 2 toont standaard de Showcaller, zodat je ziet wat er aangekondigd wordt.
+- **Kolommen**: standaard zie je alleen je eigen positie. Zet **2 Posities** of **3 Posities** aan om andere posities ernaast te zien.
+- **Positie Instellingen**: kies welke positie in kolom 1, 2 en 3 staat. Zet je kolom 2 aan, dan toont die standaard de Showcaller, zodat je ziet wat er aangekondigd wordt.
 
 > De keuze van kolommen en posities wordt níet onthouden na het herladen. Alleen je hoofdpositie (in het adres), de lettergrootte en **Interviewfoto's** blijven.
 >
