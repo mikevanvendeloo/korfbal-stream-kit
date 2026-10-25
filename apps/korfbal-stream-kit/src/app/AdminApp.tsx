@@ -202,8 +202,8 @@ function Nav() {
     label: 'Producties',
     groups: [{
       items: [
-        {to: adminPaths.productions, label: 'Productieoverzicht', icon: MdList},
         ...(active ? [{to: adminPaths.production(active.id), label: 'Actieve productie', icon: MdPlayCircleFilled}] : []),
+        {to: adminPaths.productions, label: 'Productieoverzicht', icon: MdList},
       ],
     }],
   };
