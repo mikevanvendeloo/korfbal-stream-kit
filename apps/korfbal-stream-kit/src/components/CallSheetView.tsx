@@ -35,7 +35,7 @@ export const CallSheetView = () => {
     // Lokale staat voor de tweede en derde kolom
     const [secondaryPositionId, setSecondaryPositionId] = useState<number | null>(null);
     const [tertiaryPositionId, setTertiaryPositionId] = useState<number | null>(null);
-    const [showSecondaryColumn, setShowSecondaryColumn] = useState(true);
+    const [showSecondaryColumn, setShowSecondaryColumn] = useState(false);
     const [showTertiaryColumn, setShowTertiaryColumn] = useState(false);
     const { fontSize, setFontSize } = useFontSize();
     const [showSettings, setShowSettings] = useState(false);
