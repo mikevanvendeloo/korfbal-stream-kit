@@ -1,0 +1,31 @@
+# Alleen de PostgreSQL voor lokaal ontwikkelen (npm run dev) en de tests (database korfbal_stream_test).
+# Staat los van de Docker-stack (docker-compose.yml) en localtest: eigen projectnaam, volume en poort.
+#
+#   Starten:  npm run db:up     (docker compose -f docker-compose-db.yml up -d)
+#   Stoppen:  npm run db:down   (docker compose -f docker-compose-db.yml down)
+#
+# Postgres: localhost:5432 (korfbal/korfbal, database korfbal)
+name: korfbal-db
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      TZ: Europe/Amsterdam
+      POSTGRES_USER: korfbal
+      POSTGRES_PASSWORD: korfbal
+      POSTGRES_DB: korfbal
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U korfbal -d korfbal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+    # Het volume van vóór deze splitsing (toen db:up docker-compose.yml gebruikte): je dev-data blijft staan
+    name: korfbal-stream-kit_pgdata

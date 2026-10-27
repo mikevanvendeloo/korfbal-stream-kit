@@ -104,7 +104,7 @@ export default function ClubSettingsTab() {
               {clubsData?.map(club => <option key={club.id} value={club.id}>{club.name}</option>)}
             </select>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Dit is de club van de organisatie: dezelfde als bij Beheer → Overig → Organisaties.
+              Dit is de club van de organisatie: dezelfde als bij Beheer → Setup → Organisaties.
             </p>
           </div>
           {ownClubId && (

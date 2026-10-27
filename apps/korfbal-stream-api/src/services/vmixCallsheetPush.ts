@@ -1,10 +1,11 @@
 import axios from 'axios';
 import {Prisma} from '@prisma/client';
-import {buildVmixApiUrl, getSetting, setSetting} from './appSettings';
+import {buildVmixFunctionUrl, getSetting, setSetting} from './appSettings';
 import {resolveVmixInstance} from './vmixInstances';
 import {CallsheetTiming, loadCallsheetTiming, TimingState} from './callsheetTiming';
 import {CallsheetColors, VmixCallsheetPushConfig, VmixCallsheetPushSchema} from '../schemas/vmixCallsheet';
 import {logger} from '../utils/logger';
+import {fetchVmixInputs, findVmixInput, VmixInput} from './vmixInputs';
 import {liveOrganizationIds} from './productionState';
 import {getOrganizationId, runWithOrganization} from './organizationContext';
 
@@ -34,6 +35,19 @@ function colorCommands(block: { backgroundField: string; textColorFields: string
   return commands;
 }
 
+/** The timing with the colours of its states (as set for the push, #RRGGBB), for the vMix data source. */
+export function withStateColors(timing: CallsheetTiming, config: VmixCallsheetPushConfig) {
+  const current = config.current.colors[timing.currentState];
+  const next = config.next.colors[timing.nextState];
+  return {
+    ...timing,
+    currentBackgroundColor: current.background,
+    currentTextColor: current.text,
+    nextBackgroundColor: next.background,
+    nextTextColor: next.text,
+  };
+}
+
 function text(selectedName: string, value: string): VmixCommand[] {
   return selectedName ? [{function: 'SetText', selectedName, value}] : [];
 }
@@ -55,13 +69,7 @@ export function buildVmixCommands(timing: CallsheetTiming, config: VmixCallsheet
 }
 
 export function buildVmixCommandUrl(base: string, input: string, command: VmixCommand): string {
-  const query = new URLSearchParams({
-    Function: command.function,
-    Input: input,
-    SelectedName: command.selectedName,
-    Value: command.value,
-  });
-  return buildVmixApiUrl(base, query.toString());
+  return buildVmixFunctionUrl(base, {Function: command.function, Input: input, SelectedName: command.selectedName, Value: command.value});
 }
 
 // What vMix got last, per function + field, so each tick only sends what changed. Per organization:
@@ -131,6 +139,31 @@ export async function pushCallsheetToVmix(force = false, now = new Date()): Prom
     }
   }
   return {sent, skipped: commands.length - sent - errors.length, errors, timing};
+}
+
+/**
+ * What vMix will silently ignore in the push settings: an input it doesn't have, or text fields the title
+ * doesn't have (vMix answers 200 to those calls too). Asks vMix for its inputs; for the manual push only.
+ * The background shape (SetColor) isn't checked: vMix doesn't list shapes.
+ */
+export async function checkCallsheetTarget(): Promise<string[]> {
+  const config = await getCallsheetPushConfig();
+  const target = await resolveVmixInstance('callsheet');
+  if ('error' in target || !config.input) return [];
+  let inputs: VmixInput[];
+  try {
+    inputs = await fetchVmixInputs(target.instance.url);
+  } catch {
+    return ['De lijst met inputs kon niet uit vMix worden gehaald'];
+  }
+  const input = findVmixInput(inputs, config.input);
+  if (!input) {
+    return [`vMix heeft geen input "${config.input}". Een naam moet precies kloppen, met hoofdletters en extensie (bijv. "Callsheet.gtzip"); kies de title uit de lijst.`];
+  }
+  const fields = [config.current.titleField, config.current.timerField, config.current.startTimeField, ...config.current.textColorFields,
+    config.next.titleField, config.next.durationField, config.next.startsInField, config.next.startTimeField, ...config.next.textColorFields];
+  const missing = [...new Set(fields.filter((f) => f && !input.fields.includes(f)))];
+  return missing.map((f) => `Title "${input.title}" heeft geen veld "${f}"`);
 }
 
 let interval: NodeJS.Timeout | null = null;

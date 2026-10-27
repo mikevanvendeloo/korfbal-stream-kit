@@ -1,6 +1,6 @@
 /**
- * All Beheer URLs in one place. The path segments follow the menu: Producties, Draaiboeken,
- * Stamgegevens, Rapportages and Overig. Link through these helpers instead of writing paths by hand.
+ * All Beheer URLs in one place. The path segments follow the menu: Producties, Stamgegevens (with the
+ * draaiboek templates), Rapportages, Overig and Setup. Link through these helpers instead of writing paths by hand.
  */
 export const ADMIN = '/admin';
 
@@ -19,10 +19,10 @@ export const adminPaths = {
   crewReport: (id: number | string) => `${ADMIN}/producties/${id}/rapport/crew`,
   timingReport: (id: number | string) => `${ADMIN}/producties/${id}/rapport/tijdsanalyse`,
 
-  callSheetTemplates: `${ADMIN}/draaiboeken/templates`,
-  callSheetTemplate: (id: number | string) => `${ADMIN}/draaiboeken/templates/${id}`,
-  segmentTemplates: `${ADMIN}/draaiboeken/segment-templates`,
-  segmentDefaults: `${ADMIN}/draaiboeken/standaardbezetting`,
+  callSheetTemplates: `${ADMIN}/stamgegevens/draaiboek-templates`,
+  callSheetTemplate: (id: number | string) => `${ADMIN}/stamgegevens/draaiboek-templates/${id}`,
+  segmentTemplates: `${ADMIN}/stamgegevens/segment-templates`,
+  segmentDefaults: `${ADMIN}/stamgegevens/standaardbezetting`,
 
   persons: `${ADMIN}/stamgegevens/personen`,
   positions: `${ADMIN}/stamgegevens/posities`,
@@ -40,9 +40,9 @@ export const adminPaths = {
 
   qr: `${ADMIN}/overig/qr`,
   /** All organizations (list, create, edit, (de)activate) */
-  organizations: `${ADMIN}/overig/organisaties`,
+  organizations: `${ADMIN}/setup/organisaties`,
   /** The chosen organization: logo, match import, API keys */
-  organization: `${ADMIN}/overig/organisatie`,
+  organization: `${ADMIN}/setup/organisatie`,
 };
 
 export const REPORT_TABS = [

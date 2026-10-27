@@ -57,7 +57,7 @@ function MobileRow({ m }: { m: MatchSchedule }) {
               />
             )}
             <div className="text-gray-900 dark:text-gray-100 font-medium truncate max-w-[34vw]">{homeName}</div>
-            <div className="text-gray-400 shrink-0">vs</div>
+            <div className="text-gray-400 shrink-0">–</div>
             <div className="text-gray-900 dark:text-gray-100 font-medium truncate max-w-[34vw]">{awayName}</div>
           </div>
         </div>
@@ -70,10 +70,10 @@ function MobileRow({ m }: { m: MatchSchedule }) {
             fieldShort ? <span aria-label="field-short">{fieldShort}</span> : null
           )}
           <button
-            aria-label="expand-row"
+            aria-label="Details tonen"
             className="p-1 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 rounded w-7 h-7 flex items-center justify-center"
             onClick={() => setOpen((v) => !v)}
-            title={open ? 'Collapse' : 'Expand'}
+            title={open ? 'Inklappen' : 'Uitklappen'}
           >
             <span aria-hidden="true">{open ? '▾' : '▸'}</span>
           </button>
@@ -85,13 +85,13 @@ function MobileRow({ m }: { m: MatchSchedule }) {
             {!hasScore && null}
             {hasScore && fieldShort && (
               <div>
-                <span className="text-gray-500">Field: </span>
+                <span className="text-gray-500">Veld: </span>
                 <span>{fieldShort}</span>
               </div>
             )}
             {m.refereeName && (
               <div>
-                <span className="text-gray-500">Ref: </span>
+                <span className="text-gray-500">Scheidsrechter: </span>
                 <span>{m.refereeName}</span>
               </div>
             )}
@@ -118,7 +118,7 @@ export default function MatchSchedulePage() {
     () => [
       {
         id: 'time',
-        header: () => 'Time',
+        header: () => 'Tijd',
         accessorFn: (row) => timeStr(row.date),
         sortingFn: (a, b) => {
           // Compare underlying ISO date strings
@@ -142,30 +142,30 @@ export default function MatchSchedulePage() {
       },
       {
         id: 'home',
-        header: () => 'Home',
+        header: () => 'Thuis',
         accessorKey: 'homeTeamName',
       },
       {
         id: 'away',
-        header: () => 'Away',
+        header: () => 'Uit',
         accessorKey: 'awayTeamName',
       },
       {
         id: 'score',
-        header: () => 'Score',
+        header: () => 'Uitslag',
         accessorFn: (row) => `${row.homeScore ?? ''} - ${row.awayScore ?? ''}`,
         enableSorting: false,
         cell: (info) => <span className="font-mono">{String(info.getValue())}</span>,
       },
       {
         id: 'field',
-        header: () => 'Field',
+        header: () => 'Veld',
         accessorFn: (row) => cleanField(row.fieldName) || '',
         cell: (info) => <span>{String(info.getValue() || '')}</span>,
       },
       {
         id: 'ref',
-        header: () => 'Referee',
+        header: () => 'Scheidsrechter',
         accessorKey: 'refereeName',
       },
     ],
@@ -186,17 +186,17 @@ export default function MatchSchedulePage() {
   return (
     <div className="container py-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Match schedule</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Wedstrijdprogramma</h1>
         <div className="flex items-center gap-2">
           <select
-            aria-label="Location filter"
+            aria-label="Thuis of uit"
             value={location}
             onChange={(e) => setLocation(e.target.value as LocationFilter)}
             className="border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-2 py-1"
           >
-            <option value="HOME">Home</option>
-            <option value="AWAY">Away</option>
-            <option value="ALL">All</option>
+            <option value="HOME">Thuis</option>
+            <option value="AWAY">Uit</option>
+            <option value="ALL">Alle</option>
           </select>
         </div>
       </div>
@@ -211,33 +211,33 @@ export default function MatchSchedulePage() {
       <div className="flex items-center justify-between mb-4 gap-2">
         <div className="flex items-center gap-2">
           <button
-            aria-label="prev-week"
+            aria-label="Vorige week"
             onClick={() => setDate(prevWeekStr(date))}
             className="px-2 py-1 border rounded border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             « Week
           </button>
           <button
-            aria-label="prev-day"
+            aria-label="Vorige dag"
             onClick={() => setDate(prevDayStr(date))}
             className="px-2 py-1 border rounded border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            ‹ Day
+            ‹ Dag
           </button>
         </div>
-        <div className="text-lg text-gray-700 dark:text-gray-300" aria-label="date-title">
+        <div className="text-lg text-gray-700 dark:text-gray-300" aria-label="Gekozen dag">
           {title}
         </div>
         <div className="flex items-center gap-2">
           <button
-            aria-label="next-day"
+            aria-label="Volgende dag"
             onClick={() => setDate(nextDayStr(date))}
             className="px-2 py-1 border rounded border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            Day ›
+            Dag ›
           </button>
           <button
-            aria-label="next-week"
+            aria-label="Volgende week"
             onClick={() => setDate(nextWeekStr(date))}
             className="px-2 py-1 border rounded border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
@@ -246,8 +246,8 @@ export default function MatchSchedulePage() {
         </div>
       </div>
 
-      {isLoading && <div role="status">Loading…</div>}
-      {isError && <div role="alert">Error: {(error as Error)?.message}</div>}
+      {isLoading && <div role="status">Laden…</div>}
+      {isError && <div role="alert">Fout: {(error as Error)?.message}</div>}
 
       {/* Mobile: cards with expandable details */}
       <div role="list" className="md:hidden divide-y divide-gray-200 dark:divide-gray-800 rounded-md bg-white/50 dark:bg-gray-900/50">
@@ -255,7 +255,7 @@ export default function MatchSchedulePage() {
           <MobileRow key={m.externalId} m={m} />
         ))}
         {!isLoading && (!data || data.length === 0) && (
-          <div className="text-gray-500 py-6 text-center">No matches</div>
+          <div className="text-gray-500 py-6 text-center">Geen wedstrijden</div>
         )}
       </div>
 
@@ -292,7 +292,7 @@ export default function MatchSchedulePage() {
             ))}
             {!isLoading && (data || []).length === 0 && (
               <tr>
-                <td className="px-3 py-6 text-center text-gray-500" colSpan={columns.length}>No matches</td>
+                <td className="px-3 py-6 text-center text-gray-500" colSpan={columns.length}>Geen wedstrijden</td>
               </tr>
             )}
           </tbody>

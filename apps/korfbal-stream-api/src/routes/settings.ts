@@ -17,6 +17,7 @@ import {
 } from '../services/appSettings';
 import {config} from '../services/config';
 import {z} from 'zod';
+import {SponsorTypeEnum} from '../schemas/sponsor';
 import {VmixCallsheetPushSchema} from '../schemas/vmixCallsheet';
 import {getCallsheetPushConfig, setCallsheetPushConfig} from '../services/vmixCallsheetPush';
 import {VmixInstancesConfigSchema} from '../schemas/vmixInstances';
@@ -113,9 +114,9 @@ settingsRouter.get('/sponsor-config', async (_req, res, next) => {
 
 // PUT /api/settings/sponsor-config
 const SponsorConfigSchema = z.object({
-  namesTypes: z.array(z.string()),
-  rowsTypes: z.array(z.string()),
-  slidesTypes: z.array(z.string()).optional(),
+  namesTypes: z.array(SponsorTypeEnum),
+  rowsTypes: z.array(SponsorTypeEnum),
+  slidesTypes: z.array(SponsorTypeEnum).optional(),
 });
 
 settingsRouter.put('/sponsor-config', async (req, res, next) => {

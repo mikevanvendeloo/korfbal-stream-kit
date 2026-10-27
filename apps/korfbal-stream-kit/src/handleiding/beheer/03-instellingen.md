@@ -51,10 +51,10 @@ Gaat het mis, dan zie je wat er mis is en wat je kunt doen:
 
 | Foutmelding | Wat te doen |
 |---|---|
-| **Wedstrijdimport is niet ingesteld voor deze organisatie** | Vul bij **Overig → Organisatie → Wedstrijdimport** de bron, het adres en het token in, vink **Wedstrijdimport aan** aan en klik op **Opslaan**. |
+| **Wedstrijdimport is niet ingesteld voor deze organisatie** | Vul bij **Setup → Organisatie → Wedstrijdimport** de bron, het adres en het token in, vink **Wedstrijdimport aan** aan en klik op **Opslaan**. |
 | **Ongeldige datum** of **Datum … bestaat niet** | Typ een dag als `DD-MM-JJJJ` (bijvoorbeeld `07-11-2026`) of een aantal weken (bijvoorbeeld `30-weeks`). Dagen of maanden als periode (`1-days`, `8-months`) werken niet. |
 | **De startdatum van de zaalcompetitie is niet ingesteld** | Vul bij **Instellingen → Seizoen → Seizoenen** de **Start zaalcompetitie** van het actieve seizoen in. |
-| **Token ongeldig of verlopen** | Vraag een nieuw token aan bij de wedstrijdbron, vul het in bij **Overig → Organisatie → Wedstrijdimport** en klik op **Opslaan**. |
+| **Token ongeldig of verlopen** | Vraag een nieuw token aan bij de wedstrijdbron, vul het in bij **Setup → Organisatie → Wedstrijdimport** en klik op **Opslaan**. |
 | **URL klopt niet** | Controleer het **Adres (URL)**; voor Sportclub Vrijwilligersmanagement is dat `https://api.sportclubvrijwilligersmanagement.nl/v1`. |
 | **De wedstrijdbron weigerde het verzoek** | Controleer de datum en het adres. Blijft het misgaan, neem dan contact op met de beheerder van de wedstrijdbron. |
 | **De wedstrijdbron gaf een serverfout** | Mogelijk klopt het datumformaat niet (gebruik `DD-MM-JJJJ` of `30-weeks`), of de bron heeft een storing. Probeer het later opnieuw. |
@@ -66,7 +66,7 @@ Gaat het mis, dan zie je wat er mis is en wat je kunt doen:
 
 ## Club & Teams
 
-- **Eigen Club**: de club waarvoor de uitzendingen zijn. Dit bepaalt wat *eigen* en *tegenstander* zijn in interviewnamen als `{coach-tegenstander}`. Het is de club van de organisatie, dezelfde als bij **Overig → Organisaties**: kies je hier een andere, dan verandert hij daar ook (en andersom). Staat je club er niet tussen (omdat hij niet in de League speelt), maak hem dan eerst aan bij **Clubs & spelers → Nieuwe club**.
+- **Eigen Club**: de club waarvoor de uitzendingen zijn. Dit bepaalt wat *eigen* en *tegenstander* zijn in interviewnamen als `{coach-tegenstander}`. Het is de club van de organisatie, dezelfde als bij **Setup → Organisaties**: kies je hier een andere, dan verandert hij daar ook (en andersom). Staat je club er niet tussen (omdat hij niet in de League speelt), maak hem dan eerst aan bij **Clubs & spelers → Nieuwe club**.
 - **Productie Teams**: de teams van je eigen club waarvan je thuiswedstrijden uitzendt. Alleen hun thuiswedstrijden, plus de handmatige wedstrijden, staan in de lijst bij **Nieuwe productie**. De teams verschijnen pas als de wedstrijden van het actieve seizoen zijn geïmporteerd.
 
 Klik op **Instellingen Opslaan**.

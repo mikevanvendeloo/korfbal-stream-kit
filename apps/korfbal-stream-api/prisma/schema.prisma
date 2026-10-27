@@ -381,16 +381,19 @@ model SegmentRoleAssignment {
 }
 
 model Club {
-  id            Int            @id @default(autoincrement())
-  name          String
-  shortName     String
+  id             Int            @id @default(autoincrement())
+  name           String
+  shortName      String
   /// Logos and the LED screen, e.g. "FOR"; derived from the short name on create, editable in Beheer
-  abbreviation  String?
-  slug          String         @unique
-  logoUrl       String?
-  createdAt     DateTime       @default(now())
-  players       Player[]
-  organizations Organization[]
+  abbreviation   String?
+  /// Base colours as HTML colour codes (#rrggbb), e.g. Fortuna "#e30613" and "#ffffff"; null when not set
+  primaryColor   String?
+  secondaryColor String?
+  slug           String         @unique
+  logoUrl        String?
+  createdAt      DateTime       @default(now())
+  players        Player[]
+  organizations  Organization[]
 }
 
 model Player {

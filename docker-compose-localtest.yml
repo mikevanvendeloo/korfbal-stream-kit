@@ -1,6 +1,7 @@
 # Lokale testomgeving: de lokaal gebouwde (hardened) images tegen een database die bij de eerste
-# start automatisch uit een SQL-backup (pg_dump) wordt gevuld. Staat los van de dev-stack
-# (eigen projectnaam, volumes en poorten), dus beide kunnen naast elkaar draaien.
+# start automatisch uit een SQL-backup (pg_dump) wordt gevuld. Staat los van de dev-stack (eigen projectnaam en
+# volumes), maar gebruikt dezelfde poorten 80 en 5050 als docker-compose.yml: draai ze nooit tegelijk. De
+# dev-database voor npm run dev (docker-compose-db.yml, 5432) kan er wel naast draaien.
 #
 #   Starten (bouwt de images):   docker compose -f docker-compose-localtest.yml up -d --build
 #   Terug naar het startpunt:    docker compose -f docker-compose-localtest.yml down -v
@@ -148,4 +149,7 @@ volumes:
 
 networks:
   korfbal-network:
+    # Vaste naam: docker-compose-monitoring.yml koppelt hieraan (external). Start localtest dus vóór monitoring,
+    # en stop monitoring vóór `down` van localtest (anders: "network has active endpoints").
+    name: korfbal-network
     driver: bridge

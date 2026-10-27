@@ -215,12 +215,12 @@ export class ManualMatchesPage {
   }
 }
 
-/** Beheer → Overig → Organisatie: match import and API keys of the chosen organization. */
+/** Beheer → Setup → Organisatie: match import and API keys of the chosen organization. */
 export class OrganizationPage {
   constructor(private readonly page: Page) {}
 
   async open() {
-    await this.page.goto('/admin/overig/organisatie');
+    await this.page.goto('/admin/setup/organisatie');
     await expect(this.page.getByRole('heading', {name: /^Organisatie/, level: 1})).toBeVisible();
   }
 

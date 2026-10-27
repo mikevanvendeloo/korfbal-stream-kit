@@ -211,6 +211,17 @@ describe('Clubs import and listing API', () => {
     expect(playersList.body.length).toBe(2);
   });
 
+  it('lists the clubs by short name, ignoring case and accents', async () => {
+    clubs = [
+      {id: 1, name: 'DVO/Transus', shortName: 'DVO', slug: 'dvo-transus'},
+      {id: 2, name: 'Dalto/Klaverblad Verzekeringen', shortName: 'Dalto', slug: 'dalto'},
+      {id: 3, name: "DOS '46/VDK Groep", shortName: "DOS '46", slug: 'dos-46'},
+      {id: 4, name: 'Écht', shortName: 'écht', slug: 'echt'},
+    ];
+    const list = await request(app).get('/api/clubs');
+    expect(list.body.map((c: {shortName: string}) => c.shortName)).toEqual(['Dalto', "DOS '46", 'DVO', 'écht']);
+  });
+
   it('returns 400 when no sources provided', async () => {
     const res = await request(app).post('/api/clubs/import').send({});
     expect(res.status).toBe(400);

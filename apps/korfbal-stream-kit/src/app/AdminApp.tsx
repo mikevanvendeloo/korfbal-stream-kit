@@ -99,23 +99,22 @@ type MenuItem = { to: string; label: string; icon: IconType };
 type Menu = { label: string; groups: Array<{ heading?: string; items: MenuItem[] }> };
 
 /**
- * The Beheer menu, ordered by when you need it: per production (operational), the reusable
- * draaiboeken, stamgegevens you set up once or per season, the reports, and loose tools.
+ * The Beheer menu, ordered by when you need it: per production (operational), the stamgegevens you set up
+ * once or per season (with the reusable draaiboek templates), the reports, loose tools, and the setup of the
+ * organization(s).
  */
 const MENUS: Menu[] = [
   {
-    label: 'Draaiboeken',
-    groups: [{
-      items: [
-        {to: adminPaths.callSheetTemplates, label: 'Draaiboek-templates', icon: MdViewList},
-        {to: adminPaths.segmentTemplates, label: 'Segment-templates', icon: MdViewAgenda},
-        {to: adminPaths.segmentDefaults, label: 'Standaardbezetting per segment', icon: MdAssignmentInd},
-      ],
-    }],
-  },
-  {
     label: 'Stamgegevens',
     groups: [
+      {
+        heading: 'Draaiboeken',
+        items: [
+          {to: adminPaths.callSheetTemplates, label: 'Draaiboek-templates', icon: MdViewList},
+          {to: adminPaths.segmentTemplates, label: 'Segment-templates', icon: MdViewAgenda},
+          {to: adminPaths.segmentDefaults, label: 'Standaardbezetting per segment', icon: MdAssignmentInd},
+        ],
+      },
       {
         heading: 'Crew',
         items: [
@@ -157,9 +156,16 @@ const MENUS: Menu[] = [
     label: 'Overig',
     groups: [{
       items: [
+        {to: adminPaths.qr, label: 'QR-generator', icon: MdQrCode},
+      ],
+    }],
+  },
+  {
+    label: 'Setup',
+    groups: [{
+      items: [
         {to: adminPaths.organization, label: 'Organisatie', icon: MdBusiness},
         {to: adminPaths.organizations, label: 'Organisaties', icon: MdCorporateFare},
-        {to: adminPaths.qr, label: 'QR-generator', icon: MdQrCode},
       ],
     }],
   },
@@ -261,10 +267,10 @@ export default function AdminApp() {
               <Route path="rapport/tijdsanalyse" element={<ProductionTimingReportPage/>}/>
             </Route>
 
-            <Route path="draaiboeken/templates" element={<CallSheetTemplatesPage />} />
-            <Route path="draaiboeken/templates/:id" element={<CallSheetTemplateDetailsPage />} />
-            <Route path="draaiboeken/segment-templates" element={<SegmentTemplatesPage />} />
-            <Route path="draaiboeken/standaardbezetting" element={<SegmentDefaultsAdminPage/>}/>
+            <Route path="stamgegevens/draaiboek-templates" element={<CallSheetTemplatesPage />} />
+            <Route path="stamgegevens/draaiboek-templates/:id" element={<CallSheetTemplateDetailsPage />} />
+            <Route path="stamgegevens/segment-templates" element={<SegmentTemplatesPage />} />
+            <Route path="stamgegevens/standaardbezetting" element={<SegmentDefaultsAdminPage/>}/>
 
             <Route path="stamgegevens/personen" element={<PersonsAdminPage/>}/>
             <Route path="stamgegevens/posities" element={<PositionsAdminPage/>}/>
@@ -282,8 +288,8 @@ export default function AdminApp() {
             <Route path="rapportages/:tab" element={<ReportsPage/>}/>
 
             <Route path="overig/qr" element={<QRAdminPage/>}/>
-            <Route path="overig/organisaties" element={<OrganizationsAdminPage/>}/>
-            <Route path="overig/organisatie" element={<OrganizationAdminPage/>}/>
+            <Route path="setup/organisaties" element={<OrganizationsAdminPage/>}/>
+            <Route path="setup/organisatie" element={<OrganizationAdminPage/>}/>
 
             <Route path="instellingen" element={<SettingsPage/>}/>
             <Route path="over" element={<AboutPage/>}/>

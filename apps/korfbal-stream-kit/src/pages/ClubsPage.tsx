@@ -58,18 +58,40 @@ function DeleteClubButton({slug, clubs, onDeleted}: {
 
 const inputClass = 'w-full px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-600';
 
+const HTML_COLOR = /^#[0-9A-Fa-f]{6}$/;
+
+/** A club colour: the HTML colour code as text (empty = none) plus a colour picker for it. */
+function ClubColorField({label, value, onChange}: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="block text-sm min-w-0">
+      <div className="mb-1">{label}</div>
+      <div className="flex items-center gap-2 min-w-0">
+        <input type="text" maxLength={7} pattern="#[0-9A-Fa-f]{6}" title="Een HTML-kleurcode zoals #e30613" placeholder="#e30613"
+               className={`${inputClass} min-w-0 font-mono`} value={value} onChange={(e) => onChange(e.target.value)}/>
+        <input type="color" aria-label={`${label} kiezen`} className="h-8 w-10 shrink-0 p-0.5 border rounded dark:border-gray-600"
+               value={HTML_COLOR.test(value.trim()) ? value.trim().toLowerCase() : '#ffffff'} onChange={(e) => onChange(e.target.value)}/>
+      </div>
+    </label>
+  );
+}
+
 function EditClubForm({club, onClose}: { club: Club; onClose: () => void }) {
   const update = useUpdateClub();
   const [name, setName] = React.useState(club.name);
   const [shortName, setShortName] = React.useState(club.shortName);
   const [abbreviation, setAbbreviation] = React.useState(club.abbreviation ?? '');
+  const [primaryColor, setPrimaryColor] = React.useState(club.primaryColor ?? '');
+  const [secondaryColor, setSecondaryColor] = React.useState(club.secondaryColor ?? '');
   const [error, setError] = React.useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     try {
-      await update.mutateAsync({slug: club.slug, name, shortName, ...(abbreviation.trim() ? {abbreviation} : {})});
+      await update.mutateAsync({
+        slug: club.slug, name, shortName, ...(abbreviation.trim() ? {abbreviation} : {}),
+        primaryColor: primaryColor.trim(), secondaryColor: secondaryColor.trim(),
+      });
       onClose();
     } catch (err) {
       setError((err as Error)?.message || 'Opslaan mislukt');
@@ -93,6 +115,8 @@ function EditClubForm({club, onClose}: { club: Club; onClose: () => void }) {
           <input type="text" maxLength={5} pattern="[A-Za-z0-9]{1,5}" title="1 tot 5 letters of cijfers" className={`${inputClass} uppercase`}
                  value={abbreviation} onChange={(e) => setAbbreviation(e.target.value)}/>
         </label>
+        <ClubColorField label="Hoofdkleur" value={primaryColor} onChange={setPrimaryColor}/>
+        <ClubColorField label="Tweede kleur" value={secondaryColor} onChange={setSecondaryColor}/>
         {error && <div className="md:col-span-3 text-sm text-red-600">{error}</div>}
         <div className="md:col-span-3 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-3 py-1 border rounded">Annuleren</button>
@@ -356,26 +380,44 @@ export default function ClubsPage() {
 
               return (
                 <>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <ClubLogo logoUrl={club.logoUrl} alt={`${title} logo`} size="large" />
-                      <div className="text-lg font-medium truncate">{title}</div>
-                      {club.abbreviation && <span className="text-xs px-1.5 py-0.5 border rounded text-gray-600 dark:text-gray-300 dark:border-gray-600">{club.abbreviation}</span>}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        className="px-3 py-1 border rounded"
-                        onClick={() => setEditingClub(!editingClub)}
-                      >
-                        Wijzig club
-                      </button>
-                      <button
-                        className="px-3 py-1 border rounded bg-green-600 text-white flex items-center gap-1"
-                        onClick={openCreatePlayerForm}
-                      >
-                        <MdAdd /> Nieuwe speler
-                      </button>
-                      <DeleteClubButton slug={club.slug} onDeleted={(nextSlug) => setSlug(nextSlug)} clubs={clubs || []}/>
+                  <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-4">
+                    <ClubLogo logoUrl={club.logoUrl} alt={`${title} logo`} size="large" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
+                        <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 truncate">{title}</h2>
+                        {club.abbreviation && (
+                          <span title="Afkorting" className="shrink-0 font-mono text-sm font-semibold tracking-widest px-2 py-0.5 rounded bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                            {club.abbreviation}
+                          </span>
+                        )}
+                      </div>
+                      {club.name !== title && <div className="mt-0.5 text-sm text-gray-500 dark:text-gray-400 truncate" title={club.name}>{club.name}</div>}
+                      {(() => {
+                        const colors = [club.primaryColor, club.secondaryColor].filter((c): c is string => !!c);
+                        return colors.length > 0 && (
+                          <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            <span aria-hidden className="inline-flex h-4 w-8 shrink-0 overflow-hidden rounded border border-gray-300 dark:border-gray-600">
+                              {colors.map((color, i) => <span key={i} className="flex-1" style={{backgroundColor: color}}/>)}
+                            </span>
+                            <span className="font-mono">{colors.join(' · ')}</span>
+                          </div>
+                        );
+                      })()}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          className="px-3 py-1 border rounded"
+                          onClick={() => setEditingClub(!editingClub)}
+                        >
+                          Wijzig club
+                        </button>
+                        <button
+                          className="px-3 py-1 border rounded bg-green-600 text-white flex items-center gap-1"
+                          onClick={openCreatePlayerForm}
+                        >
+                          <MdAdd /> Nieuwe speler
+                        </button>
+                        <DeleteClubButton slug={club.slug} onDeleted={(nextSlug) => setSlug(nextSlug)} clubs={clubs || []}/>
+                      </div>
                     </div>
                   </div>
 
@@ -502,6 +544,12 @@ export default function ClubsPage() {
               <div role="alert"
                    className="mb-3 rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-3 py-2">
                 {msg}
+                {/* Only after "Importeer alle teams": which teams were skipped and why */}
+                {!!importLeague.data?.problems?.length && (
+                  <ul aria-label="Problemen bij de import" className="mt-2 list-disc pl-5 text-xs text-amber-700 dark:text-amber-300">
+                    {importLeague.data.problems.map((p, i) => <li key={i} className="break-words">{p}</li>)}
+                  </ul>
+                )}
               </div>
             )}
 

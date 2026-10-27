@@ -15,10 +15,16 @@ const FEED_API_PATHS: ReadonlyArray<string | RegExp> = [
   '/vmix/active-production/match',
   '/vmix/active-production/staff',
   '/vmix/production/active/titles',
+  /^\/vmix\/production\/active\/titles\/[^/]+$/,
   /^\/vmix\/production\/[^/]+\/titles$/,
   '/vmix/callsheet/timing',
   '/vmix/sync/activate-event',
   '/vmix/production/trigger-manual',
+  '/vmix/set-timer',
+  // Stream Deck buttons (Bitfocus Companion): the Show Caller's next/previous and remaining time
+  '/show/next',
+  '/show/previous',
+  '/show/remaining',
   /^\/scoreboard(\/.*)?$/,
 ];
 

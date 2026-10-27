@@ -7,10 +7,10 @@ Beheer is het deel van Korfbal StreamKit waarin je alles voorbereidt: het seizoe
 | Menu | Waarvoor |
 |---|---|
 | **Producties** | Per wedstrijd: draaiboek, beschikbaarheid, bezetting, vMix-titels en rapport. Ook een snelkoppeling naar de actieve productie. |
-| **Draaiboeken** | Herbruikbare draaiboek- en segment-templates, standaardbezetting per segment |
-| **Stamgegevens** | Eén keer of per seizoen: crew (personen, posities, skills), competitie (wedstrijden, clubs en spelers), sponsors en vMix |
+| **Stamgegevens** | Eén keer of per seizoen: draaiboeken (herbruikbare draaiboek- en segment-templates, standaardbezetting per segment), crew (personen, posities, skills), competitie (wedstrijden, clubs en spelers), sponsors en vMix |
 | **Rapportages** | Overzichten over producties heen |
-| **Overig** | De gekozen **Organisatie** (wedstrijdimport, API-sleutels), alle **Organisaties**, en hulpmiddelen zoals de QR-generator |
+| **Overig** | Hulpmiddelen zoals de QR-generator |
+| **Setup** | De gekozen **Organisatie** (logo, wedstrijdimport, API-sleutels) en alle **Organisaties** |
 
 Rechtsboven:
 

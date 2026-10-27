@@ -12,7 +12,7 @@ import {
   UpdateTitleDefinitionSchema
 } from '../schemas/title';
 import {
-  buildVmixApiUrl,
+  buildVmixFunctionUrl,
   getSponsorNamesTypes,
   getSponsorRowsTypes,
   getSetting,
@@ -20,10 +20,12 @@ import {
   SPONSOR_CAROUSEL_EXTRA_KEY,
 } from '../services/appSettings';
 import {resolveVmixInstance} from '../services/vmixInstances';
+import {fetchVmixInputs} from '../services/vmixInputs';
+import {VMIX_FUNCTIONS} from '../schemas/vmixInstances';
 import {shuffle} from "../utils/array-utils";
 import os from 'node:os';
 import {loadCallsheetTiming, parsePositions} from '../services/callsheetTiming';
-import {getCallsheetPushConfig, pushCallsheetToVmix} from '../services/vmixCallsheetPush';
+import {checkCallsheetTarget, getCallsheetPushConfig, pushCallsheetToVmix, withStateColors} from '../services/vmixCallsheetPush';
 import {buildVmixMatchInfo, loadActiveMatchInput} from '../services/vmixMatchInfo';
 import {NotFoundError} from '../middleware/error';
 
@@ -93,7 +95,7 @@ vmixRouter.get('/callsheet/timing', async (req, res, next) => {
     const config = await getCallsheetPushConfig();
     const positions = req.query.position !== undefined ? parsePositions(req.query.position) : config.positions;
     const timing = await loadCallsheetTiming(positions, config.warningSeconds);
-    return res.json([timing]);
+    return res.json([withStateColors(timing, config)]);
   } catch (err) {
     return next(err);
   }
@@ -101,10 +103,36 @@ vmixRouter.get('/callsheet/timing', async (req, res, next) => {
 
 // POST /api/vmix/callsheet/push
 // Sends all configured fields to vMix right away (also when automatic push is off)
+// `warnings`: what vMix accepted but will ignore (unknown input or text field), since it answers 200 to those
 vmixRouter.post('/callsheet/push', async (_req, res, next) => {
   try {
     const result = await pushCallsheetToVmix(true);
-    return res.status(result.errors.length > 0 && result.sent === 0 ? 502 : 200).json(result);
+    const warnings = result.errors.length > 0 && result.sent === 0 ? [] : await checkCallsheetTarget();
+    return res.status(result.errors.length > 0 && result.sent === 0 ? 502 : 200).json({...result, warnings});
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// GET /api/vmix/inputs?function=callsheet|countdown (&instanceId=)
+// The inputs of that vMix (number, key, type, title and text fields), to choose a title and its fields from
+const VmixInputsQuerySchema = z.object({
+  function: z.enum(VMIX_FUNCTIONS).default('callsheet'),
+  instanceId: z.string().max(40).optional(),
+});
+
+vmixRouter.get('/inputs', async (req, res, next) => {
+  try {
+    const parsed = VmixInputsQuerySchema.safeParse(req.query);
+    if (!parsed.success) return res.status(400).json({ error: 'Ongeldige vMix-functie' });
+    const target = await resolveVmixInstance(parsed.data.function, parsed.data.instanceId);
+    if ('error' in target) return res.status(400).json({ error: target.error });
+    try {
+      return res.json({ instance: target.instance.name, inputs: await fetchVmixInputs(target.instance.url) });
+    } catch (err) {
+      logger.warn('GET /vmix/inputs: vMix failed', { message: (err as Error).message });
+      return res.status(502).json({ error: 'vMix niet bereikbaar' });
+    }
   } catch (err) {
     return next(err);
   }
@@ -131,12 +159,16 @@ vmixRouter.post('/set-timer', async (req, res, next) => {
     }
     const base = target.instance.url;
     // vMix Web Controller API: SetCountdown expects Value=mm:ss
-    const url = buildVmixApiUrl(base, `Function=SetCountdown&Value=${encodeURIComponent(value)}`);
+    const url = buildVmixFunctionUrl(base, {Function: 'SetCountdown', Value: value});
     const response = await axios.get(url, {signal: AbortSignal.timeout(2000)});
 
     return res.json({ ok: true, seconds: secs, instance: target.instance.name, vmixResponse: typeof response.data === 'string' ? response.data : undefined });
   } catch (err) {
-    if (axios.isAxiosError(err)) { return res.status(err.response?.status ?? 500).json({ message: err.message, url: err.config?.url});}
+    // Also reachable with a feed key (Stream Deck): no vMix address or upstream status in the answer, only in the log
+    if (axios.isAxiosError(err)) {
+      logger.warn('POST /vmix/set-timer: vMix failed', { status: err.response?.status, message: err.message });
+      return res.status(502).json({ error: 'vMix niet bereikbaar' });
+    }
     return next(err);
   }
 });
@@ -764,7 +796,7 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
       {
         name: 'Wedstrijdinformatie (actieve productie)',
         url: `${baseUrl}/active-production/match`,
-        description: 'Teams, korte namen en afkortingen (homeAbbreviation/awayAbbreviation), clublogo\'s, datum, aanvangs-, verzamel- en livetijd, zaal, veld, scheidsrechters, score, wedstrijd- en balsponsor (met logo).'
+        description: 'Teams, korte namen en afkortingen (homeAbbreviation/awayAbbreviation), clublogo\'s, clubkleuren (homePrimaryColor, homeSecondaryColor, awayPrimaryColor, awaySecondaryColor als #rrggbb), datum, aanvangs-, verzamel- en livetijd, zaal, veld, scheidsrechters, score, wedstrijd- en balsponsor (met logo).'
       },
       {
         name: 'Active Production Staff',
@@ -775,6 +807,11 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
         name: 'Active Production Titles',
         url: `${baseUrl}/production/active/titles`,
         description: 'Returns titles for the active production.'
+      },
+      {
+        name: 'Titel per rol (actieve productie)',
+        url: `${baseUrl}/production/active/titles/coach-uit`,
+        description: `Eén titel van de actieve productie; vervang coach-uit door een van: ${[...TITLE_ROLES.keys()].join(', ')}. Een lege regel als er niemand gekozen is.`
       },
       {
         name: 'Sponsor Slides',
@@ -819,230 +856,281 @@ vmixRouter.get('/production/active/titles', async (req, res, next) => {
   }
 });
 
-async function productionTitles(id: number, res: Response, next: NextFunction) {
+type TitleRole = { sourceType: string; teamSide: 'HOME' | 'AWAY' | 'NONE' };
+
+/** The fixed roles a vMix title can ask for one by one (GET /production/active/titles/:role). */
+const TITLE_ROLES = new Map<string, TitleRole>([
+  ['presentatie', { sourceType: 'PRESENTATION', teamSide: 'NONE' }],
+  ['presentatie-analist', { sourceType: 'PRESENTATION_AND_ANALIST', teamSide: 'NONE' }],
+  ['commentaar', { sourceType: 'COMMENTARY', teamSide: 'NONE' }],
+  ['coach-thuis', { sourceType: 'TEAM_COACH', teamSide: 'HOME' }],
+  ['coach-uit', { sourceType: 'TEAM_COACH', teamSide: 'AWAY' }],
+  ['speler-thuis', { sourceType: 'TEAM_PLAYER', teamSide: 'HOME' }],
+  ['speler-uit', { sourceType: 'TEAM_PLAYER', teamSide: 'AWAY' }],
+]);
+
+const EMPTY_TITLE = [{ functionName: '', name: '' }];
+
+// GET /api/vmix/production/active/titles/:role
+// One row with the title of one role of the active production (e.g. coach-uit, presentatie).
+// An empty row when there is no active production, the role is unknown or nobody is chosen, so the title clears.
+vmixRouter.get('/production/active/titles/:role', async (req, res, next) => {
   try {
-
-    const production = await prisma.production.findUnique({
-      where: { id },
-      include: { matchSchedule: true },
-    });
-    if (!production) return res.status(404).json({ error: 'Not found' });
-    const matchSeasonId = production.matchSchedule.seasonId;
-
-    // Load definitions for the production
-    const definitions = await (prisma as any).titleDefinition.findMany({
-      where: { productionId: id, enabled: true },
-      orderBy: { order: 'asc' },
-      include: { parts: { orderBy: { id: 'asc' } } },
-    }).catch(() => []);
-
-    // Helper: load crew by capability codes (uses new production crew endpoint logic)
-    async function loadCrew() {
-      // Fetch production-wide person-position assignments with entertainment skills
-      const productionPositions = await prisma.productionPersonPosition.findMany({
-        where: {
-          productionId: id,
-          position: {
-            skill: {
-              type: 'entertainment',
-            },
-          },
-        },
-        include: {
-          person: true,
-          position: {
-            include: {
-              skill: true,
-            },
-          },
-        },
-      });
-
-      // Build crew by skill code
-      const commentary: string[] = [];
-      const presenter: string[] = [];
-      const analyst: string[] = [];
-
-      for (const pp of productionPositions) {
-        const code = pp.position.skill?.code;
-        if (code === 'COMMENTAAR') {
-          commentary.push(pp.person.name);
-        } else if (code === 'PRESENTATIE') {
-          presenter.push(pp.person.name);
-        } else if (code === 'ANALIST') {
-          analyst.push(pp.person.name);
-        }
-      }
-
-      return { commentary, presenter, analyst };
+    const role = TITLE_ROLES.get(req.params.role.toLowerCase());
+    if (!role) {
+      logger.warn('vMix title: unknown role', { role: req.params.role.slice(0, 40) });
+      return res.json(EMPTY_TITLE);
     }
-
-    // Helper: players/coaches for a club
-    // Players are per season: use the season of the production's match, not the active season
-    async function loadClubPeople(clubId: number | null) {
-      if (!clubId) return { players: [] as any[], coaches: [] as any[] };
-      const all = await prisma.player.findMany({ where: { clubId, seasonId: matchSeasonId }, orderBy: [{ function: 'asc' as any }, { name: 'asc' }] });
-      const players = all.filter((p) => p.function === 'Speler' || p.function === 'Speelster');
-      const coaches = all.filter((p) => (p.function || '').toLowerCase().includes('coach'));
-      return { players, coaches };
-    }
-
-    const crew = await loadCrew();
-    const ms = production.matchSchedule;
-    const homeClub = await findClubByTeamName(prisma as any, ms.homeTeamName, logger);
-    const awayClub = await findClubByTeamName(prisma as any, ms.awayTeamName, logger);
-    logger.info('🎬 vMix resolver – clubs resolved', {
-      productionId: production.id,
-      match: { homeTeamName: ms.homeTeamName, awayTeamName: ms.awayTeamName },
-      homeClub: homeClub ? { id: homeClub.id, name: homeClub.name, shortName: homeClub.shortName } : null,
-      awayClub: awayClub ? { id: awayClub.id, name: awayClub.name, shortName: awayClub.shortName } : null,
-    });
-    const homePeople = await loadClubPeople(homeClub?.id || null);
-    const awayPeople = await loadClubPeople(awayClub?.id || null);
-
-    function buildDefaultDefinitions() {
-      return [
-        { key: 'presentation_analyst', parts: ['PRESENTATION_AND_ANALIST'] },
-        { key: 'commentary', parts: ['COMMENTARY'] },
-        { key: 'away_coaches', parts: [{ type: 'TEAM_COACH', side: 'AWAY', limit: null }] },
-        { key: 'away_players', parts: [{ type: 'TEAM_PLAYER', side: 'AWAY', limit: null }] },
-        { key: 'home_players', parts: [{ type: 'TEAM_PLAYER', side: 'HOME', limit: null }] },
-        { key: 'home_coaches', parts: [{ type: 'TEAM_COACH', side: 'HOME', limit: null }] },
-
-      ];
-    }
-
-    const result: VmixTitleItem[] = [];
-
-    // Load interview subject overrides for this production (if any)
-    const interviewSubjects: Array<{ id: number; side: 'HOME'|'AWAY'|'NONE'; role: 'PLAYER'|'COACH'; playerId: number; titleDefinitionId: number | null }> = await (prisma as any).interviewSubject.findMany({
-      where: { productionId: production.id },
-      select: { id: true, side: true, role: true, playerId: true, titleDefinitionId: true },
-    }).catch(() => []);
-    if (interviewSubjects && interviewSubjects.length > 0) {
-      const summary = interviewSubjects.reduce((acc: any, s) => {
-        const key = `${s.side}-${s.role}-${s.titleDefinitionId ?? 'generic'}`;
-        acc[key] = (acc[key] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-      logger.info('🎬 vMix resolver – interview overrides loaded', { productionId: production.id, selections: summary });
-    }
-
-    function findInterviewSelection(side: 'HOME'|'AWAY'|'NONE', role: 'PLAYER'|'COACH', defId?: number | null) {
-      if (!interviewSubjects || interviewSubjects.length === 0) return null;
-      // Prefer title-specific override if available
-      if (defId) {
-        const t = interviewSubjects.find((s) => s.side === side && s.role === role && s.titleDefinitionId === defId);
-        if (t) return t;
-      }
-      // Fallback to generic (no title association)
-      return interviewSubjects.find((s) => s.side === side && s.role === role && (s.titleDefinitionId === null || typeof s.titleDefinitionId === 'undefined')) || null;
-    }
-
-    async function emitFromPart(part: any, defId?: number | null) {
-      const type = part.sourceType;
-      const side = part.teamSide || 'NONE';
-
-      if (type === 'COMMENTARY') {
-        if (crew.commentary.length > 0) {
-          result.push({ functionName: 'Commentaar', name: crew.commentary.join(' & ') });
-        } else {
-          result.push({ functionName: 'Commentaar', name: null }); // Ensure placeholder
-        }
-      } else if (type === 'PRESENTATION_AND_ANALIST') {
-        const names = [...crew.presenter, ...crew.analyst].filter(Boolean);
-        if (names.length > 0) {
-          result.push({ functionName: 'Presentatie & analist', name: names.join(' & ') });
-        } else {
-          result.push({ functionName: 'Presentatie & analist', name: null }); // Ensure placeholder
-        }
-      }  else if (type === 'PRESENTATION') {
-        const names = [...crew.presenter].filter(Boolean);
-        if (names.length > 0) {
-          result.push({ functionName: 'Presentatie', name: names.join(' & ') });
-        } else {
-          result.push({ functionName: 'Presentatie', name: null }); // Ensure placeholder
-        }
-      } else if (type === 'TEAM_PLAYER' || type === 'TEAM_COACH') {
-        const role = type === 'TEAM_PLAYER' ? 'PLAYER' : 'COACH';
-        const sel = findInterviewSelection(side as any, role as any, defId);
-        if (sel) {
-          const isPlayers = type === 'TEAM_PLAYER';
-          const people = side === 'HOME' ? (isPlayers ? homePeople.players : homePeople.coaches) : side === 'AWAY' ? (isPlayers ? awayPeople.players : awayPeople.coaches) : [];
-          let p = people.find((x: any) => x.id === sel.playerId);
-          if (!p) {
-            p = await prisma.player.findUnique({ where: { id: sel.playerId } }).catch(() => null) as any;
-            if (!p) {
-              // If player not found, still push a placeholder
-              const clubName = side === 'HOME' ? ((homeClub?.shortName || homeClub?.name) ?? '') : side === 'AWAY' ? ((awayClub?.shortName || awayClub?.name) ?? '') : '';
-              const fn = isPlayers ? `Speler${clubName ? ` ${clubName}` : ''}` : `Coach${clubName ? ` ${clubName}` : ''}`;
-              result.push({ functionName: fn, name: null });
-              return;
-            }
-          }
-          const clubName = side === 'HOME'
-            ? ((homeClub?.name || homeClub?.shortName) ?? '')
-            : side === 'AWAY'
-            ? ((awayClub?.name || awayClub?.shortName) ?? '')
-            : '';
-          logger.info('Club player selected for interview: ', { playerId: sel.playerId, clubName, isPlayers, side, name: p.name });
-          const fn = (p.function || '').trim().replace('Hoofd coach','Coach');
-          const suffix = clubName ? ` ${clubName}` : '';
-          const functionName = fn ? `${fn}${suffix}`.trim() : (isPlayers ? `Speler${suffix}`.trim() : `Coach${suffix}`.trim());
-          result.push({ functionName, name: p.name });
-        } else {
-          const isPlayers = type === 'TEAM_PLAYER';
-          const clubName = side === 'HOME'
-            ? ((homeClub?.shortName || homeClub?.name) ?? '')
-            : side === 'AWAY'
-            ? ((awayClub?.shortName || awayClub?.name) ?? '')
-            : '';
-          const fn = isPlayers ? `Speler${clubName ? ` ${clubName}` : ''}` : `Coach${clubName ? ` ${clubName}` : ''}`;
-          result.push({ functionName: fn, name: null });
-        }
-      } else if (type === 'FREE_TEXT') {
-        const fn = (part.customFunction || '').trim();
-        const nm = (part.customName || '').trim();
-        if (fn && nm) {
-          result.push({ functionName: fn, name: nm });
-        } else {
-          result.push({ functionName: fn || 'Vrije tekst', name: nm || null }); // Ensure placeholder
-        }
-      }
-    }
-
-    // If the production has no definitions, try global templates (productionId=null)
-    let effectiveDefinitions: any[] = Array.isArray(definitions) ? definitions : [];
-    if (!effectiveDefinitions || effectiveDefinitions.length === 0) {
-      const templates = await (prisma as any).titleDefinition.findMany({
-        where: { productionId: null, enabled: true },
-        orderBy: { order: 'asc' },
-        include: { parts: { orderBy: { id: 'asc' } } },
-      }).catch(() => []);
-      effectiveDefinitions = templates;
-    }
-
-    logger.info('🎬 vMix resolver – Effective Definitions:', effectiveDefinitions.map((def: any) => ({ id: def.id, name: def.name, order: def.order, parts: def.parts.map((p: any) => ({ sourceType: p.sourceType, teamSide: p.teamSide, customFunction: p.customFunction, customName: p.customName })) })));
-
-    if (Array.isArray(effectiveDefinitions) && effectiveDefinitions.length > 0) {
-      for (const def of effectiveDefinitions) {
-        for (const part of (def.parts || [])) {
-          await emitFromPart(part, def.id);
-        }
-      }
-    } else {
-      // Fallback to default configuration
-      const defs = buildDefaultDefinitions();
-      for (const def of defs) {
-        for (const part of def.parts as any[]) await emitFromPart(part);
-      }
-    }
-
-    logger.info('🎬 vMix resolver – Final Result:', result);
-    return res.json(result);
+    const active = await prisma.production.findFirst({ where: { isActive: true }, orderBy: { createdAt: 'desc' } });
+    if (!active) return res.json(EMPTY_TITLE);
+    const item = (await resolveProductionTitles(active.id, role))?.[0];
+    return res.json(item?.name ? [{ functionName: item.functionName, name: item.name }] : EMPTY_TITLE);
   } catch (err) {
     return next(err);
   }
+});
+
+async function productionTitles(id: number, res: Response, next: NextFunction) {
+  try {
+    const titles = await resolveProductionTitles(id);
+    if (!titles) return res.status(404).json({ error: 'Not found' });
+    return res.json(titles);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * The titles of a production (null when it doesn't exist). With `only`, just the title of that role:
+ * from the first title definition with a part for it (so its title-specific interview choice counts),
+ * otherwise as if a title had it.
+ */
+async function resolveProductionTitles(id: number, only?: TitleRole): Promise<VmixTitleItem[] | null> {
+  const production = await prisma.production.findUnique({
+    where: { id },
+    include: { matchSchedule: true },
+  });
+  if (!production) return null;
+  const matchSeasonId = production.matchSchedule.seasonId;
+
+  // Load definitions for the production
+  const definitions = await (prisma as any).titleDefinition.findMany({
+    where: { productionId: id, enabled: true },
+    orderBy: { order: 'asc' },
+    include: { parts: { orderBy: { id: 'asc' } } },
+  }).catch(() => []);
+
+  // Helper: load crew by capability codes (uses new production crew endpoint logic)
+  async function loadCrew() {
+    // Fetch production-wide person-position assignments with entertainment skills
+    const productionPositions = await prisma.productionPersonPosition.findMany({
+      where: {
+        productionId: id,
+        position: {
+          skill: {
+            type: 'entertainment',
+          },
+        },
+      },
+      include: {
+        person: true,
+        position: {
+          include: {
+            skill: true,
+          },
+        },
+      },
+    });
+
+    // Build crew by skill code
+    const commentary: string[] = [];
+    const presenter: string[] = [];
+    const analyst: string[] = [];
+
+    for (const pp of productionPositions) {
+      const code = pp.position.skill?.code;
+      if (code === 'COMMENTAAR') {
+        commentary.push(pp.person.name);
+      } else if (code === 'PRESENTATIE') {
+        presenter.push(pp.person.name);
+      } else if (code === 'ANALIST') {
+        analyst.push(pp.person.name);
+      }
+    }
+
+    return { commentary, presenter, analyst };
+  }
+
+  // Helper: players/coaches for a club
+  // Players are per season: use the season of the production's match, not the active season
+  async function loadClubPeople(clubId: number | null) {
+    if (!clubId) return { players: [] as any[], coaches: [] as any[] };
+    const all = await prisma.player.findMany({ where: { clubId, seasonId: matchSeasonId }, orderBy: [{ function: 'asc' as any }, { name: 'asc' }] });
+    const players = all.filter((p) => p.function === 'Speler' || p.function === 'Speelster');
+    const coaches = all.filter((p) => (p.function || '').toLowerCase().includes('coach'));
+    return { players, coaches };
+  }
+
+  const crew = await loadCrew();
+  const ms = production.matchSchedule;
+  const homeClub = await findClubByTeamName(prisma as any, ms.homeTeamName, logger);
+  const awayClub = await findClubByTeamName(prisma as any, ms.awayTeamName, logger);
+  logger.info('🎬 vMix resolver – clubs resolved', {
+    productionId: production.id,
+    match: { homeTeamName: ms.homeTeamName, awayTeamName: ms.awayTeamName },
+    homeClub: homeClub ? { id: homeClub.id, name: homeClub.name, shortName: homeClub.shortName } : null,
+    awayClub: awayClub ? { id: awayClub.id, name: awayClub.name, shortName: awayClub.shortName } : null,
+  });
+  const homePeople = await loadClubPeople(homeClub?.id || null);
+  const awayPeople = await loadClubPeople(awayClub?.id || null);
+
+  function buildDefaultDefinitions() {
+    return [
+      { key: 'presentation_analyst', parts: ['PRESENTATION_AND_ANALIST'] },
+      { key: 'commentary', parts: ['COMMENTARY'] },
+      { key: 'away_coaches', parts: [{ type: 'TEAM_COACH', side: 'AWAY', limit: null }] },
+      { key: 'away_players', parts: [{ type: 'TEAM_PLAYER', side: 'AWAY', limit: null }] },
+      { key: 'home_players', parts: [{ type: 'TEAM_PLAYER', side: 'HOME', limit: null }] },
+      { key: 'home_coaches', parts: [{ type: 'TEAM_COACH', side: 'HOME', limit: null }] },
+
+    ];
+  }
+
+  const result: VmixTitleItem[] = [];
+
+  // Load interview subject overrides for this production (if any)
+  const interviewSubjects: Array<{ id: number; side: 'HOME'|'AWAY'|'NONE'; role: 'PLAYER'|'COACH'; playerId: number; titleDefinitionId: number | null }> = await (prisma as any).interviewSubject.findMany({
+    where: { productionId: production.id },
+    select: { id: true, side: true, role: true, playerId: true, titleDefinitionId: true },
+  }).catch(() => []);
+  if (interviewSubjects && interviewSubjects.length > 0) {
+    const summary = interviewSubjects.reduce((acc: any, s) => {
+      const key = `${s.side}-${s.role}-${s.titleDefinitionId ?? 'generic'}`;
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    logger.info('🎬 vMix resolver – interview overrides loaded', { productionId: production.id, selections: summary });
+  }
+
+  function findInterviewSelection(side: 'HOME'|'AWAY'|'NONE', role: 'PLAYER'|'COACH', defId?: number | null) {
+    if (!interviewSubjects || interviewSubjects.length === 0) return null;
+    // Prefer title-specific override if available
+    if (defId) {
+      const t = interviewSubjects.find((s) => s.side === side && s.role === role && s.titleDefinitionId === defId);
+      if (t) return t;
+    }
+    // Fallback to generic (no title association)
+    return interviewSubjects.find((s) => s.side === side && s.role === role && (s.titleDefinitionId === null || typeof s.titleDefinitionId === 'undefined')) || null;
+  }
+
+  async function emitFromPart(part: any, defId?: number | null) {
+    const type = part.sourceType;
+    const side = part.teamSide || 'NONE';
+
+    if (type === 'COMMENTARY') {
+      if (crew.commentary.length > 0) {
+        result.push({ functionName: 'Commentaar', name: crew.commentary.join(' & ') });
+      } else {
+        result.push({ functionName: 'Commentaar', name: null }); // Ensure placeholder
+      }
+    } else if (type === 'PRESENTATION_AND_ANALIST') {
+      const names = [...crew.presenter, ...crew.analyst].filter(Boolean);
+      if (names.length > 0) {
+        result.push({ functionName: 'Presentatie & analist', name: names.join(' & ') });
+      } else {
+        result.push({ functionName: 'Presentatie & analist', name: null }); // Ensure placeholder
+      }
+    }  else if (type === 'PRESENTATION') {
+      const names = [...crew.presenter].filter(Boolean);
+      if (names.length > 0) {
+        result.push({ functionName: 'Presentatie', name: names.join(' & ') });
+      } else {
+        result.push({ functionName: 'Presentatie', name: null }); // Ensure placeholder
+      }
+    } else if (type === 'TEAM_PLAYER' || type === 'TEAM_COACH') {
+      const role = type === 'TEAM_PLAYER' ? 'PLAYER' : 'COACH';
+      const sel = findInterviewSelection(side as any, role as any, defId);
+      if (sel) {
+        const isPlayers = type === 'TEAM_PLAYER';
+        const people = side === 'HOME' ? (isPlayers ? homePeople.players : homePeople.coaches) : side === 'AWAY' ? (isPlayers ? awayPeople.players : awayPeople.coaches) : [];
+        let p = people.find((x: any) => x.id === sel.playerId);
+        if (!p) {
+          p = await prisma.player.findUnique({ where: { id: sel.playerId } }).catch(() => null) as any;
+          if (!p) {
+            // If player not found, still push a placeholder
+            const clubName = side === 'HOME' ? ((homeClub?.shortName || homeClub?.name) ?? '') : side === 'AWAY' ? ((awayClub?.shortName || awayClub?.name) ?? '') : '';
+            const fn = isPlayers ? `Speler${clubName ? ` ${clubName}` : ''}` : `Coach${clubName ? ` ${clubName}` : ''}`;
+            result.push({ functionName: fn, name: null });
+            return;
+          }
+        }
+        const clubName = side === 'HOME'
+          ? ((homeClub?.name || homeClub?.shortName) ?? '')
+          : side === 'AWAY'
+          ? ((awayClub?.name || awayClub?.shortName) ?? '')
+          : '';
+        logger.info('Club player selected for interview: ', { playerId: sel.playerId, clubName, isPlayers, side, name: p.name });
+        const fn = (p.function || '').trim().replace('Hoofd coach','Coach');
+        const suffix = clubName ? ` ${clubName}` : '';
+        const functionName = fn ? `${fn}${suffix}`.trim() : (isPlayers ? `Speler${suffix}`.trim() : `Coach${suffix}`.trim());
+        result.push({ functionName, name: p.name });
+      } else {
+        const isPlayers = type === 'TEAM_PLAYER';
+        const clubName = side === 'HOME'
+          ? ((homeClub?.shortName || homeClub?.name) ?? '')
+          : side === 'AWAY'
+          ? ((awayClub?.shortName || awayClub?.name) ?? '')
+          : '';
+        const fn = isPlayers ? `Speler${clubName ? ` ${clubName}` : ''}` : `Coach${clubName ? ` ${clubName}` : ''}`;
+        result.push({ functionName: fn, name: null });
+      }
+    } else if (type === 'FREE_TEXT') {
+      const fn = (part.customFunction || '').trim();
+      const nm = (part.customName || '').trim();
+      if (fn && nm) {
+        result.push({ functionName: fn, name: nm });
+      } else {
+        result.push({ functionName: fn || 'Vrije tekst', name: nm || null }); // Ensure placeholder
+      }
+    }
+  }
+
+  // If the production has no definitions, try global templates (productionId=null)
+  let effectiveDefinitions: any[] = Array.isArray(definitions) ? definitions : [];
+  if (!effectiveDefinitions || effectiveDefinitions.length === 0) {
+    const templates = await (prisma as any).titleDefinition.findMany({
+      where: { productionId: null, enabled: true },
+      orderBy: { order: 'asc' },
+      include: { parts: { orderBy: { id: 'asc' } } },
+    }).catch(() => []);
+    effectiveDefinitions = templates;
+  }
+
+  logger.info('🎬 vMix resolver – Effective Definitions:', effectiveDefinitions.map((def: any) => ({ id: def.id, name: def.name, order: def.order, parts: def.parts.map((p: any) => ({ sourceType: p.sourceType, teamSide: p.teamSide, customFunction: p.customFunction, customName: p.customName })) })));
+
+  if (only) {
+    const isRole = (part: any) => part.sourceType === only.sourceType && (part.teamSide || 'NONE') === only.teamSide;
+    const def = effectiveDefinitions.find((d: any) => (d.parts || []).some(isRole));
+    await emitFromPart(def ? def.parts.find(isRole) : only, def?.id);
+    return result;
+  }
+
+  if (Array.isArray(effectiveDefinitions) && effectiveDefinitions.length > 0) {
+    for (const def of effectiveDefinitions) {
+      for (const part of (def.parts || [])) {
+        await emitFromPart(part, def.id);
+      }
+    }
+  } else {
+    // Fallback to default configuration
+    const defs = buildDefaultDefinitions();
+    for (const def of defs) {
+      for (const part of def.parts as any[]) await emitFromPart(part);
+    }
+  }
+
+  logger.info('🎬 vMix resolver – Final Result:', result);
+  return result;
 }
 
 vmixRouter.get('/production/:id/titles', (req, res, next) => {

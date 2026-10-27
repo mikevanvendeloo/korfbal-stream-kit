@@ -13,7 +13,7 @@ import {migrateLogoStorage} from '../services/logoStorage';
 import {titlePartsForCreate} from '../services/backupFields';
 import {organizationImagePaths, streamImagesZip} from '../services/backupImages';
 import {contentDisposition} from '../utils/attachment';
-import {clubAbbreviation} from '../utils/clubs';
+import {clubAbbreviation, clubColor} from '../utils/clubs';
 import {amsterdamDay} from '../utils/time';
 import {z} from 'zod';
 import {Prisma} from '@prisma/client';
@@ -420,6 +420,8 @@ backupRouter.get('/clubs/export', async (_req, res, next) => {
       name: c.name,
       shortName: c.shortName,
       abbreviation: c.abbreviation,
+      primaryColor: c.primaryColor,
+      secondaryColor: c.secondaryColor,
       slug: c.slug,
       logoUrl: c.logoUrl,
       players: c.players.map(p => ({
@@ -1142,6 +1144,9 @@ backupRouter.post('/clubs/import', async (req, res, next) => {
           ...(typeof item.abbreviation === 'string' || item.abbreviation === null
             ? { abbreviation: item.abbreviation }
             : {}),
+          // Older backups have no colours: an existing club keeps its own
+          ...(item.primaryColor === undefined ? {} : { primaryColor: clubColor(item.primaryColor) }),
+          ...(item.secondaryColor === undefined ? {} : { secondaryColor: clubColor(item.secondaryColor) }),
           slug: item.slug,
           logoUrl: item.logoUrl
         };

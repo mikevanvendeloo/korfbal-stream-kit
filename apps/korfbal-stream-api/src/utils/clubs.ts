@@ -82,3 +82,35 @@ export async function findClubByTeamName(prisma: PrismaClient | any, teamName: s
 }
 
 export default { normalizeTeamNameForClubMatch, clubShortName, clubAbbreviation, findClubByTeamName };
+
+/** A club colour as stored: an HTML colour code (#rrggbb) in lowercase, or null for anything else. */
+export function clubColor(value: unknown): string | null {
+  const s = typeof value === 'string' ? value.trim() : '';
+  return /^#[0-9a-f]{6}$/i.test(s) ? s.toLowerCase() : null;
+}
+
+/**
+ * What two club names must share to be the same club on import: the short name (before the `/`), without
+ * accents, case, spaces or punctuation ("LDODK/Rinsma Modeplein" and "ldodk" -> "ldodk",
+ * "Fortuna/Ruitenheer" and "Fortuna" -> "fortuna"). Empty when nothing is left.
+ */
+export function clubMatchKey(raw: string | null | undefined): string {
+  return clubShortName(raw).normalize('NFKD').replace(/\p{Diacritic}+/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+type ImportClub = { id: number; name: string; shortName: string; slug: string };
+
+/**
+ * The existing club an imported team belongs to: the one with the lookup slug, else one whose short name or
+ * name has the same match key as the source's short name or club name (the sponsor part after the `/`
+ * changes per season). Several candidates: the oldest. Undefined: a new club.
+ */
+export function findImportClub<T extends ImportClub>(clubs: T[], lookupSlug: string, sourceNames: Array<string | null | undefined>): T | undefined {
+  const bySlug = clubs.find((c) => c.slug === lookupSlug);
+  if (bySlug) return bySlug;
+  const keys = new Set(sourceNames.map(clubMatchKey).filter(Boolean));
+  if (keys.size === 0) return undefined;
+  return [...clubs]
+    .sort((a, b) => a.id - b.id)
+    .find((c) => keys.has(clubMatchKey(c.shortName)) || keys.has(clubMatchKey(c.name)));
+}

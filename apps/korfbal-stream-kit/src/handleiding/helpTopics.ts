@@ -23,7 +23,7 @@ const RULES: Array<[RegExp, HelpTopic]> = [
   [/^\/admin\/producties\/\d+\/rapport/, {part: 'beheer', chapter: 'rapportages', section: 'productierapport'}],
   [/^\/admin\/producties\/\d+/, {part: 'beheer', chapter: 'draaiboek'}],
   [/^\/admin\/producties/, {part: 'beheer', chapter: 'producties'}],
-  [/^\/admin\/draaiboeken/, {part: 'beheer', chapter: 'draaiboek-templates'}],
+  [/^\/admin\/stamgegevens\/(draaiboek-templates|segment-templates|standaardbezetting)/, {part: 'beheer', chapter: 'draaiboek-templates'}],
   [/^\/admin\/stamgegevens\/(vmix-|vmix$)/, {part: 'beheer', chapter: 'vmix'}],
   [/^\/admin\/stamgegevens\/(sponsors|sponsor-slides)/, {part: 'beheer', chapter: 'stamgegevens', section: 'sponsors'}],
   [/^\/admin\/stamgegevens\/(wedstrijdprogramma|handmatige-wedstrijden|clubs)/, {part: 'beheer', chapter: 'stamgegevens', section: 'competitie'}],
@@ -31,8 +31,8 @@ const RULES: Array<[RegExp, HelpTopic]> = [
   [/^\/admin\/rapportages/, {part: 'beheer', chapter: 'rapportages'}],
   [/^\/admin\/instellingen/, {part: 'beheer', chapter: 'instellingen'}],
   [/^\/admin\/overig\/qr/, {part: 'beheer', chapter: 'aan-de-slag', section: 'qr-generator'}],
-  [/^\/admin\/overig\/organisaties/, {part: 'beheer', chapter: 'organisaties', section: 'organisaties-beheren'}],
-  [/^\/admin\/overig\/organisatie/, {part: 'beheer', chapter: 'organisaties', section: 'organisatie'}],
+  [/^\/admin\/setup\/organisaties/, {part: 'beheer', chapter: 'organisaties', section: 'organisaties-beheren'}],
+  [/^\/admin\/setup\/organisatie/, {part: 'beheer', chapter: 'organisaties', section: 'organisatie'}],
   [/^\/admin/, {part: 'beheer', chapter: 'aan-de-slag'}],
 ];
 

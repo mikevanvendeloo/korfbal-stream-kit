@@ -108,14 +108,14 @@ describe('App', () => {
   it('groups the Beheer menu by when you need it', async () => {
     renderApp('/admin');
     await screen.findByText('Korfbal Streamz Kit', {}, LAZY);
-    for (const menu of ['Producties', 'Draaiboeken', 'Stamgegevens', 'Rapportages', 'Overig']) {
+    for (const menu of ['Producties', 'Stamgegevens', 'Rapportages', 'Overig', 'Setup']) {
       expect(screen.getByText(menu, {selector: 'summary'})).toBeInTheDocument();
     }
     expect(screen.getByRole('link', {name: 'Personen'})).toHaveAttribute('href', '/admin/stamgegevens/personen');
-    expect(screen.getByRole('link', {name: 'Standaardbezetting per segment'})).toHaveAttribute('href', '/admin/draaiboeken/standaardbezetting');
+    expect(screen.getByRole('link', {name: 'Standaardbezetting per segment'})).toHaveAttribute('href', '/admin/stamgegevens/standaardbezetting');
     expect(screen.getByRole('link', {name: 'QR-generator'})).toHaveAttribute('href', '/admin/overig/qr');
-    expect(screen.getByRole('link', {name: 'Organisaties'})).toHaveAttribute('href', '/admin/overig/organisaties');
-    expect(screen.getByRole('link', {name: 'Organisatie'})).toHaveAttribute('href', '/admin/overig/organisatie');
+    expect(screen.getByRole('link', {name: 'Organisaties'})).toHaveAttribute('href', '/admin/setup/organisaties');
+    expect(screen.getByRole('link', {name: 'Organisatie'})).toHaveAttribute('href', '/admin/setup/organisatie');
     expect(screen.getByRole('link', {name: 'Instellingen'})).toHaveAttribute('href', '/admin/instellingen');
     expect(screen.queryByRole('link', {name: /vMix control/})).not.toBeInTheDocument();
   });

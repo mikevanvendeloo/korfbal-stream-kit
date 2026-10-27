@@ -307,9 +307,11 @@ sponsorsRouter.post('/upload-excel', uploadMem, async (req, res, next) => {
       const logo = String(obj['logo'] || obj['logourl'] || obj['logofilename'] || '').trim();
       const categories = String(obj['sponsorcategorieen'] || obj['categories'] || '').trim();
       const displayName = String(obj['displayname'] || obj['weergavenaam'] || '').trim();
-      const enabledRaw = String(obj['enabled'] || obj['actief'] || '').trim().toLowerCase();
+      // A FALSE/0 cell counts too; an empty cell or no column leaves an existing sponsor as it is
+      const enabledCell = [obj['enabled'], obj['actief']].find((v) => v !== undefined && v !== null && String(v).trim() !== '');
+      const enabledRaw = enabledCell === undefined ? '' : String(enabledCell).trim().toLowerCase();
 
-      const allowed = ['premium', 'goud', 'zilver', 'brons'];
+      const allowed = ['premium', 'goud', 'zilver', 'brons', 'event'];
       let type: any = undefined;
       if (!typeRaw) {
         type = 'brons';
@@ -352,7 +354,7 @@ sponsorsRouter.post('/upload-excel', uploadMem, async (req, res, next) => {
               type: data.type,
               websiteUrl: data.websiteUrl,
               categories: data.categories,
-              enabled: data.enabled,
+              enabled: enabledRaw ? data.enabled : existing.enabled,
             };
 
             if (hasDisplayNameColumn) {
