@@ -84,10 +84,28 @@ describe.runIf(runDb)('crew reports (integration)', () => {
     expect(res.body.callsheets[0].items[0]).toMatchObject({title: 'Opening', positionIds: [positions.camera]});
   });
 
-  it('lists the commentators in the crew roles report', async () => {
+  type RolesReport = { positions: Array<{ id: number; name: string }>; productions: Array<{ id: number; assignments: Record<string, string[]> }> };
+  const rolesOf = (body: RolesReport) => body.productions.find((p) => p.id === productionId)?.assignments;
+
+  it('lists the on-screen roles in the entertainment roles report', async () => {
+    const res = await request(app).get(`/api/reports/entertainment-roles?seasonId=${seasonId}`);
+    expect(res.status).toBe(200);
+    const ids = res.body.positions.map((p: { id: number }) => p.id);
+    expect(ids).toContain(positions.commentaar);
+    expect(ids).not.toContain(positions.regie);
+    expect(rolesOf(res.body)).toEqual({[positions.commentaar]: [`${PREFIX} Cor`]});
+  });
+
+  it('lists the technical and general roles in the crew roles report, also when assigned for one segment', async () => {
     const res = await request(app).get(`/api/reports/crew-roles?seasonId=${seasonId}`);
     expect(res.status).toBe(200);
-    const row = res.body.find((r: { id: number }) => r.id === productionId);
-    expect(row.commentaar).toEqual([`${PREFIX} Cor`]);
+    const ids = res.body.positions.map((p: { id: number }) => p.id);
+    // In sortOrder: regie (1) before camera (2); no entertainment positions
+    expect(ids.indexOf(positions.regie)).toBeLessThan(ids.indexOf(positions.camera));
+    expect(ids).not.toContain(positions.commentaar);
+    expect(rolesOf(res.body)).toEqual({
+      [positions.regie]: [`${PREFIX} Anna`],
+      [positions.camera]: [`${PREFIX} Bas`],
+    });
   });
 });

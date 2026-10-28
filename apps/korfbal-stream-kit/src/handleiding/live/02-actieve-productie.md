@@ -8,7 +8,8 @@ Bovenaan staan de ploegen met hun logo, de datum, het tijdstip en de zaal.
 
 Het tijdschema laat zien wanneer wat begint:
 
-- **Verzamelen**: altijd 30 minuten voor de start van de livestream.
+- **Opbouw**: alleen bij de eerste stream van de dag; wanneer de crew begint met opbouwen.
+- **Verzamelen**: wanneer de crew er moet zijn, standaard 30 minuten voor de start van de livestream.
 - Elk **segment** met zijn volgorde, naam, duur en begintijd. Het segment met het blauwe anker is het tijdanker: daar wordt het hele schema op uitgerekend.
 - **Einde Livestream**: de start van de livestream plus de duur van alle segmenten.
 

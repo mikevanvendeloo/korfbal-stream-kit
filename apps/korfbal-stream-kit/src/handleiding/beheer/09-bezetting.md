@@ -65,4 +65,4 @@ Met **Kopieer naar…** neem je de toewijzingen van een segment over in andere s
 
 - In LIVE op **Actieve productie** (de crew per groep).
 - In het **Crewrapport** (bezetting per segment) en het **Productierapport**.
-- In de **Rapportages** Dagbezetting, Positieoverzicht en Crewrollen. Die tonen alleen de productie-brede posities.
+- In de **Rapportages** Dagbezetting en Positieoverzicht (alleen de productie-brede posities), en Entertainmentrollen en Crewrollen (ook de posities per segment).

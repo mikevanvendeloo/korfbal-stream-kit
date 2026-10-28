@@ -116,9 +116,10 @@ describe('Season scoping of existing endpoints', () => {
   describe('reports', () => {
     beforeEach(() => {
       prisma.production = {findMany: vi.fn(async () => [])};
+      prisma.position = {findMany: vi.fn(async () => [])};
     });
 
-    it.each(['/api/reports/interviews', '/api/reports/crew-roles', '/api/reports/production-dates'])(
+    it.each(['/api/reports/interviews', '/api/reports/crew-roles', '/api/reports/entertainment-roles', '/api/reports/production-dates'])(
       '%s is scoped to the season',
       async (url) => {
         await request(app).get(`${url}?seasonId=${idOf(2025)}`);

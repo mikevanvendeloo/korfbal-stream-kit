@@ -23,6 +23,7 @@ import {getCallsheetPushConfig, setCallsheetPushConfig} from '../services/vmixCa
 import {VmixInstancesConfigSchema} from '../schemas/vmixInstances';
 import {getVmixInstancesConfig, setFirstVmixUrl, setVmixInstancesConfig} from '../services/vmixInstances';
 import {getOwnClubId, setOwnClubId} from '../services/ownClub';
+import {DayPlanningSettingsSchema, getDayPlanningSettings, setDayPlanningSettings} from '../services/dayPlanning';
 
 export const settingsRouter: Router = Router();
 
@@ -175,13 +176,15 @@ settingsRouter.put('/scoreboard-config', async (req, res, next) => {
 // ownClubId is the organization's club (Organization.clubId), the same one Beheer → Organisaties shows.
 settingsRouter.get('/club-config', async (_req, res, next) => {
   try {
-    const [ownClubId, productionTeamNames] = await Promise.all([
+    const [ownClubId, productionTeamNames, dayPlanning] = await Promise.all([
       getOwnClubId(),
       getSetting<string[]>(PRODUCTION_TEAM_NAMES_KEY),
+      getDayPlanningSettings(),
     ]);
     return res.json({
       ownClubId,
       productionTeamNames: productionTeamNames || [],
+      ...dayPlanning,
     });
   } catch (err) {
     return next(err);
@@ -189,17 +192,22 @@ settingsRouter.get('/club-config', async (_req, res, next) => {
 });
 
 // PUT /api/settings/club-config
+// The day planning defaults (verzamelen / opbouw in minutes before live) are optional: left out, they stay.
 const ClubConfigSchema = z.object({
   ownClubId: z.number().int().positive().nullable(),
   productionTeamNames: z.array(z.string()),
-});
+}).merge(DayPlanningSettingsSchema.partial());
 
 settingsRouter.put('/club-config', async (req, res, next) => {
   try {
     const parsed = ClubConfigSchema.parse(req.body);
     if (!(await setOwnClubId(parsed.ownClubId))) return res.status(400).json({error: 'Club bestaat niet'});
     await setSetting(PRODUCTION_TEAM_NAMES_KEY, parsed.productionTeamNames);
-    return res.json(parsed);
+    const dayPlanning = {...(await getDayPlanningSettings())};
+    if (parsed.crewCallMinutes !== undefined) dayPlanning.crewCallMinutes = parsed.crewCallMinutes;
+    if (parsed.setupMinutes !== undefined) dayPlanning.setupMinutes = parsed.setupMinutes;
+    await setDayPlanningSettings(dayPlanning);
+    return res.json({ownClubId: parsed.ownClubId, productionTeamNames: parsed.productionTeamNames, ...dayPlanning});
   } catch (err: any) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid payload' });
     return next(err);

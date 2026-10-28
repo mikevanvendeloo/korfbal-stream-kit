@@ -191,6 +191,10 @@ model Production {
   createdAt           DateTime                   @default(now())
   isActive            Boolean                    @default(false)
   liveTime            DateTime?
+  /// Opbouwtijd; null = the organization's default before the day's first stream (services/dayPlanning.ts)
+  setupTime           DateTime?
+  /// Verzameltijd; null = the organization's default before this stream's liveTime
+  crewCallTime        DateTime?
   callSheetTemplateId Int?
   callSheets          CallSheet[]
   interviewSubjects   InterviewSubject[]

@@ -38,7 +38,7 @@ describe.runIf(runDb)('own club = Organization.clubId (integration)', () => {
     expect(put.status, put.text).toBe(200);
     expect((await prisma.organization.findUniqueOrThrow({where: {id: organizationId}})).clubId).toBe(clubId);
     expect(await runWithOrganization(organizationId, () => prisma.organizationSetting.count({where: {key: 'ownClubId'}}))).toBe(0);
-    expect((await asOwn(request(app).get('/api/settings/club-config'))).body).toEqual({ownClubId: clubId, productionTeamNames: ['Eigen 1']});
+    expect((await asOwn(request(app).get('/api/settings/club-config'))).body).toEqual({ownClubId: clubId, productionTeamNames: ['Eigen 1'], crewCallMinutes: 30, setupMinutes: 150});
     // Beheer → Organisaties shows the same club
     expect((await request(app).get(`/api/organizations/${organizationId}`)).body.clubId).toBe(clubId);
     // Only the own organization

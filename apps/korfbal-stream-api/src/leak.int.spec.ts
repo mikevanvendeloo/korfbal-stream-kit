@@ -145,6 +145,7 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/production/skills/:id': {read: (a) => `/api/production/skills/${a.skillId}`},
   'GET /api/production/skills/export-json': {read: () => '/api/production/skills/export-json'},
   'GET /api/reports/crew-roles': {read: () => '/api/reports/crew-roles', control: false},
+  'GET /api/reports/entertainment-roles': {read: () => '/api/reports/entertainment-roles', control: false},
   'GET /api/reports/daily-occupancy': {read: () => `/api/reports/daily-occupancy?date=${today()}`, control: false},
   'GET /api/reports/daily-occupancy-by-position': {read: () => `/api/reports/daily-occupancy-by-position?date=${today()}`, control: false},
   'GET /api/reports/interviews': {read: () => '/api/reports/interviews', control: false},

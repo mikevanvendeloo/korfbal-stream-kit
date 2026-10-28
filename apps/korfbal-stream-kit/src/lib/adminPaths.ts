@@ -1,6 +1,6 @@
 /**
  * All Beheer URLs in one place. The path segments follow the menu: Producties, Stamgegevens (with the
- * draaiboek templates), Rapportages, Overig and Setup. Link through these helpers instead of writing paths by hand.
+ * draaiboek templates) and Rapportages; setup/ holds the organization pages (organization menu and gear menu), tools/ the tools (gear menu). Link through these helpers instead of writing paths by hand.
  */
 export const ADMIN = '/admin';
 
@@ -38,7 +38,7 @@ export const adminPaths = {
 
   report: (tab: ReportTab) => `${ADMIN}/rapportages/${tab}`,
 
-  qr: `${ADMIN}/overig/qr`,
+  qr: `${ADMIN}/tools/qr`,
   /** All organizations (list, create, edit, (de)activate) */
   organizations: `${ADMIN}/setup/organisaties`,
   /** The chosen organization: logo, match import, API keys */
@@ -49,6 +49,7 @@ export const REPORT_TABS = [
   {tab: 'dagbezetting', label: 'Dagbezetting'},
   {tab: 'posities', label: 'Positieoverzicht'},
   {tab: 'interviews', label: 'Interviews'},
+  {tab: 'entertainment', label: 'Entertainmentrollen'},
   {tab: 'crew', label: 'Crewrollen'},
   {tab: 'tijdsanalyse', label: 'Tijdsanalyse'},
 ] as const;
