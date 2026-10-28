@@ -115,7 +115,8 @@ describe.runIf(runDb)('vMix instances (integration)', () => {
       {key: '11111111-aaaa-bbbb-cccc-000000000001', number: 1, type: 'Capture', title: 'Camera 1', fields: []},
       {key: '22222222-aaaa-bbbb-cccc-000000000002', number: 2, type: 'GT', title: 'Callsheet.gtzip', fields: ['Titel.Text', 'Timer.Text']},
     ]});
-    expect(scherm.calls).toEqual(['/api/?']);
+    // One request for the XML state (axios drops the empty "?" of /api/?)
+    expect(scherm.calls).toEqual(['/api/']);
 
     expect((await request(app).get('/api/vmix/inputs?function=onbekend')).status).toBe(400);
     await request(app).put('/api/settings/vmix-instances').send({instances: [{id: 'weg', name: 'Weg', url: 'http://127.0.0.1:1'}]});
