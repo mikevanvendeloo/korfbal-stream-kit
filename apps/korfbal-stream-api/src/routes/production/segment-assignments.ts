@@ -131,6 +131,23 @@ segmentAssignmentsRouter.get('/segments/:segmentId/positions', async (req, res, 
     const seg = await prisma.productionChapter.findUnique({ where: { id: segmentId } });
     if (!seg) return res.status(404).json({ error: 'Not found' });
 
+    // The standard positions of the hoofdstuk with this name in the production's draaiboek template (openspec/changes/chapters D3)
+    const production = await prisma.production.findUnique({ where: { id: seg.productionId }, select: { callSheetTemplateId: true } });
+    const templateChapter = production?.callSheetTemplateId
+      ? await prisma.callSheetTemplateChapter.findFirst({
+        where: { templateId: production.callSheetTemplateId, name: seg.naam },
+        include: { positions: { orderBy: { orderIndex: 'asc' }, include: { position: { include: { skill: true } } } } },
+      })
+      : null;
+    if (templateChapter && templateChapter.positions.length > 0) {
+      return res.json(templateChapter.positions.map((p) => ({
+        id: p.position.id,
+        name: p.position.name,
+        order: p.orderIndex,
+        requiredSkillCode: p.position.skill ? p.position.skill.code : null,
+      })));
+    }
+
     // Try configured defaults for this segment name; fall back to hardcoded list
     const configured = await prisma.segmentDefaultPosition.findMany({
       where: { segmentName: seg.naam },

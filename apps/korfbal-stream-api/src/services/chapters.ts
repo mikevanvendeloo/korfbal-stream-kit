@@ -119,3 +119,38 @@ export function chapterTime(items: Array<{ timeStart: Date | null; timeEnd: Date
   const end = Math.max(...ends, start);
   return {start: new Date(start), end: new Date(end), durationMinutes: Math.round((end - start) / MINUTE)};
 }
+
+export type Structure<C> = Array<{ id: C; itemIds: string[] }>;
+
+/**
+ * Checks a whole draaiboek structure sent by the editor (PUT …/structure, D4): every hoofdstuk of the
+ * draaiboek exactly once, every item exactly once, and a linked item in the hoofdstuk of its parent.
+ * Returns the problem in Dutch for a 400, or null when it is complete.
+ */
+export function structureProblem<C>(
+  structure: Structure<C>,
+  chapterIds: C[],
+  items: Array<{ id: string; parentId: string | null }>,
+): string | null {
+  const known = new Set(chapterIds);
+  const sent = structure.map((c) => c.id);
+  if (sent.some((id) => !known.has(id))) return 'Onbekend hoofdstuk';
+  if (new Set(sent).size !== sent.length || sent.length !== known.size) return 'Elk hoofdstuk moet precies één keer voorkomen';
+  const chapterOf = new Map<string, C>();
+  for (const chapter of structure) {
+    for (const itemId of chapter.itemIds) {
+      if (chapterOf.has(itemId)) return 'Elk item moet precies één keer voorkomen';
+      chapterOf.set(itemId, chapter.id);
+    }
+  }
+  if (chapterOf.size !== items.length || items.some((it) => !chapterOf.has(it.id))) return 'Elk item moet precies één keer voorkomen';
+  if (items.some((it) => it.parentId && chapterOf.has(it.parentId) && chapterOf.get(it.parentId) !== chapterOf.get(it.id))) {
+    return 'Een gekoppeld item hoort in het hoofdstuk van zijn hoofditem';
+  }
+  return null;
+}
+
+/** The flat show order of a structure: hoofdstuk order, then the place within it (1-based orderIndex). */
+export function flattenChapters<C>(structure: Structure<C>): Array<{ itemId: string; chapterId: C; orderIndex: number }> {
+  return structure.flatMap((c) => c.itemIds.map((itemId) => ({itemId, chapterId: c.id}))).map((it, i) => ({...it, orderIndex: i + 1}));
+}

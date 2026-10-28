@@ -237,3 +237,10 @@ export async function migrateAllChapters(): Promise<void> {
     }
   }
 }
+
+/** A template made without hoofdstukken (e.g. an import of an older export): placed as the migration does. */
+export async function placeTemplateChaptersFromDefaults(templateId: number): Promise<void> {
+  const segmentTemplate = await defaultSegmentTemplate();
+  const defaultPositions = await prisma.segmentDefaultPosition.findMany({select: {segmentName: true, positionId: true, order: true}});
+  await prisma.$transaction((tx) => placeTemplateChapters(tx, templateId, segmentTemplate?.items ?? [], defaultPositions));
+}

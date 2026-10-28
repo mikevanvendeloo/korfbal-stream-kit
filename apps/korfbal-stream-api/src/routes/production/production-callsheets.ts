@@ -13,6 +13,7 @@ import {findPositionByName, positionKey, SHOWCALLER_POSITION} from '../../domain
 import {findOrCreatePosition} from '../../services/positions';
 import {excelCellToDate, parseInstant, parseOptionalInstant} from '../../utils/time';
 import {placeProductionChapters} from '../../services/chapterMigration';
+import {productionItemChapter} from './production-chapters';
 
 export const productionCallsheetsRouter: Router = Router();
 
@@ -68,7 +69,7 @@ productionCallsheetsRouter.get('/callsheets/:callSheetId', async (req, res, next
             productionSegment: true,
             positions: { include: { position: true } },
           },
-          orderBy: [{ productionSegmentId: 'asc' }, { orderIndex: 'asc' }],
+          orderBy: [{ orderIndex: 'asc' }],
         },
       },
     });
@@ -104,7 +105,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/calculate-times', asyn
           }
         },
         items: {
-          orderBy: [{ productionSegmentId: 'asc' }, { orderIndex: 'asc' }],
+          orderBy: [{ orderIndex: 'asc' }],
         }
       }
     });
@@ -200,7 +201,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async
           include: {
             positions: true
           },
-          orderBy: [{ productionSegmentId: 'asc' }, { orderIndex: 'asc' }],
+          orderBy: [{ orderIndex: 'asc' }],
         }
       }
     });
@@ -345,7 +346,8 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
     // Item ids are global (CallSheetItem.id is the primary key over all organizations): always chosen
     // here, never by the client, so an id of another organization can't collide or be probed (409)
     const id = randomUUID();
-    const productionSegmentId = req.body?.productionSegmentId ? Number(req.body.productionSegmentId) : null;
+    // Every item is in a hoofdstuk of this production (openspec/changes/chapters D1)
+    const productionSegmentId = await productionItemChapter(callSheetId, req.body?.productionSegmentId);
     const cue = String(req.body?.cue || '').trim();
     const title = String(req.body?.title || '').trim();
     const note = req.body?.note != null ? String(req.body.note) : null;
@@ -367,18 +369,12 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Basic validation of positions
-    if (productionSegmentId) {
-      const seg = await prisma.productionChapter.findUnique({ where: { id: productionSegmentId } });
-      if (!seg) return res.status(404).json({ error: 'Segment not found' });
-    }
-
     const created = await prisma.$transaction(async (tx) => {
       const it = await tx.callSheetItem.create({
         data: {
           id,
           callSheetId,
-          productionSegmentId: productionSegmentId || undefined,
+          productionSegmentId,
           cue,
           title,
           note: note || undefined,
@@ -420,7 +416,12 @@ productionCallsheetsRouter.put('/callsheet-items/:itemId', async (req, res, next
     if (!itemId) return res.status(400).json({ error: 'Invalid item id' });
 
     const data: any = {};
-    if (req.body?.productionSegmentId !== undefined) data.productionSegmentId = req.body.productionSegmentId ? Number(req.body.productionSegmentId) : null;
+    // Another hoofdstuk of the same production; an item never leaves its hoofdstuk without a new one
+    if (req.body?.productionSegmentId != null && req.body.productionSegmentId !== '') {
+      const item = await prisma.callSheetItem.findUnique({ where: { id: itemId }, select: { callSheetId: true } });
+      if (!item) return res.status(404).json({ error: 'Not found' });
+      data.productionSegmentId = await productionItemChapter(item.callSheetId, req.body.productionSegmentId);
+    }
     if (req.body?.cue != null) data.cue = String(req.body.cue).trim();
     if (req.body?.title != null) data.title = String(req.body.title).trim();
     if (req.body?.note != null) data.note = String(req.body.note);
@@ -588,7 +589,7 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem, async
       const map: Record<string, any> = {};
       for (const hk of rowHeaders) map[normKey(hk)] = row[hk];
 
-      const segName = (map[normKey('segment')] ?? map[normKey('segmentnaam')] ?? map[normKey('segmentname')] ?? '').toString().trim();
+      const segName = (map[normKey('hoofdstuk')] ?? map[normKey('segment')] ?? map[normKey('segmentnaam')] ?? map[normKey('segmentname')] ?? '').toString().trim();
       const cue = (map[normKey('cue')] ?? '').toString().trim();
       const title = (map[normKey('title')] ?? map[normKey('titel')] ?? '').toString().trim();
       const note = map[normKey('note')] ?? map[normKey('opmerking')] ?? '';

@@ -21,11 +21,15 @@
 
 ## Phase 3: Write paths and editor
 
-### Backend
-- [ ] Apply draaiboek template creates hoofdstukken, items and events with `chapterId`, plus the standard positions per hoofdstuk
-- [ ] `…/chapters` CRUD (delete non-empty → 409) and `PUT …/structure` (validation: every item exactly once, linked items with their parent) for templates and productions; item create/update requires `chapterId`
-- [ ] *Opslaan als template* copies hoofdstukken and standard positions
-- [ ] Leak suite entries for every new route; security review
+### Backend (3a)
+- [x] Apply draaiboek template: the production gets the template's hoofdstukken (a hoofdstuk with the same name stays, with its bezetting), items and events with their hoofdstuk; the standard positions per hoofdstuk come from the template (`/segments/:id/positions`, fallback the old per-name defaults)
+- [x] Templates: `POST /:id/chapters`, `PUT|DELETE /chapters/:chapterId` (name, standard positions; delete non-empty → 409), `PUT /:id/structure`; `GET /:id` with `chapters`; item create/update take `chapterId` (same template, else the last item's hoofdstuk)
+- [x] Productions: `POST /:id/chapters`, `PUT|DELETE /chapters/:chapterId`, `PUT /callsheets/:callSheetId/structure` (production's hoofdstuk order + that callsheet's items); a callsheet item is always in a hoofdstuk of its own production (the old check allowed any segment); items are listed by `orderIndex` (one flat show order) instead of by segment id
+- [x] `flattenChapters` / `structureProblem` (pure, unit tests): every hoofdstuk and item exactly once, linked items with their parent. *`orderIndex` stays one flat order over the whole draaiboek, so every existing reader keeps working.*
+- [x] *Opslaan als template*: `POST /api/callsheets/templates/from-callsheet/:callSheetId` copies hoofdstukken, items (positions, anchors, links) and the standard positions of the production's template
+- [x] Template export/import: JSON version 2 (hoofdstukken with positions, item → hoofdstuk), Excel column "Hoofdstuk"; files without hoofdstukken are placed as the migration does; the callsheet Excel import also reads "Hoofdstuk"
+- [x] Leak suite entries for every new route; integration test `routes/chapters.int.spec.ts`
+- [ ] *Moved to 3b (with the kit):* field renames `naam`/`volgorde` → `name`/`orderIndex`, `productionSegmentId` → `chapterId`
 
 ### Frontend
 - [ ] `components/DraaiboekEditor.tsx` (hoofdstuk blocks, drag within/between, drag a whole hoofdstuk, standard positions in the header, "Items verplaatsen naar …?") used by `CallSheetTemplateDetailsPage` and `CallSheetEditPage`

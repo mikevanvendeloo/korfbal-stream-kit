@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {chapterTime, placeItemsInChapters, segmentWindows, sequentialStarts, type TimedItem} from './chapters';
+import {chapterTime, flattenChapters, placeItemsInChapters, segmentWindows, sequentialStarts, structureProblem, type TimedItem} from './chapters';
 
 const MIN = 60_000;
 const item = (id: string, durationSec: number, extra: Partial<TimedItem> = {}): TimedItem =>
@@ -87,5 +87,30 @@ describe('chapterTime', () => {
 
   it('has no time without timed items', () => {
     expect(chapterTime([{timeStart: null, timeEnd: null}])).toEqual({start: null, end: null, durationMinutes: 0});
+  });
+});
+
+describe('structureProblem and flattenChapters', () => {
+  const items = [{id: 'a', parentId: null}, {id: 'b', parentId: 'a'}, {id: 'c', parentId: null}];
+
+  it('accepts a complete structure and flattens it in hoofdstuk order', () => {
+    const structure = [{id: 'voor', itemIds: ['c']}, {id: 'na', itemIds: ['a', 'b']}];
+    expect(structureProblem(structure, ['na', 'voor'], items)).toBeNull();
+    expect(flattenChapters(structure)).toEqual([
+      {itemId: 'c', chapterId: 'voor', orderIndex: 1}, {itemId: 'a', chapterId: 'na', orderIndex: 2}, {itemId: 'b', chapterId: 'na', orderIndex: 3},
+    ]);
+  });
+
+  it('refuses an unknown or missing hoofdstuk, and a missing, double or unknown item', () => {
+    expect(structureProblem([{id: 'x', itemIds: ['a', 'b', 'c']}], ['voor'], items)).toBe('Onbekend hoofdstuk');
+    expect(structureProblem([{id: 'voor', itemIds: ['a', 'b', 'c']}], ['voor', 'na'], items)).toBe('Elk hoofdstuk moet precies één keer voorkomen');
+    expect(structureProblem([{id: 'voor', itemIds: ['a', 'b']}], ['voor'], items)).toBe('Elk item moet precies één keer voorkomen');
+    expect(structureProblem([{id: 'voor', itemIds: ['a', 'b', 'c', 'c']}], ['voor'], items)).toBe('Elk item moet precies één keer voorkomen');
+    expect(structureProblem([{id: 'voor', itemIds: ['a', 'b', 'z']}], ['voor'], items)).toBe('Elk item moet precies één keer voorkomen');
+  });
+
+  it('keeps a linked item with its parent', () => {
+    expect(structureProblem([{id: 'voor', itemIds: ['a', 'c']}, {id: 'na', itemIds: ['b']}], ['voor', 'na'], items))
+      .toBe('Een gekoppeld item hoort in het hoofdstuk van zijn hoofditem');
   });
 });
