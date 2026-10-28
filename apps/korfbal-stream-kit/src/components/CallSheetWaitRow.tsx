@@ -17,7 +17,7 @@ const minutesSeconds = (seconds: number) => `${Math.floor(seconds / 60)}:${Strin
  * The gap in a position's callsheet: the show runs an item that isn't for this position. Shows how long
  * until the position's next item, orange from GET_READY_SECONDS before it ("Maak je klaar").
  */
-export function CallSheetWaitRow({wait}: { wait: CallsheetWait }) {
+export function CallSheetWaitRow({wait, chapterName = null}: { wait: CallsheetWait; /** The hoofdstuk of the next item */ chapterName?: string | null }) {
   const {fontSize} = useFontSize();
   const size = SIZES[fontSize as keyof typeof SIZES] ?? SIZES.m;
   const secondsLeft = wait.kind === 'waiting' ? wait.secondsLeft : null;
@@ -44,6 +44,7 @@ export function CallSheetWaitRow({wait}: { wait: CallsheetWait }) {
         <p className={`mt-1 ${size.sub} truncate`}>
           Volgende: <InterviewText text={wait.next.title}/>
           {wait.next.calculatedTime && ` (${formatTime(wait.next.calculatedTime)})`}
+          {chapterName && ` · ${chapterName}`}
         </p>
       )}
     </div>

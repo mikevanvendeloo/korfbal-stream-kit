@@ -42,11 +42,13 @@
 
 ## Phase 4: LIVE (frontend)
 
-- [ ] `ShowCallerView`: heading rows per hoofdstuk, current hoofdstuk with remaining time at the top, dimmed headings when filtering on a position
-- [ ] `ShowCallerPhone`: hoofdstuk label above *Nu* (and at *Straks* on a change of hoofdstuk); check at 360 px
-- [ ] `CallSheetView`/`CallSheetColumn`: heading rows, folded hoofdstuk without own items, heading slots aligned across columns; wait row names the hoofdstuk
-- [ ] LIVE → Productie: timing per hoofdstuk
-- [ ] Component tests (test data in `src/test/showCaller.ts` with hoofdstukken); e2e: current hoofdstuk in the Show Caller, phone width
+- [x] `useLiveState` keeps the hoofdstukken (from `/events` and the socket); pure helpers in `lib/liveChapters.ts` (name, current hoofdstuk with its remaining time, planned times, heading slots; unit tests)
+- [x] `ShowCallerView`: heading rows per hoofdstuk (planned start–end), "Hoofdstuk: … · nog …" at the top, dimmed headings when filtering on a position; a hidden row (focus mode) still shows its heading
+- [x] `ShowCallerPhone`: hoofdstuk with its remaining time above *Nu*, and at *Volgende* when it starts another hoofdstuk (truncated for 360 px)
+- [x] `CallSheetView`/`CallSheetColumn`: heading slots per hoofdstuk aligned across columns ("— niets voor jou" without own items); the wait row names the next item's hoofdstuk
+- [x] LIVE → Productie: the hoofdstukken (no segment number or anchor any more)
+- [x] Component tests (ShowCallerView wide and phone, CallSheetColumn); manual LIVE 03 and 04
+- [ ] e2e with hoofdstukken (needs `createProductionScenario({chapters})`, moved to phase 5); checked at 360 px by hand
 
 ## Phase 5: Cleanup
 

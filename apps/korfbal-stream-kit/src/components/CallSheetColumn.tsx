@@ -1,7 +1,8 @@
 import {Fragment, ReactNode} from 'react';
 import {CallSheetItem} from './CallSheetItem';
 import {CallSheetWaitRow} from './CallSheetWaitRow';
-import {Position, ProductionEvent} from '../hooks/useLiveState';
+import {LiveChapter, Position, ProductionEvent} from '../hooks/useLiveState';
+import {chapterName} from '../lib/liveChapters';
 import {callsheetWait, isForPosition} from '../lib/callsheetWait';
 
 interface Props {
@@ -19,6 +20,8 @@ interface Props {
   accentColor: 'blue' | 'emerald' | 'purple';
   activeEventRemainingTime?: { minutes: string; seconds: string; isNegative: boolean; rawSeconds: number } | null;
   isCompact?: boolean;
+  /** The hoofdstukken: `allTimes` holds a heading slot "chapter:<id>" before each one */
+  chapters?: LiveChapter[];
 }
 
 export const CallSheetColumn = ({
@@ -35,7 +38,8 @@ export const CallSheetColumn = ({
   tertiaryPositionId,
   accentColor,
   activeEventRemainingTime = null,
-  isCompact = false
+  isCompact = false,
+  chapters = [],
 }: Props) => {
   const isBlue = accentColor === 'blue';
   const isEmerald = accentColor === 'emerald';
@@ -51,7 +55,7 @@ export const CallSheetColumn = ({
   const waitRow = (): ReactNode => {
     if (!wait || waitPlaced) return null;
     waitPlaced = true;
-    return <CallSheetWaitRow wait={wait}/>;
+    return <CallSheetWaitRow wait={wait} chapterName={wait.kind === 'waiting' ? chapterName(chapters, wait.next.chapterId) : null}/>;
   };
 
   const itemsByTime: Record<string, (ProductionEvent & { calculatedTime?: Date | null })[]> = {};
@@ -128,6 +132,18 @@ export const CallSheetColumn = ({
 
       <div className="p-4 space-y-4">
         {allTimes.map(timeSlot => {
+          // A hoofdstuk heading, at the same height in every column; "niets voor jou" without own items
+          if (timeSlot.startsWith('chapter:')) {
+            const chapterId = Number(timeSlot.slice('chapter:'.length));
+            const own = relevantItems.some(item => item.chapterId === chapterId);
+            return (
+              <div key={timeSlot} role="heading" aria-level={2}
+                   className={`flex items-baseline gap-2 border-b border-gray-300 dark:border-white/15 pt-2 pb-1 min-w-0 ${own ? '' : 'opacity-50'}`}>
+                <span className="truncate text-sm font-black uppercase tracking-widest text-gray-700 dark:text-white/80">{chapterName(chapters, chapterId)}</span>
+                {!own && <span className="shrink-0 text-xs text-gray-500 dark:text-white/50">— niets voor jou</span>}
+              </div>
+            );
+          }
           const [time, indexStr] = timeSlot.split('#');
           const index = parseInt(indexStr);
           const itemsForTime = itemsByTime[time] || [];

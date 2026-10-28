@@ -7,6 +7,7 @@ import {MatchHeader} from "./MatchHeader";
 import {MdSettings} from "react-icons/md";
 import {useFontSize} from "../hooks/useFontSize";
 import {InterviewPhotosToggle} from "./InterviewPhotosToggle";
+import {withChapterHeadings} from "../lib/liveChapters";
 
 // Helper om een naam om te zetten naar een URL-vriendelijke slug
 const toSlug = (name: string) => {
@@ -20,6 +21,7 @@ export const CallSheetView = () => {
     const {
         allItems,
         allPositions,
+        chapters = [],
         isConnected,
         timeSinceLastSync,
         activeEvent,
@@ -245,6 +247,10 @@ export const CallSheetView = () => {
 
         return slots;
     }, [timedItems, primaryPositionId, secondaryPositionId, tertiaryPositionId, showSecondaryColumn, showTertiaryColumn]);
+
+    // The time slots per hoofdstuk, each hoofdstuk starting with a heading slot "chapter:<id>" that every
+    // column shows at the same height (openspec/changes/chapters D5); slots outside any hoofdstuk come last
+    const slots = useMemo(() => withChapterHeadings(allTimes, timedItems, chapters), [allTimes, timedItems, chapters]);
 
 
     const lastScrolledEventId = useRef<string | null>(null);
@@ -576,7 +582,8 @@ export const CallSheetView = () => {
                     autoAdvanceEventId={autoAdvanceEventId}
                     elapsedTime={activeEventElapsedTime}
                     activeEventRemainingTime={activeEventRemainingTime}
-                    allTimes={allTimes}
+                    allTimes={slots}
+                    chapters={chapters}
                     allPositions={allPositions}
                     onPositionChange={handleSetPrimary}
                     secondaryPositionId={showSecondaryColumn ? secondaryPositionId : null}
@@ -593,7 +600,8 @@ export const CallSheetView = () => {
                         autoAdvanceEventId={autoAdvanceEventId}
                         elapsedTime={activeEventElapsedTime}
                         activeEventRemainingTime={activeEventRemainingTime}
-                        allTimes={allTimes}
+                        allTimes={slots}
+                        chapters={chapters}
                         allPositions={allPositions}
                         onPositionChange={handleSetSecondary}
                         secondaryPositionId={primaryPositionId}
@@ -611,7 +619,8 @@ export const CallSheetView = () => {
                         autoAdvanceEventId={autoAdvanceEventId}
                         elapsedTime={activeEventElapsedTime}
                         activeEventRemainingTime={activeEventRemainingTime}
-                        allTimes={allTimes}
+                        allTimes={slots}
+                        chapters={chapters}
                         allPositions={allPositions}
                         onPositionChange={handleSetTertiary}
                         secondaryPositionId={primaryPositionId}

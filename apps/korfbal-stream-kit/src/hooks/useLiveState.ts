@@ -20,6 +20,13 @@ export interface Position {
   name: string;
 }
 
+/** A hoofdstuk of the draaiboek as LIVE shows it: a heading, not a step */
+export interface LiveChapter {
+  id: number;
+  name: string;
+  order: number;
+}
+
 export interface ProductionEvent {
   id: string;
   productionId: number;
@@ -43,6 +50,8 @@ export interface ProductionEvent {
   production: any;
   parentId?: string | null;
   parent?: ProductionEvent | null;
+  /** The event's hoofdstuk (openspec/changes/chapters D5) */
+  chapterId?: number | null;
   linkedItems?: ProductionEvent[];
   positions: { position: Position }[];
 }
@@ -125,6 +134,7 @@ export const useLiveState = () => {
   const { productionId } = useParams<{ productionId: string }>();
   const [allItems, setAllItems] = useState<ProductionEvent[]>([]);
   const [allPositions, setAllPositions] = useState<Position[]>([]); // Nieuwe state voor alle posities
+  const [chapters, setChapters] = useState<LiveChapter[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
   const [activeEvent, setActiveEvent] = useState<ProductionEvent | null>(null);
@@ -156,6 +166,7 @@ export const useLiveState = () => {
           const eventsData = await eventsResponse.json();
           const items: ProductionEvent[] = eventsData.items;
           setAllItems(items);
+          setChapters(Array.isArray(eventsData.chapters) ? eventsData.chapters : []);
 
           // Zet het initiële actieve event op basis van de status
           const active = items.find(item => item.status === 'ACTIVE');
@@ -351,8 +362,9 @@ export const useLiveState = () => {
       setAutoAdvanceEventId(data.eventId);
     });
 
-    listen('production_events_update', (data: { items: ProductionEvent[] }) => {
+    listen('production_events_update', (data: { items: ProductionEvent[]; chapters?: LiveChapter[] }) => {
       setAllItems(data.items);
+      if (Array.isArray(data.chapters)) setChapters(data.chapters);
     });
 
     listen('production_stopped', () => {
@@ -382,6 +394,7 @@ export const useLiveState = () => {
   return {
     allItems,
     allPositions, // Geef alle posities mee
+    chapters,
     isConnected,
     timeSinceLastSync,
     activeEvent,

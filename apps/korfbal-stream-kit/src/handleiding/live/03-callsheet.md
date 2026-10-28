@@ -21,7 +21,7 @@ Bovenaan staan de ploegen en de **aanvangstijd**, en een klokbalk:
 | **Resterend** | Hoe lang het actieve item nog duurt |
 | **Productie** | Hoe lang de productie al loopt (als er geen item actief is) |
 
-Daaronder staan jouw items onder elkaar, op tijd. Per item zie je:
+Daaronder staan jouw items onder elkaar, op tijd, verdeeld over de **hoofdstukken** van het draaiboek (bijvoorbeeld *Voorbereiding*, *Voorbeschouwing*, *Eerste helft*, *Rust*). Elk hoofdstuk begint met een kopregel; staat er in een hoofdstuk niets voor jou, dan is het één dunne regel met **— niets voor jou**. Met meer kolommen staan de kopregels op dezelfde hoogte. Per item zie je:
 
 - de **begintijd** (wordt automatisch bijgesteld als de show uitloopt of voorloopt);
 - de **titel** en eventueel een **opmerking**;
@@ -47,7 +47,7 @@ Wordt een ander item actief, dan scrolt de callsheet er vanzelf naartoe.
 
 Loopt er in de show een item dat niet voor jouw positie is, dan staat er een **gestippelde regel** in je callsheet, op de plek waar de show nu is:
 
-- **Even niets voor jou**: met daarachter hoe lang het nog duurt tot jouw volgende item (**nog 4:30**), en daaronder **Volgende:** met de titel en begintijd van dat item.
+- **Even niets voor jou**: met daarachter hoe lang het nog duurt tot jouw volgende item (**nog 4:30**), en daaronder **Volgende:** met de titel en begintijd van dat item, en het hoofdstuk waarin het zit.
 - **Maak je klaar** (oranje): nog 30 seconden of minder tot jouw volgende item. Is die tijd voorbij maar is de Show Caller nog niet verder, dan blijft de regel oranje zonder tijd. Je item begint pas als de Show Caller verder gaat.
 - **Klaar — geen items meer voor jou**: je hebt in deze productie niets meer te doen.
 

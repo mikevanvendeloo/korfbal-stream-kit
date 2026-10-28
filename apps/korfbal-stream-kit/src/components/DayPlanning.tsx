@@ -32,23 +32,31 @@ const ICONS: Record<DayPlanningEntry['kind'], IconType> = {opbouw: MdBuild, verz
 export default function DayPlanning({productions}: { productions: Production[] }) {
   const entries = dayPlanningEntries(productions);
   if (entries.length === 0) return null;
+  // A real table (not fixed widths): the columns grow with the text, also in the larger PNG export
   return (
-    <section aria-labelledby="day-planning" className="max-w-xl">
+    <section aria-labelledby="day-planning" className="day-planning-section max-w-xl">
       <h2 id="day-planning" className="text-lg font-bold mb-2 text-gray-900 dark:text-white">Dagplanning</h2>
-      <ol className="divide-y divide-gray-100 dark:divide-gray-800 border border-gray-200 dark:border-gray-800 rounded-lg">
-        {entries.map((entry, i) => {
-          const Icon = ICONS[entry.kind];
-          return (
-            <li key={i} className={`flex items-center gap-3 px-3 py-2 text-sm min-w-0 ${entry.kind === 'live' ? 'font-semibold' : ''}`}>
-              <span className="font-mono tabular-nums w-12 shrink-0">{formatTime(entry.time)}</span>
-              <Icon className={`shrink-0 ${entry.kind === 'live' ? 'text-red-600' : 'text-gray-500 dark:text-gray-400'}`} aria-hidden/>
-              <span className="w-24 shrink-0">{entry.label}</span>
-              {entry.match && <span className="truncate min-w-0">{entry.match}</span>}
-              {entry.until && <span className="ml-auto shrink-0 font-normal text-gray-600 dark:text-gray-400">tot {formatTime(entry.until)}</span>}
-            </li>
-          );
-        })}
-      </ol>
+      <table className="day-planning w-full border border-gray-200 dark:border-gray-800 text-sm">
+        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+          {entries.map((entry, i) => {
+            const Icon = ICONS[entry.kind];
+            const live = entry.kind === 'live';
+            return (
+              <tr key={i} className={live ? 'font-semibold' : ''}>
+                <td className="py-2 pl-3 pr-2 align-middle font-mono tabular-nums whitespace-nowrap">{formatTime(entry.time)}</td>
+                <td className="py-2 px-1 align-middle w-0">
+                  <Icon className={`block h-[1.1em] w-[1.1em] ${live ? 'text-red-600' : 'text-gray-500 dark:text-gray-400'}`} aria-hidden/>
+                </td>
+                <td className="py-2 px-2 align-middle whitespace-nowrap">{entry.label}</td>
+                <td className="py-2 px-2 align-middle">{entry.match ?? ''}</td>
+                <td className="py-2 pl-2 pr-3 align-middle whitespace-nowrap text-right font-normal text-gray-600 dark:text-gray-400">
+                  {entry.until ? `tot ${formatTime(entry.until)}` : ''}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </section>
   );
 }

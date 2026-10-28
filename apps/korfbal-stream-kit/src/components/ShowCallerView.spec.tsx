@@ -165,3 +165,34 @@ describe('ShowCallerView', () => {
     expect(controls.clearError).toHaveBeenCalled();
   });
 });
+
+describe('ShowCallerView hoofdstukken', () => {
+  const chapters = [{id: 1, name: 'Voorbeschouwing', order: 1}, {id: 2, name: 'Eerste helft', order: 2}];
+
+  beforeEach(() => {
+    controls.error = null;
+    Element.prototype.scrollIntoView = vi.fn();
+    const inChapters = items.map((e, i) => ({...e, chapterId: i < 2 ? 1 : 2}));
+    live = {
+      allItems: inChapters, allPositions: [regie], chapters, activeEvent: inChapters[1], activeEventElapsedTime: 10,
+      productionClock: {minutes: '05', seconds: '00', isNegative: false, rawSeconds: 300}, venueClock: '00:00', systemTime: '19:52:10',
+      activeEventRemainingTime: remaining(50),
+      isLoading: false, autoAdvanceEventId: null, isConnected: true, timeSinceLastSync: 1,
+    };
+  });
+
+  it('shows a heading per hoofdstuk and the current one with its remaining time in the wide layout', () => {
+    vi.mocked(useMediaQuery).mockReturnValue(false);
+    renderView();
+    expect(screen.getAllByRole('heading', {level: 2}).map((h) => h.textContent?.replace(/\d\d:\d\d – \d\d:\d\d/, '').trim()))
+      .toEqual(expect.arrayContaining(['Voorbeschouwing', 'Eerste helft']));
+    expect(screen.getByLabelText('Lopend hoofdstuk').textContent).toBe('Hoofdstuk: Voorbeschouwing· nog 0:50');
+  });
+
+  it('shows the hoofdstuk above Nu on a phone, and at Volgende when it changes', () => {
+    vi.mocked(useMediaQuery).mockReturnValue(true);
+    renderView();
+    expect(screen.getByLabelText('Hoofdstuk').textContent).toBe('Voorbeschouwingnog 0:50');
+    expect(screen.getByLabelText('Hoofdstuk van volgende').textContent).toBe('Eerste helft');
+  });
+});

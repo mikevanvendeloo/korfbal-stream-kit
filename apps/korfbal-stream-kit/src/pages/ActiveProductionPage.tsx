@@ -1,6 +1,5 @@
 import {useActiveProduction, useProductionCrew, useProductionInterviews, useProductionTiming} from '../hooks/useProductions';
 import ProductionHeader from '../components/ProductionHeader';
-import {MdAnchor} from 'react-icons/md';
 import {PositionCategory} from "../hooks/usePositions";
 import PlayerCard from "../components/PlayerCard";
 import InterviewSelector from "../components/InterviewSelector";
@@ -63,8 +62,7 @@ export default function ActiveProductionPage() {
                 <div key={s.id} className="p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <div>
                     <div className="font-medium flex items-center gap-2">
-                      {s.volgorde}. {s.naam}
-                      {s.isTimeAnchor && <MdAnchor className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+                      {s.naam}
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">{s.duurInMinuten} min</div>
                   </div>
