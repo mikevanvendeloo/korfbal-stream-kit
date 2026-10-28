@@ -179,7 +179,12 @@ export class CallSheetScreen {
 
   async open(productionId: number, position: string) {
     await this.page.goto(`/callsheet/${productionId}/${position}`);
-    await expect(this.page.getByTitle('Instellingen')).toBeVisible();
+    await expect(this.gear()).toBeVisible();
+  }
+
+  /** The callsheet's own gear; exact, as the LIVE nav's gear is titled "Beheer en instellingen" */
+  gear() {
+    return this.page.getByTitle('Instellingen', {exact: true});
   }
 
   /** The small photos (or number / initials) next to the filled-in interview names */
@@ -189,9 +194,9 @@ export class CallSheetScreen {
 
   /** Gear menu → Interviewfoto's (AAN/UIT); closes the menu again. */
   async toggleInterviewPhotos() {
-    await this.page.getByTitle('Instellingen').click();
+    await this.gear().click();
     await this.page.getByRole('switch', {name: /Interviewfoto's/}).click();
-    await this.page.getByTitle('Instellingen').click();
+    await this.gear().click();
   }
 }
 
