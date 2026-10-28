@@ -2,7 +2,7 @@ import {requireOrganizationId} from '../services/organizationContext';
 import {randomUUID} from 'node:crypto';
 import {Router} from 'express';
 import {findExistingPosition, findOrCreatePosition} from '../services/positions';
-import {prisma} from '../services/prisma';
+import {LONG_TRANSACTION, prisma} from '../services/prisma';
 import {logger} from '../utils/logger';
 import {parseInstant} from '../utils/time';
 import {PersonInputSchema} from '../schemas/person';
@@ -1114,7 +1114,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
               if (id && parentId) await tx.productionEvent.update({ where: { id }, data: { parentId } });
             }
           }
-        });
+        }, LONG_TRANSACTION);
       } catch (err) {
         logger.error(`Import of production failed for item`, { item, error: err });
       }
