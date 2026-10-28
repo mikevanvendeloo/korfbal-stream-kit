@@ -1,7 +1,7 @@
 import {requireOrganizationId} from '../../services/organizationContext';
 import {randomUUID} from 'node:crypto';
 import {Router} from 'express';
-import {findOrCreatePosition} from '../../services/positions';
+import {positionResolver} from '../../services/positions';
 import {LONG_TRANSACTION, prisma} from '../../services/prisma';
 import {logger} from '../../utils/logger';
 import {ensureSeasonForDate} from '../../services/season';
@@ -268,6 +268,8 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
     const seasonId = (await ensureSeasonForDate(matchDate)).id;
 
     const result = await prisma.$transaction(async (tx) => {
+      // Positions are looked up by name for every item and event: read them once for the whole import
+      const positionOf = positionResolver(tx);
       // 0. If the imported production is active, deactivate all other productions.
       if (data.production.isActive) {
         await tx.production.updateMany({
@@ -388,7 +390,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
         for (const posData of data.positions) {
           const person = await tx.person.findFirst({ where: { name: posData.personName } });
           if (!person) continue;
-          const position = await findOrCreatePosition(tx, posData.positionName, { isStudio: posData.isStudio });
+          const position = await positionOf(posData.positionName, { isStudio: posData.isStudio });
           await tx.productionPersonPosition.upsert({
             where: { productionId_personId_positionId: { productionId: production.id, personId: person.id, positionId: position.id } },
             update: {},
@@ -414,7 +416,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
             for (const assignData of segData.assignments) {
               const person = await tx.person.findFirst({ where: { name: assignData.personName } });
               if (!person) continue;
-              const position = await findOrCreatePosition(tx, assignData.positionName, { isStudio: assignData.isStudio });
+              const position = await positionOf(assignData.positionName, { isStudio: assignData.isStudio });
               await tx.segmentRoleAssignment.create({
                 data: { productionSegmentId: segment.id, personId: person.id, positionId: position.id }
               });
@@ -533,7 +535,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
             // Handle positions
             if (Array.isArray(itemData.positions)) {
               for (const posName of itemData.positions) {
-                const position = await findOrCreatePosition(tx, posName);
+                const position = await positionOf(posName);
                 await tx.callSheetItemPosition.create({
                   data: { callSheetItemId: item.id, positionId: position.id }
                 });
@@ -587,7 +589,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
           // Handle positions
           if (Array.isArray(evData.positions)) {
             for (const posName of evData.positions) {
-              const position = await findOrCreatePosition(tx, posName);
+              const position = await positionOf(posName);
               await tx.productionEventPosition.create({
                 data: { eventId: event.id, positionId: position.id }
               });

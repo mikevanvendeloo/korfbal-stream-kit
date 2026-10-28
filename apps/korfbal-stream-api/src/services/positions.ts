@@ -19,3 +19,25 @@ export async function findOrCreatePosition(
 ): Promise<Position> {
   return (await findExistingPosition(db, name)) ?? db.position.create({data: {...data, name: name.trim()}});
 }
+
+/**
+ * findOrCreatePosition for many names in one go (imports): reads the positions once and remembers what
+ * it found or created, instead of reading the whole position table for every name.
+ */
+export function positionResolver(db: Db): (name: string, data?: Omit<Prisma.PositionUncheckedCreateInput, 'name'>) => Promise<Position> {
+  let positions: Position[] | null = null;
+  const byName = new Map<string, Position>();
+  return async (name, data = {}) => {
+    const key = name.trim().toLowerCase();
+    const known = byName.get(key);
+    if (known) return known;
+    positions ??= await db.position.findMany();
+    let position = findPositionByName(positions, name);
+    if (!position) {
+      position = await db.position.create({data: {...data, name: name.trim()}});
+      positions.push(position);
+    }
+    byName.set(key, position);
+    return position;
+  };
+}
