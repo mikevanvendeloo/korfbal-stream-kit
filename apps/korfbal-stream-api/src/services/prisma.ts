@@ -53,3 +53,10 @@ export const prismaUnscoped = prismaService.getClient();
  * typed as a plain PrismaClient and existing helpers taking a PrismaClient keep working.
  */
 export const prisma = prismaUnscoped.$extends(tenantScope) as unknown as PrismaClient;
+
+/**
+ * Options for a transaction that writes a whole production at once (import, backup restore, applying a
+ * draaiboek template): row by row that can take longer than Prisma's default 5 s, and then the
+ * transaction is closed halfway (P2028 "Transaction already closed").
+ */
+export const LONG_TRANSACTION = {timeout: 60_000, maxWait: 10_000} as const;

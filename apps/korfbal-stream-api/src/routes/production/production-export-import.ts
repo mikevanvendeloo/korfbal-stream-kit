@@ -2,7 +2,7 @@ import {requireOrganizationId} from '../../services/organizationContext';
 import {randomUUID} from 'node:crypto';
 import {Router} from 'express';
 import {findOrCreatePosition} from '../../services/positions';
-import {prisma} from '../../services/prisma';
+import {LONG_TRANSACTION, prisma} from '../../services/prisma';
 import {logger} from '../../utils/logger';
 import {ensureSeasonForDate} from '../../services/season';
 import {amsterdamDay, parseInstant} from '../../utils/time';
@@ -607,7 +607,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
       }
 
       return production;
-    });
+    }, LONG_TRANSACTION);
 
     // Interview players created by the import may carry pre-season `players/...` photoUrls.
     await migrateLegacySeasonAssets().catch((err) => logger.error('Season asset migration after production import failed', err as Error));
