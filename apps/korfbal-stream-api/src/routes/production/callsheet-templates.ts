@@ -28,6 +28,7 @@ interface TemplateItemData {
   positionIds: number[];
   /** The item's hoofdstuk (column "Hoofdstuk"); none in an older export */
   chapterName?: string;
+  cue?: string;
 }
 
 // --- Templates ---
@@ -127,7 +128,7 @@ callSheetTemplateRouter.post('/:id/items', async (req, res, next) => {
     const {
       title, note, durationSec, orderIndex,
       isInVenue, isInLivestream, isTimeAnchor, anchorType,
-      autoAdvance, positionIds, parentId
+      autoAdvance, positionIds, parentId, cue
     } = req.body;
 
     console.log(`[CallSheetTemplates] Adding item to template ${templateId}`, { title, orderIndex });
@@ -143,15 +144,18 @@ callSheetTemplateRouter.post('/:id/items', async (req, res, next) => {
       data: {
         template: { connect: { id: templateId } },
         title,
+        cue: typeof cue === 'string' ? cue.trim().slice(0, 50) : '',
         note,
         durationSec: Number(durationSec) || 0,
-        orderIndex: Number(orderIndex) || 0,
+        // Without a place: at the end of the draaiboek
+        orderIndex: Number(orderIndex) || ((await prisma.callSheetTemplateItem.aggregate({ where: { templateId }, _max: { orderIndex: true } }))._max.orderIndex ?? 0) + 1,
         isInVenue: !!isInVenue,
         isInLivestream: isInLivestream !== false,
         isTimeAnchor: !!isTimeAnchor,
         anchorType,
         autoAdvance: !!autoAdvance,
-        parentId: parentId || undefined,
+        // A relation like the hoofdstuk below (Prisma doesn't mix a plain parentId with connect)
+        ...(parentId ? { parent: { connect: { id: String(parentId) } } } : {}),
         chapter: { connect: { id: await templateItemChapter(templateId, req.body.chapterId) } },
         positions: {
           create: (positionIds || []).map((pid: number) => ({
@@ -174,7 +178,7 @@ callSheetTemplateRouter.put('/items/:itemId', async (req, res, next) => {
     const {
       title, note, durationSec, orderIndex,
       isInVenue, isInLivestream, isTimeAnchor, anchorType,
-      autoAdvance, positionIds, parentId
+      autoAdvance, positionIds, parentId, cue
     } = req.body;
 
     // Update positions and fields
@@ -206,6 +210,7 @@ callSheetTemplateRouter.put('/items/:itemId', async (req, res, next) => {
       return tx.callSheetTemplateItem.update({
         where: { id: itemId },
         data: {
+          cue: typeof cue === 'string' ? cue.trim().slice(0, 50) : undefined,
           title,
           note,
           durationSec: durationSec !== undefined ? Number(durationSec) : undefined,
@@ -382,7 +387,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
           id: itemId,
           callSheetId: callSheet.id,
           productionSegmentId: (tItem.chapterId && productionChapterOf.get(tItem.chapterId)) || null,
-          cue: '',
+          cue: tItem.cue,
           title: tItem.title,
           note: tItem.note,
           durationSec: tItem.durationSec,
@@ -578,7 +583,7 @@ callSheetTemplateRouter.get('/:id/export', async (req, res, next) => {
     const positions = await prisma.position.findMany({ orderBy: { name: 'asc' } });
 
     // Header row
-    const headers = ['Volgorde', 'Titel', 'Notitie', 'Duur (sec)', 'Tijd Anchor', 'Anchor Type', 'Auto Advance', 'Zaal (inVenue)', 'Stream (inStream)', 'Hoofdstuk'];
+    const headers = ['Volgorde', 'Titel', 'Notitie', 'Duur (sec)', 'Tijd Anchor', 'Anchor Type', 'Auto Advance', 'Zaal (inVenue)', 'Stream (inStream)', 'Hoofdstuk', 'Cue'];
     positions.forEach(p => headers.push(p.name));
 
     worksheet.addRow(headers);
@@ -595,7 +600,8 @@ callSheetTemplateRouter.get('/:id/export', async (req, res, next) => {
         item.autoAdvance ? 'JA' : 'NEE',
         item.isInVenue ? 'JA' : 'NEE',
         item.isInLivestream ? 'JA' : 'NEE',
-        item.chapter?.name ?? ''
+        item.chapter?.name ?? '',
+        item.cue
       ];
 
       const itemPosIds = new Set(item.positions.map(p => p.positionId));
@@ -640,6 +646,7 @@ callSheetTemplateRouter.post('/import', uploadMem, async (req, res, next) => {
     const itemsToCreate: TemplateItemData[] = [];
     const positionColumns: { col: number, id: number }[] = [];
     let chapterColumn: number | null = null;
+    let cueColumn: number | null = null;
 
     // Skip header row
     worksheet.eachRow((row, rowNumber) => {
@@ -648,6 +655,7 @@ callSheetTemplateRouter.post('/import', uploadMem, async (req, res, next) => {
         row.eachCell((cell, colNumber) => {
           const header = cell.text.toLowerCase();
           if (header.trim() === 'hoofdstuk') chapterColumn = colNumber;
+          if (header.trim() === 'cue') cueColumn = colNumber;
           const posId = posMap.get(header);
           if (posId !== undefined) {
             positionColumns.push({ col: colNumber, id: posId });
@@ -689,7 +697,8 @@ callSheetTemplateRouter.post('/import', uploadMem, async (req, res, next) => {
         anchorType: anchorType || undefined,
         autoAdvance,
         positionIds,
-        chapterName: chapterColumn ? importedChapterName(row.getCell(chapterColumn).text) || undefined : undefined
+        chapterName: chapterColumn ? importedChapterName(row.getCell(chapterColumn).text) || undefined : undefined,
+        cue: cueColumn ? row.getCell(cueColumn).text.trim().slice(0, 50) : ''
       });
     });
 
@@ -750,6 +759,7 @@ callSheetTemplateRouter.get('/:id/export-json', async (req, res, next) => {
       })),
       items: template.items.map(item => ({
         id: item.id,
+        cue: item.cue,
         title: item.title,
         note: item.note,
         durationSec: item.durationSec,
@@ -824,6 +834,7 @@ callSheetTemplateRouter.post('/import-json', uploadMem, async (req, res, next) =
       const createdItem = await prisma.callSheetTemplateItem.create({
         data: {
           templateId: template.id,
+          cue: typeof item.cue === 'string' ? item.cue.trim().slice(0, 50) : '',
           title: item.title,
           note: item.note ?? null,
           durationSec: Number(item.durationSec) || 0,

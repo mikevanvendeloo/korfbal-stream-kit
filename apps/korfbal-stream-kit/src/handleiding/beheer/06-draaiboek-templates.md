@@ -15,7 +15,7 @@ Elk hoofdstuk is een blok met bovenaan:
 - het **potlood**: de naam wijzigen;
 - de **prullenbak**: het hoofdstuk verwijderen. Staan er items in, dan kies je eerst bij **Items verplaatsen naar** waar ze heen gaan;
 - de **pijl** om het blok in en uit te klappen;
-- **Standaardbezetting**: de posities die je in dit hoofdstuk meestal nodig hebt, bijvoorbeeld bij *Eerste helft*: Camera overzicht, Camera links, Camera rechts, Regie livestream, Commentaar. Klik op **Wijzigen** om ze aan te vinken. Op het tabblad **Bezetting** van een productie verschijnen ze als snelkeuzeknoppen; er wordt niemand automatisch ingepland.
+- **Standaardbezetting**: de posities die je in dit hoofdstuk meestal nodig hebt, bijvoorbeeld bij *Eerste helft*: Camera overzicht, Camera links, Camera rechts, Regie livestream, Commentaar. Voeg ze toe met **+ Positie**; een wijziging wordt meteen bewaard. Op het tabblad **Bezetting** van een productie verschijnen ze als snelkeuzeknoppen; er wordt niemand automatisch ingepland.
 
 Onderaan voeg je met **Hoofdstuk toevoegen** een hoofdstuk toe.
 
@@ -25,25 +25,26 @@ Onderaan voeg je met **Hoofdstuk toevoegen** een hoofdstuk toe.
 
 ## Items
 
-Met **Nieuw Draaiboek** maak je een lege template; met **Bekijken / Bewerken** open je er een. Klik op het potlood bij een item om het te wijzigen:
+Met **Nieuw Draaiboek** maak je een lege template; met **Bekijken / Bewerken** open je er een. Elk item staat op één regel: de **cue**, de titel, labels (anker, Auto, Zaal, *Geen stream*), de posities (de eerste drie, daarna *+2*; Showcaller staat er niet bij, die staat altijd aan) en de duur. Klik op een regel om hem te openen en te wijzigen:
 
 | Veld | Betekenis |
 |---|---|
+| **Cue** | Een korte code, bijvoorbeeld `INTRO`. Komt mee naar de callsheet van elke productie, zodat bijvoorbeeld vMix er later naar kan verwijzen. Mag leeg blijven. |
 | **Titel** en **Notitie** | Wat er gebeurt. Hierin mag je [interviewnamen](#interviewnamen) gebruiken. |
 | **Duur (seconden)** | Hoe lang het item duurt |
 | **Zaal** / **Stream** | Of het in de zaal en/of in de livestream te zien is |
 | **Tijd Anchor** | Het ijkpunt van het schema: *Wedstrijd starttijd* of *Livestream start*. Alle andere tijden worden daar vóór of na gerekend. |
 | **Auto Advance** | Het item gaat in LIVE vanzelf door naar het volgende als de duur om is |
 | **Koppel aan item (Parent)** | Een item dat tegelijk met een ander item gebeurt (in LIVE ernaast getoond); het staat altijd in hetzelfde hoofdstuk |
-| **Posities** | Voor wie het item is. **Showcaller** staat altijd aan. |
+| **Posities** | Voor wie het item is: de gekozen posities staan als labels (met × haal je er een weg); met **+ Positie** zoek je er een bij, per categorie (Techniek, Entertainment, Algemeen). **Showcaller** staat altijd aan. |
 
-De volgorde wijzig je door te slepen. Een nieuw item (met **+** in een hoofdstuk) duurt 60 seconden en opent meteen om te wijzigen.
+De volgorde wijzig je door te slepen. Een nieuw item (met **+** in een hoofdstuk) duurt 60 seconden en opent meteen om te wijzigen. **Opslaan** bewaart, **Annuleren** (of Escape) laat alles zoals het was.
 
 ### Importeren en exporteren
 
 Met **Excel Import** of **JSON Import** maak je een template uit een bestand. Vul eerst een naam in; pas daarna kun je een bestand kiezen. Via de knoppen op een kaart exporteer je een template naar Excel of JSON. Beide nemen de hoofdstukken mee (JSON ook de standaardbezetting per hoofdstuk).
 
-In Excel staan per regel: Volgorde, Titel, Notitie, Duur (sec), Tijd Anchor (JA/NEE), Anchor Type (MATCH_START of LIVESTREAM_START), Auto Advance (JA), Zaal (JA), Stream (NEE om uit te zetten), **Hoofdstuk**. Daarna één kolom per positie, met precies de naam van de positie als kop, en een X bij de items voor die positie.
+In Excel staan per regel: Volgorde, Titel, Notitie, Duur (sec), Tijd Anchor (JA/NEE), Anchor Type (MATCH_START of LIVESTREAM_START), Auto Advance (JA), Zaal (JA), Stream (NEE om uit te zetten), **Hoofdstuk**, **Cue**. Daarna één kolom per positie, met precies de naam van de positie als kop, en een X bij de items voor die positie.
 
 > - Een kolom met een positienaam die niet bestaat, wordt zonder melding overgeslagen.
 > - Excel neemt geen gekoppelde items (parent) mee; JSON wel.

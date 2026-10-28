@@ -26,7 +26,8 @@ describe.runIf(runDb)('hoofdstukken of a draaiboek (integration)', () => {
       chapters[name] = res.body.id;
     }
     for (const [title, chapter, durationSec] of [['Kabels checken', 'Voorbereiding', 300], ['Aftrap', 'Eerste helft', 0], ['Eerste helft', 'Eerste helft', 2100], ['Rust', 'Rust', 600]] as const) {
-      const res = await request(app).post(`/api/callsheets/templates/${templateId}/items`).send({title, durationSec, chapterId: chapters[chapter]}).expect(201);
+      const cue = title === 'Aftrap' ? 'AFTRAP' : undefined;
+      const res = await request(app).post(`/api/callsheets/templates/${templateId}/items`).send({title, durationSec, chapterId: chapters[chapter], cue}).expect(201);
       items[title] = res.body.id;
     }
     // A linked item follows its parent
@@ -49,7 +50,7 @@ describe.runIf(runDb)('hoofdstukken of a draaiboek (integration)', () => {
 
   const template = async (id = templateId) => (await request(app).get(`/api/callsheets/templates/${id}`).expect(200)).body as {
     chapters: Array<{ id: string; name: string; positions: Array<{ positionId: number }> }>;
-    items: Array<{ id: string; title: string; chapterId: string; orderIndex: number }>;
+    items: Array<{ id: string; title: string; chapterId: string; orderIndex: number; cue: string }>;
   };
   const byChapter = (t: Awaited<ReturnType<typeof template>>) =>
     t.chapters.map((c) => [c.name, t.items.filter((i) => i.chapterId === c.id).sort((a, b) => a.orderIndex - b.orderIndex).map((i) => i.title)]);
@@ -67,7 +68,8 @@ describe.runIf(runDb)('hoofdstukken of a draaiboek (integration)', () => {
 
     it('puts an item without a hoofdstuk in the hoofdstuk of the last item, and refuses one of another template', async () => {
       const res = await request(app).post(`/api/callsheets/templates/${templateId}/items`).send({title: 'Nog even', durationSec: 60}).expect(201);
-      expect(res.body.chapterId).toBe(chapters['Rust']);
+      // The last item made is the linked 'Camera op middenstip', in Eerste helft
+      expect(res.body.chapterId).toBe(chapters['Eerste helft']);
       await request(app).delete(`/api/callsheets/templates/items/${res.body.id}`).expect(204);
 
       const other = await request(app).post('/api/callsheets/templates').send({name: `${MARKER} Ander`}).expect(201);
@@ -117,6 +119,7 @@ describe.runIf(runDb)('hoofdstukken of a draaiboek (integration)', () => {
       const fromJson = await request(app).post('/api/callsheets/templates/import-json').send({...json.body, name: `${MARKER} JSON`}).expect(201);
       templateIds.push(fromJson.body.id);
       const imported = await template(fromJson.body.id);
+      expect(imported.items.find((i) => i.title === 'Aftrap')).toMatchObject({cue: 'AFTRAP'});
       expect(byChapter(imported)).toEqual(byChapter(await template()));
       expect(imported.chapters.find((c) => c.name === 'Eerste helft')?.positions.map((p) => p.positionId)).toEqual([positionId]);
 
@@ -152,6 +155,8 @@ describe.runIf(runDb)('hoofdstukken of a draaiboek (integration)', () => {
       expect(callSheet.items.map((i) => [i.title, chapterName.get(i.productionSegmentId ?? -1)])).toEqual([
         ['Kabels checken', 'Voorbereiding'], ['Aftrap', 'Eerste helft'], ['Eerste helft', 'Eerste helft'], ['Camera op middenstip', 'Eerste helft'], ['Rust', 'Rust'],
       ]);
+      // The cue comes along from the template (e.g. for a vMix trigger)
+      expect(callSheet.items.find((i) => i.title === 'Aftrap')?.cue).toBe('AFTRAP');
       const events = await prisma.productionEvent.findMany({where: {productionId: show.productionId}});
       expect(events.every((e) => e.chapterId != null)).toBe(true);
       // The standard positions come from the template's hoofdstuk
@@ -204,6 +209,7 @@ describe.runIf(runDb)('hoofdstukken of a draaiboek (integration)', () => {
       expect(copy.chapters[1].positions.map((p) => p.positionId)).toEqual([positionId]);
       const linked = await prisma.callSheetTemplateItem.findFirstOrThrow({where: {templateId: res.body.id, title: 'Camera op middenstip'}, include: {parent: true}});
       expect(linked.parent?.title).toBe('Aftrap');
+      expect(linked.parent?.cue).toBe('AFTRAP');
     });
   });
 });

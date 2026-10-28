@@ -162,6 +162,7 @@ callSheetTemplateChaptersRouter.post('/from-callsheet/:callSheetId', async (req,
           data: {
             templateId: created.id,
             chapterId: (item.productionSegmentId != null && chapterOf.get(item.productionSegmentId)) || null,
+            cue: item.cue,
             title: item.title, note: item.note, durationSec: item.durationSec, orderIndex: i + 1,
             isInVenue: item.isInVenue, isInLivestream: item.isInLivestream, isTimeAnchor: item.isTimeAnchor,
             anchorType: item.anchorType, autoAdvance: item.autoAdvance,

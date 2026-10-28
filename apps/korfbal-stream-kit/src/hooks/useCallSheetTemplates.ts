@@ -16,6 +16,8 @@ export interface CallSheetTemplate {
 export interface CallSheetTemplateItem {
   id: string;
   templateId: number;
+  /** Cue code (e.g. for vMix), copied to the production's callsheet item */
+  cue: string;
   title: string;
   note: string | null;
   durationSec: number;

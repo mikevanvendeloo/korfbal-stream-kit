@@ -48,6 +48,7 @@ export type CallSheetItem = {
   durationSec: number;
   orderIndex: number;
   isInVenue?: boolean;
+  isInLivestream?: boolean;
   isTimeAnchor?: boolean;
   anchorType?: string | null;
   autoAdvance?: boolean;

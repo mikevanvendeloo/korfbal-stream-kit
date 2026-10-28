@@ -267,6 +267,8 @@ model CallSheetTemplateChapterPosition {
 model CallSheetTemplateItem {
   id             String                      @id @default(cuid())
   templateId     Int
+  /// Cue code, e.g. for a vMix trigger to the callsheet; copied to the production's callsheet item
+  cue            String                      @default("")
   title          String
   note           String?
   durationSec    Int

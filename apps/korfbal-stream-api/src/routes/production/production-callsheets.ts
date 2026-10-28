@@ -356,7 +356,10 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
     const timeStart = parseOptionalInstant(req.body?.timeStart);
     const timeEnd = parseOptionalInstant(req.body?.timeEnd);
     if (timeStart === 'invalid' || timeEnd === 'invalid') return res.status(400).json({ error: 'Invalid timeStart or timeEnd' });
-    const orderIndex = req.body?.orderIndex != null ? Number(req.body.orderIndex) : 0;
+    // Without a place: at the end of the callsheet
+    const orderIndex = req.body?.orderIndex != null
+      ? Number(req.body.orderIndex)
+      : ((await prisma.callSheetItem.aggregate({ where: { callSheetId }, _max: { orderIndex: true } }))._max.orderIndex ?? 0) + 1;
     const isInVenue = req.body?.isInVenue === true;
     const isInLivestream = req.body?.isInLivestream !== false; // Default true
     const isTimeAnchor = req.body?.isTimeAnchor === true;
@@ -365,7 +368,8 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
     const parentId = req.body?.parentId != null ? String(req.body.parentId).trim() : null;
     const positionIds: number[] = Array.isArray(req.body?.positionIds) ? req.body.positionIds.map((x: any) => Number(x)).filter((x: number) => Number.isInteger(x) && x > 0) : [];
 
-    if (!cue || !title || !Number.isInteger(durationSec) || durationSec < 0) {
+    // The cue is optional (a new item from the editor starts empty; vMix can use it later)
+    if (!title || !Number.isInteger(durationSec) || durationSec < 0) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
