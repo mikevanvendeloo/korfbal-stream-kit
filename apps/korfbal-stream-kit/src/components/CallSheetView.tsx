@@ -251,7 +251,9 @@ export const CallSheetView = () => {
 
     useEffect(() => {
         if (activeEvent && activeEvent.id !== lastScrolledEventId.current) {
-            const activeElement = document.getElementById(`event-${activeEvent.id}`);
+            // Not in this callsheet (another position's item): scroll to the wait row instead
+            const activeElement = document.getElementById(`event-${activeEvent.id}`)
+                ?? document.querySelector<HTMLElement>('[data-callsheet-wait]');
             if (activeElement) {
               // Check of het item al redelijk centraal staat om onrustig scrollen te voorkomen
               const rect = activeElement.getBoundingClientRect();
