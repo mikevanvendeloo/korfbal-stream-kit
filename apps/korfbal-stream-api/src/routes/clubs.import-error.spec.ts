@@ -23,6 +23,7 @@ describe('Clubs import logs error on template HTTP error', () => {
     players = [];
 
     prisma.club = {
+      findMany: vi.fn(async () => clubs),
       findUnique: vi.fn(async ({ where }: any) => clubs.find((c) => c.slug === where.slug || c.id === where.id) || null),
       create: vi.fn(async ({ data }: any) => { const id = (clubs.at(-1)?.id || 0) + 1; const row = { id, createdAt: new Date(), ...data }; clubs.push(row); return row; }),
       update: vi.fn(async ({ where, data }: any) => { const idx = clubs.findIndex((c) => c.id === where.id); clubs[idx] = { ...clubs[idx], ...data }; return clubs[idx]; }),
