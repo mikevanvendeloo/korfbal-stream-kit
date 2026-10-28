@@ -3,6 +3,7 @@ import {emitToOrganization} from './socket';
 import {prisma, prismaUnscoped} from './prisma';
 import {bindOrganization, requireOrganizationId, runWithOrganization} from './organizationContext';
 import {logger} from '../utils/logger';
+import {liveChapters} from './productionTiming';
 
 interface ClockState {
   productionTime: number; // in seconds
@@ -103,7 +104,7 @@ export async function broadcastState() {
     });
 
     // Sanitize elk event om stack overflow in socket.io-parser te voorkomen
-    emit('production_events_update', { items: events.map(sanitizeEvent) });
+    emit('production_events_update', { items: events.map(sanitizeEvent), chapters: await liveChapters(state.productionId) });
   }
 }
 

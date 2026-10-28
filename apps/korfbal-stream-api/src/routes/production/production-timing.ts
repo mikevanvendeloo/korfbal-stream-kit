@@ -3,6 +3,7 @@ import {prisma} from '../../services/prisma';
 import {getCurrentState, liveStateSnapshot} from '../../services/productionState';
 import {resolveSeasonId} from '../../services/season';
 import {amsterdamDay} from '../../utils/time';
+import {productionChapterTimings} from '../../services/productionTiming';
 
 export const productionTimingRouter: Router = Router();
 
@@ -13,36 +14,8 @@ productionTimingRouter.get('/:id/timing', async (req, res, next) => {
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
     const prod = await prisma.production.findUnique({ where: { id }, include: { matchSchedule: true } });
     if (!prod) return res.status(404).json({ error: 'Not found' });
-    const segments = await prisma.productionChapter.findMany({ where: { productionId: id }, orderBy: { volgorde: 'asc' } });
-    if (segments.length === 0) return res.json([]);
-
-    let anchorIdx = segments.findIndex((s) => s.isTimeAnchor);
-    if (anchorIdx === -1) {
-      // Fallback: use the first segment as anchor if none defined
-      anchorIdx = 0;
-    }
-
-    const anchorStart = new Date(prod.matchSchedule.date).getTime();
-
-    const result = segments.map((s) => ({ ...s, start: '', end: '' }));
-
-    // forward from anchor
-    let t = anchorStart;
-    for (let i = anchorIdx; i < result.length; i++) {
-      result[i].start = new Date(t).toISOString();
-      t += result[i].duurInMinuten * 60 * 1000;
-      result[i].end = new Date(t).toISOString();
-    }
-
-    // backward before anchor
-    t = anchorStart;
-    for (let i = anchorIdx - 1; i >= 0; i--) {
-      t -= result[i].duurInMinuten * 60 * 1000;
-      result[i].start = new Date(t).toISOString();
-      result[i].end = new Date(t + result[i].duurInMinuten * 60 * 1000).toISOString();
-    }
-
-    return res.json(result);
+    // The hoofdstukken with their times from the items (openspec/changes/chapters D1)
+    return res.json(await productionChapterTimings(id, prod.matchSchedule.date));
   } catch (err) {
     return next(err);
   }

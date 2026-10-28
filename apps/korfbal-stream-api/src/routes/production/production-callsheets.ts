@@ -12,6 +12,7 @@ import {emitToOrganization} from '../../services/socket';
 import {findPositionByName, positionKey, SHOWCALLER_POSITION} from '../../domain/positionSkill';
 import {findOrCreatePosition} from '../../services/positions';
 import {excelCellToDate, parseInstant, parseOptionalInstant} from '../../utils/time';
+import {placeProductionChapters} from '../../services/chapterMigration';
 
 export const productionCallsheetsRouter: Router = Router();
 
@@ -237,6 +238,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async
             isInVenue: item.isInVenue,
             isTimeAnchor: item.isTimeAnchor,
             anchorType: item.anchorType,
+            chapterId: item.productionSegmentId,
             callSheetItemId: item.id,
             // parentId slaan we in de eerste stap over omdat het een FK is naar ProductionEvent
           }
@@ -282,6 +284,9 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async
         where: { callSheetId: cs.id },
         data: { updatedAt: new Date() }
       });
+
+      // Items still without a hoofdstuk (and their events) get one (openspec/changes/chapters D7)
+      await placeProductionChapters(tx, cs.productionId);
     });
 
     // 5. Trigger een update naar alle clients

@@ -47,7 +47,7 @@ export type ScenarioOptions = {
   /** When the first item is planned (default: one minute from now) */
   startsAt?: Date;
   /** Production segments, in order (name and minutes) */
-  segments?: Array<{ naam: string; duurInMinuten: number }>;
+  segments?: Array<{ naam: string; duurInMinuten: number; isTimeAnchor?: boolean }>;
   report?: Partial<Prisma.ProductionReportUncheckedCreateWithoutProductionInput>;
   /** The production's broadcast start (Production.liveTime) */
   liveTime?: Date;

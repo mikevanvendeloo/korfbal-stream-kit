@@ -11,12 +11,13 @@
 
 ## Phase 2: Migration and read paths (backend)
 
-- [ ] `placeItemsInChapters(windows, items)` and `flattenChapters` (pure, unit tests: boundaries, Voorbereiding, linked items, items without time, two anchors)
-- [ ] `services/chapterMigration.ts`: productions (segments → hoofdstukken, items/events placed, *Draaiboek* fallback) and templates (default segment template, standard positions by name, other segment templates as templates with hoofdstukken only), `chaptersAutoPlaced` flag; startup per organization, idempotent
-- [ ] Chapter timing derived from items: `GET /api/production/:id/timing`, `dayPlanning` `liveEnd`, reports (`daily-occupancy`, role reports, production report PDF/Markdown, crew report → callsheet report)
-- [ ] Live snapshot: `chapters` + `chapterId` per event
-- [ ] Backup and production export/import: hoofdstukken; restore of the old format through the same placement
-- [ ] Integration tests: migration of a scenario with segments and of a template, old-format backup restore, `createProductionScenario({chapters})`
+- [x] `services/chapters.ts` (pure, unit tests): `segmentWindows`, `sequentialStarts` (match start anchor preferred), `placeItemsInChapters` (boundaries, Voorbereiding, after the last, linked items, items without time), `chapterTime`. *`flattenChapters` moved to phase 3 (write paths).*
+- [x] `services/chapterMigration.ts`: productions (segments → hoofdstukken, items/events placed, *Voorbereiding* in front, *Draaiboek* fallback, flag for future matches) and templates (default segment template, standard positions by name, other segment templates once as templates with hoofdstukken only); startup per organization (`migrateAllChapters` in main.ts), idempotent
+- [x] Until phase 3: apply template, sync to LIVE, backup restore and production import call `placeProductionChapters` for what they create without a hoofdstuk; sync to LIVE copies the item's hoofdstuk to its event
+- [x] Timing derived from items (`services/productionTiming.ts`): `GET /api/production/:id/timing` (same shape), the end of the livestream (`liveEnds`: latest item end, else live + segment durations) in the reports, the day planning, the production report (PDF/Markdown/WhatsApp) and `/api/production/active` (`liveEnd`, used by LIVE → Productie). *The crew report already groups by the item's hoofdstuk, which the migration now sets.*
+- [x] LIVE: `GET /api/production/:id/events` and the `production_events_update` socket event carry `chapters` (id, name, order); every event has its `chapterId`
+- [x] Backup / production import of the old format: placed by the same function after the restore (the backup already carries segments and item → segment)
+- [x] Integration test `services/chapterMigration.int.spec.ts` (own organization): production with Voorbereiding/after-last/events, template from the match start anchor with standard positions, kept segment template, idempotent second run, derived timing and LIVE chapters. *`createProductionScenario({chapters})` moved to phase 3; `segments` now accepts `isTimeAnchor`.*
 
 ## Phase 3: Write paths and editor
 

@@ -9,6 +9,7 @@ import {amsterdamDay, parseInstant} from '../../utils/time';
 import {migrateLegacySeasonAssets} from '../../services/seasonAssetMigration';
 import {contentDisposition} from '../../utils/attachment';
 import {titlePartsForCreate} from '../../services/backupFields';
+import {placeProductionChapters} from '../../services/chapterMigration';
 
 export const productionExportImportRouter: Router = Router();
 
@@ -605,6 +606,9 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
           }
         }
       }
+
+      // Items and events of an export without hoofdstukken get one (openspec/changes/chapters D7)
+      await placeProductionChapters(tx, production.id);
 
       return production;
     });

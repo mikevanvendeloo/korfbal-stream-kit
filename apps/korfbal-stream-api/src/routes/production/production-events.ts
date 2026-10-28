@@ -1,5 +1,6 @@
 import {Router} from 'express';
 import {prisma} from '../../services/prisma';
+import {liveChapters} from '../../services/productionTiming';
 
 export const productionEventsRouter: Router = Router();
 
@@ -95,7 +96,9 @@ productionEventsRouter.get('/:id/events', async (req, res, next) => {
       },
     });
 
-    return res.json({ items: events, total: events.length });
+    // The hoofdstukken, for the headings in LIVE (each event has its chapterId)
+    const chapters = await liveChapters(productionId);
+    return res.json({ items: events, total: events.length, chapters });
   } catch (err) {
     return next(err);
   }

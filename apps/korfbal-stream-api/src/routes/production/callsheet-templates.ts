@@ -6,6 +6,7 @@ import {prisma} from '../../services/prisma';
 import {findPositionByName, SHOWCALLER_POSITION} from '../../domain/positionSkill';
 import {NotFoundError} from '../../middleware/error';
 import {contentDisposition} from '../../utils/attachment';
+import {placeProductionChapters} from '../../services/chapterMigration';
 
 export const callSheetTemplateRouter: Router = Router();
 const uploadMem = keepOrganizationContext(multer({ storage: multer.memoryStorage() }).single('file'));
@@ -434,6 +435,9 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
       if (eventPositions.length > 0) {
           await tx.productionEventPosition.createMany({ data: eventPositions });
       }
+
+      // The new items and events in the production's hoofdstukken, by time (openspec/changes/chapters D7)
+      await placeProductionChapters(tx, productionId);
 
       // Update production with template link
       await tx.production.update({

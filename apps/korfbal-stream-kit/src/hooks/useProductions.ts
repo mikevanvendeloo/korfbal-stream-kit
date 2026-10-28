@@ -27,6 +27,8 @@ export type Production = {
   crewCallTime?: string | null;
   /** Only on a single production (GET /api/production/:id and /active): the times as they count */
   planned?: PlannedTimes | null;
+  /** Only on /api/production/active: the end of the livestream (latest item end) */
+  liveEnd?: string | null;
   callSheetTemplateId?: number | null;
   /** Only in the list (GET /api/production): the minimum staffing of the people present */
   staffing?: StaffingSummary;

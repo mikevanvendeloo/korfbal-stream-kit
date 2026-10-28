@@ -26,6 +26,7 @@ import {migrateLegacySeasonAssets} from '../services/seasonAssetMigration';
 import {getSetting, GLOBAL_SETTING_KEYS, setSetting} from '../services/appSettings';
 import {getOwnClubId, setOwnClubId} from '../services/ownClub';
 import {clearOrganizationLookupCache} from '../middleware/organizationContext';
+import {placeProductionChapters} from '../services/chapterMigration';
 
 export const backupRouter: Router = Router();
 
@@ -1114,6 +1115,8 @@ backupRouter.post('/producties/import', async (req, res, next) => {
               if (id && parentId) await tx.productionEvent.update({ where: { id }, data: { parentId } });
             }
           }
+          // Items and events of an older backup without a hoofdstuk get one (openspec/changes/chapters D7)
+          await placeProductionChapters(tx, production.id);
         });
       } catch (err) {
         logger.error(`Import of production failed for item`, { item, error: err });

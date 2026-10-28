@@ -7,6 +7,7 @@ import {resolveSeasonId} from '../services/season';
 import {staffingSummaries} from '../services/productionStaffing';
 import {parseOptionalInstant} from '../utils/time';
 import {plannedTimesOf} from '../services/dayPlanning';
+import {liveEnds} from '../services/productionTiming';
 
 // Import all production sub-routers
 import {productionPersonsRouter} from './production/production-persons';
@@ -193,8 +194,10 @@ productionRouter.get('/active', async (_req, res, next) => {
       include: { matchSchedule: true },
     });
     if (!item) return res.json({ item });
-    // Opbouw and verzamelen for LIVE → Productie
-    return res.json({ item: {...item, planned: await plannedTimesOf(item.id, item.matchSchedule.date)} });
+    // Opbouw and verzamelen for LIVE → Productie, and the end of the livestream (latest item end, openspec/changes/chapters D1)
+    const segments = await prisma.productionChapter.findMany({ where: { productionId: item.id }, select: { duurInMinuten: true } });
+    const liveEnd = (await liveEnds([{ id: item.id, liveTime: item.liveTime, segments }])).get(item.id) ?? null;
+    return res.json({ item: {...item, planned: await plannedTimesOf(item.id, item.matchSchedule.date), liveEnd} });
   } catch (err) {
     return next(err);
   }

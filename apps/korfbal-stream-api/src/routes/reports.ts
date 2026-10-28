@@ -5,6 +5,7 @@ import type {PositionCategory} from '@prisma/client';
 import {resolveSeasonId} from '../services/season';
 import {amsterdamDay, amsterdamDayRange} from '../utils/time';
 import {getDayPlanningSettings, planDay} from '../services/dayPlanning';
+import {liveEnds} from '../services/productionTiming';
 
 export const reportsRouter: Router = Router();
 
@@ -107,6 +108,7 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
       return a.name.localeCompare(b.name);
     });
 
+    const ends = await liveEnds(productions);
     // The day planning: opbouw before the first stream, then per stream verzamelen, live and einde
     const planned = planDay(productions, await getDayPlanningSettings());
 
@@ -114,7 +116,7 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
       date,
       productions: productions.map(p => {
         const totalDuration = p.segments.reduce((sum, s) => sum + s.duurInMinuten, 0);
-        const endLiveTime = p.liveTime ? new Date(new Date(p.liveTime).getTime() + totalDuration * 60000) : null;
+        const endLiveTime = ends.get(p.id) ?? null;
         const plan = planned.get(p.id);
         return {
           id: p.id,
@@ -129,7 +131,7 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
             crewCallTime: plan.crewCallTime,
             crewCallIsDefault: plan.crewCallIsDefault,
             liveStart: plan.liveStart,
-            liveEnd: new Date(plan.liveStart.getTime() + totalDuration * 60000),
+            liveEnd: ends.get(p.id) ?? new Date(plan.liveStart.getTime() + totalDuration * 60000),
           },
         };
       }),
@@ -236,11 +238,11 @@ reportsRouter.get('/daily-occupancy-by-position', async (req, res, next) => {
         return a.name.localeCompare(b.name);
       });
 
+    const ends = await liveEnds(productions);
     return res.json({
       date,
       productions: productions.map(p => {
-        const totalDuration = p.segments.reduce((sum, s) => sum + s.duurInMinuten, 0);
-        const endLiveTime = p.liveTime ? new Date(new Date(p.liveTime).getTime() + totalDuration * 60000) : null;
+        const endLiveTime = ends.get(p.id) ?? null;
         return {
           id: p.id,
           time: p.matchSchedule.date,
@@ -285,6 +287,7 @@ reportsRouter.get('/interviews', async (req, res, next) => {
       },
     });
 
+    const ends = await liveEnds(productions);
     const report = productions.map(p => {
       const homeInterviews = p.interviewSubjects
         .filter(s => s.side === 'HOME')
@@ -293,8 +296,7 @@ reportsRouter.get('/interviews', async (req, res, next) => {
         .filter(s => s.side === 'AWAY')
         .map(s => ({ name: s.player.name, role: s.role, photoUrl: s.player.photoUrl }));
 
-      const totalDuration = p.segments.reduce((sum, s) => sum + s.duurInMinuten, 0);
-      const endLiveTime = p.liveTime ? new Date(new Date(p.liveTime).getTime() + totalDuration * 60000) : null;
+      const endLiveTime = ends.get(p.id) ?? null;
 
       return {
         id: p.id,
@@ -344,6 +346,7 @@ async function rolesReport(categories: PositionCategory[], seasonIdParam: unknow
     }),
   ]);
 
+  const ends = await liveEnds(productions.map((p) => ({id: p.id, liveTime: p.liveTime, segments: p.segments})));
   return {
     positions,
     productions: productions.map((p) => {
@@ -353,12 +356,11 @@ async function rolesReport(categories: PositionCategory[], seasonIdParam: unknow
       }
       const assignments: Record<number, string[]> = {};
       for (const [positionId, names] of byPosition) assignments[positionId] = [...names].sort((a, b) => a.localeCompare(b));
-      const totalDuration = p.segments.reduce((sum, s) => sum + s.duurInMinuten, 0);
       return {
         id: p.id,
         date: p.matchSchedule.date,
         liveTime: p.liveTime,
-        endLiveTime: p.liveTime ? new Date(p.liveTime.getTime() + totalDuration * 60000) : null,
+        endLiveTime: ends.get(p.id) ?? null,
         homeTeam: p.matchSchedule.homeTeamName,
         awayTeam: p.matchSchedule.awayTeamName,
         assignments,

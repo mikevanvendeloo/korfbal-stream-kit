@@ -261,7 +261,8 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Excel Expor
     expect(prodApply?.callSheets.length).toBeGreaterThan(0);
     const cs = prodApply?.callSheets[0];
     expect(cs?.items).toHaveLength(2);
-    // Na de fix zijn de items niet meer gekoppeld aan een segment
-    expect(cs?.items.every(i => i.productionSegmentId === null)).toBe(true);
+    // Every item lands in one of the production's hoofdstukken (openspec/changes/chapters D7)
+    const chapterIds = new Set(prodApply?.segments.map(s => s.id));
+    expect(cs?.items.every(i => i.productionSegmentId != null && chapterIds.has(i.productionSegmentId))).toBe(true);
   });
 });

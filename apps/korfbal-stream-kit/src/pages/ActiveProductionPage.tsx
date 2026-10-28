@@ -26,8 +26,8 @@ export default function ActiveProductionPage() {
   // From the day planning: the own verzameltijd or the organization's default; opbouw only before the day's first stream
   const gatheringTime = active.planned?.crewCallTime ?? null;
   const setupTime = active.planned?.setupTime ?? null;
-  const totalDuration = (timing.data || []).reduce((sum, s) => sum + s.duurInMinuten, 0);
-  const endLiveTime = active.liveTime ? new Date(new Date(active.liveTime).getTime() + totalDuration * 60000) : null;
+  // The end of the livestream as the API derives it (the latest item end), the same as in the reports
+  const endLiveTime = active.liveEnd ?? null;
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
