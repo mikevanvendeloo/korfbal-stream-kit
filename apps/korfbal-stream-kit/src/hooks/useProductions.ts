@@ -25,6 +25,8 @@ export type Production = {
   /** Own opbouw / verzamel time; null = the organization's default (see `planned`) */
   setupTime?: string | null;
   crewCallTime?: string | null;
+  /** Hoofdstukken placed by the segment migration and not yet checked (openspec/changes/chapters D7) */
+  chaptersAutoPlaced?: boolean;
   /** Only on a single production (GET /api/production/:id and /active): the times as they count */
   planned?: PlannedTimes | null;
   /** Only on /api/production/active: the end of the livestream (latest item end) */

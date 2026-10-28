@@ -76,7 +76,7 @@ export default function CrewReportPage() {
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">Crew report</h1>
+        <h1 className="text-xl font-semibold">Callsheet</h1>
         <div className="flex gap-2 items-center">
           <select
             className="border rounded px-2 py-1 bg-white dark:bg-gray-800 text-sm"

@@ -29,7 +29,7 @@ Op een telefoon past de tabel niet in de breedte: veeg dan over de tabel naar li
 De nieuwe productie krijgt meteen:
 
 - een **livestream-start** 5 minuten voor de aanvang;
-- de **segmenten** van de segment-template die op *Standaard* staat (zie [Draaiboek-templates](/admin/handleiding/draaiboek-templates#segment-templates));
+- een standaardindeling in **hoofdstukken**; die wordt vervangen door de hoofdstukken van het draaiboek dat je kiest (zie [Draaiboek-templates](/admin/handleiding/draaiboek-templates#hoofdstukken));
 - een lege callsheet.
 
 Daarna kies je op het tabblad **Draaiboek** het draaiboek (zie [Het draaiboek](/admin/handleiding/draaiboek)).
@@ -47,7 +47,7 @@ LIVE volgt altijd de **actieve** productie. Klik bij de juiste productie op **Ac
 ## Wijzigen en verwijderen
 
 - **Wijzig** laat je een andere wedstrijd kiezen. De rest blijft zoals het is, ook de livestream-start.
-- **Verwijder** verwijdert de productie met alles wat erbij hoort: segmenten, draaiboek, crew, interviews, titels en het rapport.
+- **Verwijder** verwijdert de productie met alles wat erbij hoort: hoofdstukken, draaiboek, crew, interviews, titels en het rapport.
 
 > **Verwijder** vraagt geen bevestiging en kan niet ongedaan worden gemaakt. Exporteer de productie eerst als je twijfelt.
 
@@ -64,10 +64,10 @@ Het overzicht toont meteen de nieuwe datum, tijd en ploegnamen. Ook over de wiss
 
 ## Exporteren en importeren
 
-- **Exporteer** downloadt de hele productie als JSON-bestand: wedstrijd, crew met skills, posities, segmenten, titels, interviews, draaiboek en rapport.
+- **Exporteer** downloadt de hele productie als JSON-bestand: wedstrijd, crew met skills, posities, hoofdstukken, titels, interviews, draaiboek en rapport.
 - **Importeer** leest zo'n bestand weer in. Bestaat de wedstrijd al, dan gebruikt de app die; anders wordt hij aangemaakt. Personen worden op naam herkend; onbekende personen en skills worden aangemaakt.
 
-> Heeft de wedstrijd al een productie, dan **overschrijft** de import de segmenten, titels, interviews en het draaiboek van die productie.
+> Heeft de wedstrijd al een productie, dan **overschrijft** de import de hoofdstukken, titels, interviews en het draaiboek van die productie.
 
 ## Binnen een productie
 
@@ -75,8 +75,8 @@ Klik op de wedstrijd of op **Details**. Bovenaan staan de ploegen, de knop **Ope
 
 | Tabblad | Waarvoor |
 |---|---|
-| **Draaiboek** | Livestream-start, draaiboek kiezen, segmenten en callsheet |
+| **Draaiboek** | Livestream-start, verzamelen en opbouw, draaiboek kiezen, hoofdstukken en callsheet |
 | **Beschikbaarheid** | Wie er aanwezig is, per groep (Crew en Entertainment), en of de minimale bezetting gehaald is |
-| **Bezetting** | Wie welke positie heeft, voor de hele productie en per segment |
+| **Bezetting** | Wie welke positie heeft, voor de hele productie en per hoofdstuk |
 | **vMix-titels** | De naamtitels en de interviewkeuze |
-| **Rapport** | Productierapport, crewrapport en tijdsanalyse |
+| **Rapport** | Productierapport, callsheet en tijdsanalyse |

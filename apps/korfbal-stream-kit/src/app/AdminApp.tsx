@@ -25,7 +25,6 @@ import CallSheetTemplateDetailsPage from '../pages/CallSheetTemplateDetailsPage'
 import CallSheetEditPage from '../pages/CallSheetEditPage';
 import {
   MdAssessment,
-  MdAssignmentInd,
   MdBuild,
   MdCorporateFare,
   MdDataObject,
@@ -42,7 +41,6 @@ import {
   MdStorefront,
   MdTextFields,
   MdVideocam,
-  MdViewAgenda,
   MdViewList,
   MdWork,
 } from 'react-icons/md';
@@ -114,8 +112,6 @@ const MENUS: Menu[] = [
         heading: 'Draaiboeken',
         items: [
           {to: adminPaths.callSheetTemplates, label: 'Draaiboek-templates', icon: MdViewList},
-          {to: adminPaths.segmentTemplates, label: 'Segment-templates', icon: MdViewAgenda},
-          {to: adminPaths.segmentDefaults, label: 'Standaardbezetting per segment', icon: MdAssignmentInd},
         ],
       },
       {

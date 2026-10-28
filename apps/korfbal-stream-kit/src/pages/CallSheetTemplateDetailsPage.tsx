@@ -1,36 +1,24 @@
-import {useEffect, useState} from 'react';
-import {Link, useNavigate, useParams} from 'react-router-dom';
-import {FullCallSheetTemplate, useCallSheetTemplates} from '../hooks/useCallSheetTemplates';
+import {useCallback, useEffect, useMemo, useState} from 'react';
+import {useNavigate, useParams} from 'react-router-dom';
+import {CallSheetTemplateChapter, CallSheetTemplateItem, FullCallSheetTemplate, useCallSheetTemplates} from '../hooks/useCallSheetTemplates';
 import {Card, CardContent} from '../components/ui/card';
 import {Button} from '../components/ui/button';
-import {Anchor, FastForward, FilePenLine, GripVertical, Plus, Save, Trash2} from 'lucide-react';
+import {Anchor, FastForward, FilePenLine, GripVertical, Link2, Save, Trash2} from 'lucide-react';
 import {Input} from '../components/ui/input';
 import {usePositionsCatalog} from "../hooks/usePositions";
 import {MdArrowBack} from "react-icons/md";
-import {
-  closestCenter,
-  DndContext,
-  DragEndEvent,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy
-} from '@dnd-kit/sortable';
-import {CSS} from '@dnd-kit/utilities';
 import {adminPaths} from '../lib/adminPaths';
+import ChapterBoard, {DragHandle} from '../components/ChapterBoard';
+import {appendItem, buildStructure, formatRelative, relativeChapterTimes, Structure} from '../lib/chapterStructure';
+import {addTemplateChapter, deleteTemplateChapter, saveTemplateStructure, updateTemplateChapter} from '../lib/chaptersApi';
 
+type Position = { id: number; name: string };
 
+/** A draaiboek template: its hoofdstukken with their items and standard positions (openspec/changes/chapters D4). */
 export default function CallSheetTemplateDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { fetchTemplate, updateTemplate, addTemplateItem, updateTemplateItem, deleteTemplateItem, reorderTemplateItems, loading } = useCallSheetTemplates();
+  const { fetchTemplate, updateTemplate, addTemplateItem, updateTemplateItem, deleteTemplateItem, loading } = useCallSheetTemplates();
   const { data: positions = [], isLoading: positionsLoading, error: positionsError } = usePositionsCatalog();
   const sortedPositions = [...positions].sort((a, b) => a.name.localeCompare(b.name));
   const [template, setTemplate] = useState<FullCallSheetTemplate | null>(null);
@@ -38,84 +26,84 @@ export default function CallSheetTemplateDetailsPage() {
   const [editData, setEditData] = useState<any>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState('');
+  const [err, setErr] = useState<string | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  const loadData = async () => {
-    if (id) {
-      const data = await fetchTemplate(Number(id));
-      setTemplate(data);
-    }
-  };
+  const loadData = useCallback(async () => {
+    if (id) setTemplate(await fetchTemplate(Number(id)));
+  }, [id, fetchTemplate]);
 
   useEffect(() => {
-    loadData();
-  }, [id, fetchTemplate]);
+    void loadData();
+  }, [loadData]);
+
+  const structure = useMemo<Structure<string>>(
+    () => template ? buildStructure(template.chapters, template.items) : [],
+    [template],
+  );
+  const times = useMemo(() => relativeChapterTimes(structure, template?.items ?? []), [structure, template]);
+
+  /** Runs a change and reloads; a refusal (e.g. "Hoofdstuk is niet leeg") is shown above the board. */
+  async function run(action: () => Promise<unknown>) {
+    setErr(null);
+    try {
+      await action();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Opslaan mislukt');
+    }
+    await loadData();
+  }
 
   const handleUpdateName = async () => {
     if (!id || !newName) return;
     const ok = await updateTemplate(Number(id), newName);
     if (ok) {
       setIsEditingName(false);
-      loadData();
+      void loadData();
     }
   };
 
-  const handleAddItem = async () => {
-    if (!id || !template) return;
+  /** A new item at the end of a hoofdstuk */
+  const handleAddItem = (chapterId: string) => run(async () => {
+    if (!template) return;
     const showcaller = positions.find(p => p.name === 'Showcaller');
     const newItem = await addTemplateItem(template.id, {
       title: 'Nieuw item',
       durationSec: 60,
-      orderIndex: (template?.items?.length || 0) + 1,
+      chapterId,
       isInLivestream: true,
       isInVenue: false,
       positionIds: showcaller ? [showcaller.id] : []
     });
-    if (newItem) loadData();
-  };
+    if (!newItem) throw new Error('Item toevoegen mislukt');
+    await saveTemplateStructure(template.id, appendItem(structure, chapterId, newItem.id));
+    handleStartEdit({...newItem, positions: newItem.positions ?? []});
+  });
 
-  const handleStartEdit = (item: any) => {
+  const handleStartEdit = (item: CallSheetTemplateItem) => {
     setIsEditingItem(item.id);
     setEditData({
       ...item,
-      positionIds: item.positions.map((p: any) => p.positionId)
+      positionIds: item.positions.map((p) => p.positionId)
     });
   };
 
   const handleSaveEdit = async () => {
     if (!isEditingItem) return;
-    const ok = await updateTemplateItem(isEditingItem, editData);
+    // The order changes only by dragging (one flat show order over the hoofdstukken)
+    const data = {...editData};
+    delete data.orderIndex;
+    const ok = await updateTemplateItem(isEditingItem, data);
     if (ok) {
       setIsEditingItem(null);
-      loadData();
+      void loadData();
     }
   };
 
   const handleDeleteItem = async (itemId: string) => {
     if (window.confirm('Item verwijderen?')) {
       const ok = await deleteTemplateItem(itemId);
-      if (ok) loadData();
+      if (ok) void loadData();
     }
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const {active, over} = event;
-    if (!over || active.id === over.id || !template) return;
-
-    const oldIndex = template.items.findIndex(i => i.id === active.id);
-    const newIndex = template.items.findIndex(i => i.id === over.id);
-
-    const newItems = arrayMove(template.items, oldIndex, newIndex);
-    setTemplate({...template, items: newItems});
-
-    const ok = await reorderTemplateItems(template.id, newItems.map(i => i.id));
-    if (!ok) loadData(); // Rollback on error
   };
 
   const togglePosition = (posId: number) => {
@@ -172,52 +160,99 @@ export default function CallSheetTemplateDetailsPage() {
         )}
       </div>
 
-      <div className="space-y-4">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={template?.items?.map(i => i.id) || []}
-            strategy={verticalListSortingStrategy}
-          >
-            {template?.items?.map((item) => (
-              <SortableItem
-                key={item.id}
-                item={item}
-                isEditingItem={isEditingItem}
-                editData={editData}
-                setEditData={setEditData}
-                setIsEditingItem={setIsEditingItem}
-                handleSaveEdit={handleSaveEdit}
-                togglePosition={togglePosition}
-                handleStartEdit={handleStartEdit}
-                handleDeleteItem={handleDeleteItem}
-                positionsLoading={positionsLoading}
-                positionsError={positionsError}
-                sortedPositions={sortedPositions}
-                templateItems={template?.items}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
+      {template?.chaptersAutoPlaced && (
+        <div role="status" className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
+          <span className="flex-1 min-w-0">Hoofdstukken automatisch ingedeeld — controleer de indeling. Sleep een item naar het juiste hoofdstuk als het verkeerd staat.</span>
+          <Button size="sm" onClick={() => run(() => saveTemplateStructure(template.id, structure))} className="bg-amber-600 hover:bg-amber-700 text-white">Indeling klopt</Button>
+        </div>
+      )}
+      {err && <div role="alert" className="mb-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">{err}</div>}
 
-        <Button
-          onClick={handleAddItem}
-          variant="outline"
-          className="w-full border-dashed border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5 py-8 text-gray-400 dark:text-white/40 hover:text-gray-900 dark:hover:text-white transition-all shadow-sm"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Item toevoegen
-        </Button>
+      {template && (
+        <ChapterBoard
+          chapters={template.chapters.map((chapter) => {
+            const time = times.get(chapter.id);
+            return {
+              id: chapter.id,
+              name: chapter.name,
+              subtitle: time ? `${formatRelative(time.start)} tot ${formatRelative(time.end)} t.o.v. de aftrap · ${formatRelative(time.end - time.start).replace(/^\+/, '')} min` : 'Geen items',
+              extra: <ChapterPositions chapter={chapter} positions={sortedPositions} onSave={(positionIds) => run(() => updateTemplateChapter(chapter.id, {positionIds}))}/>,
+            };
+          })}
+          items={template.items}
+          structure={structure}
+          itemLabel={(item) => item.title}
+          onStructureChange={(next) => run(() => saveTemplateStructure(template.id, next))}
+          onAddItem={handleAddItem}
+          onAddChapter={(name) => run(() => addTemplateChapter(template.id, name))}
+          onRenameChapter={(chapterId, name) => run(() => updateTemplateChapter(chapterId, {name}))}
+          onDeleteChapter={(chapterId, without) => run(async () => {
+            // Items first to their new hoofdstuk (the structure lists every hoofdstuk), then the empty one away
+            await saveTemplateStructure(template.id, [...without, {id: chapterId, itemIds: []}]);
+            await deleteTemplateChapter(chapterId);
+          })}
+          renderItem={(item, handle) => (
+            <TemplateItem
+              item={item}
+              handle={handle}
+              isEditingItem={isEditingItem}
+              editData={editData}
+              setEditData={setEditData}
+              setIsEditingItem={setIsEditingItem}
+              handleSaveEdit={handleSaveEdit}
+              togglePosition={togglePosition}
+              handleStartEdit={handleStartEdit}
+              handleDeleteItem={handleDeleteItem}
+              positionsLoading={positionsLoading}
+              positionsError={positionsError}
+              sortedPositions={sortedPositions}
+              templateItems={template.items}
+            />
+          )}
+        />
+      )}
+    </div>
+  );
+}
+
+/** The standard positions of a hoofdstuk (who is on it by default in a production), in order. */
+function ChapterPositions({chapter, positions, onSave}: { chapter: CallSheetTemplateChapter; positions: Position[]; onSave: (positionIds: number[]) => Promise<void> }) {
+  const [editing, setEditing] = useState<number[] | null>(null);
+  const current = chapter.positions.map((p) => p.positionId);
+  const names = chapter.positions.map((p) => p.position.name);
+
+  if (editing === null) {
+    return (
+      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <span className="font-semibold uppercase text-gray-500 dark:text-white/40">Standaardbezetting</span>
+        {names.length === 0 && <span className="italic text-gray-400 dark:text-white/30">geen</span>}
+        {names.map((name) => <span key={name} className="rounded border border-gray-200 bg-white px-1.5 py-0.5 dark:border-white/10 dark:bg-white/5">{name}</span>)}
+        <button type="button" onClick={() => setEditing(current)} className="ml-1 text-blue-600 hover:underline dark:text-blue-400">Wijzigen</button>
+      </div>
+    );
+  }
+  const toggle = (id: number) => setEditing((list) => (list ?? []).includes(id) ? (list ?? []).filter((p) => p !== id) : [...(list ?? []), id]);
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+        {positions.map((pos) => (
+          <label key={pos.id} className="flex items-center gap-2 rounded border border-gray-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-white/5">
+            <input type="checkbox" checked={editing.includes(pos.id)} onChange={() => toggle(pos.id)}/>
+            <span className="truncate">{pos.name}</span>
+          </label>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" onClick={async () => { await onSave(editing); setEditing(null); }} className="bg-green-600 hover:bg-green-700 text-white">Opslaan</Button>
+        <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>Annuleren</Button>
       </div>
     </div>
   );
 }
 
-function SortableItem({
+function TemplateItem({
   item,
+  handle,
   isEditingItem,
   editData,
   setEditData,
@@ -230,42 +265,15 @@ function SortableItem({
   positionsError,
   sortedPositions,
   templateItems
-}: any) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({id: item.id});
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 50 : undefined,
-    position: 'relative' as const,
-    opacity: isDragging ? 0.5 : 1
-  };
-
+}: any & { handle: DragHandle }) {
   const parentItem = item.parentId ? templateItems.find((it: any) => it.id === item.parentId) : null;
 
   return (
-    <div ref={setNodeRef} style={style}>
-      <Card className={`bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 overflow-hidden shadow-sm ${isDragging ? 'shadow-2xl ring-2 ring-blue-500/50' : ''}`}>
+      <Card className="bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 overflow-hidden shadow-sm">
         <CardContent className="p-0">
           {isEditingItem === item.id ? (
             <div className="p-6 space-y-4 bg-blue-50 dark:bg-blue-900/10 transition-colors">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs text-gray-500 dark:text-white/40 uppercase font-semibold">Volgorde</label>
-                  <Input
-                    type="number"
-                    value={editData.orderIndex}
-                    onChange={e => setEditData({...editData, orderIndex: Number((e.target as HTMLInputElement).value)})}
-                    className="bg-white dark:bg-black/40 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white"
-                  />
-                </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-xs text-gray-500 dark:text-white/40 uppercase font-semibold">Titel</label>
                   <Input
@@ -390,8 +398,7 @@ function SortableItem({
           ) : (
             <div className="flex items-center p-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group">
               <div
-                {...attributes}
-                {...listeners}
+                {...handle}
                 className="mr-4 p-1 rounded hover:bg-gray-100 dark:hover:bg-white/10 cursor-grab active:cursor-grabbing text-gray-300 dark:text-white/10 hover:text-gray-600 dark:hover:text-white/60 transition-colors"
                 title="Slepen om te verplaatsen"
               >
@@ -399,8 +406,8 @@ function SortableItem({
               </div>
 
               <div className="w-16 font-mono text-gray-400 dark:text-white/40 text-sm font-medium">{item.durationSec}s</div>
-              <div className="flex-grow">
-                <div className="flex items-center gap-2">
+              <div className="flex-grow min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold text-gray-900 dark:text-white">{item.title}</span>
                   {item.isTimeAnchor && (
                     <div className="flex items-center gap-1 bg-amber-50 dark:bg-orange-500/20 text-amber-700 dark:text-orange-400 px-1.5 py-0.5 rounded text-[10px] border border-amber-200 dark:border-orange-500/30 font-bold uppercase tracking-wide">
@@ -411,7 +418,7 @@ function SortableItem({
                   {item.autoAdvance && <FastForward className="w-3 h-3 text-purple-600 dark:text-purple-400" />}
                   {parentItem && (
                     <div className="flex items-center gap-1 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 px-1.5 py-0.5 rounded text-[10px] border border-blue-200 dark:border-blue-500/20 font-semibold italic">
-                      <Link className="w-3 h-3" />
+                      <Link2 className="w-3 h-3" />
                       Gekoppeld aan: {parentItem.title}
                     </div>
                   )}
@@ -431,6 +438,7 @@ function SortableItem({
                 <Button
                   variant="ghost"
                   size="icon"
+                  aria-label={`${item.title} wijzigen`}
                   onClick={() => handleStartEdit(item)}
                   className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                 >
@@ -439,6 +447,7 @@ function SortableItem({
                 <Button
                   variant="ghost"
                   size="icon"
+                  aria-label={`${item.title} verwijderen`}
                   onClick={() => handleDeleteItem(item.id)}
                   className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                 >
@@ -449,6 +458,5 @@ function SortableItem({
           )}
         </CardContent>
       </Card>
-    </div>
   );
 }

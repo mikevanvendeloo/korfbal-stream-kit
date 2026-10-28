@@ -53,6 +53,8 @@ export type CallSheetItem = {
   autoAdvance?: boolean;
   parentId?: string | null;
   positionIds?: number[];
+  /** As the API lists them (GET /callsheets/:id) */
+  positions?: { positionId: number }[];
 }
 
 export function useCalculateCallSheetTimes(callSheetId: number) {

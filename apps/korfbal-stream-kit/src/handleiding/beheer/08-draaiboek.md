@@ -1,12 +1,12 @@
 # Het draaiboek van een productie
 
-Op het tabblad **Draaiboek** van een productie richt je het verloop van de uitzending in: de segmenten, het draaiboek (de callsheet-items) en de tijden.
+Op het tabblad **Draaiboek** van een productie richt je het verloop van de uitzending in: het draaiboek met zijn hoofdstukken en items, en de tijden.
 
 ## Livestream start
 
 Vul bij **Livestream start** de tijd in waarop de livestream begint, in 24-uursnotatie. Je mag ook kort typen: `1925`, `19.25` of `19:25`. De tijd wordt bewaard als je het veld verlaat of op Enter drukt; met Escape zet je de oude waarde terug.
 
-De livestream-start bepaalt in de rapporten het **einde van de livestream** (start plus de duur van alle segmenten), en is het ijkpunt voor items met het anker *Livestream start*.
+Het **einde van de livestream** in de rapporten is het einde van het laatste item van het draaiboek. De livestream-start is het ijkpunt voor items met het anker *Livestream start*.
 
 ### Verzamelen en opbouw
 
@@ -16,32 +16,19 @@ De tijden komen in de **dagplanning** bij Rapportages → Dagbezetting en op **P
 
 ## Het draaiboek kiezen
 
-Kies bij **Draaiboek (CallSheet Template)** een draaiboek-template en klik op **Draaiboek toepassen**. De productie krijgt dan alle items van de template, met tijden berekend vanaf het tijdanker.
+Kies bij **Draaiboek (CallSheet Template)** een draaiboek-template en klik op **Draaiboek toepassen**. De productie krijgt dan de hoofdstukken en items van de template, met tijden berekend vanaf het tijdanker. Een hoofdstuk met dezelfde naam als een bestaand hoofdstuk blijft staan, met zijn bezetting op het tabblad **Bezetting**; de andere hoofdstukken worden vervangen.
 
 > **Let op:** toepassen verwijdert het huidige draaiboek van deze productie, inclusief wat er in LIVE al is gebeurd (de werkelijke tijden voor de tijdsanalyse). Doe dit bij het voorbereiden, niet na de uitzending.
 
-## Segmenten
+## Hoofdstukken
 
-De segmenten zijn de blokken van de uitzending. Per segment zie je de volgorde, de naam en de duur. Het segment met **Anchor** begint op de aanvangstijd van de wedstrijd; de andere segmenten worden daar vóór en na gerekend. Rechts zie je onder **Timing** het resultaat.
+Onder **Hoofdstukken** zie je de hoofdstukken van het draaiboek met hun begin, einde en duur. Die tijden volgen uit de items in elk hoofdstuk (zie [Draaiboek-templates](/admin/handleiding/draaiboek-templates#hoofdstukken)). Hoofdstukken en items wijzig je via **Bewerk Draaiboek**.
 
-Per segment:
-
-- **Omhoog** / **Omlaag** verplaatst het segment.
-- **Zet als anchor** maakt dit het tijdanker (het vorige anker vervalt).
-- **Wijzig** en **Verwijder**.
-
-Boven de lijst:
-
-- **Nieuw segment**: naam, duur in minuten en eventueel de volgorde.
-- **Template toepassen**: vervangt alle segmenten door die van een segment-template.
-- **Sla huidige segmenten op als template**: bewaart de segmenten als nieuwe segment-template (de naam moet uniek zijn).
-
-> - Een segment-template toepassen verwijdert ook de bezetting per segment (de afwijkingen op het tabblad Bezetting).
-> - Een anker uitzetten gaat met het anker-icoon in de lijst, niet met het vinkje in het formulier.
+Met het **diskette-icoon** bewaar je het draaiboek van deze productie als nieuwe draaiboek-template, met de hoofdstukken, items en de standaardbezetting per hoofdstuk (de naam moet uniek zijn).
 
 ## De callsheet bewerken
 
-Met **Bewerk Draaiboek** open je de callsheet-items van deze productie. Per item kun je de titel, notitie, duur, **Zaal**/**Stream**, **Auto**, het tijdanker, de koppeling met een ander item en de posities aanpassen; die wijzigingen worden direct bewaard. Onderaan voeg je met **Nieuw item toevoegen** een item toe. **Begin** en **Einde** zijn optioneel: vul per tijd een **Datum** (`DD-MM-JJJJ`) en een **Tijd** in 24-uursnotatie (`19:30`) in, of laat beide leeg. Alleen een datum of een ongeldige tijd geeft de melding *Vul een geldige datum (DD-MM-JJJJ) en tijd (uu:mm) in.* en het item wordt niet toegevoegd.
+Met **Bewerk Draaiboek** open je het draaiboek van deze productie, in hoofdstukken, net als bij een [draaiboek-template](/admin/handleiding/draaiboek-templates#hoofdstukken): sleep items binnen en tussen hoofdstukken, of een heel hoofdstuk; voeg hoofdstukken toe, hernoem of verwijder ze. De hoofdstukken horen bij de productie; de volgorde geldt na **PAS TOE OP LIVE VIEW** ook in LIVE. Staat er **Hoofdstukken automatisch ingedeeld — controleer de indeling**, kijk de indeling dan na en klik op **Indeling klopt**. Per item kun je de titel, notitie, duur, **Zaal**/**Stream**, **Auto**, het tijdanker, de koppeling met een ander item en de posities aanpassen; die wijzigingen worden direct bewaard. Onderaan voeg je met **Nieuw item toevoegen** een item toe, achteraan in het gekozen **Hoofdstuk** (of klik op **+** in de kop van een hoofdstuk). **Begin** en **Einde** zijn optioneel: vul per tijd een **Datum** (`DD-MM-JJJJ`) en een **Tijd** in 24-uursnotatie (`19:30`) in, of laat beide leeg. Alleen een datum of een ongeldige tijd geeft de melding *Vul een geldige datum (DD-MM-JJJJ) en tijd (uu:mm) in.* en het item wordt niet toegevoegd.
 
 - **Tijden herberekenen** rekent alle tijden opnieuw uit vanaf het tijdanker: bij *Start wedstrijd* vanaf de aanvang, bij *Start livestream* vanaf de livestream-start.
 - **PAS TOE OP LIVE VIEW** zet het bewerkte draaiboek door naar LIVE.

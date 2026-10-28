@@ -9,7 +9,12 @@ import {
   useUpdateCallSheet,
   useUpdateCallSheetItem
 } from '../hooks/useCallsheet';
-import {useProductionSegments} from '../hooks/useProductions';
+import {useProduction, useProductionSegments, useProductionTiming} from '../hooks/useProductions';
+import {useQueryClient} from '@tanstack/react-query';
+import {GripVertical} from 'lucide-react';
+import ChapterBoard from '../components/ChapterBoard';
+import {appendItem, buildStructure} from '../lib/chapterStructure';
+import {addProductionChapter, deleteProductionChapter, renameProductionChapter, saveCallSheetStructure} from '../lib/chaptersApi';
 import {usePositionsCatalog} from '../hooks/usePositions';
 import {adminPaths} from '../lib/adminPaths';
 import {formatTime} from '../lib/time';
@@ -31,6 +36,30 @@ export default function CallSheetEditPage() {
   const syncToEvents = useSyncCallSheetToEvents(callSheetId);
 
   const [err, setErr] = React.useState<string | null>(null);
+
+  // Hoofdstukken (openspec/changes/chapters D4): the production's, with this callsheet's items in them
+  const qc = useQueryClient();
+  const production = useProduction(productionId);
+  const timing = useProductionTiming(productionId);
+  const [newItemChapter, setNewItemChapter] = React.useState<number | null>(null);
+  const structure = React.useMemo(
+    () => buildStructure((segments.data ?? []).map((s) => ({id: s.id})), (data?.items ?? []).map((it) => ({id: it.id, chapterId: it.productionSegmentId}))),
+    [segments.data, data],
+  );
+  const chapterSubtitle = (chapterId: number) => {
+    const t = timing.data?.find((c) => c.id === chapterId);
+    return t?.start ? `${formatTime(t.start)} – ${formatTime(t.end)} · ${t.duurInMinuten} min` : undefined;
+  };
+  /** A change of the hoofdstukken or their order; a refusal (e.g. "Hoofdstuk is niet leeg") is shown */
+  async function runChapters(action: () => Promise<unknown>) {
+    setErr(null);
+    try {
+      await action();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Opslaan mislukt');
+    }
+    await qc.invalidateQueries({queryKey: ['production']});
+  }
 
   // No id: the server chooses item ids (they are global over all organizations)
   const [form, setForm] = React.useState({
@@ -109,7 +138,11 @@ export default function CallSheetEditPage() {
       // Already UTC ISO: the fields mean Amsterdam time, whatever the device's zone
       payload.timeStart = payload.timeStart || undefined;
       payload.timeEnd = payload.timeEnd || undefined;
-      await createItem.mutateAsync(payload as any);
+      // At the end of the chosen hoofdstuk (else the last one)
+      const chapterId = newItemChapter ?? structure[structure.length - 1]?.id;
+      const created = await createItem.mutateAsync({...payload, productionSegmentId: chapterId} as any);
+      if (chapterId != null) await saveCallSheetStructure(callSheetId, appendItem(structure, chapterId, created.id));
+      await qc.invalidateQueries({queryKey: ['production']});
       setForm({ cue: '', title: '', note: '', color: '', durationSec: 0, timeStart: '', timeEnd: '', orderIndex: 0, isInVenue: false, isInLivestream: true, isTimeAnchor: false, autoAdvance: false, anchorType: '', parentId: '', positionIds: []});
     } catch (e: any) {
       setErr(e?.message || 'Toevoegen mislukt');
@@ -152,7 +185,7 @@ export default function CallSheetEditPage() {
             </Link>
             <Link className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-1" to={adminPaths.crewReport(productionId)}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              Crew report
+              Callsheet-rapport
             </Link>
           </div>
         </div>
@@ -200,12 +233,36 @@ export default function CallSheetEditPage() {
 
       {err && <div className="mb-4 text-red-700">{err}</div>}
 
-      <h2 className="font-semibold mb-4 text-white/60 uppercase tracking-widest text-sm">Callsheet Items</h2>
-      <div className="space-y-4 mb-8">
-        {data.items?.map((it) => (
-          <div key={it.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white/5 p-4 rounded-lg border border-white/5 mb-4 shadow-sm">
+      <h2 className="font-semibold mb-4 text-white/60 uppercase tracking-widest text-sm">Hoofdstukken en items</h2>
+      {production.data?.chaptersAutoPlaced && (
+        <div role="status" className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-amber-700 bg-amber-900/20 px-3 py-2 text-sm text-amber-200">
+          <span className="flex-1 min-w-0">Hoofdstukken automatisch ingedeeld — controleer de indeling. Sleep een item naar het juiste hoofdstuk als het verkeerd staat.</span>
+          <button type="button" onClick={() => runChapters(() => saveCallSheetStructure(callSheetId, structure))} className="rounded bg-amber-600 px-3 py-1 font-semibold text-white hover:bg-amber-700">Indeling klopt</button>
+        </div>
+      )}
+      <div className="mb-8">
+        <ChapterBoard
+          chapters={(segments.data ?? []).map((s) => ({id: s.id, name: s.naam, subtitle: chapterSubtitle(s.id)}))}
+          items={data.items ?? []}
+          structure={structure}
+          itemLabel={(it) => it.title}
+          onStructureChange={(next) => runChapters(() => saveCallSheetStructure(callSheetId, next))}
+          onAddItem={(chapterId) => {
+            setNewItemChapter(chapterId);
+            document.getElementById('new-item')?.scrollIntoView({behavior: 'smooth'});
+          }}
+          onAddChapter={(name) => runChapters(() => addProductionChapter(productionId, name))}
+          onRenameChapter={(chapterId, name) => runChapters(() => renameProductionChapter(chapterId, name))}
+          onDeleteChapter={(chapterId, without) => runChapters(async () => {
+            // Items first to their new hoofdstuk (the structure lists every hoofdstuk), then the empty one away
+            await saveCallSheetStructure(callSheetId, [...without, {id: chapterId, itemIds: []}]);
+            await deleteProductionChapter(chapterId);
+          })}
+          renderItem={(it, handle) => (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white/5 p-4 rounded-lg border border-white/5 shadow-sm">
             <div className="md:col-span-3 flex flex-col gap-1">
               <div className="flex items-center gap-2">
+                <span {...handle} title="Slepen om te verplaatsen" className="cursor-grab text-white/30 hover:text-white/70"><GripVertical className="w-4 h-4"/></span>
                 <span className="font-mono text-[10px] text-white/40 bg-black/40 px-1.5 py-0.5 rounded border border-white/5 uppercase tracking-wider">{it.cue}</span>
                 <input
                   defaultValue={it.title}
@@ -342,13 +399,14 @@ export default function CallSheetEditPage() {
               <div className="text-[10px] font-mono text-white/10 uppercase tracking-widest">ID: {it.id}</div>
             </div>
           </div>
-        ))}
+          )}
+        />
         {!data.items?.length && (
           <div className="p-3 text-gray-600">Nog geen items</div>
         )}
       </div>
 
-      <h3 className="font-semibold mb-4 text-white/60 uppercase tracking-widest text-sm">Nieuw item toevoegen</h3>
+      <h3 id="new-item" className="font-semibold mb-4 text-white/60 uppercase tracking-widest text-sm">Nieuw item toevoegen</h3>
       <form onSubmit={handleCreateItem} className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end bg-white/5 p-6 rounded-lg border border-white/5 shadow-lg relative overflow-hidden">
         <div className="absolute top-0 left-0 w-1 h-full bg-blue-600"></div>
         <label className="text-xs flex flex-col gap-1.5">
@@ -375,8 +433,10 @@ export default function CallSheetEditPage() {
           </div>
         </label>
         <label className="text-xs flex flex-col gap-1.5">
-          <div className="font-bold text-white/40 uppercase">Volgorde</div>
-          <input type="number" value={form.orderIndex} onChange={(e) => setForm((f) => ({ ...f, orderIndex: Number(e.target.value||0) }))} className="bg-black/40 border border-white/10 rounded px-3 py-2 text-white focus:border-blue-500/50 outline-none" />
+          <div className="font-bold text-white/40 uppercase">Hoofdstuk</div>
+          <select value={newItemChapter ?? structure[structure.length - 1]?.id ?? ''} onChange={(e) => setNewItemChapter(Number(e.target.value))} className="bg-black/40 border border-white/10 rounded px-3 py-2 text-white focus:border-blue-500/50 outline-none">
+            {(segments.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.naam}</option>)}
+          </select>
         </label>
 
         {([

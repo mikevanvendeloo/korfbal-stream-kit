@@ -55,7 +55,7 @@ Doet iemand in één segment iets extra's, bijvoorbeeld in de rust de camera in 
 
 Onderaan staat per segment wie er effectief staat (productie-breed plus de afwijkingen). Met **Filter op persoon** zie je alleen de segmenten van één persoon.
 
-In elk segment kun je direct iemand toevoegen. De knoppen bij **Standaard posities voor dit segment** komen uit de [standaardbezetting](/admin/handleiding/draaiboek-templates#standaardbezetting-per-segment); kies je een positie die een skill vereist, dan zie je alleen personen met die skill. Heeft iemand de skill niet, dan krijg je de melding *Persoon mist de vereiste skill voor deze positie*.
+In elk segment kun je direct iemand toevoegen. Een segment is hier een hoofdstuk van het draaiboek. De knoppen bij **Standaard posities voor dit segment** komen uit de standaardbezetting van het hoofdstuk met dezelfde naam in het draaiboek van de productie ([Draaiboek-templates](/admin/handleiding/draaiboek-templates#hoofdstukken)); kies je een positie die een skill vereist, dan zie je alleen personen met die skill. Heeft iemand de skill niet, dan krijg je de melding *Persoon mist de vereiste skill voor deze positie*.
 
 Met **Kopieer naar…** neem je de toewijzingen van een segment over in andere segmenten: **Merge** voegt toe, **Overwrite** vervangt. Alleen de afwijkingen per segment worden gekopieerd, niet de productie-brede posities.
 
@@ -64,5 +64,5 @@ Met **Kopieer naar…** neem je de toewijzingen van een segment over in andere s
 ## Waar zie ik het terug?
 
 - In LIVE op **Actieve productie** (de crew per groep).
-- In het **Crewrapport** (bezetting per segment) en het **Productierapport**.
+- In de **Callsheet** (Rapport → Callsheet: bezetting per hoofdstuk) en het **Productierapport**.
 - In de **Rapportages** Dagbezetting en Positieoverzicht (alleen de productie-brede posities), en Entertainmentrollen en Crewrollen (ook de posities per segment).

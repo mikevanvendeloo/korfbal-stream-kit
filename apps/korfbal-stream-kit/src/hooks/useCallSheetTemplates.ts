@@ -26,11 +26,24 @@ export interface CallSheetTemplateItem {
   anchorType: string | null;
   autoAdvance: boolean;
   parentId: string | null;
+  /** The item's hoofdstuk (openspec/changes/chapters) */
+  chapterId: string | null;
   positions: { positionId: number; position: { name: string } }[];
+}
+
+/** A hoofdstuk of a template, with its standard positions in order */
+export interface CallSheetTemplateChapter {
+  id: string;
+  name: string;
+  orderIndex: number;
+  positions: { positionId: number; orderIndex: number; position: { id: number; name: string } }[];
 }
 
 export interface FullCallSheetTemplate extends CallSheetTemplate {
   items: CallSheetTemplateItem[];
+  chapters: CallSheetTemplateChapter[];
+  /** Placed by the segment migration and not yet checked: Beheer asks to check the hoofdstukken */
+  chaptersAutoPlaced: boolean;
 }
 
 export function useCallSheetTemplates() {

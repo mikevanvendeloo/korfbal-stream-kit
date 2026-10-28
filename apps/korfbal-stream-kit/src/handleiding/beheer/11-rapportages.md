@@ -39,9 +39,9 @@ Er zijn twee manieren:
 
 Bij **Aanwezig** staan personen in *cursief* die er wel waren, maar geen positie hadden.
 
-## Crewrapport
+## Callsheet
 
-Het crewrapport toont het tijdschema, de bezetting per segment en de interviews van één productie. Kies bovenaan een positie om er een **call sheet voor die positie** van te maken: alleen de items voor die positie (en items voor iedereen). Met **Download PNG** bewaar je het als afbeelding, bijvoorbeeld om te delen met de crew.
+De callsheet (Rapport → **Callsheet**, voorheen *Crewrapport*) toont het tijdschema, de bezetting per hoofdstuk en de interviews van één productie. Kies bovenaan een positie om er een **call sheet voor die positie** van te maken: alleen de items voor die positie (en items voor iedereen). Met **Download PNG** bewaar je het als afbeelding, bijvoorbeeld om te delen met de crew.
 
 ## Tijdsanalyse
 

@@ -31,11 +31,14 @@
 - [x] Leak suite entries for every new route; integration test `routes/chapters.int.spec.ts`
 - [ ] *Moved to 3b (with the kit):* field renames `naam`/`volgorde` → `name`/`orderIndex`, `productionSegmentId` → `chapterId`
 
-### Frontend
-- [ ] `components/DraaiboekEditor.tsx` (hoofdstuk blocks, drag within/between, drag a whole hoofdstuk, standard positions in the header, "Items verplaatsen naar …?") used by `CallSheetTemplateDetailsPage` and `CallSheetEditPage`
-- [ ] Production Draaiboek tab: no segment list or segment template choice; the "controleer de indeling" notice while `chaptersAutoPlaced`
-- [ ] Remove the Segment-templates and Standaardbezetting pages from the menu (`adminPaths`, AdminApp)
-- [ ] Rename Crewrapport → **Callsheet** (tab, page, manual)
+### Frontend (3b)
+- [x] `components/ChapterBoard.tsx` (hoofdstuk blocks, drag within/between with `@dnd-kit`, drag a whole hoofdstuk, rename, delete with "Items verplaatsen naar", add hoofdstuk; the page renders its own items) on pure `lib/chapterStructure.ts` (move, append, keep linked items with their parent, remove, relative template times; unit tests), used by `CallSheetTemplateDetailsPage` (times relative to the kickoff, standard positions per hoofdstuk) and `CallSheetEditPage` (derived times; new item at the end of the chosen hoofdstuk); API calls in `lib/chaptersApi.ts`. The order is changed only by dragging (the Volgorde fields are gone).
+- [x] "Hoofdstukken automatisch ingedeeld — controleer de indeling" with **Indeling klopt** (saves the structure, which clears `chaptersAutoPlaced`) on the template and the production's callsheet
+- [x] Production Draaiboek tab: no segment list or segment template choice; a read-only table of the hoofdstukken with their times; *Opslaan als template* from the callsheet
+- [x] Segment-templates and Standaardbezetting removed from the menu (pages and routes stay until phase 5)
+- [x] Crewrapport → **Callsheet** (tab, page title, link on the callsheet page, manual)
+- [x] Manual: Beheer 01, 06 (rewritten: hoofdstukken, standaardbezetting, slepen, check notice, import), 07, 08, 09, 11; LIVE 02
+- [ ] *Moved to phase 5:* the Bezetting tab still says "segment" in its labels (with the field renames)
 
 ## Phase 4: LIVE (frontend)
 
@@ -47,6 +50,7 @@
 
 ## Phase 5: Cleanup
 
+- [ ] Field renames (moved from phase 1 and 3a): `ProductionChapter.naam`/`volgorde` → `name`/`orderIndex`, `CallSheetItem.productionSegmentId` → `chapterId` (`@map`, API JSON and kit together); the Bezetting tab's "segment" labels → hoofdstuk
 - [ ] Migration: drop `SegmentTemplate`, `SegmentTemplateItem`, `SegmentDefaultPosition`, `ProductionChapter.duurInMinuten`/`isTimeAnchor`; `chapterId` NOT NULL on template items and callsheet items
 - [ ] Remove the segment template / default position routes, hooks and pages (and their leak suite entries)
 - [ ] Standard set: draaiboek templates with hoofdstukken (Voorbereiding, Voorbeschouwing, Oplopen, Eerste helft 35:00, Rust 10:00, Tweede helft 35:00, Nabeschouwing); no segment templates

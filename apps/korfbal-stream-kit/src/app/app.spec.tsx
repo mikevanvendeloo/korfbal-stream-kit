@@ -118,7 +118,9 @@ describe('App', () => {
       expect(screen.getByText(menu, {selector: 'summary'})).toBeInTheDocument();
     }
     expect(screen.getByRole('link', {name: 'Personen'})).toHaveAttribute('href', '/admin/stamgegevens/personen');
-    expect(screen.getByRole('link', {name: 'Standaardbezetting per segment'})).toHaveAttribute('href', '/admin/stamgegevens/standaardbezetting');
+    // Segment templates and the standard positions per segment are part of the draaiboek templates now (hoofdstukken)
+    expect(screen.queryByRole('link', {name: 'Standaardbezetting per segment'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', {name: 'Segment-templates'})).not.toBeInTheDocument();
     expect(screen.getByRole('link', {name: 'QR-generator'})).toHaveAttribute('href', '/admin/tools/qr');
     expect(screen.getByRole('link', {name: 'Organisaties'})).toHaveAttribute('href', '/admin/setup/organisaties');
     expect(await screen.findByRole('link', {name: 'Organisatie-instellingen'})).toHaveAttribute('href', '/admin/setup/organisatie');
@@ -162,7 +164,7 @@ describe('App', () => {
   it('shows the report sub tabs under Rapport', async () => {
     renderApp('/admin/producties/5/rapport/crew');
     const sub = await screen.findByRole('navigation', {name: 'Rapport'}, LAZY);
-    expect(sub).toHaveTextContent('ProductierapportCrewrapportTijdsanalyse');
+    expect(sub).toHaveTextContent('ProductierapportCallsheetTijdsanalyse');
     expect(screen.getByRole('link', {name: 'Rapport'})).toHaveAttribute('aria-current', 'page');
   });
 
