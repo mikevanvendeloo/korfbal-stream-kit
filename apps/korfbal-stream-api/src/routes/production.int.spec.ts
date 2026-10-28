@@ -13,8 +13,8 @@ const runDb = process.env.REQUIRE_DB === 'true';
 async function resetDb() {
   await prisma.$transaction([
     prisma.productionPerson.deleteMany({}),
-    prisma.segmentRoleAssignment.deleteMany({}), // Added to clean up assignments
-    prisma.productionSegment.deleteMany({}), // Added to clean up segments
+    prisma.chapterRoleAssignment.deleteMany({}), // Added to clean up assignments
+    prisma.productionChapter.deleteMany({}), // Added to clean up segments
     prisma.production.deleteMany({}),
     prisma.matchRoleAssignment.deleteMany({}),
     prisma.personSkill.deleteMany({}),

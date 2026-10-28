@@ -297,6 +297,8 @@ export type TenantScenario = {
   callSheetItemId: string;
   callSheetTemplateId: number;
   callSheetTemplateItemId: string;
+  /** A hoofdstuk of the template (with a standard position), holding the template item */
+  callSheetTemplateChapterId: string;
   segmentTemplateId: number;
   segmentTemplateItemId: number;
   titleId: number;
@@ -333,18 +335,23 @@ export async function createTenantScenario(db: PrismaClient, organizationId: num
     const manual = await db.matchSchedule.create({
       data: {...o, seasonId: (await seasonForDate(db, new Date())).id, isManual: true, date: new Date(), homeTeamName: `${marker} Handmatig`, awayTeamName: `${marker} Gast`},
     });
-    const segment = await db.productionSegment.findFirstOrThrow({where: {organizationId, productionId: show.productionId}});
+    const segment = await db.productionChapter.findFirstOrThrow({where: {organizationId, productionId: show.productionId}});
     const productionPerson = await db.productionPerson.create({data: {...o, productionId: show.productionId, personId: person.id}});
     const personPosition = await db.productionPersonPosition.create({data: {...o, productionId: show.productionId, personId: person.id, positionId}});
-    const segmentAssignment = await db.segmentRoleAssignment.create({data: {...o, productionSegmentId: segment.id, personId: person.id, positionId}});
+    const segmentAssignment = await db.chapterRoleAssignment.create({data: {...o, productionSegmentId: segment.id, personId: person.id, positionId}});
+    // The LIVE event in its hoofdstuk (ProductionEvent.chapterId)
+    await db.productionEvent.update({where: {id: show.eventIds[0]}, data: {chapterId: segment.id}});
     const callSheet = await db.callSheet.create({data: {...o, productionId: show.productionId, name: `${marker} Callsheet`}});
     const callSheetItem = await db.callSheetItem.create({
       data: {...o, id: `${marker.toLowerCase()}-item-${Date.now()}`, callSheetId: callSheet.id, cue: 'C1', title: `${marker} item`, durationSec: 60,
         positions: {create: [{...o, positionId}]}},
     });
     const template = await db.callSheetTemplate.create({data: {...o, name: `${marker} Draaiboek`}});
+    const templateChapter = await db.callSheetTemplateChapter.create({
+      data: {...o, templateId: template.id, name: `${marker} Hoofdstuk`, orderIndex: 0, positions: {create: [{...o, positionId, orderIndex: 0}]}},
+    });
     const templateItem = await db.callSheetTemplateItem.create({
-      data: {...o, templateId: template.id, title: `${marker} sjabloonitem`, durationSec: 60, positions: {create: [{...o, positionId}]}},
+      data: {...o, templateId: template.id, chapterId: templateChapter.id, title: `${marker} sjabloonitem`, durationSec: 60, positions: {create: [{...o, positionId}]}},
     });
     const segmentTemplate = await db.segmentTemplate.create({data: {...o, name: `${marker} Segmenten`}});
     const segmentTemplateItem = await db.segmentTemplateItem.create({data: {...o, templateId: segmentTemplate.id, naam: `${marker} Segment`, volgorde: 1, duurInMinuten: 30}});
@@ -365,7 +372,7 @@ export async function createTenantScenario(db: PrismaClient, organizationId: num
       positionId, linkedPositionId: linked.id, skillId: skill.id, personId: person.id, sponsorId: sponsor.id,
       matchAssignmentId: assignment.id, productionPersonId: productionPerson.id, personPositionId: personPosition.id,
       segmentAssignmentId: segmentAssignment.id, callSheetId: callSheet.id, callSheetItemId: callSheetItem.id,
-      callSheetTemplateId: template.id, callSheetTemplateItemId: templateItem.id, segmentTemplateId: segmentTemplate.id,
+      callSheetTemplateId: template.id, callSheetTemplateItemId: templateItem.id, callSheetTemplateChapterId: templateChapter.id, segmentTemplateId: segmentTemplate.id,
       segmentTemplateItemId: segmentTemplateItem.id, titleId: title.id, titleTemplateId: titleTemplate.id,
       clubId: club.id, playerId: player.id,
       // Removes the organization too (cascading to everything in it): use one made for the test

@@ -35,7 +35,7 @@ A single live broadcast event. Links a MatchSchedule to all resources needed to 
 The one production with `isActive=true` within an Organisatie. Each organization has at most one active production (so two organizations can be live at the same time). All show control operations and Socket.io live state are scoped to the organization's active production. Activation is transactional — activating one production atomically deactivates the organization's others.
 
 **Segment**
-A named macro time block within a production (e.g. "Voorbeschouwing", "Eerste helft", "Rust"). Ordered by `volgorde`. Segments define the high-level structure of the broadcast; they do not contain individual cues — those live in CallSheetItems and ProductionEvents.
+A named macro time block within a production (e.g. "Voorbeschouwing", "Eerste helft", "Rust"). Ordered by `volgorde`. Segments define the high-level structure of the broadcast; they do not contain individual cues — those live in CallSheetItems and ProductionEvents. Being replaced by **Hoofdstuk** (a part of the draaiboek whose times follow from its items); use Hoofdstuk for new work.
 
 **Volgorde**
 Dutch for "sequence". The ordering field for Segments within a production. Unique per production (DB constraint). Reordering uses a 2-phase approach to avoid constraint violations: bump the conflicting value by 1000, re-insert, then renumber all sequentially.
@@ -83,6 +83,9 @@ A named run-of-show document within a production. A production can have multiple
 
 **CallSheetItem**
 A single cue entry in a callsheet. Has a title, optional cue code, timing fields (`timeStart`, `timeEnd`, `durationSec`), position assignments (which crew roles see this item), and visibility flags (`isInVenue`, `isInLivestream`). Can be promoted to a ProductionEvent via the sync operation.
+
+**Hoofdstuk** (chapter)
+A named part of a draaiboek (template or production) that groups its items in show order, e.g. "Voorbereiding" (a checklist: is everything connected), "Voorbeschouwing", "Oplopen", "Eerste helft", "Rust", "Tweede helft", "Nabeschouwing". Every item belongs to exactly one hoofdstuk. A hoofdstuk has no duration of its own: its start, end and duration follow from its items (at Korfbal League matches the rust is 10 minutes and each half about 35 minutes, as items in those hoofdstukken). It is a heading, not a step: the Show Caller advances per item. Carries the standard positions and the per-production bezetting that segments carried. Replaces Segment (OpenSpec change `chapters`).
 
 ---
 

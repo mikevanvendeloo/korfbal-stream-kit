@@ -284,15 +284,15 @@ segmentTemplatesRouter.post('/apply/:templateId/to/:productionId', async (req, r
 
     await prisma.$transaction(async (tx) => {
       // 1. Delete existing segments for this production
-      const existingSegments = await tx.productionSegment.findMany({ where: { productionId } });
+      const existingSegments = await tx.productionChapter.findMany({ where: { productionId } });
       for (const seg of existingSegments) {
-        await tx.segmentRoleAssignment.deleteMany({ where: { productionSegmentId: seg.id } });
-        await tx.productionSegment.delete({ where: { id: seg.id } });
+        await tx.chapterRoleAssignment.deleteMany({ where: { productionSegmentId: seg.id } });
+        await tx.productionChapter.delete({ where: { id: seg.id } });
       }
 
       // 2. Create new segments from template items
       for (const item of template.items) {
-        await tx.productionSegment.create({
+        await tx.productionChapter.create({
           data: {
             productionId,
             naam: item.naam,
@@ -321,7 +321,7 @@ segmentTemplatesRouter.post('/from-production/:productionId', async (req, res, n
     const prod = await prisma.production.findUnique({ where: { id: productionId } });
     if (!prod) return res.status(404).json({ error: 'Production not found' });
 
-    const segments = await prisma.productionSegment.findMany({ where: { productionId }, orderBy: { volgorde: 'asc' } });
+    const segments = await prisma.productionChapter.findMany({ where: { productionId }, orderBy: { volgorde: 'asc' } });
     if (segments.length === 0) return res.status(400).json({ error: 'Production has no segments' });
 
     const created = await prisma.$transaction(async (tx) => {

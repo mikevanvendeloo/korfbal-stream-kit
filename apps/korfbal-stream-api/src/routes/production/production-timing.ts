@@ -13,7 +13,7 @@ productionTimingRouter.get('/:id/timing', async (req, res, next) => {
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
     const prod = await prisma.production.findUnique({ where: { id }, include: { matchSchedule: true } });
     if (!prod) return res.status(404).json({ error: 'Not found' });
-    const segments = await prisma.productionSegment.findMany({ where: { productionId: id }, orderBy: { volgorde: 'asc' } });
+    const segments = await prisma.productionChapter.findMany({ where: { productionId: id }, orderBy: { volgorde: 'asc' } });
     if (segments.length === 0) return res.json([]);
 
     let anchorIdx = segments.findIndex((s) => s.isTimeAnchor);

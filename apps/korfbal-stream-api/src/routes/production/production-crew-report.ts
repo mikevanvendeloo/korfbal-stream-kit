@@ -14,12 +14,12 @@ productionCrewReportRouter.get('/:id/crew-report', async (req, res, next) => {
     if (!prod) return res.status(404).json({ error: 'Not found' });
 
     const [segments, productionWide, assignments, callsheets, productionReport, productionEvents] = await Promise.all([
-      prisma.productionSegment.findMany({ where: { productionId: id }, orderBy: { volgorde: 'asc' } }),
+      prisma.productionChapter.findMany({ where: { productionId: id }, orderBy: { volgorde: 'asc' } }),
       prisma.productionPersonPosition.findMany({
         where: { productionId: id },
         include: { person: true, position: true },
       }),
-      prisma.segmentRoleAssignment.findMany({
+      prisma.chapterRoleAssignment.findMany({
         where: { productionSegment: { productionId: id } },
         include: { person: true, position: true },
       }),

@@ -364,7 +364,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
 
     // Basic validation of positions
     if (productionSegmentId) {
-      const seg = await prisma.productionSegment.findUnique({ where: { id: productionSegmentId } });
+      const seg = await prisma.productionChapter.findUnique({ where: { id: productionSegmentId } });
       if (!seg) return res.status(404).json({ error: 'Segment not found' });
     }
 
@@ -531,7 +531,7 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem, async
 
     // Fetch segments and positions upfront for fast lookup
     const [segments, allPositions] = await Promise.all([
-      prisma.productionSegment.findMany({ where: { productionId }, orderBy: { volgorde: 'asc' } }),
+      prisma.productionChapter.findMany({ where: { productionId }, orderBy: { volgorde: 'asc' } }),
       prisma.position.findMany({}),
     ]);
     const segByName = new Map<string, { id: number; naam: string; volgorde: number }>();

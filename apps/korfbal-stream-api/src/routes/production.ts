@@ -131,7 +131,7 @@ productionRouter.post('/', async (req, res, next) => {
         }
       });
       // Auto-create segments from default template if it exists, otherwise use fallback
-      const count = await tx.productionSegment.count({ where: { productionId: p.id } });
+      const count = await tx.productionChapter.count({ where: { productionId: p.id } });
       if (count === 0) {
         const defaultTemplate = await tx.segmentTemplate.findFirst({
           where: { isDefault: true },
@@ -140,7 +140,7 @@ productionRouter.post('/', async (req, res, next) => {
 
         if (defaultTemplate && defaultTemplate.items.length > 0) {
           for (const item of defaultTemplate.items) {
-            await tx.productionSegment.create({
+            await tx.productionChapter.create({
               data: {
                 productionId: p.id,
                 naam: item.naam,
@@ -152,7 +152,7 @@ productionRouter.post('/', async (req, res, next) => {
           }
         } else {
           // Fallback if no default template is found
-          await tx.productionSegment.createMany({
+          await tx.productionChapter.createMany({
             data: [
               { productionId: p.id, naam: 'Voorbeschouwing', duurInMinuten: 20, volgorde: 1, isTimeAnchor: false },
               { productionId: p.id, naam: 'Oplopen', duurInMinuten: 10, volgorde: 2, isTimeAnchor: false },

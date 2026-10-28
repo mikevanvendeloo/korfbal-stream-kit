@@ -24,7 +24,7 @@ describe('Production segments order (create/put shifting)', () => {
       findUnique: vi.fn(async ({ where }: any) => ({ id: where.id, matchScheduleId: 100 })),
     };
 
-    prisma.productionSegment = {
+    prisma.productionChapter = {
       findUnique: vi.fn(async ({ where }: any) => segments.find((s) => s.id === where.id) || null),
       aggregate: vi.fn(async ({ where }: any) => {
         const max = Math.max(0, ...segments.filter((s) => s.productionId === where.productionId).map((s) => s.volgorde));
@@ -144,7 +144,7 @@ describe('Production segments order (create/put shifting)', () => {
   it('inserting at position 2 when 5 segments exist shifts [2..5] to [3..6] and new is #2', async () => {
     // Ensure we start from a clean 4, then add a 5th
     const prismaAny = (prisma as any);
-    await prismaAny.productionSegment.create({
+    await prismaAny.productionChapter.create({
       data: { id: 5, productionId: 10, naam: 'S5', volgorde: 5, duurInMinuten: 10, isTimeAnchor: false },
     });
 
@@ -183,7 +183,7 @@ describe('Production segments order (create/put shifting)', () => {
     // @ts-ignore augment test-local state
     const prismaAny = (prisma as any);
     // Create a 5th segment in the mocked store
-    await prismaAny.productionSegment.create({
+    await prismaAny.productionChapter.create({
       data: { id: 5, productionId: 10, naam: 'S5', volgorde: 5, duurInMinuten: 10, isTimeAnchor: false },
     });
 

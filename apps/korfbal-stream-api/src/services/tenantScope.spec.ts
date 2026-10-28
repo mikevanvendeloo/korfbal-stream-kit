@@ -31,12 +31,12 @@ describe('tenantScope', () => {
   });
 
   it('sets the organization on unchecked creates and replaces one in the data', () => {
-    expect(scopeArgs('ProductionSegment', 'create', {data: {productionId: 1, naam: 'x', organizationId: 99}}, ORG).data)
+    expect(scopeArgs('ProductionChapter', 'create', {data: {productionId: 1, naam: 'x', organizationId: 99}}, ORG).data)
       .toEqual({productionId: 1, naam: 'x', organizationId: ORG});
   });
 
   it('connects the organization on checked creates (relations via connect)', () => {
-    const data = scopeArgs('ProductionSegment', 'create', {data: {production: {connect: {id: 1}}, naam: 'x', organizationId: 99}}, ORG).data;
+    const data = scopeArgs('ProductionChapter', 'create', {data: {production: {connect: {id: 1}}, naam: 'x', organizationId: 99}}, ORG).data;
     expect(data).toEqual({production: {connect: {id: 1, organizationId: ORG}}, naam: 'x', organization: {connect: {id: ORG}}});
   });
 

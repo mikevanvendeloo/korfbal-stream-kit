@@ -107,9 +107,9 @@ describe('Production Export/Import API', () => {
     prisma.position.findMany = vi.fn().mockResolvedValue([]);
     prisma.position.create = vi.fn().mockResolvedValue({ id: 500 });
     prisma.productionPersonPosition.upsert = vi.fn();
-    prisma.productionSegment.deleteMany = vi.fn();
-    prisma.productionSegment.create = vi.fn().mockResolvedValue({ id: 600 });
-    prisma.segmentRoleAssignment.create = vi.fn();
+    prisma.productionChapter.deleteMany = vi.fn();
+    prisma.productionChapter.create = vi.fn().mockResolvedValue({ id: 600 });
+    prisma.chapterRoleAssignment.create = vi.fn();
     prisma.interviewSubject.deleteMany = vi.fn();
     prisma.club.findUnique = vi.fn().mockResolvedValue(null);
     prisma.club.create = vi.fn().mockResolvedValue({ id: 700 });
@@ -151,8 +151,8 @@ describe('Production Export/Import API', () => {
     expect(prisma.productionPerson.upsert).toHaveBeenCalled(); // Attendance
     expect(prisma.position.create).toHaveBeenCalledWith(expect.objectContaining({ data: { name: 'Camera 1', isStudio: false } }));
     expect(prisma.productionPersonPosition.upsert).toHaveBeenCalled();
-    expect(prisma.productionSegment.create).toHaveBeenCalled();
-    expect(prisma.segmentRoleAssignment.create).toHaveBeenCalled();
+    expect(prisma.productionChapter.create).toHaveBeenCalled();
+    expect(prisma.chapterRoleAssignment.create).toHaveBeenCalled();
     expect(prisma.club.create).toHaveBeenCalled();
     expect(prisma.player.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ seasonId: 1 }) }));
     expect(prisma.player.findFirst).toHaveBeenCalledWith({ where: expect.objectContaining({ seasonId: 1 }) });

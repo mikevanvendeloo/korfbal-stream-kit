@@ -37,7 +37,7 @@ describe.runIf(runDb)('crew reports (integration)', () => {
     matchId = match.id;
     productionId = (await prisma.production.create({data: {matchScheduleId: match.id}})).id;
     for (const [volgorde, naam] of ['Voorbeschouwing', 'Eerste helft'].entries()) {
-      segmentIds.push((await prisma.productionSegment.create({data: {productionId, naam, volgorde: volgorde + 1, duurInMinuten: 30}})).id);
+      segmentIds.push((await prisma.productionChapter.create({data: {productionId, naam, volgorde: volgorde + 1, duurInMinuten: 30}})).id);
     }
 
     // Anna directs the whole production, Bas only films the first half, Cor comments
@@ -45,7 +45,7 @@ describe.runIf(runDb)('crew reports (integration)', () => {
       {productionId, personId: personIds[0], positionId: positions.regie},
       {productionId, personId: personIds[2], positionId: positions.commentaar},
     ]});
-    await prisma.segmentRoleAssignment.create({data: {productionSegmentId: segmentIds[1], personId: personIds[1], positionId: positions.camera}});
+    await prisma.chapterRoleAssignment.create({data: {productionSegmentId: segmentIds[1], personId: personIds[1], positionId: positions.camera}});
 
     const callSheet = await prisma.callSheet.create({data: {productionId, name: 'Main'}});
     await prisma.callSheetItem.create({data: {

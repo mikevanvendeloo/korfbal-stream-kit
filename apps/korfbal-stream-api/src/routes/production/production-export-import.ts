@@ -399,9 +399,9 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
 
       // 6. Process Segments and Assignments
       if (Array.isArray(data.segments)) {
-        await tx.productionSegment.deleteMany({ where: { productionId: production.id } });
+        await tx.productionChapter.deleteMany({ where: { productionId: production.id } });
         for (const segData of data.segments) {
-          const segment = await tx.productionSegment.create({
+          const segment = await tx.productionChapter.create({
             data: {
               productionId: production.id,
               naam: segData.naam,
@@ -415,7 +415,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
               const person = await tx.person.findFirst({ where: { name: assignData.personName } });
               if (!person) continue;
               const position = await findOrCreatePosition(tx, assignData.positionName, { isStudio: assignData.isStudio });
-              await tx.segmentRoleAssignment.create({
+              await tx.chapterRoleAssignment.create({
                 data: { productionSegmentId: segment.id, personId: person.id, positionId: position.id }
               });
             }
@@ -501,7 +501,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
           for (const itemData of csData.items) {
             let segmentId = null;
             if (itemData.productionSegmentVolgorde != null) {
-              const segment = await tx.productionSegment.findFirst({
+              const segment = await tx.productionChapter.findFirst({
                 where: { productionId: production.id, volgorde: itemData.productionSegmentVolgorde }
               });
               segmentId = segment?.id || null;

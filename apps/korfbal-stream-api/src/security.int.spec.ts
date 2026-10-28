@@ -328,14 +328,29 @@ describe.runIf(runDb)('foreign ids in request bodies (integration)', () => {
   });
 
   it('does not assign a person or position of another organization to an own segment', async () => {
-    const segment = await prisma.productionSegment.create({data: {productionId: own.productionId, naam: 'Sec seg', volgorde: 1, duurInMinuten: 10}});
+    const segment = await prisma.productionChapter.create({data: {productionId: own.productionId, naam: 'Sec seg', volgorde: 1, duurInMinuten: 10}});
     refused(await request(app).post(`/api/production/segments/${segment.id}/assignments`).send({personId: a.personId, positionId: a.positionId}));
-    expect(await prisma.segmentRoleAssignment.count({where: {productionSegmentId: segment.id}})).toBe(0);
+    expect(await prisma.chapterRoleAssignment.count({where: {productionSegmentId: segment.id}})).toBe(0);
   });
 
   it('does not add an event with a position of another organization', async () => {
     refused(await request(app).post(`/api/production/${own.productionId}/events`).send({title: 'Sec event', order: 9, positionIds: [a.positionId]}));
     expect(await prisma.productionEvent.count({where: {productionId: own.productionId, title: 'Sec event'}})).toBe(0);
+  });
+
+  it('refuses a hoofdstuk of another organization for an own template item, chapter position or event', async () => {
+    const template = await prisma.callSheetTemplate.create({data: {name: 'Sec hoofdstukken'}});
+    try {
+      await expect(prisma.callSheetTemplateItem.create({data: {templateId: template.id, chapterId: a.callSheetTemplateChapterId, title: 'Sec item', durationSec: 10}}))
+        .rejects.toThrow(/another organization/);
+      const chapter = await prisma.callSheetTemplateChapter.create({data: {templateId: template.id, name: 'Sec hoofdstuk', orderIndex: 0}});
+      await expect(prisma.callSheetTemplateChapterPosition.create({data: {chapterId: chapter.id, positionId: a.positionId, orderIndex: 0}}))
+        .rejects.toThrow(/another organization/);
+      await expect(prisma.productionEvent.update({where: {id: own.eventIds[0]}, data: {chapterId: a.segmentId}}))
+        .rejects.toThrow(/another organization/);
+    } finally {
+      await prisma.callSheetTemplate.delete({where: {id: template.id}});
+    }
   });
 
   it('refuses a cross-organization reference in the database even when the code forgets to check', async () => {

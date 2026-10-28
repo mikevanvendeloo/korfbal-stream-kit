@@ -13,7 +13,7 @@ const runDb = process.env.REQUIRE_DB === 'true';
 async function resetDb() {
   await prisma.$transaction([
     prisma.segmentDefaultPosition.deleteMany({}),
-    prisma.segmentRoleAssignment.deleteMany({}),
+    prisma.chapterRoleAssignment.deleteMany({}),
     prisma.callSheetItemPosition.deleteMany({}),
     prisma.callSheetItem.deleteMany({}),
     prisma.position.deleteMany({}),
@@ -90,7 +90,7 @@ describe.runIf(runDb)('Positions & Segment Defaults API (integration)', () => {
     // Create production + segment with that name
     const match = await prisma.matchSchedule.create({ data: { seasonId: await currentSeasonId(prisma), externalId: 'm-sd-1', date: new Date(), homeTeamName: 'Fortuna', awayTeamName: 'Opp', isHomeMatch: true } });
     const prod = await prisma.production.create({ data: { matchScheduleId: match.id } });
-    const seg = await prisma.productionSegment.create({ data: { productionId: prod.id, naam: 'Voorbeschouwing', volgorde: 1, duurInMinuten: 10, isTimeAnchor: false } });
+    const seg = await prisma.productionChapter.create({ data: { productionId: prod.id, naam: 'Voorbeschouwing', volgorde: 1, duurInMinuten: 10, isTimeAnchor: false } });
 
     const list = await request(app).get(`/api/production/segments/${seg.id}/positions`);
     expect(list.status).toBe(200);
@@ -119,7 +119,7 @@ describe.runIf(runDb)('Positions & Segment Defaults API (integration)', () => {
     // Create production + a segment without specific config -> should use GLOBAL
     const match = await prisma.matchSchedule.create({ data: { seasonId: await currentSeasonId(prisma), externalId: 'm-sd-2', date: new Date(), homeTeamName: 'Fortuna', awayTeamName: 'Opp', isHomeMatch: true } });
     const prod = await prisma.production.create({ data: { matchScheduleId: match.id } });
-    const segRust = await prisma.productionSegment.create({ data: { productionId: prod.id, naam: 'Rust', volgorde: 2, duurInMinuten: 15, isTimeAnchor: false } });
+    const segRust = await prisma.productionChapter.create({ data: { productionId: prod.id, naam: 'Rust', volgorde: 2, duurInMinuten: 15, isTimeAnchor: false } });
 
     const listRust = await request(app).get(`/api/production/segments/${segRust.id}/positions`);
     expect(listRust.status).toBe(200);

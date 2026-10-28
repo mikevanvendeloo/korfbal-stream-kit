@@ -899,10 +899,10 @@ backupRouter.post('/producties/import', async (req, res, next) => {
 
           // 7. Segments and Bezetting
           if (Array.isArray(item.segments)) {
-            await tx.productionSegment.deleteMany({ where: { productionId: production.id } });
+            await tx.productionChapter.deleteMany({ where: { productionId: production.id } });
 
             for (const sData of item.segments) {
-              const segment = await tx.productionSegment.create({
+              const segment = await tx.productionChapter.create({
                 data: {
                   productionId: production.id,
                   naam: sData.naam,
@@ -917,7 +917,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                   const person = await tx.person.findFirst({ where: { name: bData.personName } });
                   const position = await findOrCreatePosition(tx, bData.positionName, { isStudio: !!bData.isStudio });
                   if (person) {
-                    await tx.segmentRoleAssignment.create({
+                    await tx.chapterRoleAssignment.create({
                       data: {
                         productionSegmentId: segment.id,
                         personId: person.id,
@@ -1015,7 +1015,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                 // New ids: item ids are global, and the backup may come from another organization
                 const itemIdMap = new Map<string, string>();
                 for (const iData of csData.items) {
-                  const seg = iData.productionSegmentVolgorde ? await tx.productionSegment.findFirst({
+                  const seg = iData.productionSegmentVolgorde ? await tx.productionChapter.findFirst({
                     where: { productionId: production.id, volgorde: iData.productionSegmentVolgorde }
                   }) : null;
 

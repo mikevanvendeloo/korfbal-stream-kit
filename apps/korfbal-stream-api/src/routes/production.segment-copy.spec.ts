@@ -25,7 +25,7 @@ describe('Production segment assignments copy API', () => {
       { id: 2, productionSegmentId: 1, personId: 102, positionId: 202, createdAt: new Date() },
     ];
 
-    prisma.productionSegment = {
+    prisma.productionChapter = {
       findUnique: vi.fn(async ({ where }: any) => segments.find((s) => s.id === where.id) || null),
       findMany: vi.fn(async ({ where }: any) => {
         const ids = where?.id?.in as number[];
@@ -34,7 +34,7 @@ describe('Production segment assignments copy API', () => {
       }),
     };
 
-    prisma.segmentRoleAssignment = {
+    prisma.chapterRoleAssignment = {
       findMany: vi.fn(async ({ where }: any) => assignments.filter((a) => a.productionSegmentId === where.productionSegmentId)),
       deleteMany: vi.fn(async ({ where }: any) => {
         const set = new Set(where.productionSegmentId.in as number[]);

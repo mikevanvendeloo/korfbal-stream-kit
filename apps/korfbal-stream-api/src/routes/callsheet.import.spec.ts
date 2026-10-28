@@ -36,7 +36,7 @@ describe('Callsheet Excel import API', () => {
     // Emulate Prisma transaction by invoking callback with same mocked client as tx
     prisma.$transaction = vi.fn(async (fn: any) => fn(prisma));
 
-    prisma.productionSegment = {
+    prisma.productionChapter = {
       findMany: vi.fn(async ({ where }: any) => {
         if (where?.productionId !== 1) return [];
         return [

@@ -395,7 +395,7 @@ describe.runIf(runDb)('leak test suite: organization B never sees or changes org
       expect((await prisma.position.findUnique({where: {id: a.positionId}}))?.name).toBe(`${MARKER} Regie`);
       expect((await prisma.position.findUnique({where: {id: a.linkedPositionId}}))?.name).toBe(`${MARKER} Camera`);
       expect((await prisma.productionEvent.findUnique({where: {id: a.eventId}}))?.status).toBe('WAITING');
-      expect((await prisma.productionSegment.findUnique({where: {id: a.segmentId}}))?.naam).toBe(`${MARKER} Wedstrijd`);
+      expect((await prisma.productionChapter.findUnique({where: {id: a.segmentId}}))?.naam).toBe(`${MARKER} Wedstrijd`);
       expect((await prisma.callSheet.findUnique({where: {id: a.callSheetId}}))?.name).toBe(`${MARKER} Callsheet`);
       expect((await prisma.callSheetItem.findUnique({where: {id: a.callSheetItemId}}))?.title).toBe(`${MARKER} item`);
       expect((await prisma.callSheetTemplate.findUnique({where: {id: a.callSheetTemplateId}}))?.name).toBe(`${MARKER} Draaiboek`);
@@ -408,7 +408,7 @@ describe.runIf(runDb)('leak test suite: organization B never sees or changes org
       expect(await prisma.matchRoleAssignment.count({where: {id: a.matchAssignmentId}})).toBe(1);
       expect(await prisma.productionPerson.count({where: {id: a.productionPersonId}})).toBe(1);
       expect(await prisma.productionPersonPosition.count({where: {id: a.personPositionId}})).toBe(1);
-      expect(await prisma.segmentRoleAssignment.count({where: {id: a.segmentAssignmentId}})).toBe(1);
+      expect(await prisma.chapterRoleAssignment.count({where: {id: a.segmentAssignmentId}})).toBe(1);
       expect(await prisma.personSkill.count({where: {personId: a.personId}})).toBe(1);
       expect(await prisma.productionReport.count({where: {productionId: a.productionId}})).toBe(1);
       expect(await prisma.interviewSubject.count({where: {productionId: a.productionId}})).toBe(1);
@@ -422,7 +422,7 @@ describe.runIf(runDb)('leak test suite: organization B never sees or changes org
     await runWithOrganization(b, async () => {
       expect(await prisma.production.count()).toBe(0);
       expect(await prisma.callSheet.count()).toBe(0);
-      expect(await prisma.productionSegment.count()).toBe(0);
+      expect(await prisma.productionChapter.count()).toBe(0);
       expect(await prisma.productionPerson.count()).toBe(0);
     });
   });

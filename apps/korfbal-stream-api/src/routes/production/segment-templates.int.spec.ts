@@ -9,8 +9,8 @@ async function resetDb() {
   await prisma.$transaction([
     prisma.segmentTemplateItem.deleteMany({}),
     prisma.segmentTemplate.deleteMany({}),
-    prisma.segmentRoleAssignment.deleteMany({}),
-    prisma.productionSegment.deleteMany({}),
+    prisma.chapterRoleAssignment.deleteMany({}),
+    prisma.productionChapter.deleteMany({}),
     prisma.production.deleteMany({}),
     prisma.matchSchedule.deleteMany({}),
   ]);
@@ -77,7 +77,7 @@ describe.runIf(runDb)('Segment Templates API (integration)', () => {
       .post(`/api/production/segment-templates/apply/${templateId}/to/${prod.id}`);
     expect(applyRes.status).toBe(200);
 
-    const segments = await prisma.productionSegment.findMany({
+    const segments = await prisma.productionChapter.findMany({
       where: { productionId: prod.id },
       orderBy: { volgorde: 'asc' }
     });
