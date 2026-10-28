@@ -52,7 +52,7 @@ describe.runIf(runDb)('Position -> Skill mapping (integration)', () => {
       data: { seasonId: await currentSeasonId(prisma), externalId: 'm-map', date: new Date(), homeTeamName: 'Home', awayTeamName: 'Away', isHomeMatch: true },
     });
     const prod = await prisma.production.create({ data: { matchScheduleId: match.id } });
-    const seg = await prisma.productionChapter.create({ data: { productionId: prod.id, naam: 'Intro', volgorde: 1, duurInMinuten: 5, isTimeAnchor: false } });
+    const seg = await prisma.productionChapter.create({ data: { productionId: prod.id, name: 'Intro', orderIndex: 1 } });
     // Spelled differently from the standard list, without a skill
     await prisma.position.create({ data: { name: 'scherm regie' } });
     await prisma.position.create({ data: { name: 'Camera Links' } });
@@ -108,7 +108,7 @@ describe.runIf(runDb)('Position -> Skill mapping (integration)', () => {
       data: { seasonId: await currentSeasonId(prisma), externalId: 'm-enforce', date: new Date(), homeTeamName: 'Home', awayTeamName: 'Away', isHomeMatch: true },
     });
     const prod = await prisma.production.create({ data: { matchScheduleId: match.id } });
-    const seg = await prisma.productionChapter.create({ data: { productionId: prod.id, naam: 'Main', volgorde: 1, duurInMinuten: 5, isTimeAnchor: false } });
+    const seg = await prisma.productionChapter.create({ data: { productionId: prod.id, name: 'Main', orderIndex: 1 } });
 
     // Ensure positions exist
     const posLed = await prisma.position.upsert({ where: { organizationId_name: { organizationId: await testOrganizationId(), name: 'ledscherm regie' } }, update: {}, create: { name: 'ledscherm regie' } });

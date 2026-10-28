@@ -31,20 +31,20 @@ describe('tenantScope', () => {
   });
 
   it('sets the organization on unchecked creates and replaces one in the data', () => {
-    expect(scopeArgs('ProductionChapter', 'create', {data: {productionId: 1, naam: 'x', organizationId: 99}}, ORG).data)
-      .toEqual({productionId: 1, naam: 'x', organizationId: ORG});
+    expect(scopeArgs('ProductionChapter', 'create', {data: {productionId: 1, name: 'x', organizationId: 99}}, ORG).data)
+      .toEqual({productionId: 1, name: 'x', organizationId: ORG});
   });
 
   it('connects the organization on checked creates (relations via connect)', () => {
-    const data = scopeArgs('ProductionChapter', 'create', {data: {production: {connect: {id: 1}}, naam: 'x', organizationId: 99}}, ORG).data;
-    expect(data).toEqual({production: {connect: {id: 1, organizationId: ORG}}, naam: 'x', organization: {connect: {id: ORG}}});
+    const data = scopeArgs('ProductionChapter', 'create', {data: {production: {connect: {id: 1}}, name: 'x', organizationId: 99}}, ORG).data;
+    expect(data).toEqual({production: {connect: {id: 1, organizationId: ORG}}, name: 'x', organization: {connect: {id: ORG}}});
   });
 
   it('scopes nested creates, createMany, connectOrCreate and connect', () => {
     const data = scopeArgs('Production', 'create', {
       data: {
         matchScheduleId: 1,
-        segments: {create: [{naam: 'a', volgorde: 1, duurInMinuten: 1}]},
+        chapters: {create: [{name: 'a', orderIndex: 1}]},
         productionReport: {create: {remarks: 'r'}},
         callSheets: {createMany: {data: [{name: 'c', organizationId: 99}]}},
         productionPersons: {connectOrCreate: {where: {id: 5}, create: {personId: 2}}},
@@ -52,7 +52,7 @@ describe('tenantScope', () => {
       },
     }, ORG).data;
     expect(data.organizationId).toBe(ORG);
-    expect(data.segments.create[0].organizationId).toBe(ORG);
+    expect(data.chapters.create[0].organizationId).toBe(ORG);
     expect(data.productionReport.create.organizationId).toBe(ORG);
     expect(data.callSheets.createMany.data).toEqual([{name: 'c', organizationId: ORG}]);
     expect(data.productionPersons.connectOrCreate).toEqual({where: {id: 5, organizationId: ORG}, create: {personId: 2, organizationId: ORG}});
@@ -75,12 +75,12 @@ describe('tenantScope', () => {
     const data = scopeArgs('Production', 'update', {
       where: {id: 1},
       data: {
-        segments: {create: {naam: 'n', volgorde: 2, duurInMinuten: 1}, update: [{where: {id: 2}, data: {organizationId: 99, naam: 'm'}}]},
+        chapters: {create: {name: 'n', orderIndex: 2}, update: [{where: {id: 2}, data: {organizationId: 99, name: 'm'}}]},
         productionReport: {upsert: {create: {remarks: 'c'}, update: {remarks: 'u', organizationId: 99}}},
       },
     }, ORG).data;
-    expect(data.segments.create.organizationId).toBe(ORG);
-    expect(data.segments.update).toEqual([{where: {id: 2}, data: {naam: 'm'}}]);
+    expect(data.chapters.create.organizationId).toBe(ORG);
+    expect(data.chapters.update).toEqual([{where: {id: 2}, data: {name: 'm'}}]);
     expect(data.productionReport.upsert).toEqual({create: {remarks: 'c', organizationId: ORG}, update: {remarks: 'u'}});
   });
 
@@ -137,7 +137,7 @@ describe('tenantScope', () => {
     });
 
     it('leaves relations between tenant rows and the select of count alone', () => {
-      expect(scopeArgs('Production', 'findMany', {include: {segments: true, _count: true}}, ORG).include).toEqual({segments: true, _count: true});
+      expect(scopeArgs('Production', 'findMany', {include: {chapters: true, _count: true}}, ORG).include).toEqual({chapters: true, _count: true});
       expect(scopeArgs('Season', 'count', {select: {_all: true}}, ORG).select).toEqual({_all: true});
     });
 

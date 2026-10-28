@@ -6,8 +6,7 @@ import {prisma} from '../../services/prisma';
 import {findPositionByName, SHOWCALLER_POSITION} from '../../domain/positionSkill';
 import {NotFoundError} from '../../middleware/error';
 import {contentDisposition} from '../../utils/attachment';
-import {placeProductionChapters, placeTemplateChaptersFromDefaults} from '../../services/chapterMigration';
-import {callSheetTemplateChaptersRouter, importedChapterName, templateChaptersByName, templateItemChapter} from './callsheet-template-chapters';
+import {callSheetTemplateChaptersRouter, importedChapterName, importedItemChapters, templateChaptersByName, templateItemChapter} from './callsheet-template-chapters';
 
 export const callSheetTemplateRouter: Router = Router();
 // Hoofdstukken (openspec/changes/chapters D4): /:id/chapters, /chapters/:chapterId, /:id/structure
@@ -297,7 +296,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
       const production = await tx.production.findUnique({
         where: { id: productionId },
         include: {
-          segments: { orderBy: { volgorde: 'asc' } },
+          chapters: { orderBy: { orderIndex: 'asc' } },
           matchSchedule: true
         }
       });
@@ -349,15 +348,15 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
       const templateChapters = await tx.callSheetTemplateChapter.findMany({ where: { templateId }, orderBy: { orderIndex: 'asc' } });
       const productionChapterOf = new Map<string, number>(); // template hoofdstuk → production hoofdstuk
       if (templateChapters.length > 0) {
-        const existingByName = new Map(production.segments.map((s) => [s.naam, s]));
+        const existingByName = new Map(production.chapters.map((c) => [c.name, c]));
         const kept = new Set<number>();
-        // volgorde is unique per production: park the existing ones first
-        await tx.productionChapter.updateMany({ where: { productionId }, data: { volgorde: { increment: 1000 } } });
+        // orderIndex is unique per production: park the existing ones first
+        await tx.productionChapter.updateMany({ where: { productionId }, data: { orderIndex: { increment: 1000 } } });
         for (const [i, chapter] of templateChapters.entries()) {
           const existing = existingByName.get(chapter.name);
           const productionChapter = existing && !kept.has(existing.id)
-            ? await tx.productionChapter.update({ where: { id: existing.id }, data: { volgorde: i + 1 } })
-            : await tx.productionChapter.create({ data: { productionId, naam: chapter.name, volgorde: i + 1, duurInMinuten: 0 } });
+            ? await tx.productionChapter.update({ where: { id: existing.id }, data: { orderIndex: i + 1 } })
+            : await tx.productionChapter.create({ data: { productionId, name: chapter.name, orderIndex: i + 1 } });
           kept.add(productionChapter.id);
           productionChapterOf.set(chapter.id, productionChapter.id);
         }
@@ -386,7 +385,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
         itemsToCreate.push({
           id: itemId,
           callSheetId: callSheet.id,
-          productionSegmentId: (tItem.chapterId && productionChapterOf.get(tItem.chapterId)) || null,
+          chapterId: productionChapterOf.get(tItem.chapterId) as number,
           cue: tItem.cue,
           title: tItem.title,
           note: tItem.note,
@@ -405,7 +404,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
           productionId: productionId,
           callSheetItemId: itemId,
           title: tItem.title,
-          chapterId: (tItem.chapterId && productionChapterOf.get(tItem.chapterId)) || null,
+          chapterId: productionChapterOf.get(tItem.chapterId) as number,
           order: tItem.orderIndex,
           status: 'WAITING' as const,
           durationSec: tItem.durationSec,
@@ -476,9 +475,6 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
       if (eventPositions.length > 0) {
           await tx.productionEventPosition.createMany({ data: eventPositions });
       }
-
-      // The new items and events in the production's hoofdstukken, by time (openspec/changes/chapters D7)
-      await placeProductionChapters(tx, productionId);
 
       // Update production with template link
       await tx.production.update({
@@ -705,14 +701,14 @@ callSheetTemplateRouter.post('/import', uploadMem, async (req, res, next) => {
     // Hoofdstukken from the Hoofdstuk column, in order of appearance (openspec/changes/chapters)
     const chapterIds = await templateChaptersByName(template.id, [...new Set(itemsToCreate.map((i) => i.chapterName).filter((n): n is string => !!n))]);
 
-    // Create items in sequence
+    // Create items in sequence; rows without a hoofdstuk (an older export: all of them) go into the one before, else Draaiboek
+    const chapterOf = importedItemChapters(template.id, chapterIds);
     for (const itemData of itemsToCreate) {
       const { positionIds, templateId: _, chapterName, ...data } = itemData;
-      const chapterId = chapterName ? chapterIds.get(chapterName) : undefined;
       await prisma.callSheetTemplateItem.create({
         data: {
           ...data,
-          ...(chapterId ? { chapter: { connect: { id: chapterId } } } : {}),
+          chapter: { connect: { id: await chapterOf(chapterName) } },
           template: { connect: { id: template.id } },
           positions: {
             create: (positionIds || []).map((pid: number) => ({ positionId: pid }))
@@ -720,8 +716,6 @@ callSheetTemplateRouter.post('/import', uploadMem, async (req, res, next) => {
         }
       });
     }
-    // Rows without a hoofdstuk (an older export: all of them) are placed as the migration does
-    await placeTemplateChaptersFromDefaults(template.id);
 
     return res.status(201).json(template);
   } catch (err: any) {
@@ -800,7 +794,7 @@ callSheetTemplateRouter.post('/import-json', uploadMem, async (req, res, next) =
     const { name, items, version } = data;
     const finalName = req.body.name || name;
 
-    // Version 1: without hoofdstukken (placed as the migration does); version 2: with hoofdstukken
+    // Version 1: without hoofdstukken (all in one hoofdstuk Draaiboek); version 2: with hoofdstukken
     if (version && version > 2) {
       return res.status(400).json({ error: `Unsupported template version: ${version}. Only versions 1 and 2 are supported.` });
     }
@@ -830,6 +824,8 @@ callSheetTemplateRouter.post('/import-json', uploadMem, async (req, res, next) =
       }
     }
 
+    // Items without a hoofdstuk (version 1: all of them) go into the one before, else Draaiboek
+    const chapterOf = importedItemChapters(template.id, chapterIds);
     for (const item of items) {
       const createdItem = await prisma.callSheetTemplateItem.create({
         data: {
@@ -844,7 +840,7 @@ callSheetTemplateRouter.post('/import-json', uploadMem, async (req, res, next) =
           isTimeAnchor: !!item.isTimeAnchor,
           anchorType: item.anchorType ?? null,
           autoAdvance: !!item.autoAdvance,
-          chapterId: chapterIds.get(importedChapterName(item.chapter)) ?? null,
+          chapterId: await chapterOf(importedChapterName(item.chapter) || undefined),
         }
       });
 
@@ -889,9 +885,6 @@ callSheetTemplateRouter.post('/import-json', uploadMem, async (req, res, next) =
         }
       }
     }
-
-    // Items without a hoofdstuk (version 1: all of them) are placed as the migration does
-    await placeTemplateChaptersFromDefaults(template.id);
 
     return res.status(201).json(template);
   } catch (err: any) {

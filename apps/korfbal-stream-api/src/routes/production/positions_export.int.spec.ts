@@ -7,7 +7,6 @@ const runDb = process.env.REQUIRE_DB === 'true';
 
 async function resetDb() {
   await prisma.$transaction([
-    prisma.segmentDefaultPosition.deleteMany({}),
     prisma.chapterRoleAssignment.deleteMany({}),
     prisma.callSheetItemPosition.deleteMany({}),
     prisma.callSheetItem.deleteMany({}),

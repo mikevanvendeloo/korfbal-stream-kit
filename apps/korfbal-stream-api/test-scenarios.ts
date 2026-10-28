@@ -33,6 +33,8 @@ export type ScenarioItem = {
   autoAdvance?: boolean;
   isInVenue?: boolean;
   isInLivestream?: boolean;
+  /** Name of its hoofdstuk (one of `chapters`); default the hoofdstuk of the item before, else the first */
+  chapter?: string;
 };
 
 export type ScenarioOptions = {
@@ -46,8 +48,8 @@ export type ScenarioOptions = {
   items?: ScenarioItem[];
   /** When the first item is planned (default: one minute from now) */
   startsAt?: Date;
-  /** Production segments, in order (name and minutes) */
-  segments?: Array<{ naam: string; duurInMinuten: number; isTimeAnchor?: boolean }>;
+  /** The production's hoofdstukken, in order (default one, "Draaiboek"); items and events are placed in them */
+  chapters?: string[];
   report?: Partial<Prisma.ProductionReportUncheckedCreateWithoutProductionInput>;
   /** The production's broadcast start (Production.liveTime) */
   liveTime?: Date;
@@ -97,6 +99,8 @@ export type ProductionScenario = {
   positionIds: Record<string, number>;
   /** Person id per name (`crew`) */
   personIds: Record<string, number>;
+  /** Hoofdstuk id per name (`chapters`) */
+  chapterIds: Record<string, number>;
   /** Callsheet item ids in the order of `items` (`callSheet: true`) */
   callSheetItemIds: string[];
   /** Player id per name (`interviews`) */
@@ -168,9 +172,21 @@ async function buildScenario(db: PrismaClient, organizationId: number, options: 
       isActive: !!options.active,
       liveTime: options.liveTime ?? null,
       ...(options.report ? {productionReport: {create: {...options.report, organizationId}}} : {}),
-      ...(options.segments ? {segments: {create: options.segments.map((s, i) => ({...s, volgorde: i + 1, organizationId}))}} : {}),
     },
   });
+
+  // Hoofdstukken: every item (and its event) is in one
+  const chapterIds: Record<string, number> = {};
+  for (const [i, name] of (options.chapters ?? ['Draaiboek']).entries()) {
+    chapterIds[name] = (await db.productionChapter.create({data: {organizationId, productionId: production.id, name, orderIndex: i + 1}})).id;
+  }
+  const itemChapterIds: number[] = [];
+  for (const item of items) {
+    const previous = itemChapterIds[itemChapterIds.length - 1];
+    const named = item.chapter ? chapterIds[item.chapter] : undefined;
+    if (item.chapter && named == null) throw new Error(`Scenario item "${item.title}": unknown hoofdstuk "${item.chapter}"`);
+    itemChapterIds.push(named ?? previous ?? Object.values(chapterIds)[0]);
+  }
 
   let plannedStart = (options.startsAt ?? new Date(Date.now() + 60_000)).getTime();
   const eventIds: string[] = [];
@@ -179,7 +195,7 @@ async function buildScenario(db: PrismaClient, organizationId: number, options: 
     const event = await db.productionEvent.create({
       data: {
         organizationId,
-        productionId: production.id, order: i + 1, title: item.title, durationSec,
+        productionId: production.id, order: i + 1, title: item.title, durationSec, chapterId: itemChapterIds[i],
         status: item.status ?? 'WAITING', autoAdvance: item.autoAdvance ?? false,
         isInVenue: item.isInVenue ?? false, isInLivestream: item.isInLivestream ?? true,
         plannedStartTime: new Date(plannedStart), plannedEndTime: new Date(plannedStart + durationSec * 1000),
@@ -198,7 +214,7 @@ async function buildScenario(db: PrismaClient, organizationId: number, options: 
     for (const event of eventIds.flatMap((id) => events.filter((e) => e.id === id))) {
       const item = await db.callSheetItem.create({
         data: {
-          organizationId, id: randomUUID(), callSheetId: callSheet.id, cue: `C${event.order}`, title: event.title,
+          organizationId, id: randomUUID(), callSheetId: callSheet.id, chapterId: event.chapterId as number, cue: `C${event.order}`, title: event.title,
           durationSec: event.durationSec ?? 0, orderIndex: event.order, timeStart: event.plannedStartTime, timeEnd: event.plannedEndTime,
         },
       });
@@ -258,6 +274,7 @@ async function buildScenario(db: PrismaClient, organizationId: number, options: 
     eventIds,
     positionIds,
     personIds,
+    chapterIds,
     callSheetItemIds,
     playerIds,
     organizationId,
@@ -282,7 +299,8 @@ export type TenantScenario = {
   productionId: number;
   matchId: number;
   manualMatchId: number;
-  segmentId: number;
+  /** The production's hoofdstuk (ProductionChapter), with a bezetting, the event and the callsheet item */
+  chapterId: number;
   eventId: string;
   positionId: number;
   linkedPositionId: number;
@@ -292,15 +310,13 @@ export type TenantScenario = {
   matchAssignmentId: number;
   productionPersonId: number;
   personPositionId: number;
-  segmentAssignmentId: number;
+  chapterAssignmentId: number;
   callSheetId: number;
   callSheetItemId: string;
   callSheetTemplateId: number;
   callSheetTemplateItemId: string;
   /** A hoofdstuk of the template (with a standard position), holding the template item */
   callSheetTemplateChapterId: string;
-  segmentTemplateId: number;
-  segmentTemplateItemId: number;
   titleId: number;
   titleTemplateId: number;
   clubId: number;
@@ -309,7 +325,7 @@ export type TenantScenario = {
 };
 
 /**
- * One of every tenant row (production with segments, events, callsheet, crew, report and interview;
+ * One of every tenant row (production with hoofdstukken, events, callsheet, crew, report and interview;
  * match with a role assignment; sponsor, person, skill, positions with a link, templates, title
  * templates, a manual match), all named with `marker`. For isolation tests: build it in one
  * organization and look at it from another.
@@ -319,7 +335,7 @@ export async function createTenantScenario(db: PrismaClient, organizationId: num
     organizationId,
     items: [{title: `${marker} opening`, positions: [`${marker} Regie`]}],
     match: {homeTeamName: `${marker} Thuis`, awayTeamName: `${marker} Uit`},
-    segments: [{naam: `${marker} Wedstrijd`, duurInMinuten: 60}],
+    chapters: [`${marker} Wedstrijd`],
     report: {matchSponsor: `${marker} sponsor`, remarks: `${marker} opmerking`},
   });
   return runWithOrganization(organizationId, async () => {
@@ -335,27 +351,24 @@ export async function createTenantScenario(db: PrismaClient, organizationId: num
     const manual = await db.matchSchedule.create({
       data: {...o, seasonId: (await seasonForDate(db, new Date())).id, isManual: true, date: new Date(), homeTeamName: `${marker} Handmatig`, awayTeamName: `${marker} Gast`},
     });
-    const segment = await db.productionChapter.findFirstOrThrow({where: {organizationId, productionId: show.productionId}});
+    const chapterId = show.chapterIds[`${marker} Wedstrijd`];
     const productionPerson = await db.productionPerson.create({data: {...o, productionId: show.productionId, personId: person.id}});
     const personPosition = await db.productionPersonPosition.create({data: {...o, productionId: show.productionId, personId: person.id, positionId}});
-    const segmentAssignment = await db.chapterRoleAssignment.create({data: {...o, productionSegmentId: segment.id, personId: person.id, positionId}});
-    // The LIVE event in its hoofdstuk (ProductionEvent.chapterId)
-    await db.productionEvent.update({where: {id: show.eventIds[0]}, data: {chapterId: segment.id}});
+    const chapterAssignment = await db.chapterRoleAssignment.create({data: {...o, productionSegmentId: chapterId, personId: person.id, positionId}});
     const callSheet = await db.callSheet.create({data: {...o, productionId: show.productionId, name: `${marker} Callsheet`}});
     const callSheetItem = await db.callSheetItem.create({
-      data: {...o, id: `${marker.toLowerCase()}-item-${Date.now()}`, callSheetId: callSheet.id, cue: 'C1', title: `${marker} item`, durationSec: 60,
+      data: {...o, id: `${marker.toLowerCase()}-item-${Date.now()}`, callSheetId: callSheet.id, chapterId, cue: 'C1', title: `${marker} item`, durationSec: 60,
         positions: {create: [{...o, positionId}]}},
     });
     const template = await db.callSheetTemplate.create({data: {...o, name: `${marker} Draaiboek`}});
     const templateChapter = await db.callSheetTemplateChapter.create({
-      data: {...o, templateId: template.id, name: `${marker} Hoofdstuk`, orderIndex: 0, positions: {create: [{...o, positionId, orderIndex: 0}]}},
+      data: {...o, templateId: template.id, name: `${marker} Wedstrijd`, orderIndex: 0, positions: {create: [{...o, positionId, orderIndex: 0}]}},
     });
+    // The production's hoofdstuk takes its standard positions from the template hoofdstuk with its name
+    await db.production.update({where: {id: show.productionId}, data: {callSheetTemplateId: template.id}});
     const templateItem = await db.callSheetTemplateItem.create({
       data: {...o, templateId: template.id, chapterId: templateChapter.id, title: `${marker} sjabloonitem`, durationSec: 60, positions: {create: [{...o, positionId}]}},
     });
-    const segmentTemplate = await db.segmentTemplate.create({data: {...o, name: `${marker} Segmenten`}});
-    const segmentTemplateItem = await db.segmentTemplateItem.create({data: {...o, templateId: segmentTemplate.id, naam: `${marker} Segment`, volgorde: 1, duurInMinuten: 30}});
-    await db.segmentDefaultPosition.create({data: {...o, segmentName: `${marker} Wedstrijd`, positionId, order: 1}});
     const title = await db.titleDefinition.create({
       data: {...o, productionId: show.productionId, name: `${marker} titel`, parts: {create: [{...o, sourceType: 'FREE_TEXT', customName: `${marker} naam`}]}},
     });
@@ -368,12 +381,12 @@ export async function createTenantScenario(db: PrismaClient, organizationId: num
 
     return {
       organizationId, marker,
-      productionId: show.productionId, matchId: show.matchId, manualMatchId: manual.id, segmentId: segment.id, eventId: show.eventIds[0],
+      productionId: show.productionId, matchId: show.matchId, manualMatchId: manual.id, chapterId, eventId: show.eventIds[0],
       positionId, linkedPositionId: linked.id, skillId: skill.id, personId: person.id, sponsorId: sponsor.id,
       matchAssignmentId: assignment.id, productionPersonId: productionPerson.id, personPositionId: personPosition.id,
-      segmentAssignmentId: segmentAssignment.id, callSheetId: callSheet.id, callSheetItemId: callSheetItem.id,
-      callSheetTemplateId: template.id, callSheetTemplateItemId: templateItem.id, callSheetTemplateChapterId: templateChapter.id, segmentTemplateId: segmentTemplate.id,
-      segmentTemplateItemId: segmentTemplateItem.id, titleId: title.id, titleTemplateId: titleTemplate.id,
+      chapterAssignmentId: chapterAssignment.id, callSheetId: callSheet.id, callSheetItemId: callSheetItem.id,
+      callSheetTemplateId: template.id, callSheetTemplateItemId: templateItem.id, callSheetTemplateChapterId: templateChapter.id,
+      titleId: title.id, titleTemplateId: titleTemplate.id,
       clubId: club.id, playerId: player.id,
       // Removes the organization too (cascading to everything in it): use one made for the test
       cleanup: async () => {

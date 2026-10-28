@@ -6,8 +6,8 @@ import {flattenChapters, structureProblem} from '../../services/chapters';
 
 /**
  * Hoofdstukken of a production's draaiboek (openspec/changes/chapters D4), under /api/production. The
- * hoofdstukken belong to the production; a callsheet's items each sit in one of them. The table is
- * still ProductionSegment (naam, volgorde) until the field renames.
+ * hoofdstukken belong to the production; a callsheet's items each sit in one of them. JSON:
+ * {id, productionId, name, orderIndex} (the table is still ProductionSegment).
  */
 export const productionChaptersRouter: Router = Router();
 
@@ -16,17 +16,32 @@ const positiveId = (value: string) => {
   return Number.isInteger(id) && id > 0 ? id : null;
 };
 
+const chapterJson = ({id, productionId, name, orderIndex}: {id: number; productionId: number; name: string; orderIndex: number}) =>
+  ({id, productionId, name, orderIndex});
+
+// GET /api/production/:id/chapters: the hoofdstukken in order
+productionChaptersRouter.get('/:id/chapters', async (req, res, next) => {
+  try {
+    const productionId = positiveId(req.params.id);
+    if (!productionId) return res.status(400).json({error: 'Ongeldig productie-id'});
+    const production = await prisma.production.findUnique({where: {id: productionId}, include: {chapters: {orderBy: {orderIndex: 'asc'}}}});
+    if (!production) return res.status(404).json({error: 'Productie niet gevonden'});
+    return res.json(production.chapters.map(chapterJson));
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // POST /api/production/:id/chapters {name}: a new hoofdstuk at the end
 productionChaptersRouter.post('/:id/chapters', async (req, res, next) => {
   try {
     const productionId = positiveId(req.params.id);
     if (!productionId) return res.status(400).json({error: 'Ongeldig productie-id'});
     const {name} = ChapterCreateSchema.parse(req.body);
-    const production = await prisma.production.findUnique({where: {id: productionId}, include: {segments: {select: {volgorde: true}}}});
+    const production = await prisma.production.findUnique({where: {id: productionId}, include: {chapters: {select: {orderIndex: true}}}});
     if (!production) return res.status(404).json({error: 'Productie niet gevonden'});
-    const volgorde = Math.max(0, ...production.segments.map((s) => s.volgorde)) + 1;
-    const chapter = await prisma.productionChapter.create({data: {productionId, naam: name, volgorde, duurInMinuten: 0}});
-    return res.status(201).json(chapter);
+    const orderIndex = Math.max(0, ...production.chapters.map((c) => c.orderIndex)) + 1;
+    return res.status(201).json(chapterJson(await prisma.productionChapter.create({data: {productionId, name, orderIndex}})));
   } catch (err) {
     return next(err);
   }
@@ -40,7 +55,7 @@ productionChaptersRouter.put('/chapters/:chapterId', async (req, res, next) => {
     const {name} = ProductionChapterUpdateSchema.parse(req.body);
     const chapter = await prisma.productionChapter.findUnique({where: {id: chapterId}});
     if (!chapter) return res.status(404).json({error: 'Hoofdstuk niet gevonden'});
-    return res.json(await prisma.productionChapter.update({where: {id: chapterId}, data: {naam: name}}));
+    return res.json(chapterJson(await prisma.productionChapter.update({where: {id: chapterId}, data: {name}})));
   } catch (err) {
     return next(err);
   }
@@ -70,20 +85,20 @@ productionChaptersRouter.put('/callsheets/:callSheetId/structure', async (req, r
     const {chapters: structure} = ProductionStructureSchema.parse(req.body);
     const callSheet = await prisma.callSheet.findUnique({
       where: {id: callSheetId},
-      include: {items: {select: {id: true, parentId: true}}, production: {include: {segments: {select: {id: true}}}}},
+      include: {items: {select: {id: true, parentId: true}}, production: {include: {chapters: {select: {id: true}}}}},
     });
     if (!callSheet) return res.status(404).json({error: 'Callsheet niet gevonden'});
-    const problem = structureProblem(structure, callSheet.production.segments.map((s) => s.id), callSheet.items);
+    const problem = structureProblem(structure, callSheet.production.chapters.map((c) => c.id), callSheet.items);
     if (problem) return res.status(400).json({error: problem});
 
     await prisma.$transaction(async (tx) => {
-      // volgorde is unique per production: park the hoofdstukken first
-      await tx.productionChapter.updateMany({where: {productionId: callSheet.productionId}, data: {volgorde: {increment: 1000}}});
+      // orderIndex is unique per production: park the hoofdstukken first
+      await tx.productionChapter.updateMany({where: {productionId: callSheet.productionId}, data: {orderIndex: {increment: 1000}}});
       for (const [i, chapter] of structure.entries()) {
-        await tx.productionChapter.update({where: {id: chapter.id}, data: {volgorde: i + 1}});
+        await tx.productionChapter.update({where: {id: chapter.id}, data: {orderIndex: i + 1}});
       }
       for (const {itemId, chapterId, orderIndex} of flattenChapters(structure)) {
-        await tx.callSheetItem.update({where: {id: itemId}, data: {productionSegmentId: chapterId, orderIndex}});
+        await tx.callSheetItem.update({where: {id: itemId}, data: {chapterId, orderIndex}});
       }
       // Saved in the editor: the automatic placement has been looked at
       await tx.production.update({where: {id: callSheet.productionId}, data: {chaptersAutoPlaced: false}});
@@ -108,9 +123,9 @@ export async function productionItemChapter(callSheetId: number, chapterId: unkn
     if (!chapter) throw new NotFoundError('Hoofdstuk niet gevonden');
     return chapter.id;
   }
-  const last = await prisma.callSheetItem.findFirst({where: {callSheetId, productionSegmentId: {not: null}}, orderBy: {orderIndex: 'desc'}});
-  if (last?.productionSegmentId) return last.productionSegmentId;
-  const lastChapter = await prisma.productionChapter.findFirst({where: {productionId}, orderBy: {volgorde: 'desc'}});
+  const last = await prisma.callSheetItem.findFirst({where: {callSheetId}, orderBy: {orderIndex: 'desc'}});
+  if (last) return last.chapterId;
+  const lastChapter = await prisma.productionChapter.findFirst({where: {productionId}, orderBy: {orderIndex: 'desc'}});
   if (lastChapter) return lastChapter.id;
-  return (await prisma.productionChapter.create({data: {productionId, naam: 'Draaiboek', volgorde: 1, duurInMinuten: 0}})).id;
+  return (await prisma.productionChapter.create({data: {productionId, name: 'Draaiboek', orderIndex: 1}})).id;
 }

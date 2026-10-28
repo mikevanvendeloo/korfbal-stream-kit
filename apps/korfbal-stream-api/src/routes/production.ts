@@ -8,13 +8,12 @@ import {staffingSummaries} from '../services/productionStaffing';
 import {parseOptionalInstant} from '../utils/time';
 import {plannedTimesOf} from '../services/dayPlanning';
 import {liveEnds} from '../services/productionTiming';
+import {DEFAULT_PRODUCTION_CHAPTERS} from '../services/chapters';
 
 // Import all production sub-routers
 import {productionPersonsRouter} from './production/production-persons';
 import {productionPersonPositionsRouter} from './production/production-person-positions';
 import {positionsRouter} from './production/positions';
-import {segmentDefaultPositionsRouter} from './production/segment-default-positions';
-import {segmentsRouter} from './production/segments';
 import {productionTimingRouter} from './production/production-timing';
 import {productionTitlesRouter} from './production/production-titles';
 import {productionInterviewsRouter} from './production/production-interviews';
@@ -27,7 +26,6 @@ import {productionCrewRouter} from './production/production-crew';
 import {productionExportImportRouter} from './production/production-export-import';
 import {productionEventsRouter} from './production/production-events';
 import {callsheetControlsRouter} from './production/callsheet-controls';
-import {segmentTemplatesRouter} from './production/segment-templates';
 
 export const productionRouter: Router = Router();
 
@@ -38,8 +36,6 @@ export const productionRouter: Router = Router();
 productionRouter.use(productionPersonsRouter);
 productionRouter.use(productionPersonPositionsRouter);
 productionRouter.use(positionsRouter);
-productionRouter.use(segmentDefaultPositionsRouter);
-productionRouter.use(segmentsRouter);
 productionRouter.use(productionTimingRouter); // This now includes /next-date
 productionRouter.use(productionTitlesRouter);
 productionRouter.use(productionInterviewsRouter);
@@ -52,8 +48,6 @@ productionRouter.use(productionCrewRouter);
 productionRouter.use(productionExportImportRouter);
 productionRouter.use(productionEventsRouter);
 productionRouter.use(callsheetControlsRouter);
-
-productionRouter.use('/segment-templates', segmentTemplatesRouter);
 
 // Nest skills router under production namespace for backward compatibility
 // Note: /persons router is NOT nested here - persons are available at /api/persons
@@ -133,41 +127,10 @@ productionRouter.post('/', async (req, res, next) => {
           liveTime
         }
       });
-      // Auto-create segments from default template if it exists, otherwise use fallback
-      const count = await tx.productionChapter.count({ where: { productionId: p.id } });
-      if (count === 0) {
-        const defaultTemplate = await tx.segmentTemplate.findFirst({
-          where: { isDefault: true },
-          include: { items: { orderBy: { volgorde: 'asc' } } }
-        });
-
-        if (defaultTemplate && defaultTemplate.items.length > 0) {
-          for (const item of defaultTemplate.items) {
-            await tx.productionChapter.create({
-              data: {
-                productionId: p.id,
-                naam: item.naam,
-                volgorde: item.volgorde,
-                duurInMinuten: item.duurInMinuten,
-                isTimeAnchor: item.isTimeAnchor,
-              }
-            });
-          }
-        } else {
-          // Fallback if no default template is found
-          await tx.productionChapter.createMany({
-            data: [
-              { productionId: p.id, naam: 'Voorbeschouwing', duurInMinuten: 20, volgorde: 1, isTimeAnchor: false },
-              { productionId: p.id, naam: 'Oplopen', duurInMinuten: 10, volgorde: 2, isTimeAnchor: false },
-              { productionId: p.id, naam: 'Eerste helft', duurInMinuten: 35, volgorde: 3, isTimeAnchor: true },
-              { productionId: p.id, naam: 'Rust', duurInMinuten: 10, volgorde: 4, isTimeAnchor: false },
-              { productionId: p.id, naam: 'Tweede helft', duurInMinuten: 35, volgorde: 5, isTimeAnchor: false },
-              { productionId: p.id, naam: 'Nabeschouwing', duurInMinuten: 20, volgorde: 6, isTimeAnchor: false },
-            ],
-            skipDuplicates: true,
-          });
-        }
-      }
+      // The standard hoofdstukken until a draaiboek template is applied (which brings its own)
+      await tx.productionChapter.createMany({
+        data: DEFAULT_PRODUCTION_CHAPTERS.map((name, i) => ({ productionId: p.id, name, orderIndex: i + 1 })),
+      });
 
       // Ensure there is always at least one callsheet for a production
       await tx.callSheet.upsert({
@@ -197,8 +160,7 @@ productionRouter.get('/active', async (_req, res, next) => {
     });
     if (!item) return res.json({ item });
     // Opbouw and verzamelen for LIVE → Productie, and the end of the livestream (latest item end, openspec/changes/chapters D1)
-    const segments = await prisma.productionChapter.findMany({ where: { productionId: item.id }, select: { duurInMinuten: true } });
-    const liveEnd = (await liveEnds([{ id: item.id, liveTime: item.liveTime, segments }])).get(item.id) ?? null;
+    const liveEnd = (await liveEnds([item.id])).get(item.id) ?? null;
     return res.json({ item: {...item, planned: await plannedTimesOf(item.id, item.matchSchedule.date), liveEnd} });
   } catch (err) {
     return next(err);

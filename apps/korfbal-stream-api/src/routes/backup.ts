@@ -26,7 +26,7 @@ import {migrateLegacySeasonAssets} from '../services/seasonAssetMigration';
 import {getSetting, GLOBAL_SETTING_KEYS, setSetting} from '../services/appSettings';
 import {getOwnClubId, setOwnClubId} from '../services/ownClub';
 import {clearOrganizationLookupCache} from '../middleware/organizationContext';
-import {placeProductionChapters} from '../services/chapterMigration';
+import {ChapterRestore, fileChapterOrder, fileChapters} from '../services/chapterMigration';
 
 export const backupRouter: Router = Router();
 
@@ -44,28 +44,10 @@ export const SEASON_INDOOR_START_EXPORT_KEY = 'seasonIndoorStartDates';
 /** A sponsor in a backup: the normal input plus the fields only a backup carries. */
 const SponsorBackupSchema = SponsorInputSchema.extend({ categories: z.string().nullable().optional() });
 
-// Version for segment template JSON
+// Segment templates in older backups (version 1); they became draaiboek templates with hoofdstukken
 const SEGMENT_TEMPLATE_JSON_VERSION = 1 as const;
 
 // --- Export Endpoints ---
-
-// GET /api/backup/segment-templates/export
-backupRouter.get('/segment-templates/export', async (_req, res, next) => {
-  try {
-    const templates = await prisma.segmentTemplate.findMany({ include: { items: { orderBy: { volgorde: 'asc' } } }, orderBy: { name: 'asc' } });
-    const exportData = templates.map(t => ({
-      version: SEGMENT_TEMPLATE_JSON_VERSION,
-      name: t.name,
-      items: t.items.map(i => ({ naam: i.naam, volgorde: i.volgorde, duurInMinuten: i.duurInMinuten, isTimeAnchor: i.isTimeAnchor }))
-    }));
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', 'attachment; filename=segment-templates.json');
-    return res.json(exportData);
-  } catch (err) {
-    logger.error('GET /api/backup/segment-templates/export failed', err as any);
-    return next(err);
-  }
-});
 
 // GET /api/backup/persons/export
 backupRouter.get('/persons/export', async (_req, res, next) => {
@@ -212,7 +194,7 @@ backupRouter.get('/producties/export', async (_req, res, next) => {
             person: true
           }
         },
-        segments: {
+        chapters: {
           include: {
             bezetting: {
               include: {
@@ -221,7 +203,7 @@ backupRouter.get('/producties/export', async (_req, res, next) => {
               }
             }
           },
-          orderBy: { volgorde: 'asc' }
+          orderBy: { orderIndex: 'asc' }
         },
         TitleDefinition: {
           include: {
@@ -315,12 +297,10 @@ backupRouter.get('/producties/export', async (_req, res, next) => {
         positionName: pp.position.name,
         isStudio: pp.position.isStudio
       })),
-      segments: p.segments.map(seg => ({
-        naam: seg.naam,
-        volgorde: seg.volgorde,
-        duurInMinuten: seg.duurInMinuten,
-        isTimeAnchor: seg.isTimeAnchor,
-        assignments: seg.bezetting.map(bez => ({
+      chapters: p.chapters.map(chapter => ({
+        name: chapter.name,
+        orderIndex: chapter.orderIndex,
+        assignments: chapter.bezetting.map(bez => ({
           personName: bez.person.name,
           positionName: bez.position.name,
           isStudio: bez.position.isStudio
@@ -360,7 +340,7 @@ backupRouter.get('/producties/export', async (_req, res, next) => {
         color: cs.color,
         items: cs.items.map(item => ({
           id: item.id,
-          productionSegmentVolgorde: item.productionSegmentId ? p.segments.find(s => s.id === item.productionSegmentId)?.volgorde : null,
+          chapterOrderIndex: p.chapters.find(c => c.id === item.chapterId)?.orderIndex ?? null,
           cue: item.cue,
           title: item.title,
           note: item.note,
@@ -381,6 +361,7 @@ backupRouter.get('/producties/export', async (_req, res, next) => {
       productionEvents: p.productionEvents.map(ev => ({
         id: ev.id,
         callSheetItemId: ev.callSheetItemId,
+        chapterOrderIndex: p.chapters.find(c => c.id === ev.chapterId)?.orderIndex ?? null,
         parentId: ev.parentId,
         metadata: ev.metadata,
         title: ev.title,
@@ -701,41 +682,34 @@ backupRouter.post('/matches/import', async (req, res, next) => {
   }
 });
 
-// POST /api/backup/segment-templates/import
+// POST /api/backup/segment-templates/import: segment templates of an older backup become draaiboek
+// templates "<naam> (hoofdstukken)" with only their hoofdstukken (openspec/changes/chapters D7);
+// a template with that name is left alone
 backupRouter.post('/segment-templates/import', async (req, res, next) => {
   try {
     const data = req.body;
     if (!Array.isArray(data)) return res.status(400).json({ error: 'Array expected' });
-    let created = 0, updated = 0;
+    let created = 0;
     for (const item of data) {
       try {
         const version = Number(item.version ?? 1);
         if (!Number.isInteger(version) || version > SEGMENT_TEMPLATE_JSON_VERSION) continue;
         const name = String(item.name || '').trim();
         if (!name) continue;
-        const items = Array.isArray(item.items) ? item.items : [];
-        const existing = await prisma.segmentTemplate.findFirst({ where: { name } }).catch(() => null);
-        let tplId: number;
-        if (existing) {
-          tplId = existing.id;
-          await prisma.segmentTemplateItem.deleteMany({ where: { templateId: tplId } });
-          updated++;
-        } else {
-          const tpl = await prisma.segmentTemplate.create({ data: { name } });
-          tplId = tpl.id;
-          created++;
-        }
-        for (const raw of items) {
-          const naam = String(raw.naam || '').trim();
-          const volgorde = Number(raw.volgorde);
-          const duurInMinuten = Number(raw.duurInMinuten);
-          const isTimeAnchor = !!raw.isTimeAnchor;
-          if (!naam || !Number.isInteger(volgorde) || volgorde <= 0 || !Number.isInteger(duurInMinuten) || duurInMinuten < 0) continue;
-          await prisma.segmentTemplateItem.create({ data: { templateId: tplId, naam, volgorde, duurInMinuten, isTimeAnchor } });
-        }
+        const templateName = `${name} (hoofdstukken)`.slice(0, 200);
+        if (await prisma.callSheetTemplate.findFirst({ where: { name: templateName } })) continue;
+        const chapterNames = (Array.isArray(item.items) ? item.items : [])
+          .filter((raw: any) => String(raw?.naam || '').trim())
+          .sort((a: any, b: any) => (Number(a.volgorde) || 0) - (Number(b.volgorde) || 0))
+          .map((raw: any) => String(raw.naam).trim().slice(0, 100))
+          .slice(0, 200);
+        await prisma.callSheetTemplate.create({
+          data: { name: templateName, chapters: { create: chapterNames.map((chapterName: string, orderIndex: number) => ({ name: chapterName, orderIndex })) } },
+        });
+        created++;
       } catch (_) { /* an invalid row is skipped */ }
     }
-    return res.json({ ok: true, created, updated });
+    return res.json({ ok: true, created, updated: 0 });
   } catch (err) {
     logger.error('POST /api/backup/segment-templates/import failed', err as any);
     return next(err);
@@ -898,37 +872,25 @@ backupRouter.post('/producties/import', async (req, res, next) => {
             }
           }
 
-          // 7. Segments and Bezetting
-          if (Array.isArray(item.segments)) {
-            await tx.productionChapter.deleteMany({ where: { productionId: production.id } });
-
-            for (const sData of item.segments) {
-              const segment = await tx.productionChapter.create({
-                data: {
-                  productionId: production.id,
-                  naam: sData.naam,
-                  volgorde: sData.volgorde,
-                  duurInMinuten: sData.duurInMinuten,
-                  isTimeAnchor: !!sData.isTimeAnchor
-                }
-              });
-
-              if (Array.isArray(sData.assignments)) {
-                for (const bData of sData.assignments) {
-                  const person = await tx.person.findFirst({ where: { name: bData.personName } });
-                  const position = await findOrCreatePosition(tx, bData.positionName, { isStudio: !!bData.isStudio });
-                  if (person) {
-                    await tx.chapterRoleAssignment.create({
-                      data: {
-                        productionSegmentId: segment.id,
-                        personId: person.id,
-                        positionId: position.id
-                      }
-                    });
-                  }
+          // 7. Hoofdstukken and Bezetting (`chapters`; `segments` in older backups)
+          const chapterRestore = new ChapterRestore(tx, production.id);
+          const chapters = fileChapters(item);
+          if (chapters) {
+            await chapterRestore.restore(chapters, async (chapter, chapterId) => {
+              for (const bData of chapter.assignments) {
+                const person = await tx.person.findFirst({ where: { name: bData.personName } });
+                const position = await findOrCreatePosition(tx, bData.positionName, { isStudio: !!bData.isStudio });
+                if (person) {
+                  await tx.chapterRoleAssignment.create({
+                    data: {
+                      productionSegmentId: chapterId,
+                      personId: person.id,
+                      positionId: position.id
+                    }
+                  });
                 }
               }
-            }
+            });
           }
 
           // 8. Titles
@@ -1016,10 +978,6 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                 // New ids: item ids are global, and the backup may come from another organization
                 const itemIdMap = new Map<string, string>();
                 for (const iData of csData.items) {
-                  const seg = iData.productionSegmentVolgorde ? await tx.productionChapter.findFirst({
-                    where: { productionId: production.id, volgorde: iData.productionSegmentVolgorde }
-                  }) : null;
-
                   const callSheetItem = await tx.callSheetItem.create({
                     data: {
                       id: randomUUID(),
@@ -1037,7 +995,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                       isTimeAnchor: !!iData.isTimeAnchor,
                       autoAdvance: !!iData.autoAdvance,
                       isInLivestream: iData.isInLivestream !== false,
-                      productionSegmentId: seg?.id || null
+                      chapterId: await chapterRestore.itemChapter(fileChapterOrder(iData))
                     }
                   });
                   if (iData.id) {
@@ -1077,6 +1035,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                 data: {
                   productionId: production.id,
                   callSheetItemId,
+                  chapterId: chapterRestore.eventChapter(fileChapterOrder(evData)),
                   metadata: evData.metadata == null ? Prisma.DbNull : evData.metadata,
                   title: evData.title,
                   status: evData.status,
@@ -1116,7 +1075,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
             }
           }
           // Items and events of an older backup without a hoofdstuk get one (openspec/changes/chapters D7)
-          await placeProductionChapters(tx, production.id);
+          await chapterRestore.finish();
         });
       } catch (err) {
         logger.error(`Import of production failed for item`, { item, error: err });

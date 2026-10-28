@@ -35,14 +35,14 @@ type Probe = Read | Write | {own: string} | {global: string} | {live: string} | 
 const GLOBAL = {global: 'global data (D3)'};
 const OWN = {own: 'creates or changes only in the own organization'};
 const LIVE = {live: 'live state of the own organization (security.int.spec.ts)'};
-const NAME = {name: 'Overgenomen', naam: 'Overgenomen', title: 'Overgenomen'};
+const NAME = {name: 'Overgenomen', title: 'Overgenomen'};
 
 const ROUTES: Record<string, Probe> = {
   'DELETE /api/admin/vmix/title-templates/:id': {write: (a) => `/api/admin/vmix/title-templates/${a.titleTemplateId}`},
   'DELETE /api/callsheets/templates/:id': {write: (a) => `/api/callsheets/templates/${a.callSheetTemplateId}`},
   'DELETE /api/callsheets/templates/items/:itemId': {write: (a) => `/api/callsheets/templates/items/${a.callSheetTemplateItemId}`},
   'DELETE /api/callsheets/templates/chapters/:chapterId': {write: (a) => `/api/callsheets/templates/chapters/${a.callSheetTemplateChapterId}`},
-  'DELETE /api/production/chapters/:chapterId': {write: (a) => `/api/production/chapters/${a.segmentId}`},
+  'DELETE /api/production/chapters/:chapterId': {write: (a) => `/api/production/chapters/${a.chapterId}`},
   'DELETE /api/clubs/:slug': GLOBAL,
   'DELETE /api/manual-matches/:id': {write: (a) => `/api/manual-matches/${a.manualMatchId}`},
   'DELETE /api/organization/api-keys/:id': {write: (a) => `/api/organization/api-keys/${a.apiKeyId}`},
@@ -61,10 +61,7 @@ const ROUTES: Record<string, Probe> = {
   'DELETE /api/production/callsheet-items/:itemId': {write: (a) => `/api/production/callsheet-items/${a.callSheetItemId}`},
   'DELETE /api/production/callsheets/:callSheetId': {write: (a) => `/api/production/callsheets/${a.callSheetId}`},
   'DELETE /api/production/positions/:id': {write: (a) => `/api/production/positions/${a.linkedPositionId}`},
-  'DELETE /api/production/segment-templates/:id': {write: (a) => `/api/production/segment-templates/${a.segmentTemplateId}`},
-  'DELETE /api/production/segment-templates/items/:itemId': {write: (a) => `/api/production/segment-templates/items/${a.segmentTemplateItemId}`},
-  'DELETE /api/production/segments/:segmentId': {write: (a) => `/api/production/segments/${a.segmentId}`},
-  'DELETE /api/production/segments/:segmentId/assignments/:assignmentId': {write: (a) => `/api/production/segments/${a.segmentId}/assignments/${a.segmentAssignmentId}`},
+  'DELETE /api/production/segments/:segmentId/assignments/:assignmentId': {write: (a) => `/api/production/segments/${a.chapterId}/assignments/${a.chapterAssignmentId}`},
   'DELETE /api/production/skills/:id': {write: (a) => `/api/production/skills/${a.skillId}`},
   'DELETE /api/seasons/:id': GLOBAL,
   'DELETE /api/skills/:id': {write: (a) => `/api/skills/${a.skillId}`},
@@ -77,7 +74,6 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/backup/persons/export': {read: () => '/api/backup/persons/export'},
   'GET /api/backup/positions/export': {read: () => '/api/backup/positions/export'},
   'GET /api/backup/producties/export': {read: () => '/api/backup/producties/export'},
-  'GET /api/backup/segment-templates/export': {read: () => '/api/backup/segment-templates/export'},
   'GET /api/backup/settings/export': {read: () => '/api/backup/settings/export'},
   'GET /api/backup/skills/export': {read: () => '/api/backup/skills/export'},
   'GET /api/backup/sponsors/export': {read: () => '/api/backup/sponsors/export'},
@@ -106,6 +102,7 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/production': {read: () => '/api/production'},
   'GET /api/production/:id': {read: (a) => `/api/production/${a.productionId}`},
   'GET /api/production/:id/callsheets': {read: (a) => `/api/production/${a.productionId}/callsheets`},
+  'GET /api/production/:id/chapters': {read: (a) => `/api/production/${a.productionId}/chapters`},
   'GET /api/production/:id/clocks': {read: (a) => `/api/production/${a.productionId}/clocks`, control: false},
   'GET /api/production/:id/attendance': {read: (a) => `/api/production/${a.productionId}/attendance`},
   'GET /api/production/:id/crew': {read: (a) => `/api/production/${a.productionId}/crew`},
@@ -124,7 +121,6 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/production/:id/report/markdown': {read: (a) => `/api/production/${a.productionId}/report/markdown`},
   'GET /api/production/:id/report/pdf': {read: (a) => `/api/production/${a.productionId}/report/pdf`, binary: true},
   'GET /api/production/:id/report/whatsapp': {read: (a) => `/api/production/${a.productionId}/report/whatsapp`},
-  'GET /api/production/:id/segments': {read: (a) => `/api/production/${a.productionId}/segments`},
   'GET /api/production/:id/timing': {read: (a) => `/api/production/${a.productionId}/timing`, control: false},
   'GET /api/production/:id/titles': {read: (a) => `/api/production/${a.productionId}/titles`},
   'GET /api/production/active': {read: () => '/api/production/active', control: false},
@@ -134,15 +130,9 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/production/matches': {read: () => '/api/production/matches', control: false},
   'GET /api/production/next-date': {read: () => '/api/production/next-date', control: false},
   'GET /api/production/positions': {read: () => '/api/production/positions'},
-  'GET /api/production/segment-default-positions': {read: (a) => `/api/production/segment-default-positions?segmentName=${encodeURIComponent(`${a.marker} Wedstrijd`)}`},
-  'GET /api/production/segment-default-positions/names': {read: () => '/api/production/segment-default-positions/names'},
-  'GET /api/production/segment-templates': {read: () => '/api/production/segment-templates'},
-  'GET /api/production/segment-templates/:id': {read: (a) => `/api/production/segment-templates/${a.segmentTemplateId}`},
-  'GET /api/production/segment-templates/:id/export-json': {read: (a) => `/api/production/segment-templates/${a.segmentTemplateId}/export-json`},
-  'GET /api/production/segments/:segmentId': {read: (a) => `/api/production/segments/${a.segmentId}`},
-  'GET /api/production/segments/:segmentId/assignments': {read: (a) => `/api/production/segments/${a.segmentId}/assignments`},
-  'GET /api/production/segments/:segmentId/persons': {read: (a) => `/api/production/segments/${a.segmentId}/persons`},
-  'GET /api/production/segments/:segmentId/positions': {read: (a) => `/api/production/segments/${a.segmentId}/positions`},
+  'GET /api/production/segments/:segmentId/assignments': {read: (a) => `/api/production/segments/${a.chapterId}/assignments`},
+  'GET /api/production/segments/:segmentId/persons': {read: (a) => `/api/production/segments/${a.chapterId}/persons`},
+  'GET /api/production/segments/:segmentId/positions': {read: (a) => `/api/production/segments/${a.chapterId}/positions`},
   'GET /api/production/skills': {read: () => '/api/production/skills'},
   'GET /api/production/skills/:id': {read: (a) => `/api/production/skills/${a.skillId}`},
   'GET /api/production/skills/export-json': {read: () => '/api/production/skills/export-json'},
@@ -208,8 +198,8 @@ const ROUTES: Record<string, Probe> = {
   'POST /api/production/:id/chapters': {write: (a) => `/api/production/${a.productionId}/chapters`, body: () => ({name: 'Overgenomen'})},
   'PUT /api/callsheets/templates/chapters/:chapterId': {write: (a) => `/api/callsheets/templates/chapters/${a.callSheetTemplateChapterId}`, body: () => ({name: 'Overgenomen'})},
   'PUT /api/callsheets/templates/:id/structure': {write: (a) => `/api/callsheets/templates/${a.callSheetTemplateId}/structure`, body: (a) => ({chapters: [{id: a.callSheetTemplateChapterId, itemIds: [a.callSheetTemplateItemId]}]})},
-  'PUT /api/production/chapters/:chapterId': {write: (a) => `/api/production/chapters/${a.segmentId}`, body: () => ({name: 'Overgenomen'})},
-  'PUT /api/production/callsheets/:callSheetId/structure': {write: (a) => `/api/production/callsheets/${a.callSheetId}/structure`, body: (a) => ({chapters: [{id: a.segmentId, itemIds: [a.callSheetItemId]}]})},
+  'PUT /api/production/chapters/:chapterId': {write: (a) => `/api/production/chapters/${a.chapterId}`, body: () => ({name: 'Overgenomen'})},
+  'PUT /api/production/callsheets/:callSheetId/structure': {write: (a) => `/api/production/callsheets/${a.callSheetId}/structure`, body: (a) => ({chapters: [{id: a.chapterId, itemIds: [a.callSheetItemId]}]})},
   'POST /api/callsheets/templates/import': OWN,
   'POST /api/callsheets/templates/import-json': OWN,
   'POST /api/clubs': GLOBAL,
@@ -235,7 +225,6 @@ const ROUTES: Record<string, Probe> = {
   'POST /api/production/:id/person-positions': {write: (a) => `/api/production/${a.productionId}/person-positions`, body: (a) => ({personId: a.personId, positionId: a.positionId})},
   'POST /api/production/:id/persons': {write: (a) => `/api/production/${a.productionId}/persons`, body: (a) => ({personId: a.personId})},
   'POST /api/production/:id/report': {write: (a) => `/api/production/${a.productionId}/report`, body: () => ({remarks: 'Overgenomen'})},
-  'POST /api/production/:id/segments': {write: (a) => `/api/production/${a.productionId}/segments`, body: () => ({naam: 'Overgenomen', duurInMinuten: 5})},
   'POST /api/production/:id/titles': {write: (a) => `/api/production/${a.productionId}/titles`, body: () => ({name: 'Overgenomen', parts: [{sourceType: 'COMMENTARY'}]})},
   'POST /api/production/callsheet/next': LIVE,
   'POST /api/production/callsheet/previous': LIVE,
@@ -247,13 +236,8 @@ const ROUTES: Record<string, Probe> = {
   'POST /api/production/import': OWN,
   'POST /api/production/import/positions': OWN,
   'POST /api/production/positions': OWN,
-  'POST /api/production/segment-templates': OWN,
-  'POST /api/production/segment-templates/:id/items': {write: (a) => `/api/production/segment-templates/${a.segmentTemplateId}/items`, body: () => ({naam: 'Overgenomen', duurInMinuten: 5})},
-  'POST /api/production/segment-templates/apply/:templateId/to/:productionId': {write: (a) => `/api/production/segment-templates/apply/${a.segmentTemplateId}/to/${a.productionId}`},
-  'POST /api/production/segment-templates/from-production/:productionId': {write: (a) => `/api/production/segment-templates/from-production/${a.productionId}`, body: () => ({name: 'Overgenomen'})},
-  'POST /api/production/segment-templates/import-json': OWN,
-  'POST /api/production/segments/:segmentId/assignments': {write: (a) => `/api/production/segments/${a.segmentId}/assignments`, body: (a) => ({personId: a.personId, positionId: a.positionId})},
-  'POST /api/production/segments/:segmentId/assignments/copy': {write: (a) => `/api/production/segments/${a.segmentId}/assignments/copy`, body: (a) => ({targetSegmentIds: [a.segmentId]})},
+  'POST /api/production/segments/:segmentId/assignments': {write: (a) => `/api/production/segments/${a.chapterId}/assignments`, body: (a) => ({personId: a.personId, positionId: a.positionId})},
+  'POST /api/production/segments/:segmentId/assignments/copy': {write: (a) => `/api/production/segments/${a.chapterId}/assignments/copy`, body: (a) => ({targetSegmentIds: [a.chapterId]})},
   'POST /api/production/skills': OWN,
   'POST /api/production/skills/import-json': OWN,
   'POST /api/seasons': GLOBAL,
@@ -296,11 +280,6 @@ const ROUTES: Record<string, Probe> = {
   'PUT /api/production/callsheet-items/:itemId': {write: (a) => `/api/production/callsheet-items/${a.callSheetItemId}`, body: () => NAME},
   'PUT /api/production/callsheets/:callSheetId': {write: (a) => `/api/production/callsheets/${a.callSheetId}`, body: () => NAME},
   'PUT /api/production/positions/:id': {write: (a) => `/api/production/positions/${a.positionId}`, body: () => NAME},
-  'PUT /api/production/segment-default-positions': OWN,
-  'PUT /api/production/segment-templates/:id': {write: (a) => `/api/production/segment-templates/${a.segmentTemplateId}`, body: () => NAME},
-  'PUT /api/production/segment-templates/:id/set-default': {write: (a) => `/api/production/segment-templates/${a.segmentTemplateId}/set-default`},
-  'PUT /api/production/segment-templates/items/:itemId': {write: (a) => `/api/production/segment-templates/items/${a.segmentTemplateItemId}`, body: () => NAME},
-  'PUT /api/production/segments/:segmentId': {write: (a) => `/api/production/segments/${a.segmentId}`, body: () => NAME},
   'PUT /api/production/skills/:id': {write: (a) => `/api/production/skills/${a.skillId}`, body: () => NAME},
   'PUT /api/seasons/:id': GLOBAL,
   'PUT /api/seasons/active': GLOBAL,
@@ -404,20 +383,18 @@ describe.runIf(runDb)('leak test suite: organization B never sees or changes org
       expect((await prisma.position.findUnique({where: {id: a.positionId}}))?.name).toBe(`${MARKER} Regie`);
       expect((await prisma.position.findUnique({where: {id: a.linkedPositionId}}))?.name).toBe(`${MARKER} Camera`);
       expect((await prisma.productionEvent.findUnique({where: {id: a.eventId}}))?.status).toBe('WAITING');
-      expect((await prisma.productionChapter.findUnique({where: {id: a.segmentId}}))?.naam).toBe(`${MARKER} Wedstrijd`);
+      expect((await prisma.productionChapter.findUnique({where: {id: a.chapterId}}))?.name).toBe(`${MARKER} Wedstrijd`);
       expect((await prisma.callSheet.findUnique({where: {id: a.callSheetId}}))?.name).toBe(`${MARKER} Callsheet`);
       expect((await prisma.callSheetItem.findUnique({where: {id: a.callSheetItemId}}))?.title).toBe(`${MARKER} item`);
       expect((await prisma.callSheetTemplate.findUnique({where: {id: a.callSheetTemplateId}}))?.name).toBe(`${MARKER} Draaiboek`);
       expect((await prisma.callSheetTemplateItem.findUnique({where: {id: a.callSheetTemplateItemId}}))?.title).toBe(`${MARKER} sjabloonitem`);
-      expect((await prisma.segmentTemplate.findUnique({where: {id: a.segmentTemplateId}}))?.name).toBe(`${MARKER} Segmenten`);
-      expect((await prisma.segmentTemplateItem.findUnique({where: {id: a.segmentTemplateItemId}}))?.naam).toBe(`${MARKER} Segment`);
       expect((await prisma.titleDefinition.findUnique({where: {id: a.titleId}}))?.name).toBe(`${MARKER} titel`);
       expect((await prisma.titleDefinition.findUnique({where: {id: a.titleTemplateId}}))?.name).toBe(`${MARKER} titelsjabloon`);
       expect((await prisma.matchSchedule.findUnique({where: {id: a.manualMatchId}}))?.homeTeamName).toBe(`${MARKER} Handmatig`);
       expect(await prisma.matchRoleAssignment.count({where: {id: a.matchAssignmentId}})).toBe(1);
       expect(await prisma.productionPerson.count({where: {id: a.productionPersonId}})).toBe(1);
       expect(await prisma.productionPersonPosition.count({where: {id: a.personPositionId}})).toBe(1);
-      expect(await prisma.chapterRoleAssignment.count({where: {id: a.segmentAssignmentId}})).toBe(1);
+      expect(await prisma.chapterRoleAssignment.count({where: {id: a.chapterAssignmentId}})).toBe(1);
       expect(await prisma.personSkill.count({where: {personId: a.personId}})).toBe(1);
       expect(await prisma.productionReport.count({where: {productionId: a.productionId}})).toBe(1);
       expect(await prisma.interviewSubject.count({where: {productionId: a.productionId}})).toBe(1);

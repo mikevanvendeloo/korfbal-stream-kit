@@ -109,7 +109,6 @@ model Position {
   linkedToPositions        PositionLink[]                     @relation("TargetPosition")
   productionEvents         ProductionEventPosition[]
   productionPositions      ProductionPersonPosition[]
-  SegmentDefaultPosition   SegmentDefaultPosition[]
   segmentAssignments       ChapterRoleAssignment[]
   organizationId           Int                                @default(dbgenerated("missing_organization_id()"))
   organization             Organization                       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -207,7 +206,7 @@ model Production {
   productionPersons   ProductionPerson[]
   productionPositions ProductionPersonPosition[]
   productionReport    ProductionReport?
-  segments            ProductionChapter[]
+  chapters            ProductionChapter[]
   TitleDefinition     TitleDefinition[]
   organizationId      Int                        @default(dbgenerated("missing_organization_id()"))
   organization        Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -284,9 +283,9 @@ model CallSheetTemplateItem {
   parent         CallSheetTemplateItem?      @relation("LinkedTemplateItems", fields: [parentId], references: [id])
   linkedItems    CallSheetTemplateItem[]     @relation("LinkedTemplateItems")
   template       CallSheetTemplate           @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  /// The item's hoofdstuk; null only until the segment migration ran (required in phase 5)
-  chapterId      String?
-  chapter        CallSheetTemplateChapter?   @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  /// The item's hoofdstuk: every item is in one (openspec/changes/chapters D1)
+  chapterId      String
+  chapter        CallSheetTemplateChapter    @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   positions      CallSheetTemplatePosition[]
   organizationId Int                         @default(dbgenerated("missing_organization_id()"))
   organization   Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -349,10 +348,8 @@ model ProductionPersonPosition {
 model ProductionChapter {
   id             Int                     @id @default(autoincrement())
   productionId   Int
-  naam           String
-  volgorde       Int
-  duurInMinuten  Int
-  isTimeAnchor   Boolean                 @default(false)
+  name           String                  @map("naam")
+  orderIndex     Int                     @map("volgorde")
   callSheetItems CallSheetItem[]
   events         ProductionEvent[]
   production     Production              @relation(fields: [productionId], references: [id], onDelete: Cascade)
@@ -360,55 +357,10 @@ model ProductionChapter {
   organizationId Int                     @default(dbgenerated("missing_organization_id()"))
   organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([productionId, volgorde])
+  @@unique([productionId, orderIndex])
   @@index([productionId])
   @@index([organizationId])
   @@map("ProductionSegment")
-}
-
-model SegmentTemplate {
-  id             Int                   @id @default(autoincrement())
-  name           String
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-  isDefault      Boolean               @default(false)
-  items          SegmentTemplateItem[]
-  organizationId Int                   @default(dbgenerated("missing_organization_id()"))
-  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([organizationId, name])
-  @@index([organizationId])
-}
-
-model SegmentTemplateItem {
-  id             Int             @id @default(autoincrement())
-  templateId     Int
-  naam           String
-  volgorde       Int
-  duurInMinuten  Int
-  isTimeAnchor   Boolean         @default(false)
-  template       SegmentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  organizationId Int             @default(dbgenerated("missing_organization_id()"))
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([templateId, volgorde])
-  @@index([templateId])
-  @@index([organizationId])
-}
-
-model SegmentDefaultPosition {
-  id             Int          @id @default(autoincrement())
-  segmentName    String
-  positionId     Int
-  order          Int
-  position       Position     @relation(fields: [positionId], references: [id], onDelete: Cascade)
-  organizationId Int          @default(dbgenerated("missing_organization_id()"))
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([organizationId, segmentName, order])
-  @@index([segmentName])
-  @@index([positionId])
-  @@index([organizationId])
 }
 
 model ChapterRoleAssignment {
@@ -553,35 +505,36 @@ model CallSheet {
 }
 
 model CallSheetItem {
-  id                  String                  @id
-  callSheetId         Int
-  productionSegmentId Int?
-  cue                 String
-  title               String
-  note                String?
-  color               String?
-  timeStart           DateTime?
-  timeEnd             DateTime?
-  durationSec         Int
-  orderIndex          Int                     @default(0)
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
-  isInVenue           Boolean                 @default(false)
-  anchorType          String?
-  isTimeAnchor        Boolean                 @default(false)
-  autoAdvance         Boolean                 @default(false)
-  isInLivestream      Boolean                 @default(true)
-  parentId            String?
-  callSheet           CallSheet               @relation(fields: [callSheetId], references: [id], onDelete: Cascade)
-  parent              CallSheetItem?          @relation("LinkedItems", fields: [parentId], references: [id])
-  linkedItems         CallSheetItem[]         @relation("LinkedItems")
-  productionSegment   ProductionChapter?      @relation(fields: [productionSegmentId], references: [id], onDelete: Cascade)
-  positions           CallSheetItemPosition[]
-  organizationId      Int                     @default(dbgenerated("missing_organization_id()"))
-  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String                  @id
+  callSheetId    Int
+  /// The item's hoofdstuk: every item is in one (openspec/changes/chapters D1)
+  chapterId      Int                     @map("productionSegmentId")
+  cue            String
+  title          String
+  note           String?
+  color          String?
+  timeStart      DateTime?
+  timeEnd        DateTime?
+  durationSec    Int
+  orderIndex     Int                     @default(0)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  isInVenue      Boolean                 @default(false)
+  anchorType     String?
+  isTimeAnchor   Boolean                 @default(false)
+  autoAdvance    Boolean                 @default(false)
+  isInLivestream Boolean                 @default(true)
+  parentId       String?
+  callSheet      CallSheet               @relation(fields: [callSheetId], references: [id], onDelete: Cascade)
+  parent         CallSheetItem?          @relation("LinkedItems", fields: [parentId], references: [id])
+  linkedItems    CallSheetItem[]         @relation("LinkedItems")
+  chapter        ProductionChapter       @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  positions      CallSheetItemPosition[]
+  organizationId Int                     @default(dbgenerated("missing_organization_id()"))
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([callSheetId])
-  @@index([productionSegmentId])
+  @@index([chapterId])
   @@index([parentId])
   @@index([organizationId])
 }
@@ -763,9 +716,6 @@ model Organization {
   productionPersons                 ProductionPerson[]
   productionPersonPositions         ProductionPersonPosition[]
   productionSegments                ProductionChapter[]
-  segmentTemplates                  SegmentTemplate[]
-  segmentTemplateItems              SegmentTemplateItem[]
-  segmentDefaultPositions           SegmentDefaultPosition[]
   segmentRoleAssignments            ChapterRoleAssignment[]
   titleDefinitions                  TitleDefinition[]
   titleParts                        TitlePart[]

@@ -40,8 +40,8 @@ describe('Callsheet Excel import API', () => {
       findMany: vi.fn(async ({ where }: any) => {
         if (where?.productionId !== 1) return [];
         return [
-          { id: 10, productionId: 1, naam: 'Opbouw', volgorde: 1 },
-          { id: 11, productionId: 1, naam: 'Wedstrijd', volgorde: 2 },
+          { id: 10, productionId: 1, name: 'Opbouw', orderIndex: 1 },
+          { id: 11, productionId: 1, name: 'Wedstrijd', orderIndex: 2 },
         ];
       }),
     };

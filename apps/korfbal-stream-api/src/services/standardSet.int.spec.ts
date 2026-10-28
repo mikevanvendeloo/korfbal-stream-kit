@@ -4,12 +4,18 @@ import {runWithOrganization} from './organizationContext';
 import {applyStandardSet, applyStandardSetWhereMissing} from './standardSet';
 import {standardPositionLinks, standardPositions, standardSkills, standardTitles} from '../standardSet/data';
 import {standardCallSheetTemplates} from '../standardSet/callSheetTemplates';
-import {standardSegmentTemplates} from '../standardSet/segmentTemplates';
 
 describe('standard set contents', () => {
   it('names no club: own-club wording is neutral ("eigen ploeg", like "tegenstander")', () => {
-    const everything = JSON.stringify([standardSkills, standardPositions, standardPositionLinks, standardTitles, standardCallSheetTemplates, standardSegmentTemplates]);
+    const everything = JSON.stringify([standardSkills, standardPositions, standardPositionLinks, standardTitles, standardCallSheetTemplates]);
     expect(everything).not.toMatch(/Fortuna|Ruitenheer/i);
+  });
+
+  it('puts every item of a draaiboek template in one of its hoofdstukken', () => {
+    for (const template of standardCallSheetTemplates) {
+      const names = template.chapters.map((c) => c.name);
+      expect(template.items.filter((i) => !names.includes(i.chapter)), template.name).toEqual([]);
+    }
   });
 });
 
@@ -30,8 +36,7 @@ describe.runIf(runDb)('standard set (integration)', () => {
     callSheetTemplates: await prisma.callSheetTemplate.count(),
     templateItems: await prisma.callSheetTemplateItem.count(),
     templatePositions: await prisma.callSheetTemplatePosition.count(),
-    segmentTemplates: await prisma.segmentTemplate.count(),
-    segmentItems: await prisma.segmentTemplateItem.count(),
+    chapters: await prisma.callSheetTemplateChapter.count(),
   }));
 
   it('is idempotent: a second run adds nothing', async () => {
@@ -40,8 +45,24 @@ describe.runIf(runDb)('standard set (integration)', () => {
     const first = await counts(id);
     expect(first.positions).toBe(standardPositions.length);
     const again = await applyStandardSet(id);
-    expect(again).toEqual({skills: 0, positions: 0, positionLinks: 0, titles: 0, callSheetTemplates: 0, segmentTemplates: 0});
+    expect(again).toEqual({skills: 0, positions: 0, positionLinks: 0, titles: 0, callSheetTemplates: 0});
     expect(await counts(id)).toEqual(first);
+  });
+
+  it('gives the Korfbal League draaiboek its hoofdstukken, with halves of 35 and a Rust of 10 minutes', async () => {
+    const id = await ensureOrganization(prisma, slugs[0]);
+    await applyStandardSet(id);
+    await runWithOrganization(id, async () => {
+      const template = await prisma.callSheetTemplate.findFirstOrThrow({
+        where: {name: 'Draaiboek Korfbal League wedstrijd'},
+        include: {chapters: {orderBy: {orderIndex: 'asc'}, include: {items: true}}},
+      });
+      expect(template.chapters.map((c) => c.name)).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Oplopen', 'Eerste helft', 'Rust', 'Tweede helft', 'Nabeschouwing']);
+      const item = (chapter: string, title: string) => template.chapters.find((c) => c.name === chapter)?.items.find((i) => i.title === title);
+      expect(item('Eerste helft', 'Eerste helft')?.durationSec).toBe(35 * 60);
+      expect(item('Rust', 'Rust')?.durationSec).toBe(10 * 60);
+      expect(item('Tweede helft', 'Tweede helft')?.durationSec).toBe(35 * 60);
+    });
   });
 
   it('leaves changes of the organization alone and only adds what is missing', async () => {

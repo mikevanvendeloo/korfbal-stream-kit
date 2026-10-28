@@ -314,11 +314,9 @@ describe.runIf(runDb)('foreign ids in request bodies (integration)', () => {
     expect(await prisma.personSkill.count({where: {personId: ownPersonId}})).toBe(0);
   });
 
-  it('does not link an own position to a skill or default segment of another organization', async () => {
+  it('does not link an own position to a skill of another organization', async () => {
     refused(await request(app).post('/api/production/positions').send({name: 'Sec Nieuwe Positie', skillId: a.skillId}));
-    refused(await request(app).put('/api/production/segment-default-positions').send({segmentName: 'Sec Segment', positions: [{positionId: a.positionId, order: 1}]}));
     expect(await prisma.position.count({where: {name: 'Sec Nieuwe Positie'}})).toBe(0);
-    expect(await prisma.segmentDefaultPosition.count({where: {segmentName: 'Sec Segment'}})).toBe(0);
   });
 
   it('does not apply a callsheet template of another organization to the own production', async () => {
@@ -327,8 +325,8 @@ describe.runIf(runDb)('foreign ids in request bodies (integration)', () => {
     expect(await prisma.production.findUnique({where: {id: own.productionId}})).toMatchObject({callSheetTemplateId: null});
   });
 
-  it('does not assign a person or position of another organization to an own segment', async () => {
-    const segment = await prisma.productionChapter.create({data: {productionId: own.productionId, naam: 'Sec seg', volgorde: 1, duurInMinuten: 10}});
+  it('does not assign a person or position of another organization to an own hoofdstuk', async () => {
+    const segment = await prisma.productionChapter.create({data: {productionId: own.productionId, name: 'Sec seg', orderIndex: 99}});
     refused(await request(app).post(`/api/production/segments/${segment.id}/assignments`).send({personId: a.personId, positionId: a.positionId}));
     expect(await prisma.chapterRoleAssignment.count({where: {productionSegmentId: segment.id}})).toBe(0);
   });
@@ -346,7 +344,7 @@ describe.runIf(runDb)('foreign ids in request bodies (integration)', () => {
       const chapter = await prisma.callSheetTemplateChapter.create({data: {templateId: template.id, name: 'Sec hoofdstuk', orderIndex: 0}});
       await expect(prisma.callSheetTemplateChapterPosition.create({data: {chapterId: chapter.id, positionId: a.positionId, orderIndex: 0}}))
         .rejects.toThrow(/another organization/);
-      await expect(prisma.productionEvent.update({where: {id: own.eventIds[0]}, data: {chapterId: a.segmentId}}))
+      await expect(prisma.productionEvent.update({where: {id: own.eventIds[0]}, data: {chapterId: a.chapterId}}))
         .rejects.toThrow(/another organization/);
     } finally {
       await prisma.callSheetTemplate.delete({where: {id: template.id}});
@@ -368,7 +366,7 @@ describe.runIf(runDb)('callsheet item ids are chosen by the server (integration)
 
   beforeAll(async () => {
     a = await createTenantScenario(prisma, await ensureOrganization(prisma, 'sec-items', 'Sec Items'), 'SecItems');
-    own = await createProductionScenario(prisma, {items: [], segments: [{naam: 'Sec Items Segment', duurInMinuten: 10}]});
+    own = await createProductionScenario(prisma, {items: [], chapters: ['Sec Items Hoofdstuk']});
     callSheetId = (await prisma.callSheet.create({data: {productionId: own.productionId, name: 'Sec Items Callsheet'}})).id;
   });
 
@@ -379,6 +377,15 @@ describe.runIf(runDb)('callsheet item ids are chosen by the server (integration)
   });
 
   const itemOfA = () => runWithOrganization(a.organizationId, () => prisma.callSheetItem.findUnique({where: {id: a.callSheetItemId}}));
+
+  it('refuses a hoofdstuk of another organization for a new or moved callsheet item (404)', async () => {
+    const create = await request(app).post(`/api/production/callsheets/${callSheetId}/items`).send({chapterId: a.chapterId, cue: 'C9', title: 'Sec vreemd', durationSec: 10});
+    expect(create.status).toBe(404);
+    const own1 = await request(app).post(`/api/production/callsheets/${callSheetId}/items`).send({cue: 'C9', title: 'Sec eigen', durationSec: 10});
+    expect(own1.body.chapterId).toBe(own.chapterIds['Sec Items Hoofdstuk']);
+    expect((await request(app).put(`/api/production/callsheet-items/${own1.body.id}`).send({chapterId: a.chapterId})).status).toBe(404);
+    expect(await prisma.callSheetItem.count({where: {title: 'Sec vreemd'}})).toBe(0);
+  });
 
   it('ignores a client id when creating an item: no 409 for another organization\'s id (no existence oracle)', async () => {
     const before = await itemOfA();
@@ -401,8 +408,8 @@ describe.runIf(runDb)('callsheet item ids are chosen by the server (integration)
   it('ignores the ID column of an Excel import (an export of another organization imports fine)', async () => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Callsheet');
-    sheet.columns = ['ID', 'Segment', 'Cue', 'Title', 'Duration'].map((header) => ({header, key: header}));
-    sheet.addRow({ID: a.callSheetItemId, Segment: 'Sec Items Segment', Cue: 'X1', Title: 'Sec geimporteerd', Duration: 30});
+    sheet.columns = ['ID', 'Hoofdstuk', 'Cue', 'Title', 'Duration'].map((header) => ({header, key: header}));
+    sheet.addRow({ID: a.callSheetItemId, Hoofdstuk: 'Sec Items Hoofdstuk', Cue: 'X1', Title: 'Sec geimporteerd', Duration: 30});
     const file = Buffer.from(await workbook.xlsx.writeBuffer());
     const before = await itemOfA();
 
@@ -443,7 +450,7 @@ describe.runIf(runDb)('secrets (integration)', () => {
       responses.push(await request(app).put('/api/match-source').send({provider: 'vrijwilligers', baseUrl: 'http://127.0.0.1:9/v1'}));
       expect(responses.at(-1)?.body.hasApiToken).toBe(true);
       responses.push(await request(app).post('/api/match/matches/schedule/import'));
-      for (const route of ['matches', 'persons', 'positions', 'producties', 'segment-templates', 'settings', 'skills', 'sponsors', 'clubs']) {
+      for (const route of ['matches', 'persons', 'positions', 'producties', 'settings', 'skills', 'sponsors', 'clubs']) {
         responses.push(await request(app).get(`/api/backup/${route}/export`));
       }
       for (const res of responses) expect(res.text, res.req?.path).not.toContain(TOKEN);
@@ -664,7 +671,7 @@ describe.runIf(runDb)('backup and restore per organization (integration)', () =>
   });
 
   it('exports nothing of another organization', async () => {
-    for (const route of ['matches', 'persons', 'positions', 'producties', 'segment-templates', 'settings', 'skills', 'sponsors']) {
+    for (const route of ['matches', 'persons', 'positions', 'producties', 'settings', 'skills', 'sponsors']) {
       const res = await request(app).get(`/api/backup/${route}/export`);
       expect(res.status, route).toBe(200);
       expect(res.text, route).not.toContain('SecBackup');

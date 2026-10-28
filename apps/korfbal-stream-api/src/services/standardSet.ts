@@ -5,7 +5,6 @@ import {findPositionByName} from '../domain/positionSkill';
 import {logger} from '../utils/logger';
 import {standardPositionLinks, standardPositions, standardSkills, standardTitles} from '../standardSet/data';
 import {standardCallSheetTemplates} from '../standardSet/callSheetTemplates';
-import {standardSegmentTemplates} from '../standardSet/segmentTemplates';
 
 export type StandardSetResult = {
   skills: number;
@@ -13,15 +12,14 @@ export type StandardSetResult = {
   positionLinks: number;
   titles: number;
   callSheetTemplates: number;
-  segmentTemplates: number;
 };
 
 /** SHOW_CALLER and SHOWCALLER are the same skill */
 const skillKey = (code: string) => code.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 /**
- * Adds the standard set (skills, positions with links, title templates, callsheet and segment
- * templates) to an organization, in one transaction. Idempotent: only what is missing is added;
+ * Adds the standard set (skills, positions with links, title templates, draaiboek templates with
+ * their hoofdstukken) to an organization, in one transaction. Idempotent: only what is missing is added;
  * existing rows (matched by skill code, position name like findPositionByName, template name) are
  * left as the organization made them, except that an old skill code is renamed to the standard one and
  * a position without a skill gets the standard skill.
@@ -44,7 +42,7 @@ export async function createOrganizationWithStandardSet(data: Prisma.Organizatio
 }
 
 async function addStandardSet(tx: Prisma.TransactionClient): Promise<StandardSetResult> {
-  const result: StandardSetResult = {skills: 0, positions: 0, positionLinks: 0, titles: 0, callSheetTemplates: 0, segmentTemplates: 0};
+  const result: StandardSetResult = {skills: 0, positions: 0, positionLinks: 0, titles: 0, callSheetTemplates: 0};
 
   const skills = await tx.skill.findMany();
   for (const s of standardSkills) {
@@ -103,22 +101,36 @@ async function addStandardSet(tx: Prisma.TransactionClient): Promise<StandardSet
   for (const template of standardCallSheetTemplates) {
     if (await tx.callSheetTemplate.findFirst({where: {name: template.name}})) continue;
     const created = await tx.callSheetTemplate.create({data: {name: template.name}});
+    const positionIdsOf = (names: string[]) =>
+      [...new Set(names.map((name) => findPositionByName(positions, name)?.id).filter((id): id is number => !!id))];
+    const chapterIds = new Map<string, string>();
+    for (const [orderIndex, chapter] of template.chapters.entries()) {
+      const row = await tx.callSheetTemplateChapter.create({
+        data: {
+          templateId: created.id, name: chapter.name, orderIndex,
+          positions: {create: positionIdsOf(chapter.positions ?? []).map((positionId, i) => ({positionId, orderIndex: i}))},
+        },
+      });
+      chapterIds.set(chapter.name, row.id);
+    }
     const idByKey = new Map<string, string>();
-    for (const item of template.items) {
-      const positionIds = [...new Set(item.positions.map((name) => findPositionByName(positions, name)?.id).filter((id): id is number => !!id))];
+    for (const [orderIndex, item] of template.items.entries()) {
+      const chapterId = chapterIds.get(item.chapter);
+      if (!chapterId) throw new Error(`Standard template ${template.name}: unknown hoofdstuk ${item.chapter}`);
       const row = await tx.callSheetTemplateItem.create({
         data: {
           templateId: created.id,
+          chapterId,
           title: item.title,
           note: item.note ?? null,
           durationSec: item.durationSec,
-          orderIndex: item.orderIndex,
+          orderIndex: orderIndex + 1,
           isInVenue: item.isInVenue,
           isInLivestream: item.isInLivestream,
           isTimeAnchor: item.isTimeAnchor ?? false,
           anchorType: item.anchorType ?? null,
           autoAdvance: item.autoAdvance ?? false,
-          positions: {create: positionIds.map((positionId) => ({positionId}))},
+          positions: {create: positionIdsOf(item.positions).map((positionId) => ({positionId}))},
         },
       });
       if (item.key) idByKey.set(item.key, row.id);
@@ -131,14 +143,6 @@ async function addStandardSet(tx: Prisma.TransactionClient): Promise<StandardSet
     result.callSheetTemplates++;
   }
 
-  const hasDefault = !!(await tx.segmentTemplate.findFirst({where: {isDefault: true}}));
-  for (const template of standardSegmentTemplates) {
-    if (await tx.segmentTemplate.findFirst({where: {name: template.name}})) continue;
-    await tx.segmentTemplate.create({
-      data: {name: template.name, isDefault: template.isDefault && !hasDefault, items: {create: template.items}},
-    });
-    result.segmentTemplates++;
-  }
 
   return result;
 }

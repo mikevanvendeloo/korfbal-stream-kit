@@ -26,7 +26,7 @@ const productionInclude = Prisma.validator<Prisma.ProductionInclude>()({
       },
     },
   },
-  segments: {
+  chapters: {
     include: {
       bezetting: {
         include: {
@@ -35,7 +35,7 @@ const productionInclude = Prisma.validator<Prisma.ProductionInclude>()({
         },
       },
     },
-    orderBy: { volgorde: 'asc' }
+    orderBy: { orderIndex: 'asc' }
   }
 });
 

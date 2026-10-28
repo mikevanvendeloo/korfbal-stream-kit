@@ -3,6 +3,7 @@ import {prisma} from '../../services/prisma';
 import {NotFoundError} from '../../middleware/error';
 import {ChapterCreateSchema, TemplateChapterUpdateSchema, TemplateStructureSchema} from '../../schemas/chapters';
 import {flattenChapters, structureProblem} from '../../services/chapters';
+import {DRAAIBOEK} from '../../services/chapterMigration';
 
 /**
  * Hoofdstukken of a draaiboek template (openspec/changes/chapters D4), under /api/callsheets/templates.
@@ -118,11 +119,11 @@ export async function templateItemChapter(templateId: number, chapterId: unknown
     if (!chapter) throw new NotFoundError('Hoofdstuk niet gevonden');
     return chapter.id;
   }
-  const last = await prisma.callSheetTemplateItem.findFirst({where: {templateId, chapterId: {not: null}}, orderBy: {orderIndex: 'desc'}});
-  if (last?.chapterId) return last.chapterId;
+  const last = await prisma.callSheetTemplateItem.findFirst({where: {templateId}, orderBy: {orderIndex: 'desc'}});
+  if (last) return last.chapterId;
   const lastChapter = await prisma.callSheetTemplateChapter.findFirst({where: {templateId}, orderBy: {orderIndex: 'desc'}});
   if (lastChapter) return lastChapter.id;
-  return (await prisma.callSheetTemplateChapter.create({data: {templateId, name: 'Draaiboek', orderIndex: 0}})).id;
+  return (await prisma.callSheetTemplateChapter.create({data: {templateId, name: DRAAIBOEK, orderIndex: 0}})).id;
 }
 
 // POST /api/callsheets/templates/from-callsheet/:callSheetId {name}: a production's callsheet as a new
@@ -137,7 +138,7 @@ callSheetTemplateChaptersRouter.post('/from-callsheet/:callSheetId', async (req,
       where: {id: callSheetId},
       include: {
         items: {orderBy: {orderIndex: 'asc'}, include: {positions: true}},
-        production: {include: {segments: {orderBy: {volgorde: 'asc'}}}},
+        production: {include: {chapters: {orderBy: {orderIndex: 'asc'}}}},
       },
     });
     if (!callSheet) return res.status(404).json({error: 'Callsheet niet gevonden'});
@@ -149,19 +150,19 @@ callSheetTemplateChaptersRouter.post('/from-callsheet/:callSheetId', async (req,
     const template = await prisma.$transaction(async (tx) => {
       const created = await tx.callSheetTemplate.create({data: {name}});
       const chapterOf = new Map<number, string>();
-      for (const [orderIndex, segment] of callSheet.production.segments.entries()) {
-        const positions = sourceChapters.find((c) => c.name === segment.naam)?.positions ?? [];
+      for (const [orderIndex, source] of callSheet.production.chapters.entries()) {
+        const positions = sourceChapters.find((c) => c.name === source.name)?.positions ?? [];
         const chapter = await tx.callSheetTemplateChapter.create({
-          data: {templateId: created.id, name: segment.naam, orderIndex, positions: {create: positions.map((p) => ({positionId: p.positionId, orderIndex: p.orderIndex}))}},
+          data: {templateId: created.id, name: source.name, orderIndex, positions: {create: positions.map((p) => ({positionId: p.positionId, orderIndex: p.orderIndex}))}},
         });
-        chapterOf.set(segment.id, chapter.id);
+        chapterOf.set(source.id, chapter.id);
       }
       const itemOf = new Map<string, string>();
       for (const [i, item] of callSheet.items.entries()) {
         const copy = await tx.callSheetTemplateItem.create({
           data: {
             templateId: created.id,
-            chapterId: (item.productionSegmentId != null && chapterOf.get(item.productionSegmentId)) || null,
+            chapterId: chapterOf.get(item.chapterId) as string,
             cue: item.cue,
             title: item.title, note: item.note, durationSec: item.durationSec, orderIndex: i + 1,
             isInVenue: item.isInVenue, isInLivestream: item.isInLivestream, isTimeAnchor: item.isTimeAnchor,
@@ -202,4 +203,22 @@ export async function templateChaptersByName(templateId: number, names: string[]
     byName.set(name, (await prisma.callSheetTemplateChapter.create({data: {templateId, name, orderIndex: orderIndex++}})).id);
   }
   return byName;
+}
+
+/**
+ * The hoofdstuk of each imported template item, asked in show order: by name, else the hoofdstuk of the
+ * item before, else a hoofdstuk "Draaiboek" (an older file without hoofdstukken), and then the template
+ * is marked for checking in Beheer.
+ */
+export function importedItemChapters(templateId: number, chapterIds: Map<string, string>): (name: string | undefined) => Promise<string> {
+  let previous: string | undefined;
+  return async (name) => {
+    let id = (name ? chapterIds.get(name) : undefined) ?? previous;
+    if (!id) {
+      id = (await templateChaptersByName(templateId, [DRAAIBOEK])).get(DRAAIBOEK) as string;
+      await prisma.callSheetTemplate.update({where: {id: templateId}, data: {chaptersAutoPlaced: true}});
+    }
+    previous = id;
+    return id;
+  };
 }

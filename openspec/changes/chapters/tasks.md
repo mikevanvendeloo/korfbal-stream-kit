@@ -52,8 +52,15 @@
 
 ## Phase 5: Cleanup
 
-- [ ] Field renames (moved from phase 1 and 3a): `ProductionChapter.naam`/`volgorde` → `name`/`orderIndex`, `CallSheetItem.productionSegmentId` → `chapterId` (`@map`, API JSON and kit together); the Bezetting tab's "segment" labels → hoofdstuk
-- [ ] Migration: drop `SegmentTemplate`, `SegmentTemplateItem`, `SegmentDefaultPosition`, `ProductionChapter.duurInMinuten`/`isTimeAnchor`; `chapterId` NOT NULL on template items and callsheet items
-- [ ] Remove the segment template / default position routes, hooks and pages (and their leak suite entries)
-- [ ] Standard set: draaiboek templates with hoofdstukken (Voorbereiding, Voorbeschouwing, Oplopen, Eerste helft 35:00, Rust 10:00, Tweede helft 35:00, Nabeschouwing); no segment templates
-- [ ] Manual: Beheer 06, 07, 08, 09, 11 and LIVE 02, 03, 04; GLOSSARY: retire *Segment* and *Volgorde*; CLAUDE.md (segment ordering convention, time anchoring) and PROJECT_STRUCTURE.md
+### Backend (5a)
+- [x] Field renames with `@map` (no column rename): `ProductionChapter.name`/`orderIndex`, `CallSheetItem.chapterId` (relation `chapter`), `Production.chapters`; in the API JSON too (`GET /api/production/:id/chapters` new, timing `{id, name, orderIndex, durationMinutes, start, end}`, crew report `chapters` and cells with `chapterId`, item create/update take `chapterId`); backup and production export write `chapters` + `chapterOrderIndex` and still read `segments`/`productionSegmentVolgorde` (`ChapterRestore`, `fileChapters`)
+- [x] Migration `20261030100000_chapters_cleanup`: items still without a hoofdstuk go to their parent's, else to a new "Draaiboek" (per production/template, marked for checking); `chapterId` NOT NULL on template and callsheet items (template item FK now cascades); `duurInMinuten`/`isTimeAnchor` and `SegmentTemplate`, `SegmentTemplateItem`, `SegmentDefaultPosition` dropped. The startup migration (`migrateAllChapters`) is gone; `placeLegacyItems` places items of older files on restore
+- [x] Removed: `/api/production/segment-templates/*`, `/api/production/segment-default-positions*`, `/api/production/:id/segments` (GET/POST), `/api/production/segments/:segmentId` (GET/PUT/DELETE), `GET /api/backup/segment-templates/export` (the import stays for older backups: templates with hoofdstukken only); leak suite and `createTenantScenario` updated
+- [x] Standard set: draaiboek templates with hoofdstukken (Korfbal League: Voorbereiding, Voorbeschouwing, Oplopen, Eerste helft 35:00, Rust 10:00 item, Tweede helft 35:00, Nabeschouwing); no segment templates; a new production starts with these hoofdstuk names
+- [x] `createProductionScenario({chapters})` (items and events in a hoofdstuk; `ScenarioItem.chapter`), integration test for old files (`services/chapterMigration.int.spec.ts`)
+- [x] GLOSSARY (Segment, Volgorde retired), CLAUDE.md, PROJECT_STRUCTURE.md (API part)
+
+### Frontend (5b)
+- [ ] Kit on the new JSON (`name`/`orderIndex`/`chapterId`, `GET /:id/chapters`), the Bezetting tab's "segment" labels → hoofdstuk; segment template / Standaardbezetting hooks and pages removed
+- [ ] Manual: Beheer 06, 07, 08, 09, 11, 12 and LIVE 02, 03, 04; PROJECT_STRUCTURE.md (kit part)
+- [ ] e2e with hoofdstukken (`createProductionScenario({chapters})`)

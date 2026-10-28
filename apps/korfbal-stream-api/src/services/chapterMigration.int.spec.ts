@@ -1,131 +1,110 @@
 import request from 'supertest';
-import {afterAll, beforeAll, describe, expect, it} from 'vitest';
+import {afterAll, describe, expect, it} from 'vitest';
 import app from '../main';
-import {createProductionScenario, ensureOrganization, ProductionScenario} from '../../test-scenarios';
 import {testDb as prisma} from '../../test-helpers';
-import {runWithOrganization} from './organizationContext';
-import {clearSettingsCache} from './appSettings';
-import {migrateOrganizationChapters} from './chapterMigration';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 
 const MIN = 60_000;
-const SLUG = 'chapters-migration';
 
 /**
- * The migration of segments into hoofdstukken (openspec/changes/chapters D7), in an organization of its
- * own: it touches every production and template of the organization, and sets a setting once.
+ * Files from before hoofdstukken (openspec/changes/chapters D7): a production export with segments
+ * (duration, anchor) and items without a segment, and a backup of segment templates. Every item must
+ * end up in a hoofdstuk.
  */
-describe.runIf(runDb)('segments become hoofdstukken (integration)', () => {
-  let organizationId: number;
-  let show: ProductionScenario;
-  let templateId: number;
-  let positionId: number;
+describe.runIf(runDb)('older files without hoofdstukken (integration)', () => {
   const KICKOFF = new Date(Date.now() + 7 * 24 * 60 * MIN); // a match next week: checked in Beheer
-  const inOrg = <T>(fn: () => Promise<T>) => runWithOrganization(organizationId, fn);
-
-  beforeAll(async () => {
-    organizationId = await ensureOrganization(prisma, SLUG, 'Hoofdstukken migratie');
-    // A production: segments around the kickoff, a callsheet without anchor (its stored times count)
-    show = await createProductionScenario(prisma, {
-      organizationId,
-      match: {date: KICKOFF, homeTeamName: 'Hoofdstuk Thuis', awayTeamName: 'Hoofdstuk Uit'},
-      segments: [{naam: 'Voorbeschouwing', duurInMinuten: 20}, {naam: 'Eerste helft', duurInMinuten: 35, isTimeAnchor: true}, {naam: 'Rust', duurInMinuten: 10}],
-      startsAt: new Date(KICKOFF.getTime() - 25 * MIN),
-      items: [
-        {title: 'Kabels checken', durationSec: 300},   // −25: before Voorbeschouwing → Voorbereiding
-        {title: 'Voorbeschouwing', durationSec: 1200}, // −20
-        {title: 'Eerste helft', durationSec: 2100},    // 0
-        {title: 'Rust', durationSec: 600},             // +35
-        {title: 'Na de rust', durationSec: 600},       // +45, after the last window → Rust
-      ],
-      callSheet: true,
-    });
-
-    // Templates: the default segment template with a standard position, another one, and a draaiboek
-    await inOrg(async () => {
-      positionId = (await prisma.position.create({data: {name: 'Hoofdstuk Camera', category: 'TECHNICAL'}})).id;
-      await prisma.segmentTemplate.create({data: {name: 'League', isDefault: true, items: {create: [
-        {naam: 'Voorbeschouwing', volgorde: 1, duurInMinuten: 20},
-        {naam: 'Eerste helft', volgorde: 2, duurInMinuten: 35, isTimeAnchor: true},
-        {naam: 'Rust', volgorde: 3, duurInMinuten: 10},
-      ]}}});
-      await prisma.segmentTemplate.create({data: {name: 'Oploop', items: {create: [{naam: 'Oplopen', volgorde: 1, duurInMinuten: 10}]}}});
-      await prisma.segmentDefaultPosition.create({data: {segmentName: 'Eerste helft', positionId, order: 1}});
-      const template = await prisma.callSheetTemplate.create({data: {name: 'Draaiboek League'}});
-      templateId = template.id;
-      const items: Array<[string, number, string | null]> = [
-        ['Kabels checken', 1200, null], ['Livestream starten', 0, 'LIVESTREAM_START'], ['Welkom', 600, null],
-        ['Start wedstrijd', 0, 'MATCH_START'], ['Eerste helft', 2100, null], ['Rust', 600, null],
-      ];
-      for (const [orderIndex, [title, durationSec, anchorType]] of items.entries()) {
-        await prisma.callSheetTemplateItem.create({data: {templateId, title, durationSec, orderIndex, isTimeAnchor: !!anchorType, anchorType}});
-      }
-    });
-
-    await inOrg(() => migrateOrganizationChapters());
-  });
+  const at = (minutes: number) => new Date(KICKOFF.getTime() + minutes * MIN).toISOString();
+  const externalId = `chapters-legacy-${Date.now()}`;
+  const templateName = `Legacy ${Date.now()}`;
+  let productionId: number;
 
   afterAll(async () => {
-    await show?.cleanup();
-    await prisma.organization.deleteMany({where: {slug: SLUG}});
-    clearSettingsCache();
+    await prisma.production.deleteMany({where: {matchSchedule: {externalId}}});
+    await prisma.matchSchedule.deleteMany({where: {externalId}});
+    await prisma.callSheetTemplate.deleteMany({where: {name: `${templateName} (hoofdstukken)`}});
   });
 
-  const chapterNames = (productionId: number) => inOrg(async () =>
-    (await prisma.productionChapter.findMany({where: {productionId}, orderBy: {volgorde: 'asc'}})).map((c) => c.naam));
-
-  it('puts the production\'s items and events in the segment holding their start, with Voorbereiding in front', async () => {
-    expect(await chapterNames(show.productionId)).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust']);
-    const items = await inOrg(() => prisma.callSheetItem.findMany({where: {id: {in: show.callSheetItemIds}}, orderBy: {orderIndex: 'asc'}, include: {productionSegment: true}}));
-    expect(items.map((i) => i.productionSegment?.naam)).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust', 'Rust']);
-    const events = await inOrg(() => prisma.productionEvent.findMany({where: {id: {in: show.eventIds}}, orderBy: {order: 'asc'}, include: {chapter: true}}));
-    expect(events.map((e) => e.chapter?.naam)).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust', 'Rust']);
-    // A match from now on is flagged for checking in Beheer
-    expect((await inOrg(() => prisma.production.findUniqueOrThrow({where: {id: show.productionId}}))).chaptersAutoPlaced).toBe(true);
+  // Back to back from 25 minutes before the kickoff, no anchor: the stored times count
+  const titles: Array<[string, number]> = [
+    ['Kabels checken', 5], ['Voorbeschouwing', 20], ['Eerste helft', 35], ['Rust', 10], ['Na de rust', 10],
+  ];
+  let start = -25;
+  const items = titles.map(([title, minutes], i) => {
+    const item = {id: `old-${i}`, cue: `C${i}`, title, durationSec: minutes * 60, orderIndex: i + 1, timeStart: at(start), timeEnd: at(start + minutes), positions: []};
+    start += minutes;
+    return item;
   });
 
-  it('gives a draaiboek template the hoofdstukken of the default segment template, placed from the match start anchor', async () => {
-    const chapters = await inOrg(() => prisma.callSheetTemplateChapter.findMany({
-      where: {templateId}, orderBy: {orderIndex: 'asc'}, include: {items: {orderBy: {orderIndex: 'asc'}}, positions: true},
-    }));
-    expect(chapters.map((c) => [c.name, c.items.map((i) => i.title)])).toEqual([
-      ['Voorbereiding', ['Kabels checken']],
-      ['Voorbeschouwing', ['Livestream starten', 'Welkom']],
-      ['Eerste helft', ['Start wedstrijd', 'Eerste helft']],
-      ['Rust', ['Rust']],
-    ]);
-    // The standard positions moved from the segment name to the hoofdstuk
-    expect(chapters.find((c) => c.name === 'Eerste helft')?.positions.map((p) => p.positionId)).toEqual([positionId]);
-    expect((await inOrg(() => prisma.callSheetTemplate.findUniqueOrThrow({where: {id: templateId}}))).chaptersAutoPlaced).toBe(true);
-  });
+  it('places the items of an old production export by the segments\' times, with Voorbereiding in front', async () => {
+    const res = await request(app).post('/api/production/import').send({
+      matchSchedule: {externalId, date: KICKOFF.toISOString(), homeTeamName: 'Oud Thuis', awayTeamName: 'Oud Uit'},
+      production: {isActive: false},
+      persons: [], positions: [], interviews: [], titles: [],
+      segments: [
+        {naam: 'Voorbeschouwing', volgorde: 1, duurInMinuten: 20, isTimeAnchor: false, assignments: []},
+        {naam: 'Eerste helft', volgorde: 2, duurInMinuten: 35, isTimeAnchor: true, assignments: []},
+        {naam: 'Rust', volgorde: 3, duurInMinuten: 10, isTimeAnchor: false, assignments: []},
+      ],
+      callSheets: [{name: 'Oud draaiboek', items}],
+      productionEvents: [
+        ...items.map((it, i) => ({id: `ev-${i}`, title: it.title, status: 'WAITING', order: i + 1, plannedStartTime: it.timeStart, callSheetItemId: it.id, positions: []})),
+        {id: 'ev-manual', title: 'Handmatig', status: 'WAITING', order: 9, plannedStartTime: at(40), positions: []},
+      ],
+    });
+    expect(res.status, res.text).toBe(200);
+    productionId = res.body.id;
 
-  it('keeps another segment template as a draaiboek template with only hoofdstukken', async () => {
-    const kept = await inOrg(() => prisma.callSheetTemplate.findFirst({where: {name: 'Oploop (hoofdstukken)'}, include: {chapters: true, items: true}}));
-    expect(kept?.chapters.map((c) => c.name)).toEqual(['Oplopen']);
-    expect(kept?.items).toEqual([]);
-  });
-
-  it('does nothing the second time, also not when the kept template was deleted', async () => {
-    await inOrg(() => prisma.callSheetTemplate.deleteMany({where: {name: 'Oploop (hoofdstukken)'}}));
-    expect(await inOrg(() => migrateOrganizationChapters())).toEqual({productions: 0, templates: 0, keptSegmentTemplates: 0});
-    expect(await chapterNames(show.productionId)).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust']);
-    expect(await inOrg(() => prisma.callSheetTemplate.count({where: {name: 'Oploop (hoofdstukken)'}}))).toBe(0);
+    const chapters = await prisma.productionChapter.findMany({where: {productionId}, orderBy: {orderIndex: 'asc'}});
+    expect(chapters.map((c) => c.name)).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust']);
+    const chapterName = new Map(chapters.map((c) => [c.id, c.name]));
+    const stored = await prisma.callSheetItem.findMany({where: {callSheet: {productionId}}, orderBy: {orderIndex: 'asc'}});
+    expect(stored.map((i) => chapterName.get(i.chapterId))).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust', 'Rust']);
+    const events = await prisma.productionEvent.findMany({where: {productionId}, orderBy: {order: 'asc'}});
+    expect(events.map((e) => chapterName.get(e.chapterId ?? -1))).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust', 'Rust', 'Rust']);
+    expect((await prisma.production.findUniqueOrThrow({where: {id: productionId}})).chaptersAutoPlaced).toBe(true);
   });
 
   it('derives the timing from the items and sends the hoofdstukken to LIVE', async () => {
-    const at = (minutes: number) => new Date(KICKOFF.getTime() + minutes * MIN).toISOString();
-    const timing = await request(app).get(`/api/production/${show.productionId}/timing`).set('X-Organization', SLUG);
+    const timing = await request(app).get(`/api/production/${productionId}/timing`);
     expect(timing.status).toBe(200);
-    expect(timing.body.map((c: { naam: string; start: string; end: string; duurInMinuten: number }) => [c.naam, c.start, c.end, c.duurInMinuten])).toEqual([
+    expect(timing.body.map((c: { name: string; start: string; end: string; durationMinutes: number }) => [c.name, c.start, c.end, c.durationMinutes])).toEqual([
       ['Voorbereiding', at(-25), at(-20), 5],
       ['Voorbeschouwing', at(-20), at(0), 20],
       ['Eerste helft', at(0), at(35), 35],
       ['Rust', at(35), at(55), 20],
     ]);
+    const chapters = await request(app).get(`/api/production/${productionId}/chapters`);
+    expect(chapters.body.map((c: { name: string; orderIndex: number }) => [c.name, c.orderIndex])).toEqual([
+      ['Voorbereiding', 1], ['Voorbeschouwing', 2], ['Eerste helft', 3], ['Rust', 4],
+    ]);
+    expect(chapters.body[0]).not.toHaveProperty('naam');
 
-    const events = await request(app).get(`/api/production/${show.productionId}/events`).set('X-Organization', SLUG);
+    const events = await request(app).get(`/api/production/${productionId}/events`);
     expect(events.body.chapters.map((c: { name: string }) => c.name)).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust']);
-    expect(new Set(events.body.items.map((e: { chapterId: number | null }) => e.chapterId)).has(null)).toBe(false);
+  });
+
+  it('exports the hoofdstukken in the new format, and imports that again unchanged', async () => {
+    const exported = await request(app).get(`/api/production/${productionId}/export`);
+    expect(exported.status).toBe(200);
+    expect(exported.body.segments).toBeUndefined();
+    expect(exported.body.chapters.map((c: { name: string }) => c.name)).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust']);
+    expect(exported.body.callSheets[0].items.map((i: { chapterOrderIndex: number }) => i.chapterOrderIndex)).toEqual([1, 2, 3, 4, 4]);
+
+    expect((await request(app).post('/api/production/import').send(exported.body)).status).toBe(200);
+    const chapters = await prisma.productionChapter.findMany({where: {productionId}, orderBy: {orderIndex: 'asc'}, include: {callSheetItems: true}});
+    expect(chapters.map((c) => [c.name, c.callSheetItems.length])).toEqual([['Voorbereiding', 1], ['Voorbeschouwing', 1], ['Eerste helft', 1], ['Rust', 2]]);
+  });
+
+  it('turns segment templates of an old backup into draaiboek templates with only hoofdstukken', async () => {
+    const res = await request(app).post('/api/backup/segment-templates/import').send([
+      {version: 1, name: templateName, items: [{naam: 'Rust', volgorde: 2, duurInMinuten: 10}, {naam: 'Eerste helft', volgorde: 1, duurInMinuten: 35}]},
+    ]);
+    expect(res.status).toBe(200);
+    const template = await prisma.callSheetTemplate.findFirstOrThrow({
+      where: {name: `${templateName} (hoofdstukken)`}, include: {chapters: {orderBy: {orderIndex: 'asc'}}, items: true},
+    });
+    expect(template.chapters.map((c) => c.name)).toEqual(['Eerste helft', 'Rust']);
+    expect(template.items).toEqual([]);
   });
 });

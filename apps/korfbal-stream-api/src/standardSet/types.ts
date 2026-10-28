@@ -39,7 +39,10 @@ export interface StandardCallSheetTemplateItem {
   title: string;
   note?: string;
   durationSec: number;
+  /** Informative only: the array order is the show order */
   orderIndex: number;
+  /** Name of the item's hoofdstuk in `StandardCallSheetTemplate.chapters` */
+  chapter: string;
   isInVenue: boolean;
   isInLivestream: boolean;
   isTimeAnchor?: boolean;
@@ -49,13 +52,15 @@ export interface StandardCallSheetTemplateItem {
   positions: string[];
 }
 
-export interface StandardCallSheetTemplate {
+/** A hoofdstuk of a draaiboek template, with its standard positions (names, like findPositionByName) */
+export interface StandardChapter {
   name: string;
-  items: StandardCallSheetTemplateItem[];
+  positions?: string[];
 }
 
-export interface StandardSegmentTemplate {
+export interface StandardCallSheetTemplate {
   name: string;
-  isDefault: boolean;
-  items: Array<{naam: string; volgorde: number; duurInMinuten: number; isTimeAnchor: boolean}>;
+  /** The hoofdstukken in order; every item is in one */
+  chapters: StandardChapter[];
+  items: StandardCallSheetTemplateItem[];
 }

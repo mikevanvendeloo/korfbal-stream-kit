@@ -33,7 +33,6 @@ describe.runIf(runDb)('Amsterdam time in text for vMix and reports (integration)
         // Opening at 19:00, kickoff item at 19:30 (Amsterdam)
         startsAt: new Date(start.getTime() - 1_800_000),
         items: [{title: 'Opening', status: 'ACTIVE', durationSec: 1800}, {title: 'Aftrap', durationSec: 60}],
-        segments: [{naam: 'Wedstrijd', duurInMinuten: 60}],
       });
       await prisma.production.update({where: {id: show.productionId}, data: {liveTime: new Date(start.getTime() - 300_000)}});
     });

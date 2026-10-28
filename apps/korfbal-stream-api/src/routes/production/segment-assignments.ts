@@ -4,9 +4,6 @@ import {DEFAULT_SEGMENT_POSITIONS, findPositionByName, getRequiredSkillCodeForPo
 
 export const segmentAssignmentsRouter: Router = Router();
 
-// Reserved internal name for the global default set. UI will display this as "Algemeen".
-const GLOBAL_SEGMENT_NAME = '__GLOBAL__';
-
 // -------- Segment-level assignments --------
 // Crew persons for a segment's production (persons assigned at production level)
 segmentAssignmentsRouter.get('/segments/:segmentId/persons', async (req, res, next) => {
@@ -123,7 +120,7 @@ segmentAssignmentsRouter.post('/segments/:segmentId/assignments', async (req, re
   }
 });
 
-// Default positions for a segment (computed template)
+// Standard positions of a hoofdstuk: those of the hoofdstuk with its name in the production's draaiboek template, else the standard list
 segmentAssignmentsRouter.get('/segments/:segmentId/positions', async (req, res, next) => {
   try {
     const segmentId = Number(req.params.segmentId);
@@ -135,7 +132,7 @@ segmentAssignmentsRouter.get('/segments/:segmentId/positions', async (req, res, 
     const production = await prisma.production.findUnique({ where: { id: seg.productionId }, select: { callSheetTemplateId: true } });
     const templateChapter = production?.callSheetTemplateId
       ? await prisma.callSheetTemplateChapter.findFirst({
-        where: { templateId: production.callSheetTemplateId, name: seg.naam },
+        where: { templateId: production.callSheetTemplateId, name: seg.name },
         include: { positions: { orderBy: { orderIndex: 'asc' }, include: { position: { include: { skill: true } } } } },
       })
       : null;
@@ -146,39 +143,6 @@ segmentAssignmentsRouter.get('/segments/:segmentId/positions', async (req, res, 
         order: p.orderIndex,
         requiredSkillCode: p.position.skill ? p.position.skill.code : null,
       })));
-    }
-
-    // Try configured defaults for this segment name; fall back to hardcoded list
-    const configured = await prisma.segmentDefaultPosition.findMany({
-      where: { segmentName: seg.naam },
-      orderBy: { order: 'asc' },
-      include: { position: { include: { skill: true } } },
-    });
-
-    if (configured.length > 0) {
-      const mapped = configured.map((it, idx) => ({
-        id: it.position.id,
-        name: it.position.name,
-        order: it.order ?? idx,
-        requiredSkillCode: it.position.skill ? it.position.skill.code : null,
-      }));
-      return res.json(mapped);
-    }
-
-    // Fallback to global defaults if present
-    const global = await prisma.segmentDefaultPosition.findMany({
-      where: { segmentName: GLOBAL_SEGMENT_NAME },
-      orderBy: { order: 'asc' },
-      include: { position: { include: { skill: true } } },
-    });
-    if (global.length > 0) {
-      const mapped = global.map((it, idx) => ({
-        id: it.position.id,
-        name: it.position.name,
-        order: it.order ?? idx,
-        requiredSkillCode: it.position.skill ? it.position.skill.code : null,
-      }));
-      return res.json(mapped);
     }
 
     // Fall back to the standard list, matched to the existing positions. Never create positions here:

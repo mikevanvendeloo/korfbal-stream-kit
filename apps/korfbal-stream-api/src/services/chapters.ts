@@ -22,6 +22,9 @@ export type Placement<K> = K | 'BEFORE';
 
 const MINUTE = 60_000;
 
+/** The hoofdstukken a new production starts with, until a draaiboek template brings its own (D3) */
+export const DEFAULT_PRODUCTION_CHAPTERS = ['Voorbereiding', 'Voorbeschouwing', 'Oplopen', 'Eerste helft', 'Rust', 'Tweede helft', 'Nabeschouwing'];
+
 /**
  * The windows of segments with a duration, anchored like the production timing (production-timing.ts):
  * the anchor segment (else the first) starts at `kickoff`, the others follow and precede it.

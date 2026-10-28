@@ -36,8 +36,8 @@ describe.runIf(runDb)('crew reports (integration)', () => {
     });
     matchId = match.id;
     productionId = (await prisma.production.create({data: {matchScheduleId: match.id}})).id;
-    for (const [volgorde, naam] of ['Voorbeschouwing', 'Eerste helft'].entries()) {
-      segmentIds.push((await prisma.productionChapter.create({data: {productionId, naam, volgorde: volgorde + 1, duurInMinuten: 30}})).id);
+    for (const [i, name] of ['Voorbeschouwing', 'Eerste helft'].entries()) {
+      segmentIds.push((await prisma.productionChapter.create({data: {productionId, name, orderIndex: i + 1}})).id);
     }
 
     // Anna directs the whole production, Bas only films the first half, Cor comments
@@ -49,7 +49,7 @@ describe.runIf(runDb)('crew reports (integration)', () => {
 
     const callSheet = await prisma.callSheet.create({data: {productionId, name: 'Main'}});
     await prisma.callSheetItem.create({data: {
-      id: `crew-report-int-${Date.now()}`, callSheetId: callSheet.id, cue: 'A1', title: 'Opening', durationSec: 60,
+      id: `crew-report-int-${Date.now()}`, callSheetId: callSheet.id, chapterId: segmentIds[0], cue: 'A1', title: 'Opening', durationSec: 60,
       positions: {create: [{positionId: positions.camera}]},
     }});
   });
@@ -75,13 +75,14 @@ describe.runIf(runDb)('crew reports (integration)', () => {
     ]);
 
     const crewOf = (segmentId: number) => res.body.cells
-      .filter((c: { segmentId: number }) => c.segmentId === segmentId)
+      .filter((c: { chapterId: number }) => c.chapterId === segmentId)
       .map((c: { personName: string }) => c.personName.replace(`${PREFIX} `, ''))
       .sort();
     expect(crewOf(segmentIds[0])).toEqual(['Anna', 'Cor']);
     expect(crewOf(segmentIds[1])).toEqual(['Anna', 'Bas', 'Cor']);
 
-    expect(res.body.callsheets[0].items[0]).toMatchObject({title: 'Opening', positionIds: [positions.camera]});
+    expect(res.body.chapters.map((c: { name: string }) => c.name)).toEqual(['Voorbeschouwing', 'Eerste helft']);
+    expect(res.body.callsheets[0].items[0]).toMatchObject({title: 'Opening', chapterId: segmentIds[0], positionIds: [positions.camera]});
   });
 
   type RolesReport = { positions: Array<{ id: number; name: string }>; productions: Array<{ id: number; assignments: Record<string, string[]> }> };

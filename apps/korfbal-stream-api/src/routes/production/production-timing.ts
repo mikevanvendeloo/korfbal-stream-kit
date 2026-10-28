@@ -12,10 +12,10 @@ productionTimingRouter.get('/:id/timing', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
-    const prod = await prisma.production.findUnique({ where: { id }, include: { matchSchedule: true } });
+    const prod = await prisma.production.findUnique({ where: { id } });
     if (!prod) return res.status(404).json({ error: 'Not found' });
     // The hoofdstukken with their times from the items (openspec/changes/chapters D1)
-    return res.json(await productionChapterTimings(id, prod.matchSchedule.date));
+    return res.json(await productionChapterTimings(id));
   } catch (err) {
     return next(err);
   }

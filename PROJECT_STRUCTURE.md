@@ -16,11 +16,10 @@ apps/korfbal-stream-api/
 │   ├── seed.ts                # Seed entrypoint (npm run prisma:seed)
 │   ├── seed-data.ts           # Seed data definitions
 │   └── seed-data/
-│       ├── callsheets/        # Callsheet template seeds (JSON)
-│       └── segments/          # Segment template seeds (JSON)
+│       └── callsheets/        # Callsheet template seeds (JSON)
 └── src/
     ├── main.ts                # Express app: router mounting, organization context, static assets, OpenAPI/Swagger, Socket.io init
-    ├── standardSet/           # Standard set for new organizations (skills, positions, title/callsheet/segment templates)
+    ├── standardSet/           # Standard set for new organizations (skills, positions, title templates, draaiboek templates with hoofdstukken)
     ├── test-setup.ts          # Vitest setup (.env.test, Prisma lifecycle)
     ├── routes/                # Express routers mounted under /api/*
     │   ├── organizations.ts   # Organizations (global): public list for the start screen, CRUD, logo
@@ -56,10 +55,9 @@ apps/korfbal-stream-api/
     │       ├── production-events.ts           # Production events (WAITING -> ACTIVE -> COMPLETED)
     │       ├── production-reports.ts          # Production report (PDF/Markdown/WhatsApp)
     │       ├── production-export-import.ts    # Full production export/import
-    │       ├── segments.ts                    # Production segments (volgorde ordering)
-    │       ├── segment-assignments.ts         # Crew assignments per segment
-    │       ├── segment-default-positions.ts   # Default positions per segment name
-    │       ├── segment-templates.ts           # Segment templates (mounted at /api/production/segment-templates)
+    │       ├── production-chapters.ts         # Hoofdstukken of a production + callsheet structure
+    │       ├── callsheet-template-chapters.ts # Hoofdstukken of a draaiboek template (+ from-callsheet, import helpers)
+    │       ├── segment-assignments.ts         # Bezetting per hoofdstuk (paths still /segments/:segmentId/...)
     │       └── positions.ts                   # Positions CRUD + import/export
     ├── services/
     │   ├── prisma.ts                  # Shared PrismaClient wrapper
@@ -305,7 +303,7 @@ No login (internal LAN tool), but every `/api` request needs an organization: `X
 | DELETE | /api/production/:id/person-positions/:personPositionId | Delete person-position assignment |
 | GET | /api/production/:id/crew | Crew overview |
 | GET | /api/production/active | The active production with its match, independent of the active season (`{item}` or `{item: null}`) |
-| GET | /api/production/:id/crew-report | Crew report: effective crew per segment (production-wide + per segment, `services/crewReport.ts`), filled positions per category, callsheets with `positionIds` |
+| GET | /api/production/:id/crew-report | Crew report: `chapters`, effective crew per hoofdstuk (`cells` with `chapterId`, production-wide + per hoofdstuk, `services/crewReport.ts`), filled positions per category, callsheets with `positionIds` and items with `chapterId` |
 | GET | /api/production/positions | List positions |
 | POST | /api/production/positions | Create position |
 | PUT | /api/production/positions/:id | Update position |
@@ -313,48 +311,29 @@ No login (internal LAN tool), but every `/api` request needs an organization: `X
 | GET | /api/production/export/positions | Export positions |
 | POST | /api/production/import/positions | Import positions |
 
-#### Segments
+#### Hoofdstukken and bezetting (openspec/changes/chapters)
+
+A hoofdstuk is `{id, productionId, name, orderIndex}`; every callsheet item has a `chapterId`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/production/:id/segments | List segments of production |
-| POST | /api/production/:id/segments | Create segment |
-| GET | /api/production/segments/:segmentId | Get segment |
-| PUT | /api/production/segments/:segmentId | Update segment (incl. reorder) |
-| DELETE | /api/production/segments/:segmentId | Delete segment |
-| GET | /api/production/segments/:segmentId/persons | Persons available for segment |
-| GET | /api/production/segments/:segmentId/assignments | List segment assignments |
-| POST | /api/production/segments/:segmentId/assignments | Create segment assignment |
-| DELETE | /api/production/segments/:segmentId/assignments/:assignmentId | Delete segment assignment |
-| POST | /api/production/segments/:segmentId/assignments/copy | Copy assignments to other segments |
-| GET | /api/production/segments/:segmentId/positions | Positions for segment |
-| GET | /api/production/segment-default-positions | List default positions per segment |
-| GET | /api/production/segment-default-positions/names | List segment names with defaults |
-| PUT | /api/production/segment-default-positions | Update default positions |
-
-#### Segment templates (`/api/production/segment-templates`)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | /api/production/segment-templates | List segment templates |
-| POST | /api/production/segment-templates | Create segment template |
-| GET | /api/production/segment-templates/:id | Get segment template |
-| PUT | /api/production/segment-templates/:id | Update segment template |
-| DELETE | /api/production/segment-templates/:id | Delete segment template |
-| PUT | /api/production/segment-templates/:id/set-default | Mark template as default |
-| POST | /api/production/segment-templates/:id/items | Add template item |
-| PUT | /api/production/segment-templates/items/:itemId | Update template item |
-| DELETE | /api/production/segment-templates/items/:itemId | Delete template item |
-| POST | /api/production/segment-templates/apply/:templateId/to/:productionId | Apply template to production |
-| POST | /api/production/segment-templates/from-production/:productionId | Create template from production |
-| GET | /api/production/segment-templates/:id/export-json | Export template (JSON) |
-| POST | /api/production/segment-templates/import-json | Import template (JSON) |
+| GET | /api/production/:id/chapters | The production's hoofdstukken in order |
+| POST | /api/production/:id/chapters | New hoofdstuk at the end (`{name}`) |
+| PUT | /api/production/chapters/:chapterId | Rename (`{name}`) |
+| DELETE | /api/production/chapters/:chapterId | Delete an empty hoofdstuk (409 when it has items) |
+| PUT | /api/production/callsheets/:callSheetId/structure | Hoofdstuk order + this callsheet's items (`{chapters: [{id, itemIds}]}`) |
+| GET | /api/production/segments/:segmentId/persons | Persons available for the hoofdstuk |
+| GET | /api/production/segments/:segmentId/assignments | Bezetting of the hoofdstuk |
+| POST | /api/production/segments/:segmentId/assignments | Add to the bezetting |
+| DELETE | /api/production/segments/:segmentId/assignments/:assignmentId | Remove from the bezetting |
+| POST | /api/production/segments/:segmentId/assignments/copy | Copy the bezetting to other hoofdstukken |
+| GET | /api/production/segments/:segmentId/positions | Standard positions (the template hoofdstuk with the same name, else the standard list) |
 
 #### Timing, events and live callsheet controls
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/production/:id/timing | Production timing |
+| GET | /api/production/:id/timing | Hoofdstukken with times from their items: `{id, name, orderIndex, durationMinutes, start, end}` (start/end null without timed items) |
 | GET | /api/production/:id/clocks | Production clocks |
 | GET | /api/production/next-date | Next production date |
 | GET | /api/production/dates | Production dates |
@@ -414,6 +393,11 @@ No login (internal LAN tool), but every `/api` request needs an organization: `X
 | GET | /api/callsheets/templates/:id | Get callsheet template |
 | PUT | /api/callsheets/templates/:id | Update callsheet template |
 | DELETE | /api/callsheets/templates/:id | Delete callsheet template |
+| POST | /api/callsheets/templates/:id/chapters | New template hoofdstuk |
+| PUT | /api/callsheets/templates/chapters/:chapterId | Rename and/or standard positions (`{name?, positionIds?}`) |
+| DELETE | /api/callsheets/templates/chapters/:chapterId | Delete an empty hoofdstuk (409) |
+| PUT | /api/callsheets/templates/:id/structure | Whole order (`{chapters: [{id, itemIds}]}`) |
+| POST | /api/callsheets/templates/from-callsheet/:callSheetId | A production's callsheet as a new template |
 | POST | /api/callsheets/templates/:id/items | Add template item |
 | PUT | /api/callsheets/templates/items/:itemId | Update template item |
 | DELETE | /api/callsheets/templates/items/:itemId | Delete template item |
@@ -534,6 +518,6 @@ Season-bound endpoints (`GET /api/production`, `/api/production/matches`, `/api/
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/backup/{entity}/export | Export entity as JSON; entity = segment-templates, persons, skills, positions, matches, producties, clubs, sponsors, settings |
-| POST | /api/backup/{entity}/import | Import entity from JSON; same entities |
+| GET | /api/backup/{entity}/export | Export entity as JSON; entity = persons, skills, positions, matches, producties (`chapters`, items/events with `chapterOrderIndex`; older files with `segments` are still read), clubs, sponsors, settings |
+| POST | /api/backup/{entity}/import | Import entity from JSON; same entities, plus `segment-templates` (older backups: each becomes a draaiboek template "<naam> (hoofdstukken)" with only hoofdstukken) |
 | GET | /api/backup/images | Zip of the chosen organization's images (sponsors/<slug>/, organizations/<slug>.<ext>, used club logos and player photos), paths relative to ASSETS_DIR |

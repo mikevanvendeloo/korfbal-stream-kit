@@ -37,7 +37,7 @@ describe.runIf(runDb)('hoofdstukken of a draaiboek (integration)', () => {
     await request(app).put(`/api/callsheets/templates/chapters/${chapters['Eerste helft']}`).send({positionIds: [positionId]}).expect(200);
 
     show = await createProductionScenario(prisma, {
-      items: [], segments: [{naam: 'Eerste helft', duurInMinuten: 35, isTimeAnchor: true}, {naam: 'Oud segment', duurInMinuten: 10}],
+      items: [], chapters: ['Eerste helft', 'Oud hoofdstuk'],
       crew: [{name: `${MARKER} Persoon`, skills: []}],
     });
   });
@@ -138,21 +138,21 @@ describe.runIf(runDb)('hoofdstukken of a draaiboek (integration)', () => {
   });
 
   describe('production', () => {
-    const productionChapters = async () => prisma.productionChapter.findMany({where: {productionId: show.productionId}, orderBy: {volgorde: 'asc'}});
+    const productionChapters = async () => prisma.productionChapter.findMany({where: {productionId: show.productionId}, orderBy: {orderIndex: 'asc'}});
 
     it('takes the template\'s hoofdstukken when applied; one with the same name keeps its bezetting', async () => {
-      const kept = await prisma.productionChapter.findFirstOrThrow({where: {productionId: show.productionId, naam: 'Eerste helft'}});
+      const kept = await prisma.productionChapter.findFirstOrThrow({where: {productionId: show.productionId, name: 'Eerste helft'}});
       const assignment = await prisma.chapterRoleAssignment.create({data: {productionSegmentId: kept.id, personId: show.personIds[`${MARKER} Persoon`], positionId}});
 
       await request(app).post(`/api/callsheets/templates/${templateId}/apply/${show.productionId}`).send({}).expect(200);
       const after = await productionChapters();
-      expect(after.map((c) => c.naam)).toEqual(['Voorbereiding', 'Eerste helft', 'Rust']);
+      expect(after.map((c) => c.name)).toEqual(['Voorbereiding', 'Eerste helft', 'Rust']);
       expect(after[1].id).toBe(kept.id);
       expect(await prisma.chapterRoleAssignment.count({where: {id: assignment.id}})).toBe(1);
 
       const callSheet = await prisma.callSheet.findFirstOrThrow({where: {productionId: show.productionId}, include: {items: {orderBy: {orderIndex: 'asc'}}}});
-      const chapterName = new Map(after.map((c) => [c.id, c.naam]));
-      expect(callSheet.items.map((i) => [i.title, chapterName.get(i.productionSegmentId ?? -1)])).toEqual([
+      const chapterName = new Map(after.map((c) => [c.id, c.name]));
+      expect(callSheet.items.map((i) => [i.title, chapterName.get(i.chapterId)])).toEqual([
         ['Kabels checken', 'Voorbereiding'], ['Aftrap', 'Eerste helft'], ['Eerste helft', 'Eerste helft'], ['Camera op middenstip', 'Eerste helft'], ['Rust', 'Rust'],
       ]);
       // The cue comes along from the template (e.g. for a vMix trigger)
@@ -171,18 +171,18 @@ describe.runIf(runDb)('hoofdstukken of a draaiboek (integration)', () => {
 
       // A new item without a hoofdstuk lands in the hoofdstuk of the last item; one of another production is refused
       const item = await request(app).post(`/api/production/callsheets/${callSheet.id}/items`).send({cue: 'N1', title: 'Interview', durationSec: 120, orderIndex: 99}).expect(201);
-      expect(item.body.productionSegmentId).toBe(callSheet.items[callSheet.items.length - 1].productionSegmentId);
-      const other = await createProductionScenario(prisma, {items: [], segments: [{naam: 'Ander', duurInMinuten: 5}]});
+      expect(item.body.chapterId).toBe(callSheet.items[callSheet.items.length - 1].chapterId);
+      const other = await createProductionScenario(prisma, {items: [], chapters: ['Ander']});
       try {
         const foreignChapter = (await prisma.productionChapter.findFirstOrThrow({where: {productionId: other.productionId}})).id;
-        const res = await request(app).put(`/api/production/callsheet-items/${item.body.id}`).send({productionSegmentId: foreignChapter});
+        const res = await request(app).put(`/api/production/callsheet-items/${item.body.id}`).send({chapterId: foreignChapter});
         expect(res.status).toBe(404);
       } finally {
         await other.cleanup();
       }
 
       const all = await productionChapters();
-      const ids = (name: string) => all.find((c) => c.naam === name)?.id ?? -1;
+      const ids = (name: string) => all.find((c) => c.name === name)?.id ?? -1;
       const allItems = [...callSheet.items.map((i) => i.id), item.body.id];
       await request(app).put(`/api/production/callsheets/${callSheet.id}/structure`).send({chapters: [
         {id: ids('Voorbereiding'), itemIds: allItems.slice(0, 1)},
@@ -191,7 +191,7 @@ describe.runIf(runDb)('hoofdstukken of a draaiboek (integration)', () => {
         {id: ids('Nabeschouwing en interviews'), itemIds: [item.body.id]},
       ]}).expect(200);
       const moved = await prisma.callSheetItem.findUniqueOrThrow({where: {id: item.body.id}});
-      expect([moved.productionSegmentId, moved.orderIndex]).toEqual([ids('Nabeschouwing en interviews'), 6]);
+      expect([moved.chapterId, moved.orderIndex]).toEqual([ids('Nabeschouwing en interviews'), 6]);
       expect((await request(app).delete(`/api/production/chapters/${ids('Nabeschouwing en interviews')}`)).status).toBe(409);
     });
 

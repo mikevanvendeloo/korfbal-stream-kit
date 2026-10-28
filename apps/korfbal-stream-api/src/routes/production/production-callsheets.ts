@@ -12,7 +12,6 @@ import {emitToOrganization} from '../../services/socket';
 import {findPositionByName, positionKey, SHOWCALLER_POSITION} from '../../domain/positionSkill';
 import {findOrCreatePosition} from '../../services/positions';
 import {excelCellToDate, parseInstant, parseOptionalInstant} from '../../utils/time';
-import {placeProductionChapters} from '../../services/chapterMigration';
 import {productionItemChapter} from './production-chapters';
 
 export const productionCallsheetsRouter: Router = Router();
@@ -66,7 +65,7 @@ productionCallsheetsRouter.get('/callsheets/:callSheetId', async (req, res, next
       include: {
         items: {
           include: {
-            productionSegment: true,
+            chapter: true,
             positions: { include: { position: true } },
           },
           orderBy: [{ orderIndex: 'asc' }],
@@ -239,7 +238,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async
             isInVenue: item.isInVenue,
             isTimeAnchor: item.isTimeAnchor,
             anchorType: item.anchorType,
-            chapterId: item.productionSegmentId,
+            chapterId: item.chapterId,
             callSheetItemId: item.id,
             // parentId slaan we in de eerste stap over omdat het een FK is naar ProductionEvent
           }
@@ -286,8 +285,6 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async
         data: { updatedAt: new Date() }
       });
 
-      // Items still without a hoofdstuk (and their events) get one (openspec/changes/chapters D7)
-      await placeProductionChapters(tx, cs.productionId);
     });
 
     // 5. Trigger een update naar alle clients
@@ -347,7 +344,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
     // here, never by the client, so an id of another organization can't collide or be probed (409)
     const id = randomUUID();
     // Every item is in a hoofdstuk of this production (openspec/changes/chapters D1)
-    const productionSegmentId = await productionItemChapter(callSheetId, req.body?.productionSegmentId);
+    const chapterId = await productionItemChapter(callSheetId, req.body?.chapterId);
     const cue = String(req.body?.cue || '').trim();
     const title = String(req.body?.title || '').trim();
     const note = req.body?.note != null ? String(req.body.note) : null;
@@ -378,7 +375,7 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
         data: {
           id,
           callSheetId,
-          productionSegmentId,
+          chapterId,
           cue,
           title,
           note: note || undefined,
@@ -421,10 +418,10 @@ productionCallsheetsRouter.put('/callsheet-items/:itemId', async (req, res, next
 
     const data: any = {};
     // Another hoofdstuk of the same production; an item never leaves its hoofdstuk without a new one
-    if (req.body?.productionSegmentId != null && req.body.productionSegmentId !== '') {
+    if (req.body?.chapterId != null && req.body.chapterId !== '') {
       const item = await prisma.callSheetItem.findUnique({ where: { id: itemId }, select: { callSheetId: true } });
       if (!item) return res.status(404).json({ error: 'Not found' });
-      data.productionSegmentId = await productionItemChapter(item.callSheetId, req.body.productionSegmentId);
+      data.chapterId = await productionItemChapter(item.callSheetId, req.body.chapterId);
     }
     if (req.body?.cue != null) data.cue = String(req.body.cue).trim();
     if (req.body?.title != null) data.title = String(req.body.title).trim();
@@ -539,20 +536,20 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem, async
       return res.status(400).json({ error: 'No data rows found in sheet' });
     }
 
-    // Fetch segments and positions upfront for fast lookup
-    const [segments, allPositions] = await Promise.all([
-      prisma.productionChapter.findMany({ where: { productionId }, orderBy: { volgorde: 'asc' } }),
+    // Fetch hoofdstukken and positions upfront for fast lookup
+    const [chapters, allPositions] = await Promise.all([
+      prisma.productionChapter.findMany({ where: { productionId }, orderBy: { orderIndex: 'asc' } }),
       prisma.position.findMany({}),
     ]);
-    const segByName = new Map<string, { id: number; naam: string; volgorde: number }>();
-    for (const s of segments as any[]) segByName.set((s.naam || '').toString().trim().toLowerCase(), s);
+    const chapterByName = new Map<string, { id: number }>();
+    for (const c of chapters) chapterByName.set(c.name.trim().toLowerCase(), c);
     // Matched like findPositionByName, so "regie" or "Show caller" never become a second position
     const knownPositions: Array<{ id: number; name: string }> = [...allPositions];
 
     const normKey = (k: string) => k.toString().trim().toLowerCase().replace(/\s+|[_-]+/g, '');
 
     type Parsed = {
-      productionSegmentId: number;
+      chapterId: number;
       id: string;
       cue: string;
       title: string;
@@ -610,18 +607,18 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem, async
 
       const rowNo = idx + 2; // +2 for header baseline in Excel
       if (!segName || !cue || !title || durationSec == null) {
-        problems.push(`Row ${rowNo}: missing required fields (segment/cue/title/duration)`);
+        problems.push(`Row ${rowNo}: missing required fields (hoofdstuk/cue/title/duration)`);
         return;
       }
 
-      const seg = segByName.get(segName.toLowerCase());
-      if (!seg) {
-        problems.push(`Row ${rowNo}: unknown segment '${segName}'`);
+      const chapter = chapterByName.get(segName.toLowerCase());
+      if (!chapter) {
+        problems.push(`Row ${rowNo}: unknown hoofdstuk '${segName}'`);
         return;
       }
 
       parsed.push({
-        productionSegmentId: (seg as any).id,
+        chapterId: chapter.id,
         // An ID column (e.g. from an export, possibly of another organization) is ignored: ids are global
         id: randomUUID(),
         cue,
@@ -657,7 +654,7 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem, async
           data: {
             id: it.id,
             callSheetId: cs.id,
-            productionSegmentId: it.productionSegmentId,
+            chapterId: it.chapterId,
             cue: it.cue,
             title: it.title,
             note: it.note || undefined,
