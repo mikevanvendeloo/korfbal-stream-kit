@@ -27,7 +27,7 @@ De tijden schuiven automatisch mee met de werkelijkheid: zodra de Show Caller na
 
 ## In de callsheet staat "coach uit" in plaats van een naam
 
-Er is nog geen interview gekozen, of de keuze is niet opgeslagen. Kies de interviews op **Actieve productie** en druk op **Interview opslaan**. De namen staan dan meteen in de callsheet (uiterlijk binnen ongeveer 10 seconden).
+Er is nog geen interview gekozen, of de keuze is niet opgeslagen. Kies de interviews op **Productie** en druk op **Interview opslaan**. De namen staan dan meteen in de callsheet (uiterlijk binnen ongeveer 10 seconden).
 
 ## Er staat "Pagina niet gevonden"
 
@@ -39,4 +39,4 @@ Er ging iets mis in dit deel van het scherm. Probeer eerst **Probeer opnieuw**, 
 
 ## Welke versie gebruik ik?
 
-Klik op **i** rechtsboven. Je ziet de versie van de app en van de server. Noem die als je een probleem meldt.
+Klik rechtsboven op het **tandwiel** en dan op **Over deze app** (op een telefoon: in het menu). Je ziet de versie van de app en van de server. Noem die als je een probleem meldt.

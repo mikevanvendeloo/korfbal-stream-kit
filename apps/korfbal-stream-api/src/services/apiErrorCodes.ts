@@ -26,7 +26,7 @@ export const API_ERRORS = {
   /** The organization has no (enabled) match source */
   SOURCE_NOT_CONFIGURED: {
     status: 409, error: 'Wedstrijdimport is niet ingesteld voor deze organisatie',
-    hint: 'Stel bij Setup → Organisatie → Wedstrijdimport de bron, het adres en het token in, zet de wedstrijdimport aan en sla op.',
+    hint: 'Stel bij Organisatie-instellingen → Wedstrijdimport de bron, het adres en het token in, zet de wedstrijdimport aan en sla op.',
   },
   /** The date is not DD-MM-YYYY, YYYY-MM-DD or a range in weeks, or does not exist */
   INVALID_DATE: {
@@ -36,12 +36,12 @@ export const API_ERRORS = {
   /** Upstream 401/403 */
   SOURCE_UNAUTHORIZED: {
     status: 502, error: 'Token ongeldig of verlopen',
-    hint: 'Vul bij Setup → Organisatie → Wedstrijdimport een nieuw token in en sla op.',
+    hint: 'Vul bij Organisatie-instellingen → Wedstrijdimport een nieuw token in en sla op.',
   },
   /** Upstream 404 */
   SOURCE_NOT_FOUND: {
     status: 502, error: 'URL klopt niet',
-    hint: 'Controleer het Adres (URL) bij Setup → Organisatie → Wedstrijdimport, bijvoorbeeld https://api.sportclubvrijwilligersmanagement.nl/v1.',
+    hint: 'Controleer het Adres (URL) bij Organisatie-instellingen → Wedstrijdimport, bijvoorbeeld https://api.sportclubvrijwilligersmanagement.nl/v1.',
   },
   /** Upstream 4xx other than 401/403/404 */
   SOURCE_REJECTED: {

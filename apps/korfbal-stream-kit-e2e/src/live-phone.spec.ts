@@ -14,7 +14,7 @@ test('the LIVE bar fits the phone and opens the Show Caller from its menu', asyn
   await expect(page.getByText('Scenario Thuis vs Scenario Uit')).toBeVisible();
   expect(await pageWidth(page)).toBe(360);
 
-  await new LiveNav(page).open('Show Caller');
+  await new LiveNav(page).openShowCaller();
   await expect(page).toHaveURL(new RegExp(`/show-caller/${liveShow.productionId}/all$`));
   const showCaller = new ShowCallerPhone(page);
   await showCaller.expectNotStarted();

@@ -112,7 +112,7 @@ export function MatchSourceForm({source}: { source: MatchSource }) {
   );
 }
 
-/** Beheer → Setup → Organisatie: the chosen organization's logo, match import and API keys (design D10). */
+/** Beheer → Organisatie-instellingen: the chosen organization's logo, match import and API keys (design D10). */
 export default function OrganizationAdminPage() {
   const {organization} = useCurrentOrganization();
   const {data: source, isLoading, error} = useMatchSource();

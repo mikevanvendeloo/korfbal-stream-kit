@@ -21,9 +21,15 @@ export class LiveNav {
   constructor(private readonly page: Page) {}
 
   /** On a phone the LIVE screens are behind the menu button. */
-  async open(screen: 'Actieve productie' | 'Scoreboard' | 'Callsheet' | 'Show Caller' | 'Interviews' | 'vMix') {
+  async open(screen: 'Productie' | 'Scoreboard' | 'Callsheet' | 'Interviews' | 'vMix') {
     await this.page.getByRole('button', {name: 'Menu openen'}).click();
     await this.page.getByRole('navigation', {name: 'LIVE'}).getByRole('link', {name: screen}).click();
+  }
+
+  /** The Show Caller is the first tile of the Callsheet's position choice. */
+  async openShowCaller() {
+    await this.open('Callsheet');
+    await this.page.getByRole('link', {name: /^Show Caller/}).click();
   }
 
   help() {
@@ -37,9 +43,23 @@ export class LiveNav {
   }
 }
 
-/** The chosen organization in the nav (LIVE and Beheer); a click opens the start screen. */
+/** "Wissel organisatie" in the organization menu (LIVE and Beheer) or the LIVE phone menu; opens the start screen. */
 export const organizationSwitch = (page: Page, name: string) =>
   page.getByRole('button', {name: `Wissel organisatie (nu ${name})`});
+
+/** The chosen organization's logo and name in the nav (LIVE and Beheer): a menu with Organisatie-instellingen and Wissel organisatie. */
+export class OrganizationMenu {
+  constructor(private readonly page: Page) {}
+
+  menu(name: string) {
+    return this.page.getByLabel(`Organisatiemenu (nu ${name})`);
+  }
+
+  async switchOrganization(current: string) {
+    await this.menu(current).click();
+    await organizationSwitch(this.page, current).click();
+  }
+}
 
 /** The start screen: a large button per active organization. */
 export class StartScreen {
@@ -215,7 +235,7 @@ export class ManualMatchesPage {
   }
 }
 
-/** Beheer → Setup → Organisatie: match import and API keys of the chosen organization. */
+/** Beheer → Organisatie-instellingen: match import and API keys of the chosen organization. */
 export class OrganizationPage {
   constructor(private readonly page: Page) {}
 

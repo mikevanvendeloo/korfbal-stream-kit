@@ -27,7 +27,6 @@ import {
   MdAssessment,
   MdAssignmentInd,
   MdBuild,
-  MdBusiness,
   MdCorporateFare,
   MdDataObject,
   MdEditCalendar,
@@ -64,10 +63,12 @@ import SegmentTemplatesPage from "../pages/SegmentTemplatesPage";
 import ProductionTimingReportPage from "../pages/ProductionTimingReportPage";
 import {useActiveSeason, useSeasonChangedSync} from "../hooks/useSeasons";
 import ThemeToggle from "../components/ThemeToggle";
+import {NavDropdown, navMenuHeadingClass, navMenuItemClass} from "../components/NavDropdown";
 import NotFound from "../components/NotFound";
 import ManualView from '../handleiding/ManualView';
 import HelpButton from '../handleiding/HelpButton';
-import {OrganizationSwitcher} from '../components/OrganizationGate';
+import {OrganizationMenu} from '../components/OrganizationMenu';
+import NextProductions from '../components/NextProductions';
 
 function AdminHome() {
   return (
@@ -77,6 +78,7 @@ function AdminHome() {
       <p className="text-center max-w-lg">
         Deze applicatie helpt met ondersteunen van planning van livestreams en het voorzien van data aan livestream software zoals vMix.
       </p>
+      <NextProductions/>
     </div>
   );
 }
@@ -100,8 +102,9 @@ type Menu = { label: string; groups: Array<{ heading?: string; items: MenuItem[]
 
 /**
  * The Beheer menu, ordered by when you need it: per production (operational), the stamgegevens you set up
- * once or per season (with the reusable draaiboek templates), the reports, loose tools, and the setup of the
- * organization(s).
+ * once or per season (with the reusable draaiboek templates) and the reports. The chosen organization is
+ * under its logo (OrganizationMenu); settings, all organizations, theme, about and the tools are in the
+ * gear menu (SettingsMenu).
  */
 const MENUS: Menu[] = [
   {
@@ -152,27 +155,10 @@ const MENUS: Menu[] = [
     label: 'Rapportages',
     groups: [{items: REPORT_TABS.map(({tab, label}) => ({to: adminPaths.report(tab), label, icon: MdAssessment}))}],
   },
-  {
-    label: 'Overig',
-    groups: [{
-      items: [
-        {to: adminPaths.qr, label: 'QR-generator', icon: MdQrCode},
-      ],
-    }],
-  },
-  {
-    label: 'Setup',
-    groups: [{
-      items: [
-        {to: adminPaths.organization, label: 'Organisatie', icon: MdBusiness},
-        {to: adminPaths.organizations, label: 'Organisaties', icon: MdCorporateFare},
-      ],
-    }],
-  },
 ];
 
-const itemClass = 'flex px-3 py-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 items-center gap-2';
-const headingClass = 'px-3 py-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold';
+const itemClass = navMenuItemClass;
+const headingClass = navMenuHeadingClass;
 
 function DropdownMenu({menu, open, onToggle}: { menu: Menu; open: boolean; onToggle: (open: boolean) => void }) {
   return (
@@ -193,6 +179,23 @@ function DropdownMenu({menu, open, onToggle}: { menu: Menu; open: boolean; onTog
         </ul>
       </div>
     </details>
+  );
+}
+
+const SETTINGS_MENU = 'settings';
+const ORGANIZATION_MENU = 'organization';
+
+/** The gear menu on the right: settings, light/dark mode, about, and the tools. */
+function SettingsMenu({open, onToggle}: { open: boolean; onToggle: (open: boolean) => void }) {
+  return (
+    <NavDropdown open={open} onToggle={onToggle} label="Instellingen en tools" summary={<MdSettings className="w-5 h-5"/>}>
+      <li><Link to={adminPaths.settings} className={itemClass}><MdSettings/><span>Instellingen</span></Link></li>
+      <li><Link to={adminPaths.organizations} className={itemClass}><MdCorporateFare/><span>Organisaties</span></Link></li>
+      <li><ThemeToggle className={`${itemClass} w-full text-left`}/></li>
+      <li><Link to={adminPaths.about} className={itemClass}><MdInfo/><span>Over deze app</span></Link></li>
+      <li className={`${headingClass} mt-3`}>Tools</li>
+      <li><Link to={adminPaths.qr} className={itemClass}><MdQrCode/><span>QR-generator</span></Link></li>
+    </NavDropdown>
   );
 }
 
@@ -228,16 +231,12 @@ function Nav() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <OrganizationSwitcher className="max-w-48"/>
+          <OrganizationMenu open={openMenu === ORGANIZATION_MENU}
+                            onToggle={(open) => setOpenMenu((current) => open ? ORGANIZATION_MENU : (current === ORGANIZATION_MENU ? null : current))}/>
           <ActiveSeasonBadge/>
-          <Link to={adminPaths.settings} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Instellingen" aria-label="Instellingen">
-            <MdSettings className="w-5 h-5" />
-          </Link>
           <HelpButton/>
-          <Link to={adminPaths.about} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Over deze app">
-            <MdInfo className="w-5 h-5" />
-          </Link>
-          <ThemeToggle/>
+          <SettingsMenu open={openMenu === SETTINGS_MENU}
+                        onToggle={(open) => setOpenMenu((current) => open ? SETTINGS_MENU : (current === SETTINGS_MENU ? null : current))}/>
         </div>
       </div>
     </header>
@@ -287,7 +286,7 @@ export default function AdminApp() {
             <Route path="rapportages" element={<Navigate to={adminPaths.report('dagbezetting')} replace/>}/>
             <Route path="rapportages/:tab" element={<ReportsPage/>}/>
 
-            <Route path="overig/qr" element={<QRAdminPage/>}/>
+            <Route path="tools/qr" element={<QRAdminPage/>}/>
             <Route path="setup/organisaties" element={<OrganizationsAdminPage/>}/>
             <Route path="setup/organisatie" element={<OrganizationAdminPage/>}/>
 

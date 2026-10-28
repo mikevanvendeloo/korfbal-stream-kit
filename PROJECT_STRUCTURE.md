@@ -112,7 +112,7 @@ apps/korfbal-stream-kit/src/
 ├── app/
 │   ├── app.tsx                # OrganizationGate (start screen), then LIVE (/) and Beheer (/admin/*)
 │   ├── LiveApp.tsx            # LIVE nav + routes (incl. /vmix)
-│   ├── AdminApp.tsx           # Beheer menu (Producties, Draaiboeken, Stamgegevens, Rapportages, Overig) + routes
+│   ├── AdminApp.tsx           # Beheer menu (Producties, Stamgegevens, Rapportages; organization menu; gear menu with Instellingen, Organisaties, theme, Over, Tools) + routes
 │   ├── pages/CallsheetPage.tsx
 │   ├── components/callsheet/GlobalClocks.tsx
 │   └── hooks/useCallsheetSync.ts
@@ -141,7 +141,7 @@ apps/korfbal-stream-kit/src/
 ├── components/InterviewAvatar.tsx, FallbackImage.tsx, InterviewPhotosToggle.tsx # Interview photos (photo / number / initials), the "Interviewfoto's" switch (hooks/useInterviewPhotos.ts)
 ├── handleiding/               # User manual: live/*.md and beheer/*.md, ManualView, HelpButton, helpTopics (route → chapter)
 ├── components/                # Feature components
-│   ├── OrganizationGate.tsx   # Start screen, chosen organization context (useCurrentOrganization), OrganizationSwitcher (nav)
+│   ├── OrganizationGate.tsx   # Start screen, chosen organization context (useCurrentOrganization); the nav menu is OrganizationMenu.tsx
 │   ├── OrganizationLogo.tsx   # Own logo → club logo → initials
 │   ├── ApiKeys.tsx            # API key list/create/revoke, one-time key dialog, feed URLs with the key
 │   ├── CallSheetView.tsx, CallSheetColumn.tsx, CallSheetItem.tsx, CallSheetTemplateSelector.tsx

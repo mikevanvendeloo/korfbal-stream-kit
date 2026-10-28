@@ -77,7 +77,7 @@ Templates zijn het **standaardlijstje**. Per productie neem je ze over op het ta
 
 Op **Datasources** staan de adressen die je in vMix gebruikt, met een knop om ze te kopiëren. Je voegt ze in vMix toe via **Data Sources → JSON → URL** en stelt daar in hoe vaak vMix ze ververst.
 
-Elk adres eindigt op `key=<jouw-sleutel>`: vMix moet een **API-sleutel** van je organisatie meesturen, anders krijgt het de fout 401 en ververst de datasource niet. Vervang `<jouw-sleutel>` door een sleutel van [Setup → Organisatie](/admin/handleiding/organisaties#api-sleutels). Maak je bovenaan de pagina bij **API-sleutel** een nieuwe sleutel (**Naam van de sleutel**, **Sleutel aanmaken**), dan staat hij meteen in alle adressen op de pagina, klaar om te kopiëren. Die ingevulde adressen zie je alleen tot je de pagina verlaat.
+Elk adres eindigt op `key=<jouw-sleutel>`: vMix moet een **API-sleutel** van je organisatie meesturen, anders krijgt het de fout 401 en ververst de datasource niet. Vervang `<jouw-sleutel>` door een sleutel van [Organisatie-instellingen](/admin/handleiding/organisaties#api-sleutels). Maak je bovenaan de pagina bij **API-sleutel** een nieuwe sleutel (**Naam van de sleutel**, **Sleutel aanmaken**), dan staat hij meteen in alle adressen op de pagina, klaar om te kopiëren. Die ingevulde adressen zie je alleen tot je de pagina verlaat.
 
 | Datasource | Wat je krijgt |
 |---|---|

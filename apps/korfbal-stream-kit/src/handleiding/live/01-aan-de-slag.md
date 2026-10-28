@@ -8,7 +8,7 @@ Korfbal StreamKit wordt door meer dan één organisatie gebruikt (bijvoorbeeld F
 
 - Je keuze wordt **op dit apparaat onthouden**: de volgende keer ga je direct door. De adressen (bijvoorbeeld van je callsheet) blijven hetzelfde.
 - Is er maar één organisatie, dan kiest de app die zelf.
-- **Wisselen**: klik in de menubalk op het logo en de naam van je organisatie (op een telefoon staat die knop in het menu). Je komt weer op het keuzescherm; **Terug** laat alles zoals het was.
+- **Wisselen**: klik in de menubalk op het logo en de naam van je organisatie en kies **Wissel organisatie** (op een telefoon staat dat in het menu). Je komt weer op het keuzescherm; **Terug** laat alles zoals het was.
 - Zie je het keuzescherm onverwacht terug, dan bestaat je organisatie niet meer of is ze uitgezet. Kies opnieuw, of vraag de beheerder.
 
 Na het wisselen zie je alleen nog de gegevens van de nieuwe organisatie; niets van de vorige blijft op het scherm staan.
@@ -19,22 +19,22 @@ Bovenin staat altijd dezelfde balk:
 
 | Onderdeel | Waarvoor |
 |---|---|
-| **Actieve productie** | Tijdschema, crew en de interviewkeuze van de wedstrijd van vandaag |
+| **Productie** | Tijdschema, crew en de interviewkeuze van de wedstrijd van vandaag |
 | **Scoreboard** | Score, wedstrijdklok en schotklok op een zwart scherm |
-| **Callsheet** | Jouw items, per positie, met de tijden en wat er nu gebeurt |
-| **Show Caller** | Het hele draaiboek, en de knoppen om de show door te zetten |
+| **Callsheet** | Kies je positie voor jouw items met de tijden, of kies de tegel **Show Caller** voor het hele draaiboek met de knoppen om de show door te zetten |
 | **Interviews** | Wie er geïnterviewd wordt: foto, naam, rugnummer en ploeg |
 | **vMix** | Countdown-timer en de callsheet naar vMix voor presentator en analist |
 
-Op een telefoon of tablet staat in de balk alleen het logo, **LIVE** en de naam van het scherm waar je bent. Met de **menuknop** (drie streepjes) open je de onderdelen, je organisatie (om te wisselen), **Beheer**, **Over deze app** en het donkere thema.
+Op een telefoon of tablet staat in de balk alleen het logo, **LIVE** en de naam van het scherm waar je bent. Met de **menuknop** (drie streepjes) open je de onderdelen, je organisatie (met **Organisatie-instellingen** en **Wissel organisatie**), **Beheer**, **Over deze app** en **Donkere modus** / **Lichte modus**.
 
 Rechts in de balk:
 
-- **Logo en naam van je organisatie**: wisselen van organisatie (zie hierboven).
-- **Beheer** opent het deel waarin de productie wordt voorbereid (zie de *Handleiding Beheer*).
+- **Logo en naam van je organisatie**: een menu met **Organisatie-instellingen** (opent Beheer, zie de *Handleiding Beheer*) en **Wissel organisatie** (zie hierboven).
 - **?** opent deze handleiding bij het scherm waar je op dat moment bent.
-- **i** toont de versie van de app.
-- **Dark mode / Light mode** wisselt tussen een donker en een licht scherm. Je keuze wordt op dit apparaat onthouden.
+- **Tandwiel**: een menu met
+  - **Beheer**: het deel waarin de productie wordt voorbereid (zie de *Handleiding Beheer*);
+  - **Donkere modus** / **Lichte modus**: wisselt tussen een donker en een licht scherm. Je keuze wordt op dit apparaat onthouden;
+  - **Over deze app**: de versie van de app.
 
 ## Wat je in LIVE kunt veranderen
 

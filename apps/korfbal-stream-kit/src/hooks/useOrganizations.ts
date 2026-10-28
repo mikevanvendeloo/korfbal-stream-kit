@@ -40,7 +40,7 @@ export function useActiveOrganizations() {
   });
 }
 
-/** All organizations, also the inactive ones (Beheer → Setup → Organisaties). */
+/** All organizations, also the inactive ones (Beheer → tandwiel → Organisaties). */
 export function useAllOrganizations() {
   return useQuery({
     queryKey: organizationKeys.everything,

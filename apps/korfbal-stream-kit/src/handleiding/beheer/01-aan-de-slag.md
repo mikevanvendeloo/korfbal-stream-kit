@@ -2,6 +2,10 @@
 
 Beheer is het deel van Korfbal StreamKit waarin je alles voorbereidt: het seizoen, de crew en posities, de draaiboeken en per wedstrijd de productie. Je opent het via **Beheer** rechtsboven in LIVE, of rechtstreeks op `/admin`. Alles wat je hier doet, geldt voor de gekozen organisatie ([Organisaties](/admin/handleiding/organisaties)). De crew gebruikt tijdens de uitzending LIVE (zie de *Handleiding LIVE*).
 
+## De startpagina
+
+Op de startpagina van Beheer staat onder het welkomstwoord **Eerstvolgende producties**: een kaart per productie van de eerstvolgende dag waarop er producties zijn (vandaag, of bijvoorbeeld komende zaterdag), op volgorde van de livetijd. De dag staat in de kop, bijvoorbeeld *Eerstvolgende producties — zaterdag 14 november*. Klik op de wedstrijd om de productie te openen, of op de bezetting om naar **Beschikbaarheid** te gaan. **Actief** staat bij de productie die LIVE volgt. Is er niets meer gepland, dan brengt **Alle producties** je naar de lijst. Je ziet alleen producties uit het actieve seizoen.
+
 ## Het menu
 
 | Menu | Waarvoor |
@@ -9,16 +13,18 @@ Beheer is het deel van Korfbal StreamKit waarin je alles voorbereidt: het seizoe
 | **Producties** | Per wedstrijd: draaiboek, beschikbaarheid, bezetting, vMix-titels en rapport. Ook een snelkoppeling naar de actieve productie. |
 | **Stamgegevens** | Eén keer of per seizoen: draaiboeken (herbruikbare draaiboek- en segment-templates, standaardbezetting per segment), crew (personen, posities, skills), competitie (wedstrijden, clubs en spelers), sponsors en vMix |
 | **Rapportages** | Overzichten over producties heen |
-| **Overig** | Hulpmiddelen zoals de QR-generator |
-| **Setup** | De gekozen **Organisatie** (logo, wedstrijdimport, API-sleutels) en alle **Organisaties** |
 
 Rechtsboven:
 
-- **Logo en naam**: de organisatie waarvoor je werkt. Klik erop om te wisselen ([Organisaties](/admin/handleiding/organisaties)).
+- **Logo en naam**: de organisatie waarvoor je werkt. Klik erop voor een menu met **Organisatie-instellingen** (logo, wedstrijdimport, API-sleutels) en **Wissel organisatie** ([Organisaties](/admin/handleiding/organisaties)).
 - **Seizoen …**: het actieve seizoen. Klik erop om een ander seizoen te kiezen.
-- **Tandwiel**: de [instellingen](/admin/handleiding/instellingen).
 - **?**: deze handleiding, bij het scherm waar je bent.
-- **i**: de versie van de app.
+- **Tandwiel**: een menu met
+  - **Instellingen**: de [instellingen](/admin/handleiding/instellingen);
+  - **Organisaties**: alle organisaties beheren ([Organisaties](/admin/handleiding/organisaties));
+  - **Donkere modus** / **Lichte modus**: wissel de kleuren van het scherm;
+  - **Over deze app**: de versie van de app;
+  - onder **Tools**: de [QR-generator](#qr-generator).
 
 ## De weg van seizoen naar uitzending
 
@@ -40,7 +46,7 @@ Rechtsboven:
 
 ## QR-generator
 
-Onder **Overig → QR-generator** maak je een QR-code voor een webadres of e-mailadres, bijvoorbeeld voor een sponsor of de livestream. Kies het **Type**, vul de inhoud in, kies de **Grootte** en download de code als **SVG** (blijft scherp, voor drukwerk) of **PNG**. Er wordt niets bewaard.
+Onder **tandwiel → Tools → QR-generator** maak je een QR-code voor een webadres of e-mailadres, bijvoorbeeld voor een sponsor of de livestream. Kies het **Type**, vul de inhoud in, kies de **Grootte** en download de code als **SVG** (blijft scherp, voor drukwerk) of **PNG**. Er wordt niets bewaard.
 
 ## Goed om te weten
 
