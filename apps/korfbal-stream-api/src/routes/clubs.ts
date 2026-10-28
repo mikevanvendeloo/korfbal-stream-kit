@@ -8,7 +8,7 @@ import {logger} from "../utils/logger";
 import {getAssetsRoot} from "../services/config";
 import {Season} from '@prisma/client';
 import {resolveSeason, resolveSeasonId, seasonAssetDir} from '../services/season';
-import {clubAbbreviation, clubShortName} from '../utils/clubs';
+import {clubAbbreviation, clubShortName, findImportClub} from '../utils/clubs';
 import {UpdateClubSchema} from '../schemas/club';
 
 export const clubsRouter: Router = Router();
@@ -415,16 +415,15 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
       }
     }
 
-    // Prepare club upsert. The lookup slug comes from the full raw short name (as it always has),
-    // so a re-import finds the same club; a club's slug never changes (photos and logos live under it).
+    // Prepare club upsert. The lookup slug comes from the full raw short name (as it always has); without a
+    // club for it, a club with the same short name counts too (the sponsor after the `/` changes per season,
+    // and a club may have been made by hand or restored). A club's slug never changes (photos and logos live under it).
     const baseSlug = slugify(shortName || baseName);
-    let slug = baseSlug;
-    const existingBySlug = await prisma.club.findUnique({where: {slug}}).catch(() => null);
-    if (existingBySlug) {
-      // Keep slug; will update club
-    } else {
-      slug = await ensureUniqueSlug(baseSlug);
-    }
+    const existing = findImportClub(
+      await prisma.club.findMany({select: {id: true, name: true, shortName: true, slug: true}}),
+      baseSlug, [shortName, baseName],
+    );
+    const slug = existing ? existing.slug : await ensureUniqueSlug(baseSlug);
 
     // Download logo if possible
     let logoLocal: string | undefined;
@@ -443,8 +442,9 @@ async function processImportSources(sources: Array<{ teamId: string | number; po
 
     let club = await prisma.club.findUnique({where: {slug}}).catch(() => null);
     if (club) {
-      // Name, short name and abbreviation may have been edited by hand: an import never overwrites them
-      club = await prisma.club.update({where: {id: club.id}, data: {logoUrl}});
+      // Name, short name and abbreviation may have been edited by hand: an import never overwrites them.
+      // Nor a logo with none (a club found by its short name may have one of its own).
+      club = await prisma.club.update({where: {id: club.id}, data: logoUrl ? {logoUrl} : {}});
       clubsUpdated++;
     } else {
       club = await prisma.club.create({data: clubData});
@@ -569,7 +569,7 @@ clubsRouter.post('/import/league-teams', async (req, res, next) => {
         const resp = await fetch(url);
         logger.info(`HTTP ${resp.status} GET ${url} — team page`);
         if (!resp.ok) {
-          problems.push(`Team page fetch failed (${resp.status}): ${url}`);
+          problems.push(`Teampagina niet gevonden op league.korfbal.nl (HTTP ${resp.status}): ${url}`);
           continue;
         }
         const page = await resp.text();
@@ -579,7 +579,7 @@ clubsRouter.post('/import/league-teams', async (req, res, next) => {
         if (ids.teamId) {
           sources.push({teamId: ids.teamId, poolId: ids.poolId});
         } else {
-          problems.push(`Could not extract teamId: ${url}`);
+          problems.push(`Ploeg staat op league.korfbal.nl nog zonder team-id, dus zonder selectie: ${url}`);
         }
       } catch (e: any) {
         problems.push(`Error fetching team page ${url}: ${e?.message || 'unknown'}`);
@@ -643,9 +643,11 @@ clubsRouter.get('/', async (req, res, next) => {
   try {
     const seasonId = await resolveSeasonId(req.query.seasonId);
     const items = await prisma.club.findMany({
-      orderBy: {name: 'asc'},
       include: {_count: {select: {players: {where: {seasonId}}}}},
     });
+    // By short name, as the lists show it, ignoring case and accents (the database would put "DVO" before "Dalto")
+    const label = (c: {name: string; shortName: string}) => c.shortName || c.name;
+    items.sort((a, b) => label(a).localeCompare(label(b), 'nl', {sensitivity: 'base', numeric: true}));
     return res.json(items.map(({_count, ...club}) => ({...club, playerCount: _count?.players ?? 0})));
   } catch (err) {
     return next(err);

@@ -70,10 +70,21 @@ export const PositionSelector = ({ viewType }: Props) => {
         </div>
       )}
       <h1 className="text-4xl font-black text-gray-900 dark:text-white mb-12 tracking-tight">Kies je positie</h1>
-      {positions.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400">Geen posities gevonden voor deze productie. Zorg dat er items met posities zijn aangemaakt.</p>
-      ) : (
+      {positions.length === 0 && (
+        <p className="text-gray-500 dark:text-gray-400 mb-8">Geen posities gevonden voor deze productie. Zorg dat er items met posities zijn aangemaakt.</p>
+      )}
+      {(positions.length > 0 || viewType === 'callsheet') && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-6xl">
+          {/* The Show Caller has no menu entry of its own: it is the first choice here */}
+          {viewType === 'callsheet' && (
+            <Link
+              to={`/show-caller/${productionId}/all`}
+              className="group relative overflow-hidden bg-red-600 hover:bg-red-700 p-8 rounded-2xl text-center transition-all border border-red-600 shadow-sm hover:shadow-xl hover:-translate-y-1"
+            >
+              <span className="relative z-10 block text-xl font-bold text-white">Show Caller</span>
+              <span className="relative z-10 block text-sm text-white/80 mt-1">Alle items, met de bediening</span>
+            </Link>
+          )}
           {positions.map((pos) => (
             <Link
               key={pos.id}

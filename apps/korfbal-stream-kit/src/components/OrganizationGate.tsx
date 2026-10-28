@@ -152,16 +152,3 @@ export function OrganizationGate({children}: { children: React.ReactNode }) {
     </OrganizationContext.Provider>
   );
 }
-
-/** The chosen organization in a nav: logo + name; a click opens the start screen. */
-export function OrganizationSwitcher({className = '', showName = true}: { className?: string; showName?: boolean }) {
-  const {organization, switchOrganization} = useCurrentOrganization();
-  if (!organization) return null;
-  return (
-    <button type="button" onClick={switchOrganization} title="Wissel organisatie" aria-label={`Wissel organisatie (nu ${organization.name})`}
-            className={`inline-flex items-center gap-2 min-w-0 rounded-full border border-gray-200 dark:border-gray-700 pl-1 pr-3 py-0.5 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 ${className}`}>
-      <OrganizationLogo organization={organization} size="small"/>
-      {showName && <span className="truncate">{organization.name}</span>}
-    </button>
-  );
-}

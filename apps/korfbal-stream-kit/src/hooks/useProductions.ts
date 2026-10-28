@@ -22,6 +22,11 @@ export type Production = {
   matchScheduleId: number;
   isActive: boolean;
   liveTime?: string;
+  /** Own opbouw / verzamel time; null = the organization's default (see `planned`) */
+  setupTime?: string | null;
+  crewCallTime?: string | null;
+  /** Only on a single production (GET /api/production/:id and /active): the times as they count */
+  planned?: PlannedTimes | null;
   callSheetTemplateId?: number | null;
   /** Only in the list (GET /api/production): the minimum staffing of the people present */
   staffing?: StaffingSummary;
@@ -31,6 +36,17 @@ export type Production = {
     awayTeamName: string;
     date: string;
   }
+};
+
+/** The day planning of one production (services/dayPlanning.ts in the API). */
+export type PlannedTimes = {
+  liveStart: string;
+  crewCallTime: string;
+  crewCallIsDefault: boolean;
+  /** Opbouw counts only for the day's first stream */
+  isFirstOfDay: boolean;
+  setupTime: string | null;
+  setupIsDefault: boolean;
 };
 
 export type ProductionSegment = {
@@ -160,18 +176,21 @@ export function useCreateProduction() {
 export function useUpdateProduction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: number; matchScheduleId?: number; liveTime?: string | null }): Promise<Production> => {
-      const res = await fetch(createUrl(`/api/production/${input.id}`), {
+    mutationFn: async (input: { id: number; matchScheduleId?: number; liveTime?: string | null; setupTime?: string | null; crewCallTime?: string | null }): Promise<Production> => {
+      const {id, ...body} = input;
+      const res = await fetch(createUrl(`/api/production/${id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchScheduleId: input.matchScheduleId, liveTime: input.liveTime }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['productions'] });
-      qc.invalidateQueries({ queryKey: ['production', data.id] });
+      // A changed live time also moves the default opbouw of the other productions of that day
+      qc.invalidateQueries({ queryKey: ['production'] });
+      qc.invalidateQueries({ queryKey: ['reports', 'daily-occupancy'] });
     },
   });
 }

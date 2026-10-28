@@ -6,6 +6,7 @@ import {getSetting, PRODUCTION_TEAM_NAMES_KEY} from '../services/appSettings';
 import {resolveSeasonId} from '../services/season';
 import {staffingSummaries} from '../services/productionStaffing';
 import {parseOptionalInstant} from '../utils/time';
+import {plannedTimesOf} from '../services/dayPlanning';
 
 // Import all production sub-routers
 import {productionPersonsRouter} from './production/production-persons';
@@ -191,7 +192,9 @@ productionRouter.get('/active', async (_req, res, next) => {
       orderBy: { createdAt: 'desc' },
       include: { matchSchedule: true },
     });
-    return res.json({ item });
+    if (!item) return res.json({ item });
+    // Opbouw and verzamelen for LIVE → Productie
+    return res.json({ item: {...item, planned: await plannedTimesOf(item.id, item.matchSchedule.date)} });
   } catch (err) {
     return next(err);
   }
@@ -237,7 +240,9 @@ productionRouter.get('/:id', async (req, res, next) => {
       },
     });
     if (!item) return res.status(404).json({ error: 'Not found' });
-    return res.json(item);
+    // The opbouw/verzamel times as they count (own value or the default), for the placeholders in Beheer
+    const planned = await plannedTimesOf(item.id, item.matchSchedule.date);
+    return res.json({...item, planned});
   } catch (err) {
     return next(err);
   }
@@ -267,6 +272,14 @@ productionRouter.put('/:id', async (req, res, next) => {
       const liveTime = parseOptionalInstant(req.body.liveTime);
       if (liveTime === 'invalid') return res.status(400).json({ error: 'Invalid liveTime' });
       data.liveTime = liveTime;
+    }
+
+    // Opbouw and verzamelen: an own time, or null for the organization's default (services/dayPlanning.ts)
+    for (const field of ['setupTime', 'crewCallTime'] as const) {
+      if (req.body[field] === undefined) continue;
+      const value = parseOptionalInstant(req.body[field]);
+      if (value === 'invalid') return res.status(400).json({ error: `Invalid ${field}` });
+      data[field] = value;
     }
 
     const updated = await prisma.production.update({ where: { id }, data });

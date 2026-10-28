@@ -2,11 +2,13 @@ import React from 'react';
 import {usePositionsCatalog} from '../hooks/usePositions';
 import {
   CallsheetColors,
+  findVmixInput,
   TimingState,
   useCallsheetTiming,
   usePushCallsheetToVmix,
   useSaveVmixCallsheetPushConfig,
   useVmixCallsheetPushConfig,
+  useVmixInputs,
   VmixCallsheetPushConfig
 } from '../hooks/useVmixCallsheetPush';
 
@@ -14,13 +16,52 @@ const inputClass = 'mt-1 w-full px-3 py-2 rounded-md border border-gray-300 dark
 const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300';
 const stateLabels: Record<TimingState, string> = {normal: 'Normaal', warning: 'Bijna op', overtime: 'Over tijd'};
 
+// The text fields of the chosen vMix title, as suggestions for every field input
+const FIELDS_LIST = 'vmix-title-fields';
+
 function FieldInput({id, label, value, placeholder, onChange}: {
   id: string; label: string; value: string; placeholder?: string; onChange: (value: string) => void;
 }) {
   return (
     <div>
       <label htmlFor={id} className={labelClass}>{label}</label>
-      <input id={id} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={inputClass}/>
+      <input id={id} value={value} placeholder={placeholder} list={FIELDS_LIST} onChange={(e) => onChange(e.target.value)} className={inputClass}/>
+    </div>
+  );
+}
+
+/** The vMix title: typed (name, number or key) or chosen from the inputs vMix reports. */
+function VmixInputPicker({value, onChange}: { value: string; onChange: (value: string) => void }) {
+  const inputs = useVmixInputs();
+  const list = inputs.data?.inputs;
+  const chosen = list ? findVmixInput(list, value) : undefined;
+  const titles = (list ?? []).filter((i) => i.fields.length > 0);
+
+  return (
+    <div className="min-w-0">
+      <FieldInput id="push-input" label="vMix title (naam, nummer of key)" value={value} placeholder="Callsheet.gtzip" onChange={onChange}/>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => inputs.refetch()} disabled={inputs.isFetching}
+                className="px-3 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800">
+          {inputs.isFetching ? 'Ophalen…' : 'Inputs ophalen uit vMix'}
+        </button>
+        {list && (
+          <select aria-label="Kies een title uit vMix" value={chosen?.key ?? ''} className="min-w-0 max-w-full px-2 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                  onChange={(e) => e.target.value && onChange(e.target.value)}>
+            <option value="">{titles.length ? 'Kies een title…' : 'Geen titles in vMix'}</option>
+            {titles.map((i) => <option key={i.key} value={i.key}>{i.number}. {i.title} ({i.type})</option>)}
+          </select>
+        )}
+      </div>
+      {inputs.isError && <p role="alert" className="mt-1 text-sm text-red-600">{(inputs.error as Error).message}</p>}
+      {list && value.trim() && (
+        chosen
+          ? <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 break-words">In {inputs.data?.instance}: input {chosen.number}, {chosen.title}. De velden van deze title staan als suggestie bij de veldnamen.</p>
+          : <p role="alert" className="mt-1 text-sm text-orange-700 dark:text-orange-400 break-words">vMix heeft geen input &quot;{value}&quot;. Een naam moet precies kloppen, met hoofdletters en extensie; kies de title uit de lijst.</p>
+      )}
+      <datalist id={FIELDS_LIST}>
+        {(chosen?.fields ?? []).map((f) => <option key={f} value={f}/>)}
+      </datalist>
     </div>
   );
 }
@@ -117,6 +158,11 @@ export function CallsheetPushPreview({colors}: { colors: Pick<VmixCallsheetPushC
             {push.data.sent} velden naar vMix gestuurd{push.data.errors.length ? `, fouten: ${push.data.errors.join('; ')}` : ''}
           </div>
         )}
+        {!!push.data?.warnings?.length && (
+          <ul role="alert" aria-label="vMix negeert" className="w-full text-sm text-orange-700 dark:text-orange-400 list-disc pl-5">
+            {push.data.warnings.map((w) => <li key={w} className="break-words">{w}</li>)}
+          </ul>
+        )}
         {push.isError && <div role="alert" className="text-sm text-red-600">{(push.error as Error).message}</div>}
       </div>
     </section>
@@ -155,8 +201,7 @@ export default function VmixCallsheetPushSettings() {
           Automatisch pushen naar vMix
         </label>
         <div className="flex-1 min-w-[12rem]">
-          <FieldInput id="push-input" label="vMix title (naam, nummer of key)" value={config.input} placeholder="Callsheet Presentatie"
-                      onChange={(input) => setConfig({...config, input})}/>
+          <VmixInputPicker value={config.input} onChange={(input) => setConfig({...config, input})}/>
         </div>
         <div className="w-40">
           <label htmlFor="push-warning" className={labelClass}>Oranje vanaf (sec)</label>

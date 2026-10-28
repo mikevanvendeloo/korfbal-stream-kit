@@ -47,14 +47,20 @@ describe('App', () => {
     expect(baseElement).toBeTruthy();
   });
 
-  it('shows the LIVE app on the root, with a single link to Beheer', () => {
+  it('shows the LIVE app on the root; Beheer only through the gear and the organization menu', async () => {
     renderApp('/');
     expect(screen.getAllByText('LIVE').length).toBeGreaterThan(0);
     expect(screen.getByRole('link', {name: 'Scoreboard'})).toHaveAttribute('href', '/scoreboard');
-    expect(screen.getByRole('link', {name: 'Show Caller'})).toHaveAttribute('href', '/show-caller');
+    expect(screen.getByRole('link', {name: 'Callsheet'})).toHaveAttribute('href', '/callsheet');
+    expect(screen.queryByRole('link', {name: 'Show Caller'})).not.toBeInTheDocument();
     expect(screen.queryByRole('link', {name: 'Sponsors'})).not.toBeInTheDocument();
     expect(screen.getByRole('link', {name: 'Beheer'})).toHaveAttribute('href', '/admin');
-    expect(document.querySelectorAll('a[href^="/admin"]')).toHaveLength(1);
+    // The organization menu as in Beheer: its settings and switching
+    const organization = within((await screen.findByLabelText('Organisatiemenu (nu Fortuna)')).closest('details') as HTMLElement);
+    expect(organization.getByRole('link', {name: 'Organisatie-instellingen'})).toHaveAttribute('href', '/admin/setup/organisatie');
+    expect(organization.getByRole('button', {name: 'Wissel organisatie (nu Fortuna)'})).toBeInTheDocument();
+    expect(Array.from(document.querySelectorAll('a[href^="/admin"]')).map((a) => a.getAttribute('href')))
+      .toEqual(['/admin/setup/organisatie', '/admin']);
   });
 
   it('serves the LIVE manual in LIVE and the Beheer manual under /admin', async () => {
@@ -87,7 +93,7 @@ describe('App', () => {
     expect(screen.queryByRole('navigation', {name: 'LIVE'})).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', {name: 'Menu openen'}));
     const menu = screen.getByRole('navigation', {name: 'LIVE'});
-    expect(within(menu).getByRole('link', {name: 'Show Caller'})).toHaveAttribute('href', '/show-caller');
+    expect(within(menu).getByRole('link', {name: 'Callsheet'})).toHaveAttribute('href', '/callsheet');
     expect(within(menu).getByRole('link', {name: /Beheer/})).toHaveAttribute('href', '/admin');
     // Choosing a screen closes the menu again
     fireEvent.click(within(menu).getByRole('link', {name: 'Callsheet'}));
@@ -108,16 +114,34 @@ describe('App', () => {
   it('groups the Beheer menu by when you need it', async () => {
     renderApp('/admin');
     await screen.findByText('Korfbal Streamz Kit', {}, LAZY);
-    for (const menu of ['Producties', 'Draaiboeken', 'Stamgegevens', 'Rapportages', 'Overig']) {
+    for (const menu of ['Producties', 'Stamgegevens', 'Rapportages']) {
       expect(screen.getByText(menu, {selector: 'summary'})).toBeInTheDocument();
     }
     expect(screen.getByRole('link', {name: 'Personen'})).toHaveAttribute('href', '/admin/stamgegevens/personen');
-    expect(screen.getByRole('link', {name: 'Standaardbezetting per segment'})).toHaveAttribute('href', '/admin/draaiboeken/standaardbezetting');
-    expect(screen.getByRole('link', {name: 'QR-generator'})).toHaveAttribute('href', '/admin/overig/qr');
-    expect(screen.getByRole('link', {name: 'Organisaties'})).toHaveAttribute('href', '/admin/overig/organisaties');
-    expect(screen.getByRole('link', {name: 'Organisatie'})).toHaveAttribute('href', '/admin/overig/organisatie');
+    expect(screen.getByRole('link', {name: 'Standaardbezetting per segment'})).toHaveAttribute('href', '/admin/stamgegevens/standaardbezetting');
+    expect(screen.getByRole('link', {name: 'QR-generator'})).toHaveAttribute('href', '/admin/tools/qr');
+    expect(screen.getByRole('link', {name: 'Organisaties'})).toHaveAttribute('href', '/admin/setup/organisaties');
+    expect(await screen.findByRole('link', {name: 'Organisatie-instellingen'})).toHaveAttribute('href', '/admin/setup/organisatie');
     expect(screen.getByRole('link', {name: 'Instellingen'})).toHaveAttribute('href', '/admin/instellingen');
     expect(screen.queryByRole('link', {name: /vMix control/})).not.toBeInTheDocument();
+  });
+
+  it('puts the chosen organization under its logo, and settings, organizations, theme, about and the tools in the gear menu', async () => {
+    renderApp('/admin');
+    const organization = within((await screen.findByLabelText('Organisatiemenu (nu Fortuna)', {}, LAZY)).closest('details') as HTMLElement);
+    expect(organization.getByRole('link', {name: 'Organisatie-instellingen'})).toHaveAttribute('href', '/admin/setup/organisatie');
+    expect(organization.getByRole('button', {name: 'Wissel organisatie (nu Fortuna)'})).toBeInTheDocument();
+
+    const menu = within(screen.getByLabelText('Instellingen en tools').closest('details') as HTMLElement);
+    expect(menu.getByRole('link', {name: 'Instellingen'})).toHaveAttribute('href', '/admin/instellingen');
+    expect(menu.getByRole('link', {name: 'Organisaties'})).toHaveAttribute('href', '/admin/setup/organisaties');
+    expect(menu.getByRole('link', {name: 'Over deze app'})).toHaveAttribute('href', '/admin/over');
+    expect(menu.getByText('Tools')).toBeInTheDocument();
+    expect(menu.getByRole('link', {name: 'QR-generator'})).toHaveAttribute('href', '/admin/tools/qr');
+    const theme = menu.getByRole('button', {name: /modus$/});
+    const before = theme.textContent;
+    fireEvent.click(theme);
+    expect(theme.textContent).not.toBe(before);
   });
 
   it('shows the tabs of a production, from draaiboek to rapport', async () => {

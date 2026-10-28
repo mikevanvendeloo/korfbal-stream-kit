@@ -14,7 +14,7 @@ describe.runIf(runDb)('vMix match info data source (integration)', () => {
   const slug = `vmix-match-int-${Date.now()}`;
 
   beforeAll(async () => {
-    clubId = (await prisma.club.create({data: {name: 'Vmixmatch Thuisclub', shortName: 'Vmixmatch', slug, logoUrl: 'clubs/vmixmatch.png'}})).id;
+    clubId = (await prisma.club.create({data: {name: 'Vmixmatch Thuisclub', shortName: 'Vmixmatch', slug, logoUrl: 'clubs/vmixmatch.png', primaryColor: '#e30613', secondaryColor: '#ffffff'}})).id;
     sponsorId = (await prisma.sponsor.create({data: {name: 'Vmixmatch Balsponsor', type: 'goud', logoUrl: 'vmixmatch.png', websiteUrl: 'https://example.org'}})).id;
     // Active, so the data source picks it (the scenario switches the other productions off)
     show = await createProductionScenario(prisma, {
@@ -44,6 +44,8 @@ describe.runIf(runDb)('vMix match info data source (integration)', () => {
       match: 'Vmixmatch 1 - Tegenstander 1',
       homeShort: 'Vmixmatch',
       homeLogo: 'http://10.0.0.5:3333/uploads/clubs/vmixmatch.png',
+      homePrimaryColor: '#e30613',
+      homeSecondaryColor: '#ffffff',
       kickoff: '20:00',
       accommodation: 'Sporthal',
       referees: 'J. de Vries & P. Bakker',

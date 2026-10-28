@@ -34,6 +34,25 @@ import {atAmsterdamTime, formatTime} from '../lib/time';
 // Amsterdam time, whatever the device's zone
 const timeLocal = (iso?: string | null) => formatTime(iso);
 
+/**
+ * Opbouw or verzamelen: the production's own time, or empty with the organization's default (from the
+ * day planning) as the grey placeholder. Clearing the field brings back the default.
+ */
+function PlannedTimeField({id, label, own, planned, onCommit}: {
+  id: string; label: string; own?: string | null; planned?: string | null; onCommit: (value: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <label htmlFor={id} className="text-sm font-medium">{label}:</label>
+      <TimeInput24 id={id} className="px-2 py-1 border rounded dark:bg-gray-800 dark:border-gray-700 w-20"
+                   value={own ? formatTime(own) : ''}
+                   placeholder={planned ? formatTime(planned) : ''}
+                   title={own ? 'Eigen tijd; maak leeg voor de standaard' : 'Standaard (Instellingen → Club & Teams); vul een tijd in om af te wijken'}
+                   onCommit={onCommit}/>
+    </div>
+  );
+}
+
 export default function ProductionDetailPage() {
   const params = useParams<{ id: string }>();
   const id = Number(params.id);
@@ -132,6 +151,17 @@ export default function ProductionDetailPage() {
     }
   }
 
+  /** An own opbouw / verzamel time on the match's day; empty brings back the organization's default. */
+  async function handlePlannedTimeChange(field: 'setupTime' | 'crewCallTime', value: string) {
+    setErr(null);
+    try {
+      if (!prod?.matchSchedule?.date) return;
+      await updateProduction.mutateAsync({ id, [field]: value ? atAmsterdamTime(prod.matchSchedule.date, value) : null });
+    } catch (e: any) {
+      setErr(e?.message || 'Opslaan tijd mislukt');
+    }
+  }
+
   const handleExport = () => {
     void downloadExport(`/api/production/${id}/export`, `productie-${id}.json`);
   };
@@ -186,7 +216,7 @@ export default function ProductionDetailPage() {
 
       {/* Match header */}
       {prod && (
-        <div className="mb-4 p-3 border rounded border-gray-200 dark:border-gray-800 flex justify-between items-center">
+        <div className="mb-4 p-3 border rounded border-gray-200 dark:border-gray-800 flex flex-wrap items-center gap-x-6 gap-y-2">
           <div className="flex items-center gap-2">
             <label htmlFor="liveTime" className="text-sm font-medium">Livestream start:</label>
             <TimeInput24
@@ -202,6 +232,13 @@ export default function ProductionDetailPage() {
               onCommit={handleLiveTimeChange}
             />
           </div>
+          <PlannedTimeField id="crewCallTime" label="Verzamelen" own={prod.crewCallTime} planned={prod.planned?.crewCallTime}
+                            onCommit={(value) => handlePlannedTimeChange('crewCallTime', value)}/>
+          {/* Opbouw counts only for the day's first stream */}
+          {(prod.planned?.isFirstOfDay || prod.setupTime) && (
+            <PlannedTimeField id="setupTime" label="Opbouw" own={prod.setupTime} planned={prod.planned?.setupTime}
+                              onCommit={(value) => handlePlannedTimeChange('setupTime', value)}/>
+          )}
         </div>
       )}
 

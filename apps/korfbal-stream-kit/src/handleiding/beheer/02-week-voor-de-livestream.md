@@ -44,7 +44,7 @@ Op de dag zelf, ruim voor de livestream begint.
 
 ### De app
 
-- [ ] **Draait de service nog?** Open LIVE en klik rechtsboven op **i**: bij *Backend Versie* moet een versienummer staan. Staat er *Niet beschikbaar*, dan draait de server niet.
+- [ ] **Draait de service nog?** Open LIVE en kies rechtsboven **tandwiel → Over deze app**: bij *Backend Versie* moet een versienummer staan. Staat er *Niet beschikbaar*, dan draait de server niet.
 - [ ] **Is de juiste productie actief?** LIVE, de callsheets en vMix volgen de actieve productie. Zet hem bij **Producties** op **Activeren** ([meer](/admin/handleiding/producties#een-productie-activeren)).
 
 ### vMix

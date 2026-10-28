@@ -65,7 +65,7 @@ export default function TimeInput24({value, onCommit, onValidityChange, classNam
       type="text"
       inputMode="numeric"
       autoComplete="off"
-      placeholder="uu:mm"
+      placeholder={rest.placeholder || 'uu:mm'}
       maxLength={5}
       value={draft}
       aria-invalid={invalid || undefined}

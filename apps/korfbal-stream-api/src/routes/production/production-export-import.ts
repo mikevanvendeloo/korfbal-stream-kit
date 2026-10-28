@@ -125,6 +125,8 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
       production: {
         isActive: production.isActive,
         liveTime: production.liveTime,
+        setupTime: production.setupTime,
+        crewCallTime: production.crewCallTime,
         report: production.productionReport ? {
           matchSponsor: production.productionReport.matchSponsor,
           ballSponsor: production.productionReport.ballSponsor,
@@ -319,7 +321,9 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
           data: {
             matchScheduleId: match.id,
             isActive: data.production.isActive,
-            liveTime
+            liveTime,
+            setupTime: parseInstant(data.production.setupTime),
+            crewCallTime: parseInstant(data.production.crewCallTime)
           }
         });
       } else {
@@ -327,7 +331,9 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
           where: { id: production.id },
           data: {
             isActive: data.production.isActive,
-            liveTime: parseInstant(data.production.liveTime)
+            liveTime: parseInstant(data.production.liveTime),
+            setupTime: parseInstant(data.production.setupTime),
+            crewCallTime: parseInstant(data.production.crewCallTime)
           }
         });
       }

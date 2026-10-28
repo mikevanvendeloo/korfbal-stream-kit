@@ -32,7 +32,35 @@ export type CallsheetTiming = {
   nextState: TimingState;
 };
 
-export type PushResult = { sent: number; skipped: number; errors: string[] };
+/** `warnings`: what vMix accepted but will ignore (an input or text field it doesn't have) */
+export type PushResult = { sent: number; skipped: number; errors: string[]; warnings?: string[] };
+
+/** A vMix input from GET /api/vmix/inputs; `fields` are the SelectedNames of its text fields */
+export type VmixInput = { key: string; number: number; type: string; title: string; fields: string[] };
+
+/** The input a vMix `Input=` value points at: a number, the key or the exact title (as the API resolves it). */
+export function findVmixInput(inputs: VmixInput[], ref: string): VmixInput | undefined {
+  const value = ref.trim();
+  if (/^\d+$/.test(value)) return inputs.find((i) => i.number === Number(value));
+  return inputs.find((i) => i.key.toLowerCase() === value.toLowerCase()) ?? inputs.find((i) => i.title === value);
+}
+
+/**
+ * All inputs of the vMix PC the callsheet push sends to (`function=callsheet` chooses that PC from the
+ * vMix instances, not a title), fetched on request (`refetch`), not on mount. Any title can then be chosen.
+ */
+export function useVmixInputs() {
+  return useQuery({
+    queryKey: ['vmix-inputs', 'callsheet'],
+    enabled: false,
+    retry: false,
+    queryFn: async (): Promise<{ instance: string; inputs: VmixInput[] }> => {
+      const res = await fetch(createUrl('/api/vmix/inputs?function=callsheet'));
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+  });
+}
 
 const CONFIG_KEY = ['vmix-callsheet-push'];
 

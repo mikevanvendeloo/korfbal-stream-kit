@@ -1,5 +1,8 @@
+import {Fragment, ReactNode} from 'react';
 import {CallSheetItem} from './CallSheetItem';
+import {CallSheetWaitRow} from './CallSheetWaitRow';
 import {Position, ProductionEvent} from '../hooks/useLiveState';
+import {callsheetWait, isForPosition} from '../lib/callsheetWait';
 
 interface Props {
   title: string;
@@ -38,9 +41,18 @@ export const CallSheetColumn = ({
   const isEmerald = accentColor === 'emerald';
 
   // Filter de items die relevant zijn voor de positie van deze kolom.
-  const relevantItems = items.filter(item =>
-    item.positions.length === 0 || item.positions.some(p => p.position.id === positionId)
-  );
+  const relevantItems = items.filter(item => isForPosition(item, positionId));
+
+  // The show runs something that isn't for this position: a wait row where the active item would be (its
+  // placeholder slot when other columns show it), else right before the position's next item, else at the end.
+  const wait = callsheetWait(items, activeEvent, positionId);
+  const activeTime = wait && items.find(item => item.id === activeEvent?.id)?.calculatedTime?.toISOString();
+  let waitPlaced = false;
+  const waitRow = (): ReactNode => {
+    if (!wait || waitPlaced) return null;
+    waitPlaced = true;
+    return <CallSheetWaitRow wait={wait}/>;
+  };
 
   const itemsByTime: Record<string, (ProductionEvent & { calculatedTime?: Date | null })[]> = {};
   relevantItems.forEach(item => {
@@ -123,17 +135,20 @@ export const CallSheetColumn = ({
 
           if (item) {
             return (
-              <CallSheetItem
-                key={item.id}
-                item={item}
-                isActive={activeEvent?.id === item.id}
-                isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
-                elapsedTime={elapsedTime}
-                remainingTimeDisplay={activeEvent?.id === item.id ? activeEventRemainingTime : null}
-                isVenueItem={isEmerald}
-              />
+              <Fragment key={item.id}>
+                {wait?.kind === 'waiting' && wait.next.id === item.id && waitRow()}
+                <CallSheetItem
+                  item={item}
+                  isActive={activeEvent?.id === item.id}
+                  isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
+                  elapsedTime={elapsedTime}
+                  remainingTimeDisplay={activeEvent?.id === item.id ? activeEventRemainingTime : null}
+                  isVenueItem={isEmerald}
+                />
+              </Fragment>
             );
           }
+          if (time === activeTime && !waitPlaced) return <Fragment key={timeSlot}>{waitRow()}</Fragment>;
           // Gebruik de CallSheetItem placeholder for perfecte uitlijning
           return (
             <CallSheetItem
@@ -143,6 +158,7 @@ export const CallSheetColumn = ({
             />
           );
         })}
+        {waitRow()}
         {relevantItems.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-gray-300 dark:text-white/20 bg-gray-100 dark:bg-white/5 rounded-xl border-2 border-dashed border-gray-200 dark:border-white/5">
             <p className="text-lg font-bold uppercase tracking-widest">Geen items</p>

@@ -55,10 +55,20 @@ Onder **Rapportages** staan overzichten van het actieve seizoen. Bij elk overzic
 
 | Overzicht | Wat je ziet |
 |---|---|
-| **Dagbezetting** | Kies een productie: je ziet alle producties van die dag naast elkaar, met per persoon de positie, *Geen positie*, of een rood kruisje als de persoon niet als aanwezig is aangevinkt. Daaronder de wedstrijdgegevens, sponsors en interviews. |
+| **Dagbezetting** | Kies een productie: bovenaan de **dagplanning** van die dag, daaronder alle producties van die dag naast elkaar, met per persoon de positie, *Geen positie*, of een rood kruisje als de persoon niet als aanwezig is aangevinkt. Daaronder de wedstrijdgegevens, sponsors en interviews. |
 | **Positieoverzicht** | Dezelfde dag, nu per positie: wie staat waar, en welke posities niet zijn ingevuld (rood kruisje) |
 | **Interviews** | Alle producties met de interviews, opmerkingen, sponsor en balsponsor |
-| **Crewrollen** | Per productie de speaker, regisseur, presentator, analist en commentaar |
+| **Entertainmentrollen** | Per productie wie de rollen vóór de camera had: een kolom per positie met de categorie **ENTERTAINMENT** (speaker, presentatie, analist, commentaar, …) |
+| **Crewrollen** | Per productie wie de technische en algemene rollen had: een kolom per positie met de categorie **TECHNICAL** of **GENERAL** (regie livestream, camera's, oplopen geluid, regie LED-scherm, showcaller, runner, …) |
 | **Tijdsanalyse** | Een lijst producties; open per productie de tijdsanalyse |
 
-> De overzichten gebruiken de **productie-brede** posities, niet de afwijkingen per segment. Crewrollen kijkt naar de skill van de positie: een commentator verschijnt alleen als zijn positie aan de skill *Commentaar* gekoppeld is.
+> Dagbezetting en Positieoverzicht gebruiken de **productie-brede** posities, niet de afwijkingen per segment. Entertainmentrollen en Crewrollen tonen beide: wie een positie voor de hele productie had én wie die positie alleen in een segment deed. Welke kolommen er staan, volgt uit de categorie van de posities bij **Stamgegevens → Posities**.
+
+### Dagplanning
+
+Bovenaan **Dagbezetting** staat het dagprogramma, op volgorde van tijd:
+
+- **Opbouw**: eenmaal, voor de eerste stream van de dag;
+- per stream **Verzamelen** en **Live**, met de wedstrijd en *tot* het einde van de livestream.
+
+De tijden komen van de productie (tabblad **Draaiboek**: Livestream start, Verzamelen en Opbouw), of uit de standaard bij [Instellingen → Club & Teams](/admin/handleiding/instellingen#club-teams). De dagplanning gaat mee in de PNG-download.

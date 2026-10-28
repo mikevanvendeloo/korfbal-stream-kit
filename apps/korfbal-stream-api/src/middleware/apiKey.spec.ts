@@ -7,15 +7,18 @@ describe('isFeedApiPath', () => {
   it.each([
     '/vmix/sponsor-names', '/vmix/sponsor-carrousel', '/vmix/sponsor-slides', '/vmix/active-production/match',
     '/vmix/active-production/staff', '/vmix/production/active/titles', '/vmix/production/12/titles',
-    '/vmix/callsheet/timing', '/vmix/sync/activate-event', '/vmix/production/trigger-manual',
+    '/vmix/production/active/titles/coach-uit', '/VMIX/Production/Active/Titles/Presentatie/',
+    '/vmix/callsheet/timing', '/vmix/sync/activate-event', '/vmix/production/trigger-manual', '/vmix/set-timer',
+    '/show/next', '/show/previous', '/show/remaining',
     '/scoreboard', '/scoreboard/clock', '/scoreboard/shotclock',
     // Express routes case-insensitively and with an optional trailing slash
     '/VMIX/Sponsor-Names', '/vmix/sponsor-names/',
   ])('%s is a feed', (path) => expect(isFeedApiPath(path)).toBe(true));
 
   it.each([
-    '/production', '/sponsors', '/settings/vmix-url', '/organization/api-keys', '/vmix/endpoints', '/vmix/set-timer',
+    '/production', '/sponsors', '/settings/vmix-url', '/organization/api-keys', '/vmix/endpoints', '/show/start/1', '/show/stop/1',
     '/vmix/callsheet/push', '/vmix/sponsor-rows', '/vmix/sponsor-names/../../production', '/vmix/production/1/titles/x',
+    '/vmix/production/active/titles/coach-uit/x',
     '/scoreboardx', '/admin/vmix/title-templates', '/', '',
   ])('%s is not a feed', (path) => expect(isFeedApiPath(path)).toBe(false));
 });

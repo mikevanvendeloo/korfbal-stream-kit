@@ -13,7 +13,7 @@ Voor de presentator en de analist kan het huidige en het volgende callsheet-item
 - **Automatisch pushen staat aan**: de app werkt de titel in vMix elke seconde bij. Je hoeft niets te doen.
 - **Automatisch pushen staat uit**: de titel wordt alleen bijgewerkt als je op **Nu pushen** drukt.
 
-**Nu pushen** stuurt alle velden meteen naar vMix, ook als automatisch pushen aan staat. Daarna zie je hoeveel velden er zijn verstuurd, en eventuele fouten.
+**Nu pushen** stuurt alle velden meteen naar vMix, ook als automatisch pushen aan staat. Daarna zie je hoeveel velden er zijn verstuurd, en eventuele fouten. In oranje staat wat vMix negeert, bijvoorbeeld een title of veld dat vMix niet kent: vraag dan Beheer de instellingen na te lopen.
 
 ## Het voorbeeld
 

@@ -20,7 +20,7 @@ describe('ClubSettingsTab', () => {
     (fetch as any).mockImplementation((url: any) => {
       const urlString = url.toString();
       if (urlString.includes('/api/settings/club-config')) {
-        return Promise.resolve(createFetchResponse({ ownClubId: 1, productionTeamNames: ['Team A'] }));
+        return Promise.resolve(createFetchResponse({ ownClubId: 1, productionTeamNames: ['Team A'], crewCallMinutes: 45, setupMinutes: 120 }));
       }
       if (urlString.includes('/api/clubs') && !urlString.includes('teams')) {
         return Promise.resolve(createFetchResponse([{ id: 1, name: 'My Club' }]));
@@ -61,7 +61,7 @@ describe('ClubSettingsTab', () => {
       );
       if (!fetchCall) throw new Error('PUT call not found yet');
       const fetchOptions = fetchCall[1];
-      expect(JSON.parse(fetchOptions.body)).toEqual({ ownClubId: 1, productionTeamNames: ['Team A'] });
+      expect(JSON.parse(fetchOptions.body)).toEqual({ ownClubId: 1, productionTeamNames: ['Team A'], crewCallMinutes: 45, setupMinutes: 120 });
       expect(screen.getByText(/clubinstellingen opgeslagen/i)).toBeInTheDocument();
     });
   });

@@ -23,7 +23,9 @@ export default function ActiveProductionPage() {
   if (error) return <div className="container py-6 text-red-700">{String((error as any)?.message || error)}</div>;
   if (!active) return <div className="container py-6 text-gray-800 dark:text-gray-100">Geen actieve productie.</div>;
 
-  const gatheringTime = active.liveTime ? new Date(new Date(active.liveTime).getTime() - 30 * 60000) : null;
+  // From the day planning: the own verzameltijd or the organization's default; opbouw only before the day's first stream
+  const gatheringTime = active.planned?.crewCallTime ?? null;
+  const setupTime = active.planned?.setupTime ?? null;
   const totalDuration = (timing.data || []).reduce((sum, s) => sum + s.duurInMinuten, 0);
   const endLiveTime = active.liveTime ? new Date(new Date(active.liveTime).getTime() + totalDuration * 60000) : null;
 
@@ -41,6 +43,14 @@ export default function ActiveProductionPage() {
               Tijdschema
             </div>
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              {setupTime && (
+                <div className="p-3 flex items-center justify-between bg-yellow-50 dark:bg-yellow-900/10">
+                  <div className="font-medium text-yellow-800 dark:text-yellow-200">Opbouw</div>
+                  <div className="text-sm font-semibold text-yellow-800 dark:text-yellow-200">
+                    {formatTime(setupTime)}
+                  </div>
+                </div>
+              )}
               {gatheringTime && (
                 <div className="p-3 flex items-center justify-between bg-yellow-50 dark:bg-yellow-900/10">
                   <div className="font-medium text-yellow-800 dark:text-yellow-200">Verzamelen</div>

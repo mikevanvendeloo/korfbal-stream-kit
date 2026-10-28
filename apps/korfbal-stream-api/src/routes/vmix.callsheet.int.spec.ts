@@ -104,6 +104,19 @@ describe.runIf(runDb)('vMix callsheet timing (integration)', () => {
     expect(invalid.status).toBe(400);
   });
 
+  it('gives the colours of the current and next state as #RRGGBB', async () => {
+    await request(app).put('/api/settings/vmix-callsheet-push').send({
+      positions: ['Callsheet Int Presentatie'],
+      current: {colors: {normal: {background: '#123456', text: '#ABCDEF'}}},
+      next: {colors: {normal: {background: '#654321', text: '#FEDCBA'}}},
+    });
+    const res = await request(app).get('/api/vmix/callsheet/timing?position=Callsheet Int Presentatie');
+    expect(res.body[0]).toMatchObject({
+      currentState: 'normal', currentBackgroundColor: '#123456', currentTextColor: '#ABCDEF',
+      nextState: 'normal', nextBackgroundColor: '#654321', nextTextColor: '#FEDCBA',
+    });
+  });
+
   it('fills interview placeholders with the selected names', async () => {
     const match = await prisma.matchSchedule.findUniqueOrThrow({where: {id: matchId}});
     const club = await prisma.club.create({data: {name: 'Callsheet Int Club', shortName: 'callsheet-int-club', slug: 'callsheet-int-club'}});

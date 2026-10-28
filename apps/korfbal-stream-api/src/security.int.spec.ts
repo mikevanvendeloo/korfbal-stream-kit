@@ -1372,8 +1372,14 @@ describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
     expect(asB.text).toContain('KeyBeta Sponsor');
     expect(asB.text).not.toContain('KeyAlpha');
     // The other feeds accept it too (here without an active production or scoreboard: no 401)
-    for (const path of ['/api/vmix/sponsor-carrousel', '/api/vmix/active-production/match', '/api/vmix/callsheet/timing', '/api/vmix/production/active/titles']) {
+    for (const path of ['/api/vmix/sponsor-carrousel', '/api/vmix/active-production/match', '/api/vmix/callsheet/timing', '/api/vmix/production/active/titles', '/api/vmix/production/active/titles/coach-uit']) {
       expect((await feed(`${path}?key=${keyA}`)).status, path).not.toBe(401);
+    }
+    // The Stream Deck buttons too (no show running in A: the route itself answers)
+    for (const path of ['/api/show/next', '/api/show/previous', '/api/show/remaining', '/api/vmix/set-timer']) {
+      const res = await withoutOrganization(request(app).post(`${path}?key=${keyA}`)).send({seconds: 30});
+      expect(res.status, path).not.toBe(401);
+      expect(res.status, path).not.toBe(403);
     }
   });
 
@@ -1384,7 +1390,7 @@ describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
   });
 
   it('answers 401 "API-sleutel ontbreekt" on a feed without key or organization', async () => {
-    for (const path of ['/api/vmix/sponsor-names', '/api/vmix/active-production/staff', '/api/scoreboard', '/api/scoreboard/clock', '/api/vmix/production/1/titles']) {
+    for (const path of ['/api/vmix/sponsor-names', '/api/vmix/active-production/staff', '/api/scoreboard', '/api/scoreboard/clock', '/api/vmix/production/1/titles', '/api/vmix/production/active/titles/presentatie']) {
       const res = await feed(path);
       expect(res.status, path).toBe(401);
       expect(res.body, path).toEqual({error: 'API-sleutel ontbreekt', code: 'API_KEY_MISSING'});
@@ -1428,7 +1434,7 @@ describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
         expect(res.body, path).toEqual({error: 'Kies een organisatie', code: 'ORGANIZATION_REQUIRED'});
       }
     }
-    const post = await withoutOrganization(request(app).post(`/api/vmix/set-timer?key=${keyA}`)).send({seconds: 10});
+    const post = await withoutOrganization(request(app).post(`/api/vmix/callsheet/push?key=${keyA}`)).send({});
     expect(post.status).toBe(401);
     const create = await withoutOrganization(request(app).post('/api/organization/api-keys')).set('X-Api-Key', keyA).send({name: 'via key'});
     expect(create.status).toBe(401);

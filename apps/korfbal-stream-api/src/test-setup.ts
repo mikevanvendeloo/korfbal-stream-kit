@@ -78,4 +78,17 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await prisma.$disconnect();
+  // Every spec file loads the app's own client again (Vitest isolates the files), each with its own
+  // connection pool: close it, or the files together run PostgreSQL out of connections ("too many
+  // clients already"). Imported here, not at the top, so it is the instance the spec file used and
+  // the test database is chosen before it is created. A spec file that mocks the module has no pool to
+  // close (and Vitest throws on reading an export its mock doesn't define).
+  const appPrisma = await import('./services/prisma');
+  let client: { $disconnect?: () => Promise<void> } | undefined;
+  try {
+    client = appPrisma.prismaUnscoped;
+  } catch {
+    return;
+  }
+  await client?.$disconnect?.();
 });

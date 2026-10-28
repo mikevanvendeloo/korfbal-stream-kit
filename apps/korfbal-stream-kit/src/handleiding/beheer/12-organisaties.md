@@ -12,7 +12,7 @@ Het keuzescherm komt ook terug als de gekozen organisatie is uitgezet, of als ha
 
 ## Organisaties beheren
 
-Onder **Overig → Organisaties** staan alle organisaties, ook de inactieve, met hun **Slug**, **Club** en status (**Actief** of **Inactief**).
+Onder **tandwiel → Organisaties** staan alle organisaties, ook de inactieve, met hun **Slug**, **Club** en status (**Actief** of **Inactief**).
 
 - **Nieuwe organisatie**: vul de **Naam** in; de **Slug** (een korte naam met kleine letters, cijfers en streepjes, bijvoorbeeld `fortuna`) wordt voorgesteld. Kies eventueel de eigen **Club** en druk op **Aanmaken**. Een nieuwe organisatie krijgt meteen de **standaardset**: skills, posities, titel-templates, draaiboek- en segment-templates. Daarna kun je een logo toevoegen.
 - **Wijzigen**: naam, slug, club en logo. De **Club** is ook de **Eigen Club** bij **Instellingen → Club & Teams**: wijzig je hem op de ene plek, dan zie je dat op de andere. Wijzig je de slug, dan kiest iedereen die deze organisatie gebruikt opnieuw op het keuzescherm (behalve jij op dit apparaat). De logo's verhuizen mee: de map `storage/sponsors/<slug>` en het logo `storage/organizations/<slug>.png` krijgen de nieuwe slug. Staan er voor de nieuwe slug al bestanden, dan krijg je een foutmelding en verandert er niets. Pas in vMix het adres voor sponsorlogo's aan (zie [vMix](/admin/handleiding/vmix)).
@@ -24,7 +24,7 @@ Onder **Overig → Organisaties** staan alle organisaties, ook de inactieve, met
 
 ## Organisatie
 
-Onder **Overig → Organisatie** staan de instellingen van de **gekozen** organisatie: het **Logo**, de **Wedstrijdimport** en de **API-sleutels**.
+Onder **Organisatie-instellingen** (klik rechtsboven op het logo en de naam van je organisatie) staan de instellingen van de **gekozen** organisatie: het **Logo**, de **Wedstrijdimport** en de **API-sleutels**.
 
 ### Wedstrijdimport
 
@@ -47,10 +47,10 @@ Welke datums je bij het importeren kunt gebruiken (`DD-MM-JJJJ`, `30-weeks` of *
 
 | Foutmelding | Wat te doen |
 |---|---|
-| **Wedstrijdimport is niet ingesteld voor deze organisatie** | Vul bij **Overig → Organisatie → Wedstrijdimport** de bron, het adres en het token in, vink **Wedstrijdimport aan** aan en klik op **Opslaan**. |
+| **Wedstrijdimport is niet ingesteld voor deze organisatie** | Vul bij **Organisatie-instellingen → Wedstrijdimport** de bron, het adres en het token in, vink **Wedstrijdimport aan** aan en klik op **Opslaan**. |
 | **Ongeldige datum** of **Datum … bestaat niet** | Typ een dag als `DD-MM-JJJJ` (bijvoorbeeld `07-11-2026`) of een aantal weken (bijvoorbeeld `30-weeks`). Dagen of maanden als periode (`1-days`, `8-months`) werken niet. |
 | **De startdatum van de zaalcompetitie is niet ingesteld** | Vul bij **Instellingen → Seizoen → Seizoenen** de **Start zaalcompetitie** van het actieve seizoen in. |
-| **Token ongeldig of verlopen** | Vraag een nieuw token aan bij de wedstrijdbron, vul het in bij **Overig → Organisatie → Wedstrijdimport** en klik op **Opslaan**. |
+| **Token ongeldig of verlopen** | Vraag een nieuw token aan bij de wedstrijdbron, vul het in bij **Organisatie-instellingen → Wedstrijdimport** en klik op **Opslaan**. |
 | **URL klopt niet** | Controleer het **Adres (URL)**; voor Sportclub Vrijwilligersmanagement is dat `https://api.sportclubvrijwilligersmanagement.nl/v1`. |
 | **De wedstrijdbron weigerde het verzoek** | Controleer de datum en het adres. Blijft het misgaan, neem dan contact op met de beheerder van de wedstrijdbron. |
 | **De wedstrijdbron gaf een serverfout** | Mogelijk klopt het datumformaat niet (gebruik `DD-MM-JJJJ` of `30-weeks`), of de bron heeft een storing. Probeer het later opnieuw. |
@@ -62,11 +62,24 @@ Welke datums je bij het importeren kunt gebruiken (`DD-MM-JJJJ`, `30-weeks` of *
 
 ### API-sleutels
 
-vMix-datasources, vMix-triggers en scorebordschermen kunnen geen organisatie kiezen. Ze sturen daarom een **API-sleutel** van de organisatie mee, als `?key=…` achter het adres. Een sleutel geeft alleen toegang tot die gegevens (de datasources en het scorebord), nooit tot Beheer.
+vMix-datasources, vMix-triggers en scorebordschermen kunnen geen organisatie kiezen. Ze sturen daarom een **API-sleutel** van de organisatie mee, als `?key=…` achter het adres. Een sleutel geeft alleen toegang tot die gegevens (de datasources en het scorebord) en de Stream Deck-knoppen (zie hieronder), nooit tot Beheer.
 
 1. Vul bij **Naam van de sleutel** in waar hij voor is, bijvoorbeeld *vMix stream-pc*, en druk op **Sleutel aanmaken**.
 2. De volledige sleutel staat in het venster dat opent. **Je ziet hem alleen nu**: kopieer hem met de kopieerknop (**Kopieer sleutel**). Daaronder staan de datasource-adressen met de sleutel al ingevuld, klaar om in vMix te plakken.
 3. Druk op **Klaar**. Daarna zie je in de lijst alleen nog het begin van de sleutel (**Begint met**), wanneer hij is aangemaakt en wanneer hij voor het laatst is gebruikt.
+
+#### Stream Deck
+
+Met Bitfocus Companion zet je de Show Caller-knoppen op een Stream Deck. Maak per knop een HTTP POST-actie naar `http://<server>:<poort>/api/...?key=<jouw-sleutel>` (of zet de sleutel in de header `X-Api-Key`):
+
+| Knop | Adres | Inhoud (JSON) |
+|---|---|---|
+| Volgend item | `/api/show/next` | geen |
+| Vorig item | `/api/show/previous` | geen |
+| Item eindigt over x seconden (zoals 15/30/60 s in de Show Caller) | `/api/show/remaining` | `{"seconds": 30}` |
+| Countdown in vMix op x seconden | `/api/vmix/set-timer` | `{"seconds": 30}` |
+
+De knoppen werken op de show van de organisatie van de sleutel. Iedereen met die sleutel kan de show bedienen: gebruik voor de Stream Deck een eigen sleutel.
 
 Ben je een sleutel kwijt, maak dan een nieuwe en trek de oude in. **Intrekken** (na bevestigen) werkt meteen: apparaten met die sleutel krijgen geen gegevens meer. Gebruik per apparaat een eigen sleutel, dan kun je er één intrekken zonder de rest aan te passen.
 
@@ -74,7 +87,7 @@ Ben je een sleutel kwijt, maak dan een nieuwe en trek de oude in. **Intrekken** 
 
 Sinds de organisaties werken de vMix-datasources en vMix-triggers **alleen nog met een API-sleutel**. Een bestaande datasource zonder `?key=` geeft de fout **401** ("API-sleutel ontbreekt") en ververst niet meer. Doe daarom één keer:
 
-1. Maak bij **Overig → Organisatie → API-sleutels** een sleutel per vMix-pc.
+1. Maak bij **Organisatie-instellingen → API-sleutels** een sleutel per vMix-pc.
 2. Kopieer de adressen uit het venster (of uit **Stamgegevens → vMix → Datasources**, zie [Datasources](/admin/handleiding/vmix#datasources)).
 3. Vervang in vMix bij **Data Sources** elk adres door het nieuwe, met `?key=` (of `&key=` als er al een `?` in staat).
 4. Controleer dat de datasources weer verversen.

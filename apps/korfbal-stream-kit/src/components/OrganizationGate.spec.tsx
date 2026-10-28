@@ -1,7 +1,9 @@
 import {act, fireEvent, render, screen} from '@testing-library/react';
 import {QueryClient, QueryClientProvider, useQuery} from '@tanstack/react-query';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {OrganizationGate, OrganizationSwitcher} from './OrganizationGate';
+import {MemoryRouter} from 'react-router-dom';
+import {OrganizationGate} from './OrganizationGate';
+import {OrganizationMenuItems} from './OrganizationMenu';
 import React from 'react';
 import {getOrganizationSlug, installOrganizationFetch, notifyOrganizationRejected} from '../lib/organization';
 import {extractError} from '../lib/api';
@@ -32,13 +34,13 @@ function SaveSponsor() {
 
 function renderGate(queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}})) {
   render(
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}><MemoryRouter>
       <OrganizationGate>
-        <OrganizationSwitcher/>
+        <ul><OrganizationMenuItems/></ul>
         <TenantData/>
         <SaveSponsor/>
       </OrganizationGate>
-    </QueryClientProvider>,
+    </MemoryRouter></QueryClientProvider>,
   );
   return queryClient;
 }

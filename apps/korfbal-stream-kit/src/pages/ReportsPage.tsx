@@ -1,15 +1,17 @@
 import React from 'react';
 import {
-  useCrewRolesReport,
+  RolesReport as RolesReportData,
   useDailyOccupancyByPositionReport,
   useDailyOccupancyReport,
-  useInterviewsReport
+  useInterviewsReport,
+  useRolesReport,
 } from '../hooks/useReports';
 import {useProductions} from '../hooks/useProductions';
 import {createColumnHelper, flexRender, getCoreRowModel, useReactTable,} from '@tanstack/react-table';
 import {downloadAsPng} from '../lib/download';
 import {MdClose, MdDownload, MdSchedule} from 'react-icons/md';
 import PlayerCard from '../components/PlayerCard';
+import DayPlanning from '../components/DayPlanning';
 import {Link, Navigate, NavLink, useParams} from "react-router-dom";
 import {adminPaths, REPORT_TABS, ReportTab} from "../lib/adminPaths";
 import {amsterdamDay, formatDate as formatAmsterdamDate, formatTime as formatAmsterdamTime, todayAmsterdam} from '../lib/time';
@@ -241,6 +243,7 @@ function DailyOccupancyReport() {
 
       {data && (
         <div id="daily-occupancy-container" className="space-y-8 bg-white dark:bg-gray-950 p-6 rounded-lg report-container">
+          <DayPlanning productions={data.productions}/>
           <DataTable
             data={data.persons}
             columns={columns}
@@ -586,11 +589,13 @@ function OccupancyByPositionTable({ date }: { date: string }) {
 }
 
 
-function CrewRolesReport() {
-  const {data, isLoading, error} = useCrewRolesReport();
+/** Who had which role per production: Entertainmentrollen (on screen) or Crewrollen (regie, camera's, oplopen, ...). */
+function RolesReport({kind}: { kind: 'entertainment' | 'crew' }) {
+  const {data, isLoading, error} = useRolesReport(kind);
+  const tableId = `${kind}-roles-report`;
 
   const columns = React.useMemo(() => {
-    const helper = createColumnHelper<any>();
+    const helper = createColumnHelper<RolesReportData['productions'][number]>();
     return [
       helper.accessor('date', {
         header: 'Datum',
@@ -600,55 +605,32 @@ function CrewRolesReport() {
         id: 'time',
         header: 'Tijd',
         cell: info => {
-          const time = formatTime(info.getValue());
           const row = info.row.original;
-          let liveStr = '';
-          if (row.liveTime) {
-            liveStr = ` (LIVE: ${formatTime(row.liveTime)}`;
-            if (row.endLiveTime) {
-              liveStr += ` - ${formatTime(row.endLiveTime)}`;
-            }
-            liveStr += `)`;
-          }
-          return `${time}${liveStr}`;
+          const live = row.liveTime ? ` (LIVE: ${formatTime(row.liveTime)}${row.endLiveTime ? ` - ${formatTime(row.endLiveTime)}` : ''})` : '';
+          return `${formatTime(info.getValue())}${live}`;
         },
       }),
-      helper.accessor((row: any) => `${row.homeTeam} vs ${row.awayTeam}`, {
+      helper.accessor((row) => `${row.homeTeam} vs ${row.awayTeam}`, {
         id: 'match',
         header: 'Wedstrijd',
         cell: info => <span className="font-medium">{info.getValue()}</span>,
       }),
-      helper.accessor('speaker', {
-        header: 'Speaker',
+      ...(data?.positions ?? []).map((position) => helper.accessor((row) => row.assignments[position.id] ?? [], {
+        id: `position-${position.id}`,
+        header: position.name,
         cell: info => info.getValue().join(', ') || <span className="text-gray-400">-</span>,
-      }),
-      helper.accessor('regisseur', {
-        header: 'Regisseur',
-        cell: info => info.getValue().join(', ') || <span className="text-gray-400">-</span>,
-      }),
-      helper.accessor('presentator', {
-        header: 'Presentator',
-        cell: info => info.getValue().join(', ') || <span className="text-gray-400">-</span>,
-      }),
-      helper.accessor('analist', {
-        header: 'Analist',
-        cell: info => info.getValue().join(', ') || <span className="text-gray-400">-</span>,
-      }),
-      helper.accessor('commentaar', {
-        header: 'Commentaar',
-        cell: info => (info.getValue() ?? []).join(', ') || <span className="text-gray-400">-</span>,
-      }),
+      })),
     ];
-  }, []);
+  }, [data]);
 
   if (isLoading) return <div className="text-gray-500 animate-pulse">Laden...</div>;
-  if (error) return <div className="text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800">Fout bij laden: {(error as any).message}</div>;
+  if (error) return <div className="text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-200 dark:border-red-800">Fout bij laden: {(error as Error).message}</div>;
 
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
         <button
-          onClick={() => downloadAsPng('crew-roles-report', 'crew-roles-report')}
+          onClick={() => downloadAsPng(tableId, tableId)}
           className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2 text-sm"
           disabled={!data}
         >
@@ -656,7 +638,7 @@ function CrewRolesReport() {
           <span>Download PNG</span>
         </button>
       </div>
-      <DataTable id="crew-roles-report" data={data || []} columns={columns} />
+      <DataTable id={tableId} data={data?.productions ?? []} columns={columns} />
     </div>
   );
 }
@@ -704,7 +686,8 @@ const REPORTS: Record<ReportTab, () => React.JSX.Element> = {
   dagbezetting: DailyOccupancyReport,
   posities: OccupancyByPositionReport,
   interviews: InterviewsReport,
-  crew: CrewRolesReport,
+  entertainment: () => <RolesReport kind="entertainment"/>,
+  crew: () => <RolesReport kind="crew"/>,
   tijdsanalyse: TimingAnalysisReport,
 };
 

@@ -1,5 +1,5 @@
 import {db, ensureOrganization, expect, ORGANIZATION_STORAGE_KEY, test} from './support/fixtures';
-import {LiveNav, organizationSwitch, pageWidth, StartScreen} from './support/pages';
+import {LiveNav, OrganizationMenu, organizationSwitch, pageWidth, StartScreen} from './support/pages';
 
 /**
  * Choosing and switching organization (design D2/D3): the start screen, the name in the nav, and that
@@ -32,22 +32,23 @@ test('chooses an organization on the start screen; its name is in the nav and it
   await expect(start.button(ZUID.name)).toBeVisible();
   await start.choose(NOORD.name);
 
-  await expect(organizationSwitch(page, NOORD.name)).toBeVisible();
+  await expect(new OrganizationMenu(page).menu(NOORD.name)).toBeVisible();
   expect(await page.evaluate((key) => window.localStorage.getItem(key), ORGANIZATION_STORAGE_KEY)).toBe(NOORD.slug);
 
   // Same URLs, no new choice after a reload, and Beheer has it too
   await page.reload();
-  await expect(organizationSwitch(page, NOORD.name)).toBeVisible();
+  await expect(new OrganizationMenu(page).menu(NOORD.name)).toBeVisible();
   await page.goto('/admin');
-  await expect(organizationSwitch(page, NOORD.name)).toBeVisible();
+  await expect(new OrganizationMenu(page).menu(NOORD.name)).toBeVisible();
 });
 
 test('switches organization from the nav, also on a phone', async ({page}) => {
   await page.goto('/admin');
   await new StartScreen(page).choose(NOORD.name);
-  await organizationSwitch(page, NOORD.name).click();
+  const beheer = new OrganizationMenu(page);
+  await beheer.switchOrganization(NOORD.name);
   await new StartScreen(page).choose(ZUID.name);
-  await expect(organizationSwitch(page, ZUID.name)).toBeVisible();
+  await expect(beheer.menu(ZUID.name)).toBeVisible();
 
   await page.setViewportSize({width: 360, height: 780});
   await page.goto('/');
@@ -80,7 +81,7 @@ test('shows nothing of the previous organization after a switch', async ({page, 
     await route.continue();
   });
 
-  await organizationSwitch(page, NOORD.name).click();
+  await new OrganizationMenu(page).switchOrganization(NOORD.name);
   // From here on (Noord's app is gone, the start screen is up) nothing may go as Noord
   await expect(new StartScreen(page).heading).toBeVisible();
   switching = true;
@@ -95,7 +96,7 @@ test('shows nothing of the previous organization after a switch', async ({page, 
 test('asks again when the chosen organization is switched off', async ({page}) => {
   await page.goto('/');
   await new StartScreen(page).choose(ZUID.name);
-  await expect(organizationSwitch(page, ZUID.name)).toBeVisible();
+  await expect(new OrganizationMenu(page).menu(ZUID.name)).toBeVisible();
   await db.organization.update({where: {slug: ZUID.slug}, data: {isActive: false}});
   try {
     await page.reload();

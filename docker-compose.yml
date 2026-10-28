@@ -1,3 +1,18 @@
+# De hele app lokaal in Docker, gebouwd uit je eigen code. Eigen projectnaam en database-volume: staat los van
+# de dev-database voor npm run dev en de tests (docker-compose-db.yml) en van localtest.
+#
+#   Starten:            docker compose up -d --build
+#                       Altijd met --build: de migrate-job draait de migraties die in het image zitten. Zonder
+#                       --build krijg je het image van de vorige keer, zonder nieuwe migraties.
+#   Migraties nakijken: docker compose logs migrate-streamz
+#   Stoppen:            docker compose down        (database blijft staan)
+#   Opnieuw beginnen:   docker compose down -v     (wist de database van deze stack; de seed vult hem weer)
+#
+# App: http://localhost   API: http://localhost:3333   Postgres: localhost:5434   pgAdmin: http://localhost:5050
+# Gebruikt dezelfde poorten 80 en 5050 als localtest: draai ze nooit tegelijk. Poort 3333 is ook die van
+# npm run api:dev. Geeft `up` "port is already allocated", kijk dan met `docker ps` wat de poort al heeft.
+name: korfbal-dev
+
 services:
   db:
     image: postgres:16-alpine
@@ -9,7 +24,7 @@ services:
       POSTGRES_PASSWORD: korfbal
       POSTGRES_DB: korfbal
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -20,10 +35,11 @@ services:
 
   # Eénmalige migratie/seed job. Draait bij 'up' en stopt na succes.
   migrate-streamz:
-    # Gebruik dezelfde image als de API. In CI/CD vervang door jouw registry:tag
     build:
       context: .
       dockerfile: apps/korfbal-stream-api/Dockerfile
+    # Eén image voor migrate en API, zodat ze altijd dezelfde code en migraties hebben
+    image: korfbal-stream-api:dev
     networks:
       - korfbal-network
     depends_on:
@@ -33,14 +49,15 @@ services:
       TZ: Europe/Amsterdam
       NODE_ENV: production
       DATABASE_URL: postgresql://korfbal:korfbal@db:5432/korfbal?schema=public
+      # SKIP_SEED=true docker compose up -d: alleen migreren, bijv. op een database uit een backup
+      SKIP_SEED: ${SKIP_SEED:-false}
     # Hardened runtime-image heeft geen shell: migratie + seed via een node-script.
     command: ["node", "/app/seed/migrate-and-seed.cjs"]
     restart: "no"
 
+  # De servicenaam moet korfbal-streamz-api blijven: nginx.conf proxyt daarnaartoe.
   korfbal-streamz-api:
-    build:
-      context: .
-      dockerfile: apps/korfbal-stream-api/Dockerfile
+    image: korfbal-stream-api:dev
     networks:
       - korfbal-network
     # Lokale secrets (optioneel), niet ingecheckt; zie secrets.env.example.
@@ -69,10 +86,12 @@ services:
       interval: 60s
       timeout: 5s
       retries: 5
+
   korfbal-streamz-kit:
     build:
       context: .
       dockerfile: apps/korfbal-stream-kit/Dockerfile
+    image: korfbal-stream-kit:dev
     networks:
       - korfbal-network
     ports:

@@ -82,7 +82,17 @@ describe('ClubsPage', () => {
     fireEvent.change(screen.getByLabelText('Korte naam'), { target: { value: 'LDODK kort' } });
     fireEvent.change(screen.getByLabelText('Afkorting'), { target: { value: 'ldo' } });
     fireEvent.click(screen.getByRole('button', { name: 'Opslaan' }));
-    await waitFor(() => expect(puts).toEqual([{ name: 'LDODK', shortName: 'LDODK kort', abbreviation: 'ldo' }]));
+    await waitFor(() => expect(puts).toEqual([{ name: 'LDODK', shortName: 'LDODK kort', abbreviation: 'ldo', primaryColor: '', secondaryColor: '' }]));
     await waitFor(() => expect(screen.queryByText('Club wijzigen')).not.toBeInTheDocument());
+  });
+
+  it('sets the club colours as HTML colour codes, typed or picked', async () => {
+    renderWithProviders(<ClubsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Wijzig club' }));
+    fireEvent.change(screen.getByLabelText('Hoofdkleur'), { target: { value: '#E30613' } });
+    fireEvent.change(screen.getByLabelText('Tweede kleur kiezen'), { target: { value: '#00843d' } });
+    expect(screen.getByLabelText('Tweede kleur')).toHaveValue('#00843d');
+    fireEvent.click(screen.getByRole('button', { name: 'Opslaan' }));
+    await waitFor(() => expect(puts).toEqual([expect.objectContaining({ primaryColor: '#E30613', secondaryColor: '#00843d' })]));
   });
 });

@@ -51,7 +51,7 @@ describe('buildVmixCommands', () => {
 
   it('builds a vMix function URL with encoded values', () => {
     expect(buildVmixCommandUrl('http://vmix:8088', 'Callsheet', {function: 'SetColor', selectedName: 'Achtergrond', value: '#22C55E'}))
-      .toBe('http://vmix:8088/api?Function=SetColor&Input=Callsheet&SelectedName=Achtergrond&Value=%2322C55E');
+      .toBe('http://vmix:8088/api/?Function=SetColor&Input=Callsheet&SelectedName=Achtergrond&Value=%2322C55E');
   });
 });
 
@@ -110,7 +110,7 @@ describe('pushCallsheetToVmix', () => {
     vi.mocked(timing.loadCallsheetTiming).mockResolvedValue(timingWith({currentTitle: 'Opening'}));
     await pushCallsheetToVmix(true, NOW);
     expect(instances.resolveVmixInstance).toHaveBeenCalledWith('callsheet');
-    expect(vi.mocked(axios.get).mock.calls[0][0]).toMatch(/^http:\/\/vmix:8088\/api\?/);
+    expect(vi.mocked(axios.get).mock.calls[0][0]).toMatch(/^http:\/\/vmix:8088\/api\/\?/);
   });
 
   it('does nothing without a vMix instance', async () => {

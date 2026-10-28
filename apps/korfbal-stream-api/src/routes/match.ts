@@ -102,20 +102,16 @@ matchRouter.get('/matches/schedule', async (req, res) => {
     const {start: dayStart, end: nextDay} = amsterdamDayRange(dateStr);
     const dayEnd = new Date(nextDay.getTime() - 1);
 
-    const locationWhere: any = {};
-    if (location === 'HOME') {
-      locationWhere.isHomeMatch = true;
-    } else if (location === 'AWAY') {
-      locationWhere.isHomeMatch = false;
-    }
+    // HOME/AWAY also show manually entered matches; ALL has no location filter at all.
+    // (An empty object inside OR is dropped by Prisma, so `OR: [{isManual: true}, {}]` would only give manual matches.)
+    const locationWhere = location === 'HOME' || location === 'AWAY'
+      ? { OR: [{ isManual: true }, { isHomeMatch: location === 'HOME' }] }
+      : {};
 
     const matches = await prisma.matchSchedule.findMany({
       where: {
         date: { gte: dayStart, lte: dayEnd },
-        OR: [
-          { isManual: true },
-          locationWhere
-        ]
+        ...locationWhere,
       },
       orderBy: { date: 'asc' }
     });

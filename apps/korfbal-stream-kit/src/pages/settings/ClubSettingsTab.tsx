@@ -12,7 +12,7 @@ async function getClubConfig() {
   return res.json();
 }
 
-async function setClubConfig(config: { ownClubId: number | null; productionTeamNames: string[] }) {
+async function setClubConfig(config: { ownClubId: number | null; productionTeamNames: string[]; crewCallMinutes: number; setupMinutes: number }) {
   const res = await fetch('/api/settings/club-config', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -25,6 +25,9 @@ export default function ClubSettingsTab() {
   const queryClient = useQueryClient();
   const [ownClubId, setOwnClubId] = useState<number | null>(null);
   const [productionTeamNames, setProductionTeamNames] = useState<string[]>([]);
+  // Day planning defaults, in minutes before live (services/dayPlanning.ts)
+  const [crewCallMinutes, setCrewCallMinutes] = useState(30);
+  const [setupMinutes, setSetupMinutes] = useState(150);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +55,8 @@ export default function ClubSettingsTab() {
       const club = await getClubConfig();
       setOwnClubId(club.ownClubId);
       setProductionTeamNames(club.productionTeamNames);
+      setCrewCallMinutes(club.crewCallMinutes ?? 30);
+      setSetupMinutes(club.setupMinutes ?? 150);
     } catch (err: any) {
       setError(err.message || 'Failed to load settings');
     } finally {
@@ -65,7 +70,11 @@ export default function ClubSettingsTab() {
       setSaving(true);
       setError(null);
       setSuccess(null);
-      await setClubConfig({ ownClubId, productionTeamNames });
+      await setClubConfig({ ownClubId, productionTeamNames, crewCallMinutes, setupMinutes });
+      // The default opbouw / verzamel times follow
+      void queryClient.invalidateQueries({ queryKey: ['production'] });
+      void queryClient.invalidateQueries({ queryKey: ['productions', 'active'] });
+      void queryClient.invalidateQueries({ queryKey: ['reports', 'daily-occupancy'] });
       // The organization's club changed too (logo fallback in the nav and on the start screen)
       void queryClient.invalidateQueries({ queryKey: organizationKeys.all });
       setSuccess('Clubinstellingen opgeslagen');
@@ -104,7 +113,7 @@ export default function ClubSettingsTab() {
               {clubsData?.map(club => <option key={club.id} value={club.id}>{club.name}</option>)}
             </select>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Dit is de club van de organisatie: dezelfde als bij Beheer → Overig → Organisaties.
+              Dit is de club van de organisatie: dezelfde als bij Beheer → tandwiel → Organisaties.
             </p>
           </div>
           {ownClubId && (
@@ -126,6 +135,27 @@ export default function ClubSettingsTab() {
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Selecteer welke teams zichtbaar zijn bij het aanmaken van een productie.</p>
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-100 dark:border-gray-700 pb-2">Dagplanning</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          De standaardtijden voor de dagplanning (Rapportages → Dagbezetting). Per productie kun je ervan afwijken bij de productie zelf.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="crewCallMinutes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Verzamelen (minuten voor live)</label>
+            <input id="crewCallMinutes" type="number" min={0} max={1440} step={5} required
+                   className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                   value={crewCallMinutes} onChange={(e) => setCrewCallMinutes(Number(e.target.value))}/>
+          </div>
+          <div>
+            <label htmlFor="setupMinutes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Opbouw (minuten voor de eerste stream van de dag)</label>
+            <input id="setupMinutes" type="number" min={0} max={1440} step={5} required
+                   className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                   value={setupMinutes} onChange={(e) => setSetupMinutes(Number(e.target.value))}/>
+          </div>
         </div>
       </section>
 

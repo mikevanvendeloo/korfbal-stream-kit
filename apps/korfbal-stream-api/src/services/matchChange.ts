@@ -14,8 +14,8 @@ const shift = (date: Date | null, deltaMs: number) => (date ? new Date(date.getT
 /**
  * When a match moves (manual edit or match import), the stored absolute times of its production move
  * along by the same delta, so the broadcast keeps its place relative to the kickoff: the production's
- * `liveTime`, the callsheet items' `timeStart`/`timeEnd` and the LIVE events' `plannedStartTime`/
- * `plannedEndTime` (all are written as absolute instants when the times are calculated from the anchor,
+ * `liveTime`, `setupTime` and `crewCallTime`, the callsheet items' `timeStart`/`timeEnd` and the LIVE
+ * events' `plannedStartTime`/`plannedEndTime` (all are written as absolute instants when the times are calculated from the anchor,
  * see production-callsheets.ts and callsheet-templates.ts). `actualStartTime` is what happened and stays.
  *
  * The delta is between two UTC instants, so it is exact across a DST change (Sat 19:30 winter time →
@@ -33,7 +33,10 @@ export async function shiftProductionTimesForMatchDateChange(
   const deltaMs = newDate.getTime() - previousDate.getTime();
   if (deltaMs === 0) return result;
 
-  const productions = await tx.production.findMany({where: {matchScheduleId: matchId}, select: {id: true, liveTime: true}});
+  const productions = await tx.production.findMany({
+    where: {matchScheduleId: matchId},
+    select: {id: true, liveTime: true, setupTime: true, crewCallTime: true},
+  });
   const liveProductionId = productions.length ? getActiveProductionId() : null;
   for (const production of productions) {
     if (production.id === liveProductionId) {
@@ -41,8 +44,15 @@ export async function shiftProductionTimesForMatchDateChange(
       result.skippedLive.push(production.id);
       continue;
     }
-    if (production.liveTime) {
-      await tx.production.update({where: {id: production.id}, data: {liveTime: shift(production.liveTime, deltaMs)}});
+    if (production.liveTime || production.setupTime || production.crewCallTime) {
+      await tx.production.update({
+        where: {id: production.id},
+        data: {
+          liveTime: shift(production.liveTime, deltaMs),
+          setupTime: shift(production.setupTime, deltaMs),
+          crewCallTime: shift(production.crewCallTime, deltaMs),
+        },
+      });
     }
 
     const items = await tx.callSheetItem.findMany({

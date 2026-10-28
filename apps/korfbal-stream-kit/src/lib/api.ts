@@ -234,7 +234,7 @@ export async function fetchMatchSchedule(params: { date: string; location?: 'HOM
   if (params.location) url.searchParams.set('location', params.location);
   const res = await fetch(url.toString());
   if (!res.ok) {
-    throw new Error(`Failed to load match schedule: ${res.status}`);
+    throw new Error(`Wedstrijdprogramma laden mislukt (${res.status})`);
   }
   return res.json();
 }

@@ -8,6 +8,12 @@ Vul bij **Livestream start** de tijd in waarop de livestream begint, in 24-uursn
 
 De livestream-start bepaalt in de rapporten het **einde van de livestream** (start plus de duur van alle segmenten), en is het ijkpunt voor items met het anker *Livestream start*.
 
+### Verzamelen en opbouw
+
+Naast **Livestream start** staan **Verzamelen** en, bij de eerste stream van de dag, **Opbouw**. Laat je ze leeg, dan geldt de standaard: die staat grijs in het veld (verzamelen 30 minuten voor live, opbouw 2,5 uur voor de eerste stream; aan te passen bij [Instellingen → Club & Teams](/admin/handleiding/instellingen#club-teams)). Vul een tijd in om af te wijken; maak het veld leeg om terug te gaan naar de standaard. Verandert de livestream-start, dan schuift de standaard vanzelf mee.
+
+De tijden komen in de **dagplanning** bij Rapportages → Dagbezetting en op **Productie** in LIVE. Wordt de wedstrijd verplaatst, dan schuiven ook eigen tijden mee.
+
 ## Het draaiboek kiezen
 
 Kies bij **Draaiboek (CallSheet Template)** een draaiboek-template en klik op **Draaiboek toepassen**. De productie krijgt dan alle items van de template, met tijden berekend vanaf het tijdanker.

@@ -49,7 +49,7 @@ export default function InterviewsPage() {
       {cards.error && <p className="text-red-700">{String((cards.error as Error).message || cards.error)}</p>}
       {cards.data && cards.data.length === 0 && (
         <p className="text-gray-600 dark:text-gray-300">
-          Er zijn nog geen interviews gekozen. Kies ze op <Link to="/" className="underline">Actieve productie</Link>.
+          Er zijn nog geen interviews gekozen. Kies ze op <Link to="/" className="underline">Productie</Link>.
         </p>
       )}
       {cards.data && cards.data.length > 0 && (

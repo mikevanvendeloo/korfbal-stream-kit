@@ -1,6 +1,6 @@
 # Draaiboek-templates
 
-Onder **Draaiboeken** staan de onderdelen die je bij elke productie opnieuw gebruikt:
+Onder **Stamgegevens → Draaiboeken** staan de onderdelen die je bij elke productie opnieuw gebruikt:
 
 - **Draaiboek-templates**: de callsheet met alle items (wie doet wat, hoe lang).
 - **Segment-templates**: de blokken van de uitzending (voorbeschouwing, eerste helft, rust, …) met hun duur.

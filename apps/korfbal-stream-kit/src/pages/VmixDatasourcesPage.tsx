@@ -27,7 +27,7 @@ export default function VmixDatasourcesPage() {
         <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
           Elk adres heeft een API-sleutel van {organization ? <strong>{organization.name}</strong> : 'de organisatie'} nodig: vervang{' '}
           <code>{data?.keyPlaceholder ?? '<jouw-sleutel>'}</code> door de sleutel. Zonder geldige sleutel geeft vMix een fout (401).
-          Sleutels beheer je bij <Link to={adminPaths.organization} className="text-blue-600 dark:text-blue-400 underline">Overig → Organisatie</Link>;
+          Sleutels beheer je bij <Link to={adminPaths.organization} className="text-blue-600 dark:text-blue-400 underline">Organisatie-instellingen</Link>;
           maak je hier een nieuwe, dan staat hij meteen in de adressen hieronder.
         </p>
         {created ? (

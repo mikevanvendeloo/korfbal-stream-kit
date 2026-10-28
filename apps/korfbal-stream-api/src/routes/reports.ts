@@ -1,8 +1,10 @@
 import {Router} from 'express';
 import {prisma} from '../services/prisma';
 import {z} from 'zod';
+import type {PositionCategory} from '@prisma/client';
 import {resolveSeasonId} from '../services/season';
 import {amsterdamDay, amsterdamDayRange} from '../utils/time';
+import {getDayPlanningSettings, planDay} from '../services/dayPlanning';
 
 export const reportsRouter: Router = Router();
 
@@ -105,11 +107,15 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
       return a.name.localeCompare(b.name);
     });
 
+    // The day planning: opbouw before the first stream, then per stream verzamelen, live and einde
+    const planned = planDay(productions, await getDayPlanningSettings());
+
     return res.json({
       date,
       productions: productions.map(p => {
         const totalDuration = p.segments.reduce((sum, s) => sum + s.duurInMinuten, 0);
         const endLiveTime = p.liveTime ? new Date(new Date(p.liveTime).getTime() + totalDuration * 60000) : null;
+        const plan = planned.get(p.id);
         return {
           id: p.id,
           time: p.matchSchedule.date,
@@ -117,6 +123,14 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
           endLiveTime: endLiveTime,
           homeTeam: p.matchSchedule.homeTeamName,
           awayTeam: p.matchSchedule.awayTeamName,
+          planning: plan && {
+            setupTime: plan.setupTime,
+            setupIsDefault: plan.setupIsDefault,
+            crewCallTime: plan.crewCallTime,
+            crewCallIsDefault: plan.crewCallIsDefault,
+            liveStart: plan.liveStart,
+            liveEnd: new Date(plan.liveStart.getTime() + totalDuration * 60000),
+          },
         };
       }),
       persons,
@@ -303,83 +317,67 @@ reportsRouter.get('/interviews', async (req, res, next) => {
   }
 });
 
-// 3. Overzicht van alle wedstrijden met specifieke rollen (Speaker, Regisseur, Presentator, Analist)
-// GET /api/reports/crew-roles
-reportsRouter.get('/crew-roles', async (req, res, next) => {
-  try {
-    // Define the skill codes we are interested in
-    const targetSkillCodes = ['SPEAKER', 'REGISSEUR', 'PRESENTATIE', 'ANALIST', 'COMMENTAAR'];
-    const seasonId = await resolveSeasonId(req.query.seasonId);
-
-    const productions = await prisma.production.findMany({
-      where: { matchSchedule: { seasonId } },
+// 3. Wie welke rol had, per productie van het seizoen: één kolom per positie van de organisatie.
+// GET /api/reports/entertainment-roles (posities met categorie ENTERTAINMENT)
+// GET /api/reports/crew-roles (posities met categorie TECHNICAL of GENERAL: regie, camera's, oplopen, ...)
+async function rolesReport(categories: PositionCategory[], seasonIdParam: unknown) {
+  const seasonId = await resolveSeasonId(seasonIdParam);
+  const [positions, productions] = await Promise.all([
+    prisma.position.findMany({where: {category: {in: categories}}, orderBy: [{sortOrder: 'asc'}, {name: 'asc'}], select: {id: true, name: true}}),
+    prisma.production.findMany({
+      where: {matchSchedule: {seasonId}},
       include: {
         matchSchedule: true,
+        // As on the Bezetting tab: the production-wide positions plus the ones for a segment only
         segments: {
           select: {
-            duurInMinuten: true
-          }
+            duurInMinuten: true,
+            bezetting: {where: {position: {category: {in: categories}}}, select: {positionId: true, person: {select: {name: true}}}},
+          },
         },
         productionPositions: {
-          where: {
-            position: {
-              skill: {
-                code: { in: targetSkillCodes }
-              }
-            }
-          },
-          include: {
-            person: true,
-            position: {
-              include: {
-                skill: true
-              }
-            }
-          }
-        }
-      },
-      orderBy: {
-        matchSchedule: {
-          date: 'desc',
+          where: {position: {category: {in: categories}}},
+          select: {positionId: true, person: {select: {name: true}}},
         },
       },
-    });
+      orderBy: {matchSchedule: {date: 'desc'}},
+    }),
+  ]);
 
-    const report = productions.map(p => {
-      const roles: Record<string, string[]> = {
-        SPEAKER: [],
-        REGISSEUR: [],
-        PRESENTATIE: [],
-        ANALIST: [],
-        COMMENTAAR: []
-      };
-
-      for (const pp of p.productionPositions) {
-        const code = pp.position.skill?.code;
-        if (code && roles[code]) {
-          roles[code].push(pp.person.name);
-        }
+  return {
+    positions,
+    productions: productions.map((p) => {
+      const byPosition = new Map<number, Set<string>>();
+      for (const {positionId, person} of [...p.productionPositions, ...p.segments.flatMap((s) => s.bezetting)]) {
+        byPosition.set(positionId, (byPosition.get(positionId) ?? new Set<string>()).add(person.name));
       }
-
+      const assignments: Record<number, string[]> = {};
+      for (const [positionId, names] of byPosition) assignments[positionId] = [...names].sort((a, b) => a.localeCompare(b));
       const totalDuration = p.segments.reduce((sum, s) => sum + s.duurInMinuten, 0);
-      const endLiveTime = p.liveTime ? new Date(new Date(p.liveTime).getTime() + totalDuration * 60000) : null;
-
       return {
         id: p.id,
         date: p.matchSchedule.date,
-        liveTime: p.liveTime, // Include liveTime
-        endLiveTime: endLiveTime,
+        liveTime: p.liveTime,
+        endLiveTime: p.liveTime ? new Date(p.liveTime.getTime() + totalDuration * 60000) : null,
         homeTeam: p.matchSchedule.homeTeamName,
         awayTeam: p.matchSchedule.awayTeamName,
-        speaker: roles['SPEAKER'],
-        regisseur: roles['REGISSEUR'],
-        presentator: roles['PRESENTATIE'],
-        analist: roles['ANALIST'],
-        commentaar: roles['COMMENTAAR'],
+        assignments,
       };
-    });
+    }),
+  };
+}
 
-    return res.json(report);
+reportsRouter.get('/entertainment-roles', async (req, res, next) => {
+  try {
+    return res.json(await rolesReport(['ENTERTAINMENT'], req.query.seasonId));
+  } catch (err) {
+    return next(err);
+  }
+});
+
+reportsRouter.get('/crew-roles', async (req, res, next) => {
+  try {
+    return res.json(await rolesReport(['TECHNICAL', 'GENERAL'], req.query.seasonId));
   } catch (err) {
     return next(err);
   }

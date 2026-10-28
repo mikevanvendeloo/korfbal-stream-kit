@@ -112,7 +112,7 @@ apps/korfbal-stream-kit/src/
 ├── app/
 │   ├── app.tsx                # OrganizationGate (start screen), then LIVE (/) and Beheer (/admin/*)
 │   ├── LiveApp.tsx            # LIVE nav + routes (incl. /vmix)
-│   ├── AdminApp.tsx           # Beheer menu (Producties, Draaiboeken, Stamgegevens, Rapportages, Overig) + routes
+│   ├── AdminApp.tsx           # Beheer menu (Producties, Stamgegevens, Rapportages; organization menu; gear menu with Instellingen, Organisaties, theme, Over, Tools) + routes
 │   ├── pages/CallsheetPage.tsx
 │   ├── components/callsheet/GlobalClocks.tsx
 │   └── hooks/useCallsheetSync.ts
@@ -126,10 +126,10 @@ apps/korfbal-stream-kit/src/
 │   ├── ProductionReportPage.tsx, ProductionTimingReportPage.tsx, ReportsPage.tsx (/admin/rapportages/:tab)
 │   ├── ProductionTitlesPage.tsx, LiveVmixPage.tsx (LIVE), InterviewsPage.tsx (LIVE → Interviews), VmixConnectionPage.tsx, VmixDatasourcesPage.tsx, VmixTemplatesPage.tsx
 │   ├── SponsorsPage.tsx, SponsorSlidesPage.tsx
-│   ├── ClubsPage.tsx, MatchSchedulePage.tsx, ManualMatchesAdminPage.tsx, MatchProgramPage.tsx
+│   ├── ClubsPage.tsx, MatchSchedulePage.tsx, ManualMatchesAdminPage.tsx
 │   ├── ScoreboardPage.tsx, QRAdminPage.tsx, AboutPage.tsx
-│   ├── OrganizationsAdminPage.tsx # Beheer → Overig → Organisaties: list, create, edit, (de)activate, logo
-│   ├── OrganizationAdminPage.tsx  # Beheer → Overig → Organisatie: logo, Wedstrijdimport, API-sleutels
+│   ├── OrganizationsAdminPage.tsx # Beheer → Setup → Organisaties: list, create, edit, (de)activate, logo
+│   ├── OrganizationAdminPage.tsx  # Beheer → Setup → Organisatie: logo, Wedstrijdimport, API-sleutels
 │   ├── SettingsPage.tsx       # Tabbed settings page
 │   └── settings/              # Settings tabs
 │       ├── SeasonSettingsTab.tsx      # Active season, create/delete season, new-season imports
@@ -141,7 +141,7 @@ apps/korfbal-stream-kit/src/
 ├── components/InterviewAvatar.tsx, FallbackImage.tsx, InterviewPhotosToggle.tsx # Interview photos (photo / number / initials), the "Interviewfoto's" switch (hooks/useInterviewPhotos.ts)
 ├── handleiding/               # User manual: live/*.md and beheer/*.md, ManualView, HelpButton, helpTopics (route → chapter)
 ├── components/                # Feature components
-│   ├── OrganizationGate.tsx   # Start screen, chosen organization context (useCurrentOrganization), OrganizationSwitcher (nav)
+│   ├── OrganizationGate.tsx   # Start screen, chosen organization context (useCurrentOrganization); the nav menu is OrganizationMenu.tsx
 │   ├── OrganizationLogo.tsx   # Own logo → club logo → initials
 │   ├── ApiKeys.tsx            # API key list/create/revoke, one-time key dialog, feed URLs with the key
 │   ├── CallSheetView.tsx, CallSheetColumn.tsx, CallSheetItem.tsx, CallSheetTemplateSelector.tsx
@@ -231,7 +231,7 @@ No login (internal LAN tool), but every `/api` request needs an organization: `X
 | POST | /api/clubs/import/league-teams | Import league teams |
 | GET | /api/clubs/:id/teams | List teams of a club |
 | GET | /api/clubs/:slug/players | List players of a club |
-| PUT | /api/clubs/:slug | Edit name, short name, abbreviation (slug never changes) |
+| PUT | /api/clubs/:slug | Edit name, short name, abbreviation, `primaryColor`/`secondaryColor` (#rrggbb, empty removes) (slug never changes) |
 | DELETE | /api/clubs/:slug | Delete club |
 
 ### Players (`/api/players`)
@@ -481,9 +481,10 @@ Season-bound endpoints (`GET /api/production`, `/api/production/matches`, `/api/
 |--------|------|-------------|
 | GET | /api/vmix/sync/activate-event | Activate event from vMix |
 | POST | /api/vmix/production/trigger-manual | Manually trigger production event |
-| POST | /api/vmix/set-timer | Set the countdown in the vMix chosen for it (`instanceId` overrides) |
+| POST | /api/vmix/set-timer | Set the countdown in the vMix chosen for it (`instanceId` overrides); feed (API key, Stream Deck) |
 | GET | /api/vmix/callsheet/timing?position=A,B | Current + next callsheet item for positions (remaining time, vMix timer format, start times, colour state) |
-| POST | /api/vmix/callsheet/push | Push current/next item to the configured vMix title now |
+| POST | /api/vmix/callsheet/push | Push current/next item to the configured vMix title now; `warnings`: input or text fields vMix doesn't have (checked against its XML state) |
+| GET | /api/vmix/inputs | Inputs of the vMix for `?function=` (callsheet/countdown, `instanceId` overrides): number, key, type, title, text fields; 502 when unreachable |
 | POST | /api/vmix/sponsor-rows | Sponsor rows data source (seeded) |
 | GET | /api/vmix/sponsor-slides | Sponsor slides data source (seeded) |
 | GET | /api/vmix/sponsor-names | Sponsor names data source |
@@ -492,6 +493,7 @@ Season-bound endpoints (`GET /api/production`, `/api/production/matches`, `/api/
 | GET | /api/vmix/active-production/staff | Staff of active production |
 | GET | /api/vmix/endpoints | List vMix data-source endpoints |
 | GET | /api/vmix/production/active/titles | Titles of active production |
+| GET | /api/vmix/production/active/titles/:role | One title of the active production by role (`presentatie`, `presentatie-analist`, `commentaar`, `coach-thuis`, `coach-uit`, `speler-thuis`, `speler-uit`); an empty row when there is none |
 | GET | /api/vmix/production/:id/titles | Titles of a production |
 | GET | /api/admin/vmix/title-templates | List title templates |
 | POST | /api/admin/vmix/title-templates | Create title template |
@@ -516,9 +518,9 @@ Season-bound endpoints (`GET /api/production`, `/api/production/matches`, `/api/
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | /api/show/start/:productionId | Start show |
-| POST | /api/show/next | Next event |
-| POST | /api/show/previous | Previous event |
-| POST | /api/show/remaining | Set the active item's remaining time (`{seconds}`, 1–3600): its duration becomes elapsed + seconds; auto-advance and the following items move along |
+| POST | /api/show/next | Next event; feed (API key, Stream Deck) |
+| POST | /api/show/previous | Previous event; feed (API key, Stream Deck) |
+| POST | /api/show/remaining | Set the active item's remaining time (`{seconds}`, 1–3600): its duration becomes elapsed + seconds; auto-advance and the following items move along; feed (API key, Stream Deck) |
 | POST | /api/show/recalculate/:productionId | Recalculate show timing |
 | POST | /api/show/reset/:productionId | Reset show |
 | POST | /api/show/stop/:productionId | Stop show |

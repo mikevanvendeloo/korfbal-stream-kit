@@ -157,7 +157,7 @@ function OrganizationFormModal({initial, onClose}: { initial?: Organization; onC
   );
 }
 
-/** Beheer → Overig → Organisaties (design D10): list, create, edit, (de)activate. */
+/** Beheer → tandwiel → Organisaties (design D10): list, create, edit, (de)activate. */
 export default function OrganizationsAdminPage() {
   const {data: organizations, isLoading, error} = useAllOrganizations();
   const {organization: current} = useCurrentOrganization();

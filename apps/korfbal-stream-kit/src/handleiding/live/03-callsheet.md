@@ -6,7 +6,7 @@ De callsheet laat per positie zien wat jij wanneer moet doen. Hij volgt de actie
 
 ## Je positie kiezen
 
-Open **Callsheet** in de menubalk. Je krijgt de tegels **Kies je positie**: één per positie die in het draaiboek van deze productie voorkomt. Kies de jouwe; het adres wordt bijvoorbeeld `/callsheet/12/camera-links`. Bewaar dat adres als bladwijzer op je eigen apparaat, dan kom je er de volgende keer direct.
+Open **Callsheet** in de menubalk. Je krijgt de tegels **Kies je positie**: eerst **Show Caller** (het hele draaiboek met de knoppen, zie [De Show Caller](/handleiding/show-caller)), dan één per positie die in het draaiboek van deze productie voorkomt. Kies de jouwe; het adres wordt bijvoorbeeld `/callsheet/12/camera-links`. Bewaar dat adres als bladwijzer op je eigen apparaat, dan kom je er de volgende keer direct.
 
 Staat er **Geen posities gevonden voor deze productie**, dan heeft het draaiboek nog geen items met posities. Dat wordt in Beheer ingericht.
 
@@ -42,6 +42,16 @@ Items zonder positie gelden voor iedereen en staan dus in elke callsheet.
 Wordt een ander item actief, dan scrolt de callsheet er vanzelf naartoe.
 
 > Als de show gestopt is, kleurt **Productie 00:00** rood en knippert het. Dat is geen alarm.
+
+## Even niets voor jou
+
+Loopt er in de show een item dat niet voor jouw positie is, dan staat er een **gestippelde regel** in je callsheet, op de plek waar de show nu is:
+
+- **Even niets voor jou**: met daarachter hoe lang het nog duurt tot jouw volgende item (**nog 4:30**), en daaronder **Volgende:** met de titel en begintijd van dat item.
+- **Maak je klaar** (oranje): nog 30 seconden of minder tot jouw volgende item. Is die tijd voorbij maar is de Show Caller nog niet verder, dan blijft de regel oranje zonder tijd. Je item begint pas als de Show Caller verder gaat.
+- **Klaar — geen items meer voor jou**: je hebt in deze productie niets meer te doen.
+
+De callsheet scrolt naar deze regel, net als naar een actief item. Met meer kolommen krijgt elke kolom zijn eigen regel.
 
 ## Instellingen voor jouw scherm
 

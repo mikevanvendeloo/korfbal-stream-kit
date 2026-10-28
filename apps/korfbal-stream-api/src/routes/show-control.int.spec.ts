@@ -3,7 +3,7 @@ import app from '../main';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 import {getCurrentState, stopProduction} from '../services/productionState';
 import {createProductionScenario, ProductionScenario} from '../../test-scenarios';
-import {testDb as prisma, inTestOrganization} from '../../test-helpers';
+import {testDb as prisma, inTestOrganization, withoutOrganization} from '../../test-helpers';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 
@@ -40,6 +40,27 @@ describe.runIf(runDb)('Show control (integration)', () => {
 
     expect((await request(app).post('/api/show/previous')).status).toBe(200);
     expect((await inTestOrganization(async () => getCurrentState())).activeEventId).toBe(ids[0]);
+  });
+
+  it('lets a Stream Deck go forward and back and set the remaining time with the API key alone', async () => {
+    const created = await request(app).post('/api/organization/api-keys').send({name: 'Stream Deck'});
+    expect(created.status).toBe(201);
+    const deck = (path: string) => withoutOrganization(request(app).post(`${path}?key=${created.body.key}`));
+    try {
+      expect((await deck('/api/show/next')).status).toBe(200);
+      expect((await inTestOrganization(async () => getCurrentState())).activeEventId).toBe(ids[1]);
+      const remaining = await deck('/api/show/remaining').send({seconds: 30});
+      expect(remaining.status).toBe(200);
+      expect((await deck('/api/show/previous')).status).toBe(200);
+      expect((await inTestOrganization(async () => getCurrentState())).activeEventId).toBe(ids[0]);
+      // Without the key nothing happens
+      const refused = await withoutOrganization(request(app).post('/api/show/next'));
+      expect(refused.status).toBe(401);
+      expect(refused.body.code).toBe('API_KEY_MISSING');
+      expect((await inTestOrganization(async () => getCurrentState())).activeEventId).toBe(ids[0]);
+    } finally {
+      await request(app).delete(`/api/organization/api-keys/${created.body.id}`);
+    }
   });
 
   it('answers at the end of the show', async () => {

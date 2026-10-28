@@ -106,7 +106,7 @@ describe.runIf(runDb)('Amsterdam time in text for vMix and reports (integration)
       expect(result.errors).toEqual([]);
       expect(result.timing?.nextStartTime).toBe('19:30');
       const urls = get.mock.calls.map(([url]) => String(url));
-      expect(urls).toContain('http://vmix.invalid:8088/api?Function=SetText&Input=Callsheet&SelectedName=VolgendStart.Text&Value=19%3A30');
+      expect(urls).toContain('http://vmix.invalid:8088/api/?Function=SetText&Input=Callsheet&SelectedName=VolgendStart.Text&Value=19%3A30');
     });
   });
 

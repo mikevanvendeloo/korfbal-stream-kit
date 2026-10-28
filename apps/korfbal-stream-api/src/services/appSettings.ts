@@ -78,13 +78,19 @@ export async function getVmixUrl(): Promise<string | null> {
   return getSetting<string>(VMIX_URL_KEY);
 }
 
+/** http://host:8088/api/?<query>, the form the vMix Developer API documents (also when the base ends in /api). */
 export function buildVmixApiUrl(base: string, query: string): string {
-  const root = (base || '').replace(/\/$/, '');
-  // vMix expects /api (case-insensitive), we normalize to /api
-  const hasApi = /\/api\/?$/i.test(root);
-  const baseUrl = hasApi ? root : root + '/api';
-  if (query.startsWith('?')) return baseUrl + query;
-  return baseUrl + '?' + query;
+  const root = (base || '').replace(/\/+$/, '').replace(/\/api$/i, '');
+  return `${root}/api/?${query.replace(/^\?/, '')}`;
+}
+
+/**
+ * A vMix function call. Values are percent-encoded: a space is %20, not the form-encoding "+", which a
+ * server need not read as a space ("Eerste helft" could arrive as "Eerste+helft").
+ */
+export function buildVmixFunctionUrl(base: string, params: Record<string, string>): string {
+  const query = Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  return buildVmixApiUrl(base, query);
 }
 
 export async function getSponsorNamesTypes(): Promise<string[]> {

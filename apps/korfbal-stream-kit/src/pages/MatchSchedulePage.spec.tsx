@@ -114,27 +114,27 @@ describe('MatchProgramPage', () => {
     // Mobile list still present with listitems (for responsiveness)
     expect(screen.getAllByRole('listitem').length).toBeGreaterThanOrEqual(1);
 
-    // Click sort by Home, should toggle sort indicator
-    const homeHeaderEl = screen.getAllByRole('columnheader').find((el) => el.textContent?.includes('Home')) as HTMLElement;
+    // Click sort by Thuis, should toggle sort indicator
+    const homeHeaderEl = screen.getAllByRole('columnheader').find((el) => el.textContent?.includes('Thuis')) as HTMLElement;
     expect(homeHeaderEl).toBeTruthy();
     fireEvent.click(homeHeaderEl);
     // Arrow indicator could appear; ensure subsequent click toggles
     fireEvent.click(homeHeaderEl);
 
     // Change location filter to AWAY and ensure fetch called with location
-    fireEvent.change(screen.getByLabelText('Location filter'), { target: { value: 'AWAY' } });
+    fireEvent.change(screen.getByLabelText('Thuis of uit'), { target: { value: 'AWAY' } });
     await waitFor(() => expect(mock).toHaveBeenCalled());
 
     // Next day -> 2025-11-02 (empty)
-    fireEvent.click(screen.getByLabelText('next-day'));
-    await waitFor(() => expect(screen.getAllByText('No matches').length).toBeGreaterThanOrEqual(1));
+    fireEvent.click(screen.getByLabelText('Volgende dag'));
+    await waitFor(() => expect(screen.getAllByText('Geen wedstrijden').length).toBeGreaterThanOrEqual(1));
 
     // Prev day -> 2025-11-01 back
-    fireEvent.click(screen.getByLabelText('prev-day'));
+    fireEvent.click(screen.getByLabelText('Vorige dag'));
     await waitFor(() => expect(screen.getAllByText('Alpha Team').length).toBeGreaterThanOrEqual(1));
 
     // Next week -> expect a refetch
-    fireEvent.click(screen.getByLabelText('next-week'));
+    fireEvent.click(screen.getByLabelText('Volgende week'));
     await waitFor(() => expect(mock).toHaveBeenCalled());
 
     restore();
