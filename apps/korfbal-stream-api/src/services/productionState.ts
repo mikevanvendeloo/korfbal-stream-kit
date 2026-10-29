@@ -94,9 +94,11 @@ export async function broadcastState() {
   emit('callsheet_state_update', liveStateSnapshot());
 
   // Als er een actieve productie is, stuur dan ook de geüpdatete events mee
-  if (state.productionId) {
+  // Read the id once: the show can stop (productionId = null) while we wait for the database
+  const productionId = state.productionId;
+  if (productionId) {
     const events = await prisma.productionEvent.findMany({
-      where: { productionId: state.productionId },
+      where: { productionId },
       include: {
         positions: { include: { position: true } },
       },
@@ -104,7 +106,7 @@ export async function broadcastState() {
     });
 
     // Sanitize elk event om stack overflow in socket.io-parser te voorkomen
-    emit('production_events_update', { items: events.map(sanitizeEvent), chapters: await liveChapters(state.productionId) });
+    emit('production_events_update', { items: events.map(sanitizeEvent), chapters: await liveChapters(productionId) });
   }
 }
 
