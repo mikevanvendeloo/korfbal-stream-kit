@@ -10,6 +10,7 @@ import TimeInput24 from '../components/TimeInput24';
 import {downloadExport} from '../lib/download';
 import {atAmsterdamTime, formatTime} from '../lib/time';
 import {saveCallSheetAsTemplate} from '../lib/chaptersApi';
+import DraaiboekFileActions from '../components/DraaiboekFileActions';
 
 // Amsterdam time, whatever the device's zone
 const timeLocal = (iso?: string | null) => formatTime(iso);
@@ -171,6 +172,12 @@ export default function ProductionDetailPage() {
         />
       </div>
 
+      {/* The draaiboek that Bewerk Draaiboek opens, as a file */}
+      <section aria-labelledby="draaiboek-file" className="mb-8">
+        <h2 id="draaiboek-file" className="font-semibold mb-2">Draaiboek als bestand</h2>
+        <DraaiboekFileActions productionId={id} callSheetId={callSheets?.[callSheets.length - 1]?.id}/>
+      </section>
+
       {/* The hoofdstukken with their times from the items (openspec/changes/chapters); edited via Bewerk Draaiboek */}
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -208,10 +215,10 @@ export default function ProductionDetailPage() {
               )}
               {timing.data.map((t) => (
                 <tr key={t.id}>
-                  <td className="p-2 border-b border-gray-200 dark:border-gray-800">{t.naam}</td>
+                  <td className="p-2 border-b border-gray-200 dark:border-gray-800">{t.name}</td>
                   <td className="p-2 border-b border-gray-200 dark:border-gray-800 font-mono">{timeLocal(t.start)}</td>
                   <td className="p-2 border-b border-gray-200 dark:border-gray-800 font-mono">{timeLocal(t.end)}</td>
-                  <td className="p-2 border-b border-gray-200 dark:border-gray-800">{t.duurInMinuten} min</td>
+                  <td className="p-2 border-b border-gray-200 dark:border-gray-800">{t.durationMinutes} min</td>
                 </tr>
               ))}
             </tbody>

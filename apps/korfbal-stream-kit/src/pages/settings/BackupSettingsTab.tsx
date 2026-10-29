@@ -8,6 +8,9 @@ type Entity = {
   id: string;
   label: string;
   endpoint: string;
+  /** Only a restore: the export is gone, older backups can still be read */
+  importOnly?: boolean;
+  description?: string;
 };
 
 const ENTITIES: Entity[] = [
@@ -19,7 +22,13 @@ const ENTITIES: Entity[] = [
   { id: 'clubs', label: 'Clubs', endpoint: 'clubs' },
   { id: 'sponsors', label: 'Sponsors', endpoint: 'sponsors' },
   { id: 'settings', label: 'Instellingen', endpoint: 'settings' },
-  { id: 'segment-templates', label: 'Segment templates', endpoint: 'segment-templates' },
+  {
+    id: 'segment-templates',
+    label: 'Segment-templates (oude backup)',
+    endpoint: 'segment-templates',
+    importOnly: true,
+    description: 'Alleen herstellen: segment-templates uit een oudere backup worden draaiboek-templates met hoofdstukken.',
+  },
 ];
 
 export default function BackupPage() {
@@ -116,6 +125,7 @@ export default function BackupPage() {
           <div key={entity.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
             <div className="mb-4 sm:mb-0">
               <h3 className="font-medium text-gray-900 dark:text-gray-100">{entity.label}</h3>
+              {entity.description && <p className="text-sm text-gray-500 dark:text-gray-400">{entity.description}</p>}
               {status[entity.id] && (
                 <p className={`text-sm mt-1 ${status[entity.id].includes('Fout') ? 'text-red-500' : 'text-green-500'}`}>
                   {status[entity.id]}
@@ -123,13 +133,13 @@ export default function BackupPage() {
               )}
             </div>
             <div className="flex items-center space-x-3">
-              <button
+              {!entity.importOnly && <button
                 onClick={() => handleExport(entity)}
                 disabled={!!loading}
                 className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 {loading === `export-${entity.id}` ? 'Exporteren...' : 'Backup'}
-              </button>
+              </button>}
 
               <label className={`inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs font-medium rounded-md shadow-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 <span>{loading === `import-${entity.id}` ? 'Herstellen...' : 'Restore'}</span>

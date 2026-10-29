@@ -21,8 +21,6 @@ export const adminPaths = {
 
   callSheetTemplates: `${ADMIN}/stamgegevens/draaiboek-templates`,
   callSheetTemplate: (id: number | string) => `${ADMIN}/stamgegevens/draaiboek-templates/${id}`,
-  segmentTemplates: `${ADMIN}/stamgegevens/segment-templates`,
-  segmentDefaults: `${ADMIN}/stamgegevens/standaardbezetting`,
 
   persons: `${ADMIN}/stamgegevens/personen`,
   positions: `${ADMIN}/stamgegevens/posities`,

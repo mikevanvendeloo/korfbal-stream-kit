@@ -142,7 +142,7 @@ function OrganizationFormModal({initial, onClose}: { initial?: Organization; onC
           {saved && <OrganizationLogoField organization={saved}/>}
           {!initial && !saved && (
             <p className="text-sm text-gray-600 dark:text-gray-300">
-              Een nieuwe organisatie krijgt de standaardset: skills, posities, titel-templates, draaiboek- en segment-templates.
+              Een nieuwe organisatie krijgt de standaardset: skills, posities, titel-templates en draaiboek-templates met hoofdstukken.
             </p>
           )}
           <div className="flex justify-end gap-2 pt-2">

@@ -1,54 +1,54 @@
 import React from 'react';
 import {MdAdd, MdDelete} from 'react-icons/md';
 import {
-  Position,
   ProductionPersonPosition,
-  ProductionSegment,
-  useAddSegmentAssignment,
+  ProductionChapter,
+  useAddChapterAssignment,
 } from '../hooks/useProductions';
 import IconButton from './IconButton';
+import {Position} from '../hooks/usePositions';
 
-interface SegmentOverride {
+interface ChapterOverride {
   id: number;
   personId: number;
   personName: string;
-  segmentId: number;
-  segmentName: string;
+  chapterId: number;
+  chapterName: string;
   positionId: number;
   positionName: string;
 }
 
-export default function SegmentOverridesManager({
+export default function ChapterOverridesManager({
   productionId,
-  segments,
+  chapters,
   productionPersons,
   allPositions,
   productionPersonPositions,
 }: {
   productionId: number;
-  segments: ProductionSegment[];
+  chapters: ProductionChapter[];
   productionPersons: Array<{ id: number; person: { id: number; name: string } }>;
   allPositions: Position[];
   productionPersonPositions: ProductionPersonPosition[];
 }) {
   const [selectedPersonId, setSelectedPersonId] = React.useState<number | ''>('');
-  const [selectedSegmentId, setSelectedSegmentId] = React.useState<number | ''>('');
+  const [selectedChapterId, setSelectedChapterId] = React.useState<number | ''>('');
   const [selectedPositionId, setSelectedPositionId] = React.useState<number | ''>('');
   const [error, setError] = React.useState<string | null>(null);
-  const [allOverrides, setAllOverrides] = React.useState<SegmentOverride[]>([]);
+  const [allOverrides, setAllOverrides] = React.useState<ChapterOverride[]>([]);
   const [refreshTrigger, setRefreshTrigger] = React.useState(0);
 
-  // Get the mutation for the selected segment
-  const addMutation = useAddSegmentAssignment(Number(selectedSegmentId) || 0);
+  // Get the mutation for the selected hoofdstuk
+  const addMutation = useAddChapterAssignment(Number(selectedChapterId) || 0);
 
-  // Fetch all segment assignments when component mounts or refreshTrigger changes
+  // Fetch the assignments of every hoofdstuk when the component mounts or refreshTrigger changes
   React.useEffect(() => {
     const fetchAllAssignments = async () => {
-      const overrides: SegmentOverride[] = [];
+      const overrides: ChapterOverride[] = [];
 
-      for (const segment of segments) {
+      for (const chapter of chapters) {
         try {
-          const response = await fetch(`/api/production/segments/${segment.id}/assignments`);
+          const response = await fetch(`/api/production/segments/${chapter.id}/assignments`);
           if (response.ok) {
             const data = await response.json();
             data.forEach((assignment: any) => {
@@ -56,40 +56,40 @@ export default function SegmentOverridesManager({
                 id: assignment.id,
                 personId: assignment.person.id,
                 personName: assignment.person.name,
-                segmentId: segment.id,
-                segmentName: segment.naam,
+                chapterId: chapter.id,
+                chapterName: chapter.name,
                 positionId: assignment.position.id,
                 positionName: assignment.position.name,
               });
             });
           }
         } catch (err) {
-          console.error(`Failed to fetch assignments for segment ${segment.id}:`, err);
+          console.error(`Failed to fetch assignments for hoofdstuk ${chapter.id}:`, err);
         }
       }
 
-      // Sort by person name, then segment order
+      // Sort by person name, then hoofdstuk order
       overrides.sort((a, b) => {
         const personCompare = a.personName.localeCompare(b.personName);
         if (personCompare !== 0) return personCompare;
-        const segA = segments.find((s) => s.id === a.segmentId);
-        const segB = segments.find((s) => s.id === b.segmentId);
-        return (segA?.volgorde || 0) - (segB?.volgorde || 0);
+        const chapterA = chapters.find((c) => c.id === a.chapterId);
+        const chapterB = chapters.find((c) => c.id === b.chapterId);
+        return (chapterA?.orderIndex || 0) - (chapterB?.orderIndex || 0);
       });
 
       setAllOverrides(overrides);
     };
 
-    if (segments.length > 0) {
+    if (chapters.length > 0) {
       fetchAllAssignments();
     }
-  }, [segments, refreshTrigger]);
+  }, [chapters, refreshTrigger]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!selectedPersonId || !selectedSegmentId || !selectedPositionId) {
-      setError('Selecteer een persoon, segment en positie');
+    if (!selectedPersonId || !selectedChapterId || !selectedPositionId) {
+      setError('Selecteer een persoon, hoofdstuk en positie');
       return;
     }
 
@@ -100,7 +100,7 @@ export default function SegmentOverridesManager({
       });
       // Reset form
       setSelectedPositionId('');
-      setSelectedSegmentId('');
+      setSelectedChapterId('');
       setSelectedPersonId('');
       // Trigger refresh
       setRefreshTrigger((prev) => prev + 1);
@@ -109,10 +109,10 @@ export default function SegmentOverridesManager({
     }
   };
 
-  const handleDelete = async (override: SegmentOverride) => {
+  const handleDelete = async (override: ChapterOverride) => {
     setError(null);
     try {
-      const response = await fetch(`/api/production/segments/${override.segmentId}/assignments/${override.id}`, {
+      const response = await fetch(`/api/production/segments/${override.chapterId}/assignments/${override.id}`, {
         method: 'DELETE',
       });
       if (!response.ok) {
@@ -136,9 +136,9 @@ export default function SegmentOverridesManager({
 
   return (
     <div className="border rounded p-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-      <h2 className="text-lg font-semibold mb-3">Segment-specifieke afwijkingen</h2>
+      <h2 className="text-lg font-semibold mb-3">Afwijkingen per hoofdstuk</h2>
       <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-        Voeg hier afwijkingen toe voor specifieke segmenten. De productie-brede posities zijn de standaard.
+        Voeg hier afwijkingen toe voor een hoofdstuk. De productie-brede posities zijn de standaard.
       </p>
 
       {error && (
@@ -180,16 +180,16 @@ export default function SegmentOverridesManager({
           </label>
 
           <label className="text-sm">
-            <div className="mb-1 font-medium">Segment</div>
+            <div className="mb-1 font-medium">Hoofdstuk</div>
             <select
-              value={selectedSegmentId}
-              onChange={(e) => setSelectedSegmentId(e.target.value ? Number(e.target.value) : '')}
+              value={selectedChapterId}
+              onChange={(e) => setSelectedChapterId(e.target.value ? Number(e.target.value) : '')}
               className="w-full border rounded px-2 py-1.5 dark:bg-gray-900 dark:border-gray-700"
             >
-              <option value="">— Selecteer segment —</option>
-              {segments.map((seg) => (
-                <option key={seg.id} value={seg.id}>
-                  {seg.volgorde}. {seg.naam}
+              <option value="">— Selecteer hoofdstuk —</option>
+              {chapters.map((chapter, i) => (
+                <option key={chapter.id} value={chapter.id}>
+                  {i + 1}. {chapter.name}
                 </option>
               ))}
             </select>
@@ -214,7 +214,7 @@ export default function SegmentOverridesManager({
 
         <button
           type="submit"
-          disabled={!selectedPersonId || !selectedSegmentId || !selectedPositionId || addMutation.isPending}
+          disabled={!selectedPersonId || !selectedChapterId || !selectedPositionId || addMutation.isPending}
           className="mt-3 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
         >
           <MdAdd className="w-5 h-5" />
@@ -226,12 +226,12 @@ export default function SegmentOverridesManager({
       <div>
         <h3 className="font-medium mb-2">Huidige afwijkingen ({allOverrides.length})</h3>
         {allOverrides.length === 0 ? (
-          <p className="text-sm text-gray-500">Geen segment-specifieke afwijkingen. Alle personen gebruiken hun productie-brede posities.</p>
+          <p className="text-sm text-gray-500">Geen afwijkingen per hoofdstuk. Alle personen gebruiken hun productie-brede posities.</p>
         ) : (
           <div className="space-y-2">
             {allOverrides.map((override) => (
               <div
-                key={`${override.segmentId}-${override.id}`}
+                key={`${override.chapterId}-${override.id}`}
                 className="flex items-center justify-between p-3 border rounded dark:border-gray-700 bg-white dark:bg-gray-800"
               >
                 <div className="flex-grow grid grid-cols-3 gap-4">
@@ -240,8 +240,8 @@ export default function SegmentOverridesManager({
                     <div className="font-medium">{override.personName}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500">Segment</div>
-                    <div>{override.segmentName}</div>
+                    <div className="text-xs text-gray-500">Hoofdstuk</div>
+                    <div>{override.chapterName}</div>
                   </div>
                   <div>
                     <div className="text-xs text-gray-500">Positie</div>

@@ -14,7 +14,7 @@ Een titel bestaat uit één of meer onderdelen met een **Bron**: *Presentatie & 
 
 Waar de namen vandaan komen:
 
-- **Presentatie, analist en commentaar**: uit de [productie-brede bezetting](/admin/handleiding/bezetting#productie-brede-posities). Afwijkingen per segment tellen niet mee.
+- **Presentatie, analist en commentaar**: uit de [productie-brede bezetting](/admin/handleiding/bezetting#productie-brede-posities). Afwijkingen per hoofdstuk tellen niet mee.
 - **Team speler en coach**: uit de interviewkeuze hieronder.
 
 Heeft een productie zelf geen titels, dan gebruikt vMix de titel-templates.

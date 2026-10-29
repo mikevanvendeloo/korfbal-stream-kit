@@ -116,12 +116,13 @@ apps/korfbal-stream-kit/src/
 │   ├── components/callsheet/GlobalClocks.tsx
 │   └── hooks/useCallsheetSync.ts
 ├── pages/                     # Route-level pages
-│   ├── ProductionsAdminPage.tsx, ProductionDetailPage.tsx, ActiveProductionPage.tsx
+│   ├── ProductionsAdminPage.tsx, ActiveProductionPage.tsx
+│   ├── ProductionDetailPage.tsx  # Draaiboek tab: times, draaiboek template, Draaiboek als bestand, hoofdstukken (timing)
 │   ├── CallSheetsPage.tsx, CallSheetEditPage.tsx, LiveCallsheetEntry.tsx
 │   ├── CallSheetTemplatesPage.tsx, CallSheetTemplateDetailsPage.tsx
-│   ├── SegmentTemplatesPage.tsx, SegmentDefaultsAdminPage.tsx
 │   ├── PersonsAdminPage.tsx, SkillsAdminPage.tsx, PositionsAdminPage.tsx
-│   ├── ProductionAttendancePage.tsx, ProductionStaffingPage.tsx, CrewReportPage.tsx
+│   ├── ProductionAttendancePage.tsx, CrewReportPage.tsx
+│   ├── ProductionStaffingPage.tsx # Bezetting tab: production-wide positions, afwijkingen and bezetting per hoofdstuk
 │   ├── ProductionReportPage.tsx, ProductionTimingReportPage.tsx, ReportsPage.tsx (/admin/rapportages/:tab)
 │   ├── ProductionTitlesPage.tsx, LiveVmixPage.tsx (LIVE), InterviewsPage.tsx (LIVE → Interviews), VmixConnectionPage.tsx, VmixDatasourcesPage.tsx, VmixTemplatesPage.tsx
 │   ├── SponsorsPage.tsx, SponsorSlidesPage.tsx
@@ -135,7 +136,7 @@ apps/korfbal-stream-kit/src/
 │       ├── ConnectionSettingsTab.tsx  # vMix / scoreboard connections
 │       ├── SponsorSettingsTab.tsx     # Sponsor filter config
 │       ├── ClubSettingsTab.tsx        # Own club config
-│       └── BackupSettingsTab.tsx      # Backup export/import (for the chosen organization)
+│       └── BackupSettingsTab.tsx      # Backup export/import (for the chosen organization); segment templates of older backups: restore only
 ├── components/ShowCallerPhone.tsx # Show Caller on phones (< 768 px): now, next, later, controls at the bottom
 ├── components/InterviewAvatar.tsx, FallbackImage.tsx, InterviewPhotosToggle.tsx # Interview photos (photo / number / initials), the "Interviewfoto's" switch (hooks/useInterviewPhotos.ts)
 ├── handleiding/               # User manual: live/*.md and beheer/*.md, ManualView, HelpButton, helpTopics (route → chapter)
@@ -145,8 +146,10 @@ apps/korfbal-stream-kit/src/
 │   ├── ApiKeys.tsx            # API key list/create/revoke, one-time key dialog, feed URLs with the key
 │   ├── CallSheetView.tsx, CallSheetColumn.tsx, CallSheetItem.tsx, CallSheetTemplateSelector.tsx
 │   ├── ShowControl.tsx, ShowCallerView.tsx, TimeControls.tsx, TimeDisplay.tsx
-│   ├── SegmentFormModal.tsx, SegmentAssignmentsCard.tsx, SegmentOverridesManager.tsx,
-│   │   SegmentTemplateSelector.tsx, CopyAssignmentsModal.tsx, PositionSelector.tsx
+│   ├── ChapterAssignmentsCard.tsx, ChapterOverridesManager.tsx, CopyAssignmentsModal.tsx # Bezetting per hoofdstuk
+│   ├── ChapterBoard.tsx       # Hoofdstuk blocks with drag and drop (draaiboek template and production draaiboek; lib/chapterStructure.ts, lib/chaptersApi.ts)
+│   ├── DraaiboekFileActions.tsx # Exporteer JSON / Exporteer Excel / Importeer draaiboek of a production draaiboek
+│   ├── PositionSelector.tsx
 │   ├── PersonsTable.tsx, PlayerCard.tsx, TitlesManager.tsx
 │   ├── SponsorsTable.tsx, SponsorFormModal.tsx
 │   ├── ProductionLayout.tsx   # Tabs of one production: Draaiboek, Beschikbaarheid, Bezetting, vMix-titels, Rapport
@@ -156,7 +159,7 @@ apps/korfbal-stream-kit/src/
 │   └── ui/                    # Base UI primitives (button, card, input)
 ├── hooks/                     # TanStack Query hooks per domain + live state
 │   ├── useProductions.ts, useCallsheet.ts, useCallSheetTemplates.ts, useCallSheetSync.ts
-│   ├── useSegmentTemplates.ts, usePositions.ts, usePersons.ts, useInterviews.ts, useTitles.ts
+│   ├── usePositions.ts, usePersons.ts, useInterviews.ts, useTitles.ts
 │   ├── useSponsors.ts, useClubs.ts, useMatch.ts, useMatchSchedule.ts, useManualMatches.ts
 │   ├── useReports.ts, useProductionReport.ts, useSettings.ts
 │   ├── useSeasons.ts          # Seasons + active season (invalidates all queries on change)

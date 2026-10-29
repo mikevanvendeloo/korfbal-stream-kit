@@ -45,19 +45,19 @@ Bij **Productie-brede Positietoewijzingen** geef je elke aanwezige persoon de po
 
 Dit is de basis: de rapporten, de vMix-naamtitels (presentatie, analist, commentaar) en LIVE gebruiken deze posities.
 
-### Afwijkingen per segment
+### Afwijkingen per hoofdstuk
 
-Doet iemand in één segment iets extra's, bijvoorbeeld in de rust de camera in de studio? Voeg dan bij **Segment-specifieke afwijkingen** een afwijking toe: kies de **Persoon**, het **Segment** en de **Positie (afwijking)**, en klik op **Afwijking toevoegen**.
+Doet iemand in één hoofdstuk van het draaiboek iets extra's, bijvoorbeeld in de rust de camera in de studio? Voeg dan bij **Afwijkingen per hoofdstuk** een afwijking toe: kies de **Persoon**, het **Hoofdstuk** en de **Positie (afwijking)**, en klik op **Afwijking toevoegen**.
 
-> Een afwijking komt **bovenop** de productie-brede posities: de persoon houdt in dat segment ook zijn gewone positie.
+> Een afwijking komt **bovenop** de productie-brede posities: de persoon houdt in dat hoofdstuk ook zijn gewone positie.
 
-### Bezetting per segment
+### Bezetting per hoofdstuk
 
-Onderaan staat per segment wie er effectief staat (productie-breed plus de afwijkingen). Met **Filter op persoon** zie je alleen de segmenten van één persoon.
+Onderaan staat bij **Effectieve bezetting per hoofdstuk** per hoofdstuk wie er effectief staat (productie-breed plus de afwijkingen). Met **Filter op persoon** zie je alleen wat één persoon doet.
 
-In elk segment kun je direct iemand toevoegen. Een segment is hier een hoofdstuk van het draaiboek. De knoppen bij **Standaard posities voor dit segment** komen uit de standaardbezetting van het hoofdstuk met dezelfde naam in het draaiboek van de productie ([Draaiboek-templates](/admin/handleiding/draaiboek-templates#hoofdstukken)); kies je een positie die een skill vereist, dan zie je alleen personen met die skill. Heeft iemand de skill niet, dan krijg je de melding *Persoon mist de vereiste skill voor deze positie*.
+In elk hoofdstuk kun je direct iemand toevoegen. De knoppen bij **Standaardposities voor dit hoofdstuk (draaiboek-template)** komen uit de standaardbezetting van het hoofdstuk met dezelfde naam in het draaiboek van de productie ([Draaiboek-templates](/admin/handleiding/draaiboek-templates#hoofdstukken)); kies je een positie die een skill vereist, dan zie je alleen personen met die skill. Heeft iemand de skill niet, dan krijg je de melding *Persoon mist de vereiste skill voor deze positie*.
 
-Met **Kopieer naar…** neem je de toewijzingen van een segment over in andere segmenten: **Merge** voegt toe, **Overwrite** vervangt. Alleen de afwijkingen per segment worden gekopieerd, niet de productie-brede posities.
+Met **Kopieer naar…** neem je de afwijkingen van een hoofdstuk over in andere hoofdstukken (kies ze bij **Naar hoofdstukken**): **Merge** voegt toe, **Overwrite** vervangt. Alleen de afwijkingen per hoofdstuk worden gekopieerd, niet de productie-brede posities.
 
 > Afwijkingen en toewijzingen verwijderen gaat zonder bevestiging.
 
@@ -65,4 +65,4 @@ Met **Kopieer naar…** neem je de toewijzingen van een segment over in andere s
 
 - In LIVE op **Actieve productie** (de crew per groep).
 - In de **Callsheet** (Rapport → Callsheet: bezetting per hoofdstuk) en het **Productierapport**.
-- In de **Rapportages** Dagbezetting en Positieoverzicht (alleen de productie-brede posities), en Entertainmentrollen en Crewrollen (ook de posities per segment).
+- In de **Rapportages** Dagbezetting en Positieoverzicht (alleen de productie-brede posities), en Entertainmentrollen en Crewrollen (ook de posities per hoofdstuk).

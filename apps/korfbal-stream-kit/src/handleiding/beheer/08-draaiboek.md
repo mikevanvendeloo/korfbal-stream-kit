@@ -26,6 +26,18 @@ Onder **Hoofdstukken** zie je de hoofdstukken van het draaiboek met hun begin, e
 
 Met het **diskette-icoon** bewaar je het draaiboek van deze productie als nieuwe draaiboek-template, met de hoofdstukken, items en de standaardbezetting per hoofdstuk (de naam moet uniek zijn).
 
+## Draaiboek als bestand
+
+Onder **Draaiboek als bestand** zet je het draaiboek van deze productie in een bestand, of haal je het uit een bestand:
+
+- **Exporteer JSON** downloadt het draaiboek met zijn hoofdstukken, items, tijdankers, koppelingen en posities. Zo'n bestand kun je in een andere productie importeren, of bij [Draaiboek-templates](/admin/handleiding/draaiboek-templates#importeren-en-exporteren) als template (**JSON Import**).
+- **Exporteer Excel** downloadt hetzelfde als spreadsheet (met de kolom *Hoofdstuk*), om te lezen of te printen.
+- **Importeer draaiboek** vervangt de items van dit draaiboek door die uit een JSON-bestand (een export van een productie of van een draaiboek-template, max. 2 MB). Je krijgt eerst de vraag *Het draaiboek van deze productie wordt vervangen …*; klik op **OK** om door te gaan. Daarna zie je hoeveel items er zijn geïmporteerd en welke hoofdstukken er nieuw zijn bijgekomen. Een hoofdstuk met dezelfde naam als een bestaand hoofdstuk wordt hergebruikt (met zijn bezetting); de tijden worden berekend vanaf het tijdanker. Is het bestand ongeldig, dan zie je de reden in rood en verandert er niets.
+
+> **Let op:** importeren vervangt alle items van het draaiboek. Zet het daarna met **PAS TOE OP LIVE VIEW** door naar LIVE, en doe dit niet tijdens of na de uitzending.
+
+De knoppen werken pas als de productie een draaiboek heeft (kies eerst een draaiboek-template).
+
 ## De callsheet bewerken
 
 Met **Bewerk Draaiboek** open je het draaiboek van deze productie, in hoofdstukken, net als bij een [draaiboek-template](/admin/handleiding/draaiboek-templates#hoofdstukken): sleep items binnen en tussen hoofdstukken, of een heel hoofdstuk; voeg hoofdstukken toe, hernoem of verwijder ze. De hoofdstukken horen bij de productie; de volgorde geldt na **PAS TOE OP LIVE VIEW** ook in LIVE. Staat er **Hoofdstukken automatisch ingedeeld — controleer de indeling**, kijk de indeling dan na en klik op **Indeling klopt**. Elk item staat op één regel met zijn berekende begintijd, de **cue**, de titel, labels en de posities; klik op een regel om de cue, titel, notitie, duur, **Zaal**/**Stream**, **Auto**, het tijdanker, de koppeling en de posities te wijzigen, en druk op **Opslaan** (net als bij een [draaiboek-template](/admin/handleiding/draaiboek-templates#items)). Een nieuw item maak je met **+** in de kop van een hoofdstuk: het komt achteraan in dat hoofdstuk en opent meteen.

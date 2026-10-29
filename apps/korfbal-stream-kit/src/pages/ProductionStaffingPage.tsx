@@ -1,8 +1,8 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import SegmentAssignmentsCard from '../components/SegmentAssignmentsCard';
+import ChapterAssignmentsCard from '../components/ChapterAssignmentsCard';
 import {
-  useProductionSegments,
+  useProductionChapters,
   useProductionPersonPositions,
   useProductionPersons,
   usePositions,
@@ -10,7 +10,7 @@ import {
 } from '../hooks/useProductions';
 import { usePersons } from '../hooks/usePersons';
 import ProductionWideAssignmentsCard from '../components/ProductionWideAssignmentsCard';
-import SegmentOverridesManager from '../components/SegmentOverridesManager';
+import ChapterOverridesManager from '../components/ChapterOverridesManager';
 
 function PersonFilterControlInner({ value, onChange, persons }: { value: number | null; onChange: (v: number | null) => void; persons: Array<{ id: number; name: string }>; }) {
   return (
@@ -31,13 +31,13 @@ function PersonFilterControlInner({ value, onChange, persons }: { value: number 
   );
 }
 
-/** Bezetting tab: who does what during the production, overall and per segment. */
+/** Bezetting tab: who does what during the production, overall and per hoofdstuk. */
 export default function ProductionStaffingPage() {
   const params = useParams<{ id: string }>();
   const id = Number(params.id);
 
   const { data: prod, isError: isProdError, error: prodError } = useProduction(id);
-  const segments = useProductionSegments(id);
+  const chapters = useProductionChapters(id);
   const { data: productionPersonPositions } = useProductionPersonPositions(id);
   const { data: productionPersons } = useProductionPersons(id);
   const { data: allPositions } = usePositions();
@@ -72,9 +72,9 @@ export default function ProductionStaffingPage() {
       </div>
 
       <div className="mt-8">
-        <SegmentOverridesManager
+        <ChapterOverridesManager
           productionId={id}
-          segments={segments.data || []}
+          chapters={chapters.data || []}
           productionPersons={productionPersons || []}
           allPositions={allPositions || []}
           productionPersonPositions={productionPersonPositions || []}
@@ -83,7 +83,7 @@ export default function ProductionStaffingPage() {
 
       <div className="mt-8">
         <div className="flex items-end justify-between mb-3">
-          <h2 className="font-semibold">Effectieve bezetting per segment</h2>
+          <h2 className="font-semibold">Effectieve bezetting per hoofdstuk</h2>
           <PersonFilterControlInner
             value={personFilterId}
             onChange={setPersonFilterId}
@@ -91,22 +91,23 @@ export default function ProductionStaffingPage() {
           />
         </div>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Dit overzicht toont de effectieve toewijzingen per segment (productie-breed + afwijkingen).
+          Dit overzicht toont de effectieve toewijzingen per hoofdstuk (productie-breed + afwijkingen).
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {(segments.data || []).map((s) => (
-            <SegmentAssignmentsCard
-              key={s.id}
-              segment={s}
-              allSegments={segments.data || []}
+          {(chapters.data || []).map((c, i) => (
+            <ChapterAssignmentsCard
+              key={c.id}
+              chapter={c}
+              chapterNumber={i + 1}
+              allChapters={chapters.data || []}
               personFilterId={personFilterId}
               productionPersonPositions={productionPersonPositions || []}
               productionPersons={productionPersons || []}
               allPositions={allPositions || []}
             />
           ))}
-          {segments.data && segments.data.length === 0 && (
-            <div className="text-sm text-gray-500">Geen segmenten</div>
+          {chapters.data && chapters.data.length === 0 && (
+            <div className="text-sm text-gray-500">Geen hoofdstukken</div>
           )}
         </div>
       </div>

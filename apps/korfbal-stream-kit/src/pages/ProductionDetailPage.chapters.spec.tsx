@@ -8,13 +8,14 @@ import ProductionDetailPage from './ProductionDetailPage';
 vi.mock('../hooks/useProductions', () => ({
   useProduction: () => ({data: {id: 1, matchScheduleId: 1, liveTime: '2026-11-14T18:25:00.000Z', matchSchedule: {date: '2026-11-14T18:30:00.000Z'}}, isError: false, refetch: vi.fn()}),
   useProductionTiming: () => ({data: [
-    {id: 11, naam: 'Voorbereiding', volgorde: 1, duurInMinuten: 5, isTimeAnchor: false, start: '2026-11-14T18:00:00.000Z', end: '2026-11-14T18:05:00.000Z'},
-    {id: 22, naam: 'Eerste helft', volgorde: 2, duurInMinuten: 35, isTimeAnchor: false, start: '2026-11-14T18:30:00.000Z', end: '2026-11-14T19:05:00.000Z'},
+    {id: 11, name: 'Voorbereiding', orderIndex: 1, durationMinutes: 5, start: '2026-11-14T18:00:00.000Z', end: '2026-11-14T18:05:00.000Z'},
+    {id: 22, name: 'Eerste helft', orderIndex: 2, durationMinutes: 35, start: '2026-11-14T18:30:00.000Z', end: '2026-11-14T19:05:00.000Z'},
   ], isError: false, refetch: vi.fn()}),
   useUpdateProduction: () => ({mutateAsync: vi.fn()}),
 }));
 vi.mock('../hooks/useCallsheet', () => ({useCallSheets: () => ({data: [{id: 7, productionId: 1, name: 'Draaiboek'}], refetch: vi.fn()})}));
 vi.mock('../components/CallSheetTemplateSelector', () => ({CallSheetTemplateSelector: () => <div/>}));
+vi.mock('../components/DraaiboekFileActions', () => ({default: () => <div/>}));
 const saveCallSheetAsTemplate = vi.fn(async () => ({id: 3, name: 'Kopie'}));
 vi.mock('../lib/chaptersApi', () => ({saveCallSheetAsTemplate: (...args: unknown[]) => saveCallSheetAsTemplate(...(args as []))}));
 

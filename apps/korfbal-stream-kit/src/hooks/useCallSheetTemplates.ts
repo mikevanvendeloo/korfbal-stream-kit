@@ -44,7 +44,7 @@ export interface CallSheetTemplateChapter {
 export interface FullCallSheetTemplate extends CallSheetTemplate {
   items: CallSheetTemplateItem[];
   chapters: CallSheetTemplateChapter[];
-  /** Placed by the segment migration and not yet checked: Beheer asks to check the hoofdstukken */
+  /** Placed by the hoofdstuk migration (from the old segments) and not yet checked: Beheer asks to check the hoofdstukken */
   chaptersAutoPlaced: boolean;
 }
 
@@ -213,7 +213,7 @@ export function useCallSheetTemplates() {
     }
   }, []);
 
-  const applyTemplate = useCallback(async (templateId: number, productionId: number, options?: { segmentId?: number, replace?: boolean }) => {
+  const applyTemplate = useCallback(async (templateId: number, productionId: number, options?: { replace?: boolean }) => {
     setLoading(true);
     setError(null);
     try {

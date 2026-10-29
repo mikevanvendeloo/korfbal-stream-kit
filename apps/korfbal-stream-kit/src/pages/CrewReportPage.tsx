@@ -126,7 +126,7 @@ export default function CrewReportPage() {
                         <th className="p-2 text-left w-16">Tijd</th>
                         <th className="p-2 text-left w-16">Cue</th>
                         <th className="p-2 text-left">Onderwerp</th>
-                        <th className="p-2 text-left">Segment</th>
+                        <th className="p-2 text-left">Hoofdstuk</th>
                         <th className="p-2 text-left">Duur</th>
                         <th className="p-2 text-left">Opmerking</th>
                       </tr>
@@ -140,7 +140,7 @@ export default function CrewReportPage() {
                             {item.isInVenue ? <MdLocationOn className="text-orange-500" title="Zaal" /> : <MdLiveTv className="text-blue-500" title="Livestream" />}
                           </td>
                           <td className="p-2">{item.title}</td>
-                          <td className="p-2 text-gray-500">{item.productionSegment?.naam || '-'}</td>
+                          <td className="p-2 text-gray-500">{item.chapter?.name || '-'}</td>
                           <td className="p-2 whitespace-nowrap">{item.durationSec >= 0 ? `${Math.floor(item.durationSec / 60)}:${(item.durationSec % 60).toString().padStart(2, '0')}` : '-'}</td>
                           <td className="p-2 text-gray-500 italic text-xs">
                             {item.note}
@@ -164,7 +164,7 @@ export default function CrewReportPage() {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800">
-                <th className="p-2 text-left sticky left-0 bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">Segment</th>
+                <th className="p-2 text-left sticky left-0 bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">Hoofdstuk</th>
                 {data.groupedPositions.map(group => (
                   <th key={group.category} colSpan={group.positions.length} className="p-2 text-center whitespace-nowrap border-b dark:border-gray-700 border-x">{group.category}</th>
                 ))}
@@ -177,12 +177,12 @@ export default function CrewReportPage() {
               </tr>
             </thead>
             <tbody>
-              {data.segments.map((seg) => (
-                <tr key={seg.id} className="border-b dark:border-gray-700">
-                  <th className="p-2 text-left sticky left-0 bg-white dark:bg-gray-900 border-r dark:border-gray-700">{seg.volgorde}. {seg.naam}</th>
+              {data.chapters.map((chapter, i) => (
+                <tr key={chapter.id} className="border-b dark:border-gray-700">
+                  <th className="p-2 text-left sticky left-0 bg-white dark:bg-gray-900 border-r dark:border-gray-700">{i + 1}. {chapter.name}</th>
                   {data.groupedPositions.flatMap(g => g.positions).map((pos) => {
                     const names = data.cells
-                      .filter((c) => c.segmentId === seg.id && c.positionId === pos.id)
+                      .filter((c) => c.chapterId === chapter.id && c.positionId === pos.id)
                       .map((c) => c.personName);
                     return (
                       <td key={pos.id} className="p-2 align-top border-r dark:border-gray-700 last:border-r-0">

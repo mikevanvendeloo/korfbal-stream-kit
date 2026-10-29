@@ -27,7 +27,7 @@ export const saveTemplateStructure = (templateId: number, chapters: Structure<st
 
 // Productions (the hoofdstukken belong to the production; the order is saved per callsheet)
 export const addProductionChapter = async (productionId: number, name: string) =>
-  (await send(`/api/production/${productionId}/chapters`, 'POST', {name})).json() as Promise<{ id: number; naam: string }>;
+  (await send(`/api/production/${productionId}/chapters`, 'POST', {name})).json() as Promise<{ id: number; name: string }>;
 export const renameProductionChapter = (chapterId: number, name: string) => send(`/api/production/chapters/${chapterId}`, 'PUT', {name});
 export const deleteProductionChapter = (chapterId: number) => send(`/api/production/chapters/${chapterId}`, 'DELETE');
 export const saveCallSheetStructure = (callSheetId: number, chapters: Structure<number>) =>

@@ -1,21 +1,15 @@
 import {describe, expect, it, vi} from 'vitest';
 import {fireEvent, render, screen, waitFor} from '@testing-library/react';
-import SegmentAssignmentsCard from './SegmentAssignmentsCard';
+import ChapterAssignmentsCard from './ChapterAssignmentsCard';
 
-// Mock hooks used by SegmentAssignmentsCard
+// Mock hooks used by ChapterAssignmentsCard
 vi.mock('../hooks/useProductions', () => {
   return {
-    useSegmentAssignments: () => ({ data: [], isLoading: false }),
-    useAddSegmentAssignment: () => ({ mutateAsync: vi.fn().mockResolvedValue({}) }),
-    useDeleteSegmentAssignment: () => ({ mutateAsync: vi.fn().mockResolvedValue({}) }),
-    useCopySegmentAssignments: () => ({ mutateAsync: vi.fn().mockResolvedValue({ ok: true }) }),
-    useCrewPersonsForSegment: () => ({
-      data: [
-        { id: 1, name: 'Alice', gender: 'female', skillIds: [100] }, // COMMENTAAR
-        { id: 2, name: 'Bob', gender: 'male', skillIds: [200] }, // REGISSEUR
-      ],
-    }),
-    useSegmentDefaultPositions: () => ({
+    useChapterAssignments: () => ({ data: [], isLoading: false }),
+    useAddChapterAssignment: () => ({ mutateAsync: vi.fn().mockResolvedValue({}) }),
+    useDeleteChapterAssignment: () => ({ mutateAsync: vi.fn().mockResolvedValue({}) }),
+    useCopyChapterAssignments: () => ({ mutateAsync: vi.fn().mockResolvedValue({ ok: true }) }),
+    useChapterStandardPositions: () => ({
       data: [
         { id: 10, name: 'commentaar', order: 1, requiredSkillCode: 'COMMENTAAR' },
         { id: 11, name: 'regie', order: 2, requiredSkillCode: 'REGISSEUR' },
@@ -63,8 +57,8 @@ global.fetch = vi.fn((url) => {
   return Promise.resolve({ ok: false });
 }) as any;
 
-describe('SegmentAssignmentsCard', () => {
-  const seg = { id: 99, productionId: 1, naam: 'Test', volgorde: 1, duurInMinuten: 5, isTimeAnchor: false };
+describe('ChapterAssignmentsCard', () => {
+  const chapter = { id: 99, productionId: 1, name: 'Eerste helft', orderIndex: 3 };
   const productionPersons = [
     { person: { id: 1, name: 'Alice' } },
     { person: { id: 2, name: 'Bob' } }
@@ -72,11 +66,12 @@ describe('SegmentAssignmentsCard', () => {
 
   it('renders default positions and filters crew by required capability when a position is selected', async () => {
     render(
-      <SegmentAssignmentsCard segment={seg as any} allSegments={[seg as any]} productionPersons={productionPersons as any} />
+      <ChapterAssignmentsCard chapter={chapter} chapterNumber={3} allChapters={[chapter]} productionPersons={productionPersons as any} allPositions={[]} productionPersonPositions={[]} />
     );
 
+    expect(screen.getByText('3. Eerste helft')).toBeInTheDocument();
     // Default positions visible
-    expect(screen.getByText('Standaard posities voor dit segment (template)')).toBeInTheDocument();
+    expect(screen.getByText('Standaardposities voor dit hoofdstuk (draaiboek-template)')).toBeInTheDocument();
     const btnCommentaar = screen.getByRole('button', { name: /commentaar/i });
     expect(btnCommentaar).toBeInTheDocument();
 

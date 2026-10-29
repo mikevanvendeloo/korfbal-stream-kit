@@ -6,7 +6,7 @@
 
 - [x] Migration `20261028200000_chapters_schema`: `CallSheetTemplateChapter`, `CallSheetTemplateChapterPosition`; `CallSheetTemplateItem.chapterId` (nullable); `ProductionEvent.chapterId` (nullable); `chaptersAutoPlaced` on `CallSheetTemplate` and `Production`; `organizationId` default + `enforce_same_organization` triggers on the new tables and the new references
 - [x] Prisma model renames without DB change: `ProductionSegment` → `ProductionChapter`, `SegmentRoleAssignment` → `ChapterRoleAssignment` (`@@map`); all `prisma.…` references updated
-- [ ] *Moved to phase 3:* field renames (`naam`/`volgorde` → `name`/`orderIndex`, `CallSheetItem.productionSegmentId` → `chapterId`): they are in the API's JSON and the kit, so they change with the endpoints that are rewritten there
+- [x] *Moved to phase 3:* field renames (`naam`/`volgorde` → `name`/`orderIndex`, `CallSheetItem.productionSegmentId` → `chapterId`): they are in the API's JSON and the kit, so they change with the endpoints that are rewritten there — done in 5a (API) and 5b (kit)
 - [x] `createTenantScenario` covers the new tables (template hoofdstuk with a standard position, event in its hoofdstuk); security test: the triggers refuse a hoofdstuk of another organization
 
 ## Phase 2: Migration and read paths (backend)
@@ -29,7 +29,7 @@
 - [x] *Opslaan als template*: `POST /api/callsheets/templates/from-callsheet/:callSheetId` copies hoofdstukken, items (positions, anchors, links) and the standard positions of the production's template
 - [x] Template export/import: JSON version 2 (hoofdstukken with positions, item → hoofdstuk), Excel column "Hoofdstuk"; files without hoofdstukken are placed as the migration does; the callsheet Excel import also reads "Hoofdstuk"
 - [x] Leak suite entries for every new route; integration test `routes/chapters.int.spec.ts`
-- [ ] *Moved to 3b (with the kit):* field renames `naam`/`volgorde` → `name`/`orderIndex`, `productionSegmentId` → `chapterId`
+- [x] *Moved to 3b (with the kit):* field renames `naam`/`volgorde` → `name`/`orderIndex`, `productionSegmentId` → `chapterId` — done in 5a/5b
 
 ### Frontend (3b)
 - [x] `components/ChapterBoard.tsx` (hoofdstuk blocks, drag within/between with `@dnd-kit`, drag a whole hoofdstuk, rename, delete with "Items verplaatsen naar", add hoofdstuk; the page renders its own items) on pure `lib/chapterStructure.ts` (move, append, keep linked items with their parent, remove, relative template times; unit tests), used by `CallSheetTemplateDetailsPage` (times relative to the kickoff, standard positions per hoofdstuk) and `CallSheetEditPage` (derived times; new item at the end of the chosen hoofdstuk); API calls in `lib/chaptersApi.ts`. The order is changed only by dragging (the Volgorde fields are gone).
@@ -38,7 +38,7 @@
 - [x] Segment-templates and Standaardbezetting removed from the menu (pages and routes stay until phase 5)
 - [x] Crewrapport → **Callsheet** (tab, page title, link on the callsheet page, manual)
 - [x] Manual: Beheer 01, 06 (rewritten: hoofdstukken, standaardbezetting, slepen, check notice, import), 07, 08, 09, 11; LIVE 02
-- [ ] *Moved to phase 5:* the Bezetting tab still says "segment" in its labels (with the field renames)
+- [x] *Moved to phase 5:* the Bezetting tab still says "segment" in its labels (with the field renames) — done in 5b
 
 ## Phase 4: LIVE (frontend)
 
@@ -48,7 +48,7 @@
 - [x] `CallSheetView`/`CallSheetColumn`: heading slots per hoofdstuk aligned across columns ("— niets voor jou" without own items); the wait row names the next item's hoofdstuk
 - [x] LIVE → Productie: the hoofdstukken (no segment number or anchor any more)
 - [x] Component tests (ShowCallerView wide and phone, CallSheetColumn); manual LIVE 03 and 04
-- [ ] e2e with hoofdstukken (needs `createProductionScenario({chapters})`, moved to phase 5); checked at 360 px by hand
+- [x] e2e with hoofdstukken (needs `createProductionScenario({chapters})`, moved to phase 5): written in 5b (not run yet); 360 px still to check by hand
 
 ## Phase 5: Cleanup
 
@@ -64,7 +64,7 @@
 - [x] Productiedraaiboek as a file: `GET /api/production/callsheets/:callSheetId/export-json` (template format v2, so production and template files import into each other), `POST …/import-json` (replaces the items; hoofdstukken by name; times from the anchor), `GET …/export-excel` (the Excel import's columns)
 
 ### Frontend (5b)
-- [ ] Draaiboek tab: Exporteren (JSON, Excel) and Importeren for the production draaiboek
-- [ ] Kit on the new JSON (`name`/`orderIndex`/`chapterId`, `GET /:id/chapters`), the Bezetting tab's "segment" labels → hoofdstuk; segment template / Standaardbezetting hooks and pages removed
-- [ ] Manual: Beheer 06, 07, 08, 09, 11, 12 and LIVE 02, 03, 04; PROJECT_STRUCTURE.md (kit part)
-- [ ] e2e with hoofdstukken (`createProductionScenario({chapters})`)
+- [x] Draaiboek tab: **Draaiboek als bestand** with **Exporteer JSON**, **Exporteer Excel** and **Importeer draaiboek** (`components/DraaiboekFileActions.tsx`: confirmation first, then the number of items and the new hoofdstukken, or the API message; refetches callsheet, hoofdstukken and timing)
+- [x] Kit on the new JSON (`name`/`orderIndex`/`chapterId`, `GET /:id/chapters`, timing `durationMinutes` with null times, crew report `chapters`, nullable `liveEnd`), the Bezetting tab's "segment" labels → hoofdstuk (`ChapterAssignmentsCard`, `ChapterOverridesManager`; copy now calls `/assignments/copy`); segment template / Standaardbezetting hooks and pages removed; backup *Segment-templates (oude backup)* restore only
+- [x] Manual: Beheer 02, 03, 08 (Draaiboek als bestand), 09, 10, 11, 12 (06/07 and LIVE 02–04 needed no change); PROJECT_STRUCTURE.md (kit part)
+- [x] e2e with hoofdstukken (`createProductionScenario({chapters})`): `live-wide.spec.ts` (headings in show order, *Hoofdstuk: …* while running). *Written, not run yet.*

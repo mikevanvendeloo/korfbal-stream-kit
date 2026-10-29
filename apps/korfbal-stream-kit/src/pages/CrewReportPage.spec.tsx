@@ -11,17 +11,17 @@ vi.mock('../hooks/useCallsheet', () => ({
   useCrewReport: () => ({
     isLoading: false, error: null,
     data: {
-      segments: [{id: 10, naam: 'Voorbeschouwing', volgorde: 1}, {id: 11, naam: 'Eerste helft', volgorde: 2}],
+      chapters: [{id: 10, name: 'Voorbeschouwing', orderIndex: 1}, {id: 11, name: 'Eerste helft', orderIndex: 2}],
       groupedPositions: [{category: 'TECHNICAL', positions: [regie, camera]}],
       cells: [
-        {segmentId: 10, positionId: 2, personName: 'Anna', type: 'production'},
-        {segmentId: 11, positionId: 2, personName: 'Anna', type: 'production'},
-        {segmentId: 11, positionId: 1, personName: 'Bas', type: 'segment'},
+        {chapterId: 10, positionId: 2, personName: 'Anna', type: 'production'},
+        {chapterId: 11, positionId: 2, personName: 'Anna', type: 'production'},
+        {chapterId: 11, positionId: 1, personName: 'Bas', type: 'chapter'},
       ],
       callsheets: [{id: 1, productionId: 7, name: 'Main', items: [
-        {id: 'a', cue: 'A1', title: 'Opening', durationSec: 60, positionIds: [1], productionSegment: null},
-        {id: 'b', cue: 'A2', title: 'Iedereen', durationSec: 60, positionIds: [], productionSegment: null},
-        {id: 'c', cue: 'A3', title: 'Alleen regie', durationSec: 60, positionIds: [2], productionSegment: null},
+        {id: 'a', cue: 'A1', title: 'Opening', durationSec: 60, positionIds: [1], chapter: null},
+        {id: 'b', cue: 'A2', title: 'Iedereen', durationSec: 60, positionIds: [], chapter: null},
+        {id: 'c', cue: 'A3', title: 'Alleen regie', durationSec: 60, positionIds: [2], chapter: null},
       ]}],
       productionReport: null,
     },
@@ -44,7 +44,7 @@ function renderPage() {
 }
 
 describe('CrewReportPage', () => {
-  it('shows who does what per segment', () => {
+  it('shows who does what per hoofdstuk', () => {
     renderPage();
     const rows = screen.getAllByRole('row');
     const firstHalf = rows.find((r) => r.textContent?.includes('2. Eerste helft'))!;

@@ -8,7 +8,6 @@ import SponsorSlidesPage from '../pages/SponsorSlidesPage';
 import PersonsAdminPage from '../pages/PersonsAdminPage';
 import SkillsAdminPage from '../pages/SkillsAdminPage';
 import PositionsAdminPage from '../pages/PositionsAdminPage';
-import SegmentDefaultsAdminPage from '../pages/SegmentDefaultsAdminPage';
 import QRAdminPage from '../pages/QRAdminPage';
 import OrganizationsAdminPage from '../pages/OrganizationsAdminPage';
 import OrganizationAdminPage from '../pages/OrganizationAdminPage';
@@ -57,7 +56,6 @@ import ReportsPage from '../pages/ReportsPage';
 import AboutPage from '../pages/AboutPage';
 import SettingsPage from '../pages/SettingsPage';
 import {ErrorBoundary} from "../components/ErrorBoundary";
-import SegmentTemplatesPage from "../pages/SegmentTemplatesPage";
 import ProductionTimingReportPage from "../pages/ProductionTimingReportPage";
 import {useActiveSeason, useSeasonChangedSync} from "../hooks/useSeasons";
 import ThemeToggle from "../components/ThemeToggle";
@@ -264,8 +262,6 @@ export default function AdminApp() {
 
             <Route path="stamgegevens/draaiboek-templates" element={<CallSheetTemplatesPage />} />
             <Route path="stamgegevens/draaiboek-templates/:id" element={<CallSheetTemplateDetailsPage />} />
-            <Route path="stamgegevens/segment-templates" element={<SegmentTemplatesPage />} />
-            <Route path="stamgegevens/standaardbezetting" element={<SegmentDefaultsAdminPage/>}/>
 
             <Route path="stamgegevens/personen" element={<PersonsAdminPage/>}/>
             <Route path="stamgegevens/posities" element={<PositionsAdminPage/>}/>

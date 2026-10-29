@@ -1,8 +1,12 @@
+import type {Locator} from '@playwright/test';
 import {apiUrl, db, expect, test} from './support/fixtures';
 import {ShowCallerWide} from './support/pages';
 
 /** The wide Show Caller, and LIVE following the active production, against the real API and the test database. */
 test.use({viewport: {width: 1440, height: 900}});
+
+/** Vertical position on the page, to check the order of rows */
+const topOf = async (locator: Locator) => (await locator.boundingBox())?.y ?? 0;
 
 const activeTitle = async (productionId: number) =>
   (await db.productionEvent.findFirst({where: {productionId, status: 'ACTIVE'}}))?.title ?? null;
@@ -51,4 +55,35 @@ test('LIVE finds the active production when another season is active', async ({p
     await request.put(`${apiUrl}/api/seasons/active`, {data: {seasonId: active.id}});
     await db.season.deleteMany({where: {startYear: 2099}});
   }
+});
+
+test('shows the hoofdstukken as headings above their items, and the current one at the top', async ({page, makeShow}) => {
+  const show = await makeShow({
+    chapters: ['Voorbeschouwing', 'Wedstrijd'],
+    items: [
+      {title: 'Livestream starten', chapter: 'Voorbeschouwing', positions: ['Scenario Regie']},
+      {title: 'Presentator heet welkom', positions: ['Scenario Regie']},
+      {title: 'Opkomst spelers', chapter: 'Wedstrijd', positions: ['Scenario Camera']},
+    ],
+  });
+  const showCaller = new ShowCallerWide(page);
+  await showCaller.open(show.productionId);
+
+  const before = showCaller.chapterHeading('Voorbeschouwing');
+  const during = showCaller.chapterHeading('Wedstrijd');
+  await expect(before).toBeVisible();
+  await expect(during).toBeVisible();
+  // In show order: the heading, its items, then the next heading
+  const welcome = page.locator(`#row-${show.eventIds[1]}`);
+  const walkOn = page.locator(`#row-${show.eventIds[2]}`);
+  expect(await topOf(before)).toBeLessThan(await topOf(welcome));
+  expect(await topOf(welcome)).toBeLessThan(await topOf(during));
+  expect(await topOf(during)).toBeLessThan(await topOf(walkOn));
+
+  await showCaller.start();
+  await showCaller.expectRunning();
+  await expect(showCaller.currentChapter()).toContainText('Hoofdstuk: Voorbeschouwing');
+  await showCaller.nextItem();
+  await showCaller.nextItem();
+  await expect(showCaller.currentChapter()).toContainText('Hoofdstuk: Wedstrijd');
 });

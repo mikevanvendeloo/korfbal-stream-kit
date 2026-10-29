@@ -9,8 +9,8 @@ type Call = { method: string; path: string; body: any };
 let calls: Call[] = [];
 
 const items = [
-  {id: 'a', callSheetId: 5, productionSegmentId: 11, cue: 'START', title: 'Livestream starten', durationSec: 0, orderIndex: 1, isTimeAnchor: true, anchorType: 'LIVESTREAM_START', timeStart: '2026-11-14T18:25:00.000Z', positions: [{positionId: 1}, {positionId: 2}]},
-  {id: 'b', callSheetId: 5, productionSegmentId: 22, cue: '', title: 'Eerste helft', durationSec: 2100, orderIndex: 2, timeStart: '2026-11-14T18:30:00.000Z', positions: [{positionId: 1}]},
+  {id: 'a', callSheetId: 5, chapterId: 11, cue: 'START', title: 'Livestream starten', durationSec: 0, orderIndex: 1, isTimeAnchor: true, anchorType: 'LIVESTREAM_START', timeStart: '2026-11-14T18:25:00.000Z', positions: [{positionId: 1}, {positionId: 2}]},
+  {id: 'b', callSheetId: 5, chapterId: 22, cue: '', title: 'Eerste helft', durationSec: 2100, orderIndex: 2, timeStart: '2026-11-14T18:30:00.000Z', positions: [{positionId: 1}]},
 ];
 
 function renderPage() {
@@ -37,7 +37,7 @@ describe('CallSheetEditPage (hoofdstukken)', () => {
       calls.push({method, path, body});
       const json = (data: unknown) => ({ok: true, json: async () => data}) as Response;
       if (method === 'GET' && path.endsWith('/callsheets/5')) return json({id: 5, name: 'Draaiboek', items});
-      if (method === 'GET' && path.endsWith('/segments')) return json([{id: 11, naam: 'Voorbeschouwing', volgorde: 1}, {id: 22, naam: 'Eerste helft', volgorde: 2}]);
+      if (method === 'GET' && path.endsWith('/production/3/chapters')) return json([{id: 11, productionId: 3, name: 'Voorbeschouwing', orderIndex: 1}, {id: 22, productionId: 3, name: 'Eerste helft', orderIndex: 2}]);
       if (method === 'GET' && path.endsWith('/production/positions')) return json([{id: 1, name: 'Showcaller', category: 'GENERAL'}, {id: 2, name: 'Regie livestream', category: 'TECHNICAL'}]);
       if (method === 'GET' && path.endsWith('/production/3')) return json({id: 3, chaptersAutoPlaced: false});
       if (method === 'GET') return json([]);
@@ -60,7 +60,7 @@ describe('CallSheetEditPage (hoofdstukken)', () => {
     fireEvent.click(await screen.findByRole('button', {name: 'Item toevoegen aan Voorbeschouwing'}));
     await waitFor(() => expect(calls.find((c) => c.method === 'PUT' && c.path.endsWith('/callsheets/5/structure'))).toBeTruthy());
     const post = calls.find((c) => c.method === 'POST' && c.path.endsWith('/callsheets/5/items'));
-    expect(post?.body).toMatchObject({title: 'Nieuw item', productionSegmentId: 11, positionIds: [1]});
+    expect(post?.body).toMatchObject({title: 'Nieuw item', chapterId: 11, positionIds: [1]});
     const structure = calls.find((c) => c.method === 'PUT' && c.path.endsWith('/structure'));
     expect(structure?.body).toEqual({chapters: [{id: 11, itemIds: ['a', 'nieuw']}, {id: 22, itemIds: ['b']}]});
   });

@@ -62,7 +62,7 @@ Onder **Rapportages** staan overzichten van het actieve seizoen. Bij elk overzic
 | **Crewrollen** | Per productie wie de technische en algemene rollen had: een kolom per positie met de categorie **TECHNICAL** of **GENERAL** (regie livestream, camera's, oplopen geluid, regie LED-scherm, showcaller, runner, …) |
 | **Tijdsanalyse** | Een lijst producties; open per productie de tijdsanalyse |
 
-> Dagbezetting en Positieoverzicht gebruiken de **productie-brede** posities, niet de afwijkingen per segment. Entertainmentrollen en Crewrollen tonen beide: wie een positie voor de hele productie had én wie die positie alleen in een segment deed. Welke kolommen er staan, volgt uit de categorie van de posities bij **Stamgegevens → Posities**.
+> Dagbezetting en Positieoverzicht gebruiken de **productie-brede** posities, niet de afwijkingen per hoofdstuk. Entertainmentrollen en Crewrollen tonen beide: wie een positie voor de hele productie had én wie die positie alleen in een hoofdstuk deed. Welke kolommen er staan, volgt uit de categorie van de posities bij **Stamgegevens → Posities**.
 
 ### Dagplanning
 

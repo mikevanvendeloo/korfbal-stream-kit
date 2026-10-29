@@ -15,7 +15,7 @@ Een verkorte handleiding: wat je in de week voor een livestream regelt, en wat j
 ### 2. De crew
 
 - [ ] **Aanwezigheid**: vink op het tabblad **Beschikbaarheid** aan wie er komt. Elk vinkje wordt direct bewaard ([meer](/admin/handleiding/bezetting#beschikbaarheid)).
-- [ ] **Posities**: geef op het tabblad **Bezetting** iedereen bij **Productie-brede Positietoewijzingen** een positie. Doet iemand in één segment iets anders, voeg dan een afwijking toe ([meer](/admin/handleiding/bezetting#bezetting)).
+- [ ] **Posities**: geef op het tabblad **Bezetting** iedereen bij **Productie-brede Positietoewijzingen** een positie. Doet iemand in één hoofdstuk iets anders, voeg dan een afwijking toe ([meer](/admin/handleiding/bezetting#bezetting)).
 
 ### 3. Interviews
 

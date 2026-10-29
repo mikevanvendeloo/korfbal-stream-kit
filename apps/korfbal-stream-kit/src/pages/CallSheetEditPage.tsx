@@ -10,7 +10,7 @@ import {
   useUpdateCallSheet,
   useUpdateCallSheetItem
 } from '../hooks/useCallsheet';
-import {useProduction, useProductionSegments, useProductionTiming} from '../hooks/useProductions';
+import {useProduction, useProductionChapters, useProductionTiming} from '../hooks/useProductions';
 import {useQueryClient} from '@tanstack/react-query';
 import ChapterBoard from '../components/ChapterBoard';
 import DraaiboekItem, {DraaiboekItemData} from '../components/DraaiboekItem';
@@ -33,7 +33,7 @@ export default function CallSheetEditPage() {
   const productionId = Number(params.id);
   const callSheetId = Number(params.callSheetId);
   const { data, isLoading, error } = useCallSheet(callSheetId);
-  const segments = useProductionSegments(productionId);
+  const chapters = useProductionChapters(productionId);
   const { data: positions = [] } = usePositionsCatalog();
   const showcallerId = positions.find((p) => p.name === 'Showcaller')?.id;
 
@@ -52,14 +52,14 @@ export default function CallSheetEditPage() {
   const production = useProduction(productionId);
   const timing = useProductionTiming(productionId);
   const structure = React.useMemo(
-    () => buildStructure((segments.data ?? []).map((s) => ({id: s.id})), (data?.items ?? []).map((it) => ({id: it.id, chapterId: it.productionSegmentId}))),
-    [segments.data, data],
+    () => buildStructure((chapters.data ?? []).map((c) => ({id: c.id})), (data?.items ?? []).map((it) => ({id: it.id, chapterId: it.chapterId}))),
+    [chapters.data, data],
   );
   const items = React.useMemo(() => (data?.items ?? []).map(asItem), [data]);
   const parentOptions = items.map((it) => ({id: it.id, label: it.cue ? `${it.cue}: ${it.title}` : it.title}));
   const chapterSubtitle = (chapterId: number) => {
     const t = timing.data?.find((c) => c.id === chapterId);
-    return t?.start ? `${formatTime(t.start)} – ${formatTime(t.end)} · ${t.duurInMinuten} min` : undefined;
+    return t?.start ? `${formatTime(t.start)} – ${formatTime(t.end)} · ${t.durationMinutes} min` : undefined;
   };
   /** A change of the draaiboek; a refusal (e.g. "Hoofdstuk is niet leeg") is shown above the board */
   async function run(action: () => Promise<unknown>) {
@@ -75,7 +75,7 @@ export default function CallSheetEditPage() {
   /** A new item at the end of a hoofdstuk, opened right away */
   const handleAddItem = (chapterId: number) => run(async () => {
     const created = await createItem.mutateAsync({
-      title: 'Nieuw item', cue: '', durationSec: 60, productionSegmentId: chapterId, isInLivestream: true,
+      title: 'Nieuw item', cue: '', durationSec: 60, chapterId, isInLivestream: true,
       positionIds: showcallerId ? [showcallerId] : [],
     } as Omit<CallSheetItem, 'id' | 'callSheetId'>);
     await saveCallSheetStructure(callSheetId, appendItem(structure, chapterId, created.id));
@@ -173,7 +173,7 @@ export default function CallSheetEditPage() {
         </div>
       )}
       <ChapterBoard
-        chapters={(segments.data ?? []).map((s) => ({id: s.id, name: s.naam, subtitle: chapterSubtitle(s.id)}))}
+        chapters={(chapters.data ?? []).map((c) => ({id: c.id, name: c.name, subtitle: chapterSubtitle(c.id)}))}
         items={items}
         structure={structure}
         itemLabel={(it) => it.title}
