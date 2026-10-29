@@ -89,7 +89,16 @@ export function liveStateSnapshot() {
   return {productionId, activeEventId, clocks: {...clocks}, isClockRunning};
 }
 
+/** Sends the live state to the organization. Never rejects: it is mostly called without await. */
 export async function broadcastState() {
+  try {
+    await sendState();
+  } catch (err) {
+    logger.error('Live state broadcast failed:', err);
+  }
+}
+
+async function sendState() {
   const state = live();
   emit('callsheet_state_update', liveStateSnapshot());
 
@@ -121,7 +130,7 @@ export function startProductionClock(productionId: number) {
 
   state.clockInterval = setInterval(bindOrganization(() => {
     state.clocks.productionTime++;
-    broadcastState().catch((err) => logger.error('Live state broadcast failed:', err));
+    broadcastState();
   }), 1000);
 
   logger.info(`Production clock started for production ID: ${productionId}`);
