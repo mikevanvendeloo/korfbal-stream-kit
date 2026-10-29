@@ -2,7 +2,7 @@ import {requireOrganizationId} from '../services/organizationContext';
 import {randomUUID} from 'node:crypto';
 import {Router} from 'express';
 import {findExistingPosition, findOrCreatePosition} from '../services/positions';
-import {prisma} from '../services/prisma';
+import {LONG_TRANSACTION, prisma} from '../services/prisma';
 import {logger} from '../utils/logger';
 import {parseInstant} from '../utils/time';
 import {PersonInputSchema} from '../schemas/person';
@@ -1076,7 +1076,7 @@ backupRouter.post('/producties/import', async (req, res, next) => {
           }
           // Items and events of an older backup without a hoofdstuk get one (openspec/changes/chapters D7)
           await chapterRestore.finish();
-        });
+        }, LONG_TRANSACTION);
       } catch (err) {
         logger.error(`Import of production failed for item`, { item, error: err });
       }

@@ -2,7 +2,7 @@ import {Router} from 'express';
 import multer from 'multer';
 import {keepOrganizationContext} from '../../middleware/organizationContext';
 import ExcelJS from 'exceljs';
-import {prisma} from '../../services/prisma';
+import {LONG_TRANSACTION, prisma} from '../../services/prisma';
 import {findPositionByName, SHOWCALLER_POSITION} from '../../domain/positionSkill';
 import {NotFoundError} from '../../middleware/error';
 import {contentDisposition} from '../../utils/attachment';
@@ -483,7 +483,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
       });
 
       return { success: true, message: 'Draaiboek succesvol toegepast!', production };
-    });
+    }, LONG_TRANSACTION);
 
     // Herbereken tijden
     // We moeten eerst relatieve tijden berekenen voor alle items
