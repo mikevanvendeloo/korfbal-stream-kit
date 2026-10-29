@@ -47,8 +47,6 @@ Met **Bewerk Draaiboek** open je het draaiboek van deze productie, in hoofdstukk
 
 > **Wijzigingen in de callsheet zijn pas in LIVE te zien na PAS TOE OP LIVE VIEW.** Die knop vervangt wel alles wat er in LIVE al is gebeurd, dus gebruik hem niet tijdens of na de uitzending.
 >
-> Van een bestaand item kun je de cue, kleur, volgorde en tijden niet meer wijzigen. Een nieuw item komt standaard bovenaan (volgorde 0): vul de volgorde dus goed in bij het toevoegen.
->
 > Heeft het draaiboek geen tijdanker, dan doet *Tijden herberekenen* niets en zie je geen melding.
 
 ## Interviewnamen in titels
