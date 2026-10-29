@@ -261,6 +261,42 @@ const openapi = {
         responses: { '204': { description: 'Deleted' }, '404': { description: 'Not found' } },
       },
     },
+    '/api/production/callsheets/{callSheetId}/export-json': {
+      get: {
+        summary: 'Export a production draaiboek (one callsheet) as JSON, in the draaiboek template format (version 2)',
+        parameters: [{ name: 'callSheetId', in: 'path', required: true, schema: { type: 'integer' } }],
+        responses: {
+          '200': { description: 'Draaiboek file (attachment draaiboek-<date>-<home>-<away>.json)', content: { 'application/json': { schema: { $ref: '#/components/schemas/DraaiboekFile' } } } },
+          '404': { description: 'Callsheet not found (also one of another organization)' },
+        },
+      },
+    },
+    '/api/production/callsheets/{callSheetId}/import-json': {
+      post: {
+        summary: 'Replace the items of a production draaiboek by those of a draaiboek file (production export, or template export version 1/2)',
+        description: 'Hoofdstukken are matched by name (case and spacing ignored), missing ones are added; positions are matched like findPositionByName; times are recomputed from the production\'s anchor. Max. 2 MB.',
+        parameters: [{ name: 'callSheetId', in: 'path', required: true, schema: { type: 'integer' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': { schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } },
+            'application/json': { schema: { $ref: '#/components/schemas/DraaiboekFile' } },
+          },
+        },
+        responses: {
+          '200': { description: 'Imported: {ok, items, newChapters}' },
+          '400': { description: 'No valid draaiboek file, or larger than 2 MB' },
+          '404': { description: 'Callsheet not found' },
+        },
+      },
+    },
+    '/api/production/callsheets/{callSheetId}/export-excel': {
+      get: {
+        summary: 'Export a production draaiboek as .xlsx, in the columns POST /api/production/{id}/callsheets/import-excel reads',
+        parameters: [{ name: 'callSheetId', in: 'path', required: true, schema: { type: 'integer' } }],
+        responses: { '200': { description: 'Excel file' }, '404': { description: 'Callsheet not found' } },
+      },
+    },
   },
   components: {
     schemas: {
@@ -274,6 +310,33 @@ const openapi = {
           logoUrl: {type: 'string', nullable: true, description: 'File name, set by POST /api/sponsors/{id}/logo; the file is in sponsors/<organization slug>/'},
           logoSrc: {type: 'string', nullable: true, description: 'URL to show the logo: /uploads/sponsors/<organization slug>/<file>'},
           createdAt: {type: 'string', format: 'date-time'},
+        },
+      },
+      DraaiboekFile: {
+        type: 'object',
+        required: ['items'],
+        properties: {
+          version: { type: 'integer', enum: [1, 2] },
+          kind: { type: 'string', description: 'productie-draaiboek for a production export; absent for a template' },
+          name: { type: 'string' },
+          chapters: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, positions: { type: 'array', items: { type: 'string' } } } } },
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['title', 'durationSec'],
+              properties: {
+                id: { type: 'string', description: 'Only to link items (parentId) within the file' },
+                cue: { type: 'string' }, title: { type: 'string' }, note: { type: 'string', nullable: true }, color: { type: 'string', nullable: true },
+                durationSec: { type: 'integer' }, orderIndex: { type: 'integer' },
+                isInVenue: { type: 'boolean' }, isInLivestream: { type: 'boolean' }, isTimeAnchor: { type: 'boolean' },
+                anchorType: { type: 'string', nullable: true, enum: ['MATCH_START', 'LIVESTREAM_START', null] }, autoAdvance: { type: 'boolean' },
+                parentId: { type: 'string', nullable: true }, chapter: { type: 'string', nullable: true, description: 'Hoofdstuk name' },
+                positions: { type: 'array', items: { type: 'string' } },
+                startOffsetSec: { type: 'integer', nullable: true, description: 'Production export: planned start in seconds from the kickoff' },
+              },
+            },
+          },
         },
       },
       SponsorInput: {

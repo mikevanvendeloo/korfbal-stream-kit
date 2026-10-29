@@ -423,6 +423,48 @@ describe.runIf(runDb)('callsheet item ids are chosen by the server (integration)
   });
 });
 
+describe.runIf(runDb)('productiedraaiboek files (integration)', () => {
+  let a: TenantScenario;
+  let own: ProductionScenario;
+  let ownCallSheetId: number;
+
+  beforeAll(async () => {
+    a = await createTenantScenario(prisma, await ensureOrganization(prisma, 'sec-draaiboek', 'Sec Draaiboek'), 'SecDraaiboek');
+    own = await createProductionScenario(prisma, {items: [{title: 'Sec eigen item'}], callSheet: true});
+    ownCallSheetId = (await prisma.callSheet.findFirstOrThrow({where: {productionId: own.productionId}})).id;
+  });
+
+  afterAll(async () => {
+    await own?.cleanup();
+    await a?.cleanup();
+  });
+
+  const itemsOfA = () => runWithOrganization(a.organizationId, () => prisma.callSheetItem.count({where: {callSheetId: a.callSheetId}}));
+
+  it('answers 404 for a draaiboek of another organization, and changes nothing there', async () => {
+    expect((await request(app).get(`/api/production/callsheets/${a.callSheetId}/export-json`)).status).toBe(404);
+    expect((await request(app).get(`/api/production/callsheets/${a.callSheetId}/export-excel`)).status).toBe(404);
+    const before = await itemsOfA();
+    const res = await request(app).post(`/api/production/callsheets/${a.callSheetId}/import-json`).send({version: 2, items: [{title: 'Sec overgenomen', durationSec: 10}]});
+    expect(res.status).toBe(404);
+    expect(await itemsOfA()).toBe(before);
+  });
+
+  it('refuses a file that is no JSON, a malformed draaiboek and a file over 2 MB (400), and keeps the items', async () => {
+    const url = `/api/production/callsheets/${ownCallSheetId}/import-json`;
+    const notJson = await request(app).post(url).attach('file', Buffer.from('<html>geen json</html>'), {filename: 'draaiboek.json'});
+    expect(notJson.status).toBe(400);
+    expect(notJson.body.error).toMatch(/draaiboekbestand/);
+    const malformed = await request(app).post(url).attach('file', Buffer.from(JSON.stringify({version: 2, items: [{durationSec: 'lang'}]})), {filename: 'draaiboek.json'});
+    expect(malformed.status).toBe(400);
+    expect(malformed.body.error).toMatch(/^Ongeldig draaiboekbestand/);
+    const huge = await request(app).post(url).attach('file', Buffer.alloc(2 * 1024 * 1024 + 1, 32), {filename: 'draaiboek.json'});
+    expect(huge.status).toBe(400);
+    expect(huge.body.error).toMatch(/te groot/);
+    expect(await prisma.callSheetItem.count({where: {callSheetId: ownCallSheetId}})).toBe(1);
+  });
+});
+
 describe.runIf(runDb)('secrets (integration)', () => {
   const TOKEN = 'sec-token-9f8e7d6c5b4a';
   let organizationA: number;

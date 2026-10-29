@@ -13,6 +13,7 @@ import {findPositionByName, positionKey, SHOWCALLER_POSITION} from '../../domain
 import {findOrCreatePosition} from '../../services/positions';
 import {excelCellToDate, parseInstant, parseOptionalInstant} from '../../utils/time';
 import {productionItemChapter} from './production-chapters';
+import {chapterKey} from '../../services/draaiboekFile';
 
 export const productionCallsheetsRouter: Router = Router();
 
@@ -542,7 +543,7 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem, async
       prisma.position.findMany({}),
     ]);
     const chapterByName = new Map<string, { id: number }>();
-    for (const c of chapters) chapterByName.set(c.name.trim().toLowerCase(), c);
+    for (const c of chapters) chapterByName.set(chapterKey(c.name), c);
     // Matched like findPositionByName, so "regie" or "Show caller" never become a second position
     const knownPositions: Array<{ id: number; name: string }> = [...allPositions];
 
@@ -611,7 +612,7 @@ productionCallsheetsRouter.post('/:id/callsheets/import-excel', uploadMem, async
         return;
       }
 
-      const chapter = chapterByName.get(segName.toLowerCase());
+      const chapter = chapterByName.get(chapterKey(segName));
       if (!chapter) {
         problems.push(`Row ${rowNo}: unknown hoofdstuk '${segName}'`);
         return;

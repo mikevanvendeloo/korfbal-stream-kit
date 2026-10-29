@@ -56,6 +56,7 @@ apps/korfbal-stream-api/
     │       ├── production-reports.ts          # Production report (PDF/Markdown/WhatsApp)
     │       ├── production-export-import.ts    # Full production export/import
     │       ├── production-chapters.ts         # Hoofdstukken of a production + callsheet structure
+    │       ├── production-callsheet-files.ts  # Productiedraaiboek as a file: JSON export/import (template format v2), Excel export
     │       ├── callsheet-template-chapters.ts # Hoofdstukken of a draaiboek template (+ from-callsheet, import helpers)
     │       ├── segment-assignments.ts         # Bezetting per hoofdstuk (paths still /segments/:segmentId/...)
     │       └── positions.ts                   # Positions CRUD + import/export
@@ -322,6 +323,9 @@ A hoofdstuk is `{id, productionId, name, orderIndex}`; every callsheet item has 
 | PUT | /api/production/chapters/:chapterId | Rename (`{name}`) |
 | DELETE | /api/production/chapters/:chapterId | Delete an empty hoofdstuk (409 when it has items) |
 | PUT | /api/production/callsheets/:callSheetId/structure | Hoofdstuk order + this callsheet's items (`{chapters: [{id, itemIds}]}`) |
+| GET | /api/production/callsheets/:callSheetId/export-json | One production draaiboek as JSON in the template format (version 2, `kind: productie-draaiboek`): hoofdstukken (name, standard positions of the template hoofdstuk with that name), items with hoofdstuk, positions by name, cue, `parentId`, anchor, durations, `startOffsetSec` from the kickoff; `draaiboek-<date>-<home>-<away>.json` |
+| POST | /api/production/callsheets/:callSheetId/import-json | Replaces the draaiboek's items by a file (multipart `file`, max. 2 MB, or a JSON body): a production export or a template export (v1/v2). Hoofdstukken by name (case/spacing ignored), missing ones added, the production's own kept; times recomputed from the anchor; answers `{ok, items, newChapters}`; 400 for a malformed file |
+| GET | /api/production/callsheets/:callSheetId/export-excel | The draaiboek as .xlsx in the columns of `POST /:id/callsheets/import-excel` (Hoofdstuk, Cue, Titel, Opmerking, Kleur, Start, Einde, Duur, Volgorde, Posities) |
 | GET | /api/production/segments/:segmentId/persons | Persons available for the hoofdstuk |
 | GET | /api/production/segments/:segmentId/assignments | Bezetting of the hoofdstuk |
 | POST | /api/production/segments/:segmentId/assignments | Add to the bezetting |

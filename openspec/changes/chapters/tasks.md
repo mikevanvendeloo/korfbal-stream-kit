@@ -61,7 +61,10 @@
 - [x] `createProductionScenario({chapters})` (items and events in a hoofdstuk; `ScenarioItem.chapter`), integration test for old files (`services/chapterMigration.int.spec.ts`)
 - [x] GLOSSARY (Segment, Volgorde retired), CLAUDE.md, PROJECT_STRUCTURE.md (API part)
 
+- [x] Productiedraaiboek as a file: `GET /api/production/callsheets/:callSheetId/export-json` (template format v2, so production and template files import into each other), `POST …/import-json` (replaces the items; hoofdstukken by name; times from the anchor), `GET …/export-excel` (the Excel import's columns)
+
 ### Frontend (5b)
+- [ ] Draaiboek tab: Exporteren (JSON, Excel) and Importeren for the production draaiboek
 - [ ] Kit on the new JSON (`name`/`orderIndex`/`chapterId`, `GET /:id/chapters`), the Bezetting tab's "segment" labels → hoofdstuk; segment template / Standaardbezetting hooks and pages removed
 - [ ] Manual: Beheer 06, 07, 08, 09, 11, 12 and LIVE 02, 03, 04; PROJECT_STRUCTURE.md (kit part)
 - [ ] e2e with hoofdstukken (`createProductionScenario({chapters})`)
