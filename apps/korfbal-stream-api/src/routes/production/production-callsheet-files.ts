@@ -182,9 +182,14 @@ productionCallsheetFilesRouter.post('/callsheets/:callSheetId/import-json', uplo
     const file = parsed.data;
     const {production} = callSheet;
     const plan = planDraaiboekImport(file, production.chapters.map((c) => c.name));
-    // One time anchor per draaiboek: the first one the file flags
-    const anchorIndex = file.items.findIndex((item) => item.isTimeAnchor);
-    const isAnchor = (index: number) => index === anchorIndex;
+    // One time anchor per kind (livestream start, match start): the first one the file flags
+    const anchorIndexes = new Set<number>();
+    const anchorKinds = new Set<string>();
+    file.items.forEach((item, index) => {
+      const kind = item.anchorType ?? 'MATCH_START';
+      if (item.isTimeAnchor && !anchorKinds.has(kind)) { anchorKinds.add(kind); anchorIndexes.add(index); }
+    });
+    const isAnchor = (index: number) => anchorIndexes.has(index);
     const kickoff = production.matchSchedule.date;
     const liveStart = production.liveTime ?? new Date(kickoff.getTime() - DEFAULT_LIVE_BEFORE_MATCH_MS);
     const times = layOutTimes(plan.items.map(({index}) => {

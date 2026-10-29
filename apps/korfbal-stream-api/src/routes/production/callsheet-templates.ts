@@ -7,6 +7,7 @@ import {findPositionByName, SHOWCALLER_POSITION} from '../../domain/positionSkil
 import {NotFoundError} from '../../middleware/error';
 import {contentDisposition} from '../../utils/attachment';
 import {callSheetTemplateChaptersRouter, importedChapterName, importedItemChapters, templateChaptersByName, templateItemChapter} from './callsheet-template-chapters';
+import {layOutTimes} from '../../services/draaiboekFile';
 
 export const callSheetTemplateRouter: Router = Router();
 // Hoofdstukken (openspec/changes/chapters D4): /:id/chapters, /chapters/:chapterId, /:id/structure
@@ -485,73 +486,27 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
       return { success: true, message: 'Draaiboek succesvol toegepast!', production };
     }, LONG_TRANSACTION);
 
-    // Herbereken tijden
-    // We moeten eerst relatieve tijden berekenen voor alle items
-    // Voordat we recalculate aanroepen, moeten we de anchorEvent een starttijd geven.
-    const allEvents = await prisma.productionEvent.findMany({
-      where: { productionId },
-      orderBy: { order: 'asc' }
-    });
-
-    const anchorEvent = allEvents.find(e => e.isTimeAnchor);
-
-    if (anchorEvent && result.production.matchSchedule) {
-      const anchorTime = new Date(result.production.matchSchedule.date);
-
-      // Eerst relatieve tijden zetten voor alle events in de juiste volgorde
-
-      // Events VOOR het anker (teruguit rekenen)
-      const beforeAnchor = allEvents.filter(e => e.order < anchorEvent.order).reverse();
-      let prevStart = new Date(anchorTime);
-      for (const ev of beforeAnchor) {
-          const start = new Date(prevStart.getTime() - ((ev.durationSec || 0) * 1000));
-          await prisma.productionEvent.update({
-              where: { id: ev.id },
-              data: { plannedStartTime: start, plannedEndTime: prevStart }
-          });
-          prevStart = start;
-      }
-
-      // Anker zelf
-      const anchorEnd = new Date(anchorTime.getTime() + ((anchorEvent.durationSec || 0) * 1000));
-      await prisma.productionEvent.update({
-          where: { id: anchorEvent.id },
-          data: { plannedStartTime: anchorTime, plannedEndTime: anchorEnd }
-      });
-
-      // Events NA het anker
-      const afterAnchor = allEvents.filter(e => e.order > anchorEvent.order);
-      let nextStart = anchorEnd;
-      for (const ev of afterAnchor) {
-          const end = new Date(nextStart.getTime() + ((ev.durationSec || 0) * 1000));
-          await prisma.productionEvent.update({
-              where: { id: ev.id },
-              data: { plannedStartTime: nextStart, plannedEndTime: end }
-          });
-          nextStart = end;
-      }
-
-      // Nu ook de callsheet items bijwerken (gemakshalve even herhalen of syncen)
-      const items = await prisma.callSheetItem.findMany({
-          where: { callSheetId: (await prisma.callSheet.findFirst({ where: { productionId }}))?.id }
-      });
-
-      for (const item of items) {
-          const ev = await prisma.productionEvent.findFirst({ where: { callSheetItemId: item.id }});
-          if (ev) {
-              await prisma.callSheetItem.update({
-                  where: { id: item.id },
-                  data: { timeStart: ev.plannedStartTime, timeEnd: ev.plannedEndTime }
-              });
-          }
-      }
+    // Times: every anchor at its own time (livestream start, match start), the items in between end to end;
+    // the events get the times of their callsheet item
+    const callSheet = await prisma.callSheet.findFirst({where: {productionId}, include: {items: {orderBy: {orderIndex: 'asc'}}}});
+    if (callSheet && result.production.matchSchedule && callSheet.items.some((it) => it.isTimeAnchor)) {
+      const kickoff = new Date(result.production.matchSchedule.date);
+      const liveStart = result.production.liveTime ?? new Date(kickoff.getTime() - 30 * 60 * 1000);
+      const times = layOutTimes(callSheet.items, {kickoff, liveStart});
+      await prisma.$transaction(callSheet.items.flatMap((item, i) => [
+        prisma.callSheetItem.update({where: {id: item.id}, data: times[i]}),
+        prisma.productionEvent.updateMany({
+          where: {productionId, callSheetItemId: item.id},
+          data: {plannedStartTime: times[i].timeStart, plannedEndTime: times[i].timeEnd},
+        }),
+      ]));
     }
 
     return res.json({ success: true, message: result.message });
   } catch (err: any) {
     console.error('Error applying template:', err);
     if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
-    return res.status(500).json({ error: err.message || 'Fout bij toepassen template' });
+    return next(err);
   }
 });
 

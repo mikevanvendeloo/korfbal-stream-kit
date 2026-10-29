@@ -70,33 +70,33 @@ export function planDraaiboekImport(file: DraaiboekFile, existingChapters: strin
 }
 
 /**
- * Planned start and end of items in show order, as "Tijden berekenen" does: from the first anchor
- * (match start, or the livestream start), backwards and forwards by duration. Without an anchor an item
- * keeps its offset from the kickoff when the file gives one.
+ * Planned start and end of items in show order ("Tijden herberekenen" and the import). Every anchor starts
+ * at its own time: the match start at the kickoff, the livestream start at the live time. The items after an
+ * anchor follow it end to end until the next anchor, which still starts at its own time (the room or the
+ * overrun before it falls just before it); the items before the first anchor are laid out backwards from it.
+ * Without an anchor an item keeps its offset from the kickoff when it has one.
  */
 export function layOutTimes(
-  items: Array<{ durationSec: number; isTimeAnchor: boolean; anchorType: string | null; startOffsetSec: number | null }>,
+  items: Array<{ durationSec: number; isTimeAnchor: boolean; anchorType: string | null; startOffsetSec?: number | null }>,
   {kickoff, liveStart}: { kickoff: Date; liveStart: Date },
 ): Array<{ timeStart: Date | null; timeEnd: Date | null }> {
-  const anchorIndex = items.findIndex((it) => it.isTimeAnchor);
-  if (anchorIndex === -1) {
-    return items.map((it) => {
-      if (it.startOffsetSec == null) return {timeStart: null, timeEnd: null};
-      const start = kickoff.getTime() + it.startOffsetSec * 1000;
-      return {timeStart: new Date(start), timeEnd: new Date(start + it.durationSec * 1000)};
-    });
+  const at = (start: number, durationSec: number) => ({timeStart: new Date(start), timeEnd: new Date(start + durationSec * 1000)});
+  const firstAnchor = items.findIndex((it) => it.isTimeAnchor);
+  if (firstAnchor === -1) {
+    return items.map((it) => (it.startOffsetSec == null ? {timeStart: null, timeEnd: null} : at(kickoff.getTime() + it.startOffsetSec * 1000, it.durationSec)));
   }
-  const anchorTime = items[anchorIndex].anchorType === 'LIVESTREAM_START' ? liveStart : kickoff;
+  const anchorTime = (it: { anchorType: string | null }) => (it.anchorType === 'LIVESTREAM_START' ? liveStart : kickoff).getTime();
   const times: Array<{ timeStart: Date | null; timeEnd: Date | null }> = items.map(() => ({timeStart: null, timeEnd: null}));
-  let t = anchorTime.getTime();
-  for (let i = anchorIndex; i < items.length; i++) {
-    times[i] = {timeStart: new Date(t), timeEnd: new Date(t + items[i].durationSec * 1000)};
+  let t = anchorTime(items[firstAnchor]);
+  for (let i = firstAnchor; i < items.length; i++) {
+    if (items[i].isTimeAnchor) t = anchorTime(items[i]);
+    times[i] = at(t, items[i].durationSec);
     t += items[i].durationSec * 1000;
   }
-  t = anchorTime.getTime();
-  for (let i = anchorIndex - 1; i >= 0; i--) {
-    times[i] = {timeStart: new Date(t - items[i].durationSec * 1000), timeEnd: new Date(t)};
+  t = anchorTime(items[firstAnchor]);
+  for (let i = firstAnchor - 1; i >= 0; i--) {
     t -= items[i].durationSec * 1000;
+    times[i] = at(t, items[i].durationSec);
   }
   return times;
 }
