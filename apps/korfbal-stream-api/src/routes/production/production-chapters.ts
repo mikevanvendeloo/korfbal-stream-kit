@@ -123,8 +123,8 @@ export async function productionItemChapter(callSheetId: number, chapterId: unkn
     if (!chapter) throw new NotFoundError('Hoofdstuk niet gevonden');
     return chapter.id;
   }
-  const last = await prisma.callSheetItem.findFirst({where: {callSheetId}, orderBy: {orderIndex: 'desc'}});
-  if (last) return last.chapterId;
+  const last = await prisma.callSheetItem.findFirst({where: {callSheetId, chapterId: {not: null}}, orderBy: {orderIndex: 'desc'}});
+  if (last?.chapterId) return last.chapterId;
   const lastChapter = await prisma.productionChapter.findFirst({where: {productionId}, orderBy: {orderIndex: 'desc'}});
   if (lastChapter) return lastChapter.id;
   return (await prisma.productionChapter.create({data: {productionId, name: 'Draaiboek', orderIndex: 1}})).id;

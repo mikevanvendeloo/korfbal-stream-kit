@@ -258,6 +258,6 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Excel Expor
     // Every item lands in one of the production's hoofdstukken (openspec/changes/chapters D7)
     expect(prodApply?.chapters.map(c => c.name)).toEqual(['Wedstrijd']);
     const chapterIds = new Set(prodApply?.chapters.map(c => c.id));
-    expect(cs?.items.every(i => chapterIds.has(i.chapterId))).toBe(true);
+    expect(cs?.items.every(i => chapterIds.has(i.chapterId ?? -1))).toBe(true);
   });
 });

@@ -152,7 +152,7 @@ describe.runIf(runDb)('hoofdstukken of a draaiboek (integration)', () => {
 
       const callSheet = await prisma.callSheet.findFirstOrThrow({where: {productionId: show.productionId}, include: {items: {orderBy: {orderIndex: 'asc'}}}});
       const chapterName = new Map(after.map((c) => [c.id, c.name]));
-      expect(callSheet.items.map((i) => [i.title, chapterName.get(i.chapterId)])).toEqual([
+      expect(callSheet.items.map((i) => [i.title, chapterName.get(i.chapterId ?? -1)])).toEqual([
         ['Kabels checken', 'Voorbereiding'], ['Aftrap', 'Eerste helft'], ['Eerste helft', 'Eerste helft'], ['Camera op middenstip', 'Eerste helft'], ['Rust', 'Rust'],
       ]);
       // The cue comes along from the template (e.g. for a vMix trigger)

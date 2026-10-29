@@ -19,7 +19,7 @@ export type ChapterTiming = {
 };
 
 type ChapterRow = { id: number; name: string; orderIndex: number };
-type ItemTimes = { chapterId: number; timeStart: Date | null; timeEnd: Date | null };
+type ItemTimes = { chapterId: number | null; timeStart: Date | null; timeEnd: Date | null };
 
 /** The hoofdstukken of one production with their start and end, in order. */
 export function chapterTimings(chapters: ChapterRow[], items: ItemTimes[]): ChapterTiming[] {

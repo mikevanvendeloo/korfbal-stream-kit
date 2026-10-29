@@ -59,7 +59,7 @@ describe.runIf(runDb)('older files without hoofdstukken (integration)', () => {
     expect(chapters.map((c) => c.name)).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust']);
     const chapterName = new Map(chapters.map((c) => [c.id, c.name]));
     const stored = await prisma.callSheetItem.findMany({where: {callSheet: {productionId}}, orderBy: {orderIndex: 'asc'}});
-    expect(stored.map((i) => chapterName.get(i.chapterId))).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust', 'Rust']);
+    expect(stored.map((i) => chapterName.get(i.chapterId ?? -1))).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust', 'Rust']);
     const events = await prisma.productionEvent.findMany({where: {productionId}, orderBy: {order: 'asc'}});
     expect(events.map((e) => chapterName.get(e.chapterId ?? -1))).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust', 'Rust', 'Rust']);
     expect((await prisma.production.findUniqueOrThrow({where: {id: productionId}})).chaptersAutoPlaced).toBe(true);

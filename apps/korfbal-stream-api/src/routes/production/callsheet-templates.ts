@@ -385,7 +385,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
         itemsToCreate.push({
           id: itemId,
           callSheetId: callSheet.id,
-          chapterId: productionChapterOf.get(tItem.chapterId) as number,
+          chapterId: (tItem.chapterId && productionChapterOf.get(tItem.chapterId)) || null,
           cue: tItem.cue,
           title: tItem.title,
           note: tItem.note,
@@ -404,7 +404,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
           productionId: productionId,
           callSheetItemId: itemId,
           title: tItem.title,
-          chapterId: productionChapterOf.get(tItem.chapterId) as number,
+          chapterId: (tItem.chapterId && productionChapterOf.get(tItem.chapterId)) || null,
           order: tItem.orderIndex,
           status: 'WAITING' as const,
           durationSec: tItem.durationSec,
