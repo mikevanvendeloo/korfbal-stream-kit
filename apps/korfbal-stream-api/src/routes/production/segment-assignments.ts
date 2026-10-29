@@ -4,9 +4,6 @@ import {DEFAULT_SEGMENT_POSITIONS, findPositionByName, getRequiredSkillCodeForPo
 
 export const segmentAssignmentsRouter: Router = Router();
 
-// Reserved internal name for the global default set. UI will display this as "Algemeen".
-const GLOBAL_SEGMENT_NAME = '__GLOBAL__';
-
 // -------- Segment-level assignments --------
 // Crew persons for a segment's production (persons assigned at production level)
 segmentAssignmentsRouter.get('/segments/:segmentId/persons', async (req, res, next) => {
@@ -15,7 +12,7 @@ segmentAssignmentsRouter.get('/segments/:segmentId/persons', async (req, res, ne
     if (!Number.isInteger(segmentId) || segmentId <= 0) return res.status(400).json({ error: 'Invalid segment id' });
 
     // Resolve segment -> production -> matchScheduleId
-    const seg = await prisma.productionSegment.findUnique({ where: { id: segmentId } });
+    const seg = await prisma.productionChapter.findUnique({ where: { id: segmentId } });
     if (!seg) return res.status(404).json({ error: 'Not found' });
     const prod = await prisma.production.findUnique({ where: { id: seg.productionId } });
     if (!prod) return res.status(404).json({ error: 'Production not found' });
@@ -56,9 +53,9 @@ segmentAssignmentsRouter.get('/segments/:segmentId/assignments', async (req, res
   try {
     const segmentId = Number(req.params.segmentId);
     if (!Number.isInteger(segmentId) || segmentId <= 0) return res.status(400).json({ error: 'Invalid segment id' });
-    const seg = await prisma.productionSegment.findUnique({ where: { id: segmentId } });
+    const seg = await prisma.productionChapter.findUnique({ where: { id: segmentId } });
     if (!seg) return res.status(404).json({ error: 'Not found' });
-    const items = await prisma.segmentRoleAssignment.findMany({ where: { productionSegmentId: segmentId }, include: { person: true, position: true }, orderBy: { id: 'asc' } });
+    const items = await prisma.chapterRoleAssignment.findMany({ where: { productionSegmentId: segmentId }, include: { person: true, position: true }, orderBy: { id: 'asc' } });
     return res.json(items);
   } catch (err) {
     return next(err);
@@ -70,7 +67,7 @@ segmentAssignmentsRouter.post('/segments/:segmentId/assignments', async (req, re
   try {
     const segmentId = Number(req.params.segmentId);
     if (!Number.isInteger(segmentId) || segmentId <= 0) return res.status(400).json({ error: 'Invalid segment id' });
-    const seg = await prisma.productionSegment.findUnique({ where: { id: segmentId } });
+    const seg = await prisma.productionChapter.findUnique({ where: { id: segmentId } });
     if (!seg) return res.status(404).json({ error: 'Not found' });
     const prod = await prisma.production.findUnique({ where: { id: seg.productionId } });
     if (!prod) return res.status(404).json({ error: 'Production not found' });
@@ -112,7 +109,7 @@ segmentAssignmentsRouter.post('/segments/:segmentId/assignments', async (req, re
       }
     }
 
-    const created = await prisma.segmentRoleAssignment.create({
+    const created = await prisma.chapterRoleAssignment.create({
       data: { productionSegmentId: segmentId, personId, positionId },
       include: { person: true, position: true },
     });
@@ -123,45 +120,29 @@ segmentAssignmentsRouter.post('/segments/:segmentId/assignments', async (req, re
   }
 });
 
-// Default positions for a segment (computed template)
+// Standard positions of a hoofdstuk: those of the hoofdstuk with its name in the production's draaiboek template, else the standard list
 segmentAssignmentsRouter.get('/segments/:segmentId/positions', async (req, res, next) => {
   try {
     const segmentId = Number(req.params.segmentId);
     if (!Number.isInteger(segmentId) || segmentId <= 0) return res.status(400).json({ error: 'Invalid segment id' });
-    const seg = await prisma.productionSegment.findUnique({ where: { id: segmentId } });
+    const seg = await prisma.productionChapter.findUnique({ where: { id: segmentId } });
     if (!seg) return res.status(404).json({ error: 'Not found' });
 
-    // Try configured defaults for this segment name; fall back to hardcoded list
-    const configured = await prisma.segmentDefaultPosition.findMany({
-      where: { segmentName: seg.naam },
-      orderBy: { order: 'asc' },
-      include: { position: { include: { skill: true } } },
-    });
-
-    if (configured.length > 0) {
-      const mapped = configured.map((it, idx) => ({
-        id: it.position.id,
-        name: it.position.name,
-        order: it.order ?? idx,
-        requiredSkillCode: it.position.skill ? it.position.skill.code : null,
-      }));
-      return res.json(mapped);
-    }
-
-    // Fallback to global defaults if present
-    const global = await prisma.segmentDefaultPosition.findMany({
-      where: { segmentName: GLOBAL_SEGMENT_NAME },
-      orderBy: { order: 'asc' },
-      include: { position: { include: { skill: true } } },
-    });
-    if (global.length > 0) {
-      const mapped = global.map((it, idx) => ({
-        id: it.position.id,
-        name: it.position.name,
-        order: it.order ?? idx,
-        requiredSkillCode: it.position.skill ? it.position.skill.code : null,
-      }));
-      return res.json(mapped);
+    // The standard positions of the hoofdstuk with this name in the production's draaiboek template (openspec/changes/chapters D3)
+    const production = await prisma.production.findUnique({ where: { id: seg.productionId }, select: { callSheetTemplateId: true } });
+    const templateChapter = production?.callSheetTemplateId
+      ? await prisma.callSheetTemplateChapter.findFirst({
+        where: { templateId: production.callSheetTemplateId, name: seg.name },
+        include: { positions: { orderBy: { orderIndex: 'asc' }, include: { position: { include: { skill: true } } } } },
+      })
+      : null;
+    if (templateChapter && templateChapter.positions.length > 0) {
+      return res.json(templateChapter.positions.map((p) => ({
+        id: p.position.id,
+        name: p.position.name,
+        order: p.orderIndex,
+        requiredSkillCode: p.position.skill ? p.position.skill.code : null,
+      })));
     }
 
     // Fall back to the standard list, matched to the existing positions. Never create positions here:
@@ -190,10 +171,10 @@ segmentAssignmentsRouter.delete('/segments/:segmentId/assignments/:assignmentId'
     const assignmentId = Number(req.params.assignmentId);
     if (!Number.isInteger(segmentId) || segmentId <= 0 || !Number.isInteger(assignmentId) || assignmentId <= 0) return res.status(400).json({ error: 'Invalid ids' });
 
-    const existing = await prisma.segmentRoleAssignment.findUnique({ where: { id: assignmentId } });
+    const existing = await prisma.chapterRoleAssignment.findUnique({ where: { id: assignmentId } });
     if (!existing || existing.productionSegmentId !== segmentId) return res.status(404).json({ error: 'Not found' });
 
-    await prisma.segmentRoleAssignment.delete({ where: { id: assignmentId } });
+    await prisma.chapterRoleAssignment.delete({ where: { id: assignmentId } });
     return res.status(204).send();
   } catch (err) {
     return next(err);
@@ -210,21 +191,21 @@ segmentAssignmentsRouter.post('/segments/:segmentId/assignments/copy', async (re
     const mode = body.mode === 'overwrite' ? 'overwrite' : 'merge';
     if (targetSegmentIds.length === 0) return res.status(400).json({ error: 'targetSegmentIds required' });
 
-    const source = await prisma.productionSegment.findUnique({ where: { id: sourceId } });
+    const source = await prisma.productionChapter.findUnique({ where: { id: sourceId } });
     if (!source) return res.status(404).json({ error: 'Source segment not found' });
 
-    const targets = await prisma.productionSegment.findMany({ where: { id: { in: targetSegmentIds } } });
+    const targets = await prisma.productionChapter.findMany({ where: { id: { in: targetSegmentIds } } });
     if (targets.length !== targetSegmentIds.length) return res.status(404).json({ error: 'One or more target segments not found' });
 
     // Ensure all segments belong to the same production
     if (targets.some(t => t.productionId !== source.productionId)) return res.status(400).json({ error: 'Targets must belong to same production' });
 
     const copied = await prisma.$transaction(async (tx) => {
-      const srcAssignments = await tx.segmentRoleAssignment.findMany({ where: { productionSegmentId: sourceId } });
+      const srcAssignments = await tx.chapterRoleAssignment.findMany({ where: { productionSegmentId: sourceId } });
 
       let totalDeleted = 0;
       if (mode === 'overwrite') {
-        const del = await tx.segmentRoleAssignment.deleteMany({ where: { productionSegmentId: { in: targetSegmentIds } } });
+        const del = await tx.chapterRoleAssignment.deleteMany({ where: { productionSegmentId: { in: targetSegmentIds } } });
         totalDeleted = del.count;
       }
 
@@ -234,7 +215,7 @@ segmentAssignmentsRouter.post('/segments/:segmentId/assignments/copy', async (re
       );
 
       // In merge mode, allow skipDuplicates to silently ignore uniques; in overwrite, targets are empty already
-      const createRes = await tx.segmentRoleAssignment.createMany({ data, skipDuplicates: mode === 'merge' });
+      const createRes = await tx.chapterRoleAssignment.createMany({ data, skipDuplicates: mode === 'merge' });
 
       return { created: createRes.count, deleted: totalDeleted, targets: targetSegmentIds };
     });

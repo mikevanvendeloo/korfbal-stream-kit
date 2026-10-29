@@ -75,11 +75,10 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Excel Expor
     const importTemplateName = `Test Imported Template ${timestamp}`;
 
     // 1. Create a template with items
-    const template = await prisma.callSheetTemplate.create({
-      data: {
-        name: exportTemplateName,
-        items: {
-          create: [
+    const template = await prisma.callSheetTemplate.create({ data: { name: exportTemplateName } });
+    const exportChapter = await prisma.callSheetTemplateChapter.create({ data: { templateId: template.id, name: 'Draaiboek', orderIndex: 0 } });
+    await prisma.callSheetTemplateItem.createMany({
+          data: [
             {
               title: 'Item 1',
               note: 'Note 1',
@@ -98,9 +97,7 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Excel Expor
               isInVenue: false,
               isInLivestream: true
             }
-          ]
-        }
-      }
+          ].map((item) => ({ ...item, templateId: template.id, chapterId: exportChapter.id }))
     });
 
     // 2. Export to Excel
@@ -108,7 +105,7 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Excel Expor
       .get(`/api/callsheets/templates/${template.id}/export`)
       .buffer()
       .parse((res, cb) => {
-          let data: any[] = [];
+          const data: any[] = [];
           res.on('data', (chunk) => data.push(chunk));
           res.on('end', () => cb(null, Buffer.concat(data)));
       })
@@ -223,26 +220,23 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Excel Expor
     const production = await prisma.production.create({
       data: {
         matchScheduleId: match.id,
-        segments: {
+        chapters: {
           create: [
-            { naam: 'Bestaand Segment 1', volgorde: 1, duurInMinuten: 10 },
-            { naam: 'Bestaand Segment 2', volgorde: 2, duurInMinuten: 20 }
+            { name: 'Bestaand hoofdstuk 1', orderIndex: 1 },
+            { name: 'Bestaand hoofdstuk 2', orderIndex: 2 }
           ]
         }
       },
-      include: { segments: true }
+      include: { chapters: true }
     });
 
-    const template = await prisma.callSheetTemplate.create({
-      data: {
-        name: `Test Apply Template ${timestamp}`,
-        items: {
-          create: [
-            { title: 'Template Item 1', durationSec: 30, orderIndex: 1 },
-            { title: 'Template Item 2', durationSec: 60, orderIndex: 2 }
-          ]
-        }
-      }
+    const template = await prisma.callSheetTemplate.create({ data: { name: `Test Apply Template ${timestamp}` } });
+    const applyChapter = await prisma.callSheetTemplateChapter.create({ data: { templateId: template.id, name: 'Wedstrijd', orderIndex: 0 } });
+    await prisma.callSheetTemplateItem.createMany({
+      data: [
+        { title: 'Template Item 1', durationSec: 30, orderIndex: 1 },
+        { title: 'Template Item 2', durationSec: 60, orderIndex: 2 }
+      ].map((item) => ({ ...item, templateId: template.id, chapterId: applyChapter.id }))
     });
 
     // 2. Apply in mode (altijd replace nu)
@@ -254,14 +248,16 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Excel Expor
     // Verify results
     const prodApply = await prisma.production.findUnique({
       where: { id: production.id },
-      include: { segments: true, callSheets: { include: { items: true } } }
+      include: { chapters: true, callSheets: { include: { items: true } } }
     });
 
     // Er zou nu 1 callsheet moeten zijn
     expect(prodApply?.callSheets.length).toBeGreaterThan(0);
     const cs = prodApply?.callSheets[0];
     expect(cs?.items).toHaveLength(2);
-    // Na de fix zijn de items niet meer gekoppeld aan een segment
-    expect(cs?.items.every(i => i.productionSegmentId === null)).toBe(true);
+    // Every item lands in one of the production's hoofdstukken (openspec/changes/chapters D7)
+    expect(prodApply?.chapters.map(c => c.name)).toEqual(['Wedstrijd']);
+    const chapterIds = new Set(prodApply?.chapters.map(c => c.id));
+    expect(cs?.items.every(i => chapterIds.has(i.chapterId ?? -1))).toBe(true);
   });
 });

@@ -12,19 +12,19 @@ describe('CopyAssignmentsModal', () => {
 
     render(
       <CopyAssignmentsModal
-        segments={[
-          { id: 1, naam: 'Bron', volgorde: 1 },
-          { id: 2, naam: 'Doel A', volgorde: 2 },
-          { id: 3, naam: 'Doel B', volgorde: 3 },
+        chapters={[
+          { id: 1, name: 'Bron', number: 1 },
+          { id: 2, name: 'Doel A', number: 2 },
+          { id: 3, name: 'Doel B', number: 3 },
         ]}
-        sourceSegmentId={1}
+        sourceChapterId={1}
         onCancel={onCancel}
         onConfirm={onConfirm}
       />
     );
 
     // Choose both targets
-    const list = screen.getByText('Doelsegmenten').parentElement as HTMLElement;
+    const list = screen.getByText('Naar hoofdstukken').parentElement as HTMLElement;
     const a = within(list).getByLabelText('2. Doel A') as HTMLInputElement;
     const b = within(list).getByLabelText('3. Doel B') as HTMLInputElement;
 
@@ -41,6 +41,6 @@ describe('CopyAssignmentsModal', () => {
     fireEvent.click(btn);
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
-    expect(onConfirm).toHaveBeenCalledWith({ targetSegmentIds: [2, 3], mode: 'overwrite' });
+    expect(onConfirm).toHaveBeenCalledWith({ targetChapterIds: [2, 3], mode: 'overwrite' });
   });
 });

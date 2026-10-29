@@ -153,6 +153,12 @@ export class ShowCallerWide {
   async expectStopped() {
     await expect(this.page.getByTitle('Start Show')).toBeVisible();
   }
+
+  /** The heading of a hoofdstuk above its items (name, then its planned times) */
+  chapterHeading = (name: string) => this.page.getByRole('heading', {level: 2, name: new RegExp(`^${name}`)});
+
+  /** "Hoofdstuk: … · nog …" at the top while the show runs */
+  currentChapter = () => this.page.getByLabel('Lopend hoofdstuk');
 }
 
 /** LIVE → Interviews: one card per chosen interview of the active production. */

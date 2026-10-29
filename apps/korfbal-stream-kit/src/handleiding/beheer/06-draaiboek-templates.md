@@ -1,40 +1,54 @@
 # Draaiboek-templates
 
-Onder **Stamgegevens → Draaiboeken** staan de onderdelen die je bij elke productie opnieuw gebruikt:
-
-- **Draaiboek-templates**: de callsheet met alle items (wie doet wat, hoe lang).
-- **Segment-templates**: de blokken van de uitzending (voorbeschouwing, eerste helft, rust, …) met hun duur.
-- **Standaardbezetting per segment**: welke posities je per segment voorstelt bij het inplannen.
+Onder **Stamgegevens → Draaiboeken → Draaiboek-templates** staan de draaiboeken die je bij elke productie opnieuw gebruikt. Een draaiboek bestaat uit **hoofdstukken** (bijvoorbeeld *Voorbereiding*, *Voorbeschouwing*, *Oplopen*, *Eerste helft*, *Rust*, *Tweede helft*, *Nabeschouwing*), met in elk hoofdstuk de items: wie doet wat, en hoe lang. Kies je een draaiboek bij een productie, dan komen de hoofdstukken, de items en de standaardbezetting in één keer mee.
 
 Je richt dit één keer in en past het per productie toe.
 
-## Draaiboek-templates
+## Hoofdstukken
 
-Een draaiboek-template is een lijst items, zoals *Livestream starten*, *Presentator heet publiek welkom* of *Opkomst spelers*. Met **Nieuw Draaiboek** maak je een lege template; met **Bekijken / Bewerken** open je er een.
+Een hoofdstuk is een deel van het draaiboek. Het heeft **geen eigen duur**: begin, einde en duur volgen uit de items erin. Wil je dat de rust 10 minuten duurt, zet dan in het hoofdstuk *Rust* een item van 10 minuten. Elk item hoort in precies één hoofdstuk; een hoofdstuk *Voorbereiding* is handig voor de checklist vóór de stream (alles aangesloten, thumbnail klaar).
 
-Per item stel je in:
+Elk hoofdstuk is een blok met bovenaan:
+
+- de **naam** en het aantal items, en de tijd **ten opzichte van de aftrap** (bijvoorbeeld *−30:00 tot 0:00*), gerekend vanaf het item met het anker *Wedstrijd starttijd*;
+- **+**: een nieuw item onderaan dit hoofdstuk;
+- het **potlood**: de naam wijzigen;
+- de **prullenbak**: het hoofdstuk verwijderen. Staan er items in, dan kies je eerst bij **Items verplaatsen naar** waar ze heen gaan;
+- de **pijl** om het blok in en uit te klappen;
+- **Standaardbezetting**: de posities die je in dit hoofdstuk meestal nodig hebt, bijvoorbeeld bij *Eerste helft*: Camera overzicht, Camera links, Camera rechts, Regie livestream, Commentaar. Voeg ze toe met **+ Positie**; een wijziging wordt meteen bewaard. Op het tabblad **Bezetting** van een productie verschijnen ze als snelkeuzeknoppen; er wordt niemand automatisch ingepland.
+
+Onderaan voeg je met **Hoofdstuk toevoegen** een hoofdstuk toe.
+
+**Slepen**: pak een item bij de greep links en sleep het naar een andere plek, ook naar een ander hoofdstuk. Een heel hoofdstuk sleep je aan de greep in de kop. Een gekoppeld item (zie hieronder) gaat altijd mee met het item waaraan het gekoppeld is, en blijft in hetzelfde hoofdstuk: sleep je het los naar een ander hoofdstuk, dan blijft het staan en zegt een melding waarom. Sleep dan het hoofditem, of maak eerst de koppeling los (**Koppel aan item** op *Geen*).
+
+> Staat er bovenaan **Hoofdstukken automatisch ingedeeld — controleer de indeling**, dan is dit draaiboek bij de overstap van segmenten naar hoofdstukken automatisch ingedeeld (op tijd: elk item in het blok waarin het begint; wat vóór het eerste blok viel, staat in *Voorbereiding*). Kijk de indeling na, sleep wat verkeerd staat, en klik op **Indeling klopt**.
+
+## Items
+
+Met **Nieuw Draaiboek** maak je een lege template; met **Bekijken / Bewerken** open je er een. Elk item staat op één regel: de **cue**, de titel, labels (anker, Auto, Zaal, *Geen stream*), de posities (de eerste drie, daarna *+2*; Showcaller staat er niet bij, die staat altijd aan) en de duur. Klik op een regel om hem te openen en te wijzigen:
 
 | Veld | Betekenis |
 |---|---|
-| **Volgorde** | De plek in de lijst. Een nummer dat al bestaat schuift de volgende items één op. Je kunt items ook verslepen. |
+| **Cue** | Een korte code, bijvoorbeeld `INTRO`. Komt mee naar de callsheet van elke productie, zodat bijvoorbeeld vMix er later naar kan verwijzen. Mag leeg blijven. |
 | **Titel** en **Notitie** | Wat er gebeurt. Hierin mag je [interviewnamen](#interviewnamen) gebruiken. |
 | **Duur (seconden)** | Hoe lang het item duurt |
 | **Zaal** / **Stream** | Of het in de zaal en/of in de livestream te zien is |
-| **Tijd Anchor** | Het ijkpunt van het schema: *Wedstrijd starttijd* of *Livestream start*. Alle andere tijden worden daar vóór of na gerekend. Eén item per draaiboek. |
+| **Tijd Anchor** | Het ijkpunt van het schema: *Wedstrijd starttijd* of *Livestream start*. Alle andere tijden worden daar vóór of na gerekend. |
 | **Auto Advance** | Het item gaat in LIVE vanzelf door naar het volgende als de duur om is |
-| **Koppel aan item (Parent)** | Een item dat tegelijk met een ander item gebeurt (in LIVE ernaast getoond) |
-| **Posities** | Voor wie het item is. **Showcaller** staat altijd aan. |
+| **Koppel aan item (Parent)** | Een item dat tegelijk met een ander item gebeurt (in LIVE ernaast getoond); het staat altijd in hetzelfde hoofdstuk |
+| **Posities** | Voor wie het item is: de gekozen posities staan als labels (met × haal je er een weg); met **+ Positie** zoek je er een bij, per categorie (Techniek, Entertainment, Algemeen). **Showcaller** staat altijd aan. |
 
-Met **Item toevoegen** komt er onderaan een nieuw item van 60 seconden bij.
+De volgorde wijzig je door te slepen. Een nieuw item (met **+** in een hoofdstuk) duurt 60 seconden en opent meteen om te wijzigen. **Opslaan** bewaart, **Annuleren** (of Escape) laat alles zoals het was.
 
 ### Importeren en exporteren
 
-Met **Excel Import** of **JSON Import** maak je een template uit een bestand. Vul eerst een naam in; pas daarna kun je een bestand kiezen. Via de knoppen op een kaart exporteer je een template naar Excel of JSON.
+Met **Excel Import** of **JSON Import** maak je een template uit een bestand. Vul eerst een naam in; pas daarna kun je een bestand kiezen. Via de knoppen op een kaart exporteer je een template naar Excel of JSON. Beide nemen de hoofdstukken mee (JSON ook de standaardbezetting per hoofdstuk).
 
-In Excel staan per regel: Volgorde, Titel, Notitie, Duur (sec), Tijd Anchor (JA/NEE), Anchor Type (MATCH_START of LIVESTREAM_START), Auto Advance (JA), Zaal (JA), Stream (NEE om uit te zetten). Daarna één kolom per positie, met precies de naam van de positie als kop, en een X bij de items voor die positie.
+In Excel staan per regel: Volgorde, Titel, Notitie, Duur (sec), Tijd Anchor (JA/NEE), Anchor Type (MATCH_START of LIVESTREAM_START), Auto Advance (JA), Zaal (JA), Stream (NEE om uit te zetten), **Hoofdstuk**, **Cue**. Daarna één kolom per positie, met precies de naam van de positie als kop, en een X bij de items voor die positie.
 
 > - Een kolom met een positienaam die niet bestaat, wordt zonder melding overgeslagen.
 > - Excel neemt geen gekoppelde items (parent) mee; JSON wel.
+> - Een bestand zonder hoofdstukken (een oudere export) wordt na de import op tijd ingedeeld, zoals bij de overstap; controleer de indeling.
 > - Een naam die al bestaat geeft geen foutmelding: er gebeurt dan niets. Kies een andere naam.
 
 ### Interviewnamen
@@ -49,22 +63,3 @@ In titels en notities kun je een plek voor een interviewnaam typen. Die wordt in
 
 Kies **thuis** of **uit**, of **eigen** en **tegenstander**: die laatste twee volgen de eigen club (bij **Instellingen**, dezelfde als de club van de organisatie), zodat hetzelfde draaiboek werkt voor thuis- én uitwedstrijden.
 
-## Segment-templates
-
-Een segment-template is een rijtje blokken met hun duur, bijvoorbeeld *Voorbeschouwing 20 min, Oplopen 10, Eerste helft 35, Rust 10, Tweede helft 35, Nabeschouwing 20*. Eén segment is het **tijdsanker** (meestal *Eerste helft*): dat begint op de aanvangstijd van de wedstrijd.
-
-- **Nieuwe Template** maakt een template; **Segment Toevoegen** voegt onderaan een segment toe.
-- **Maak Standaard**: deze template krijgt elke nieuwe productie automatisch. Er is één standaard.
-- Met het potlood hernoem je een segment of wijzig je de duur; met **Markeer als tijdsanker** zet je het anker.
-
-> De volgorde van segmenten kun je hier niet wijzigen: nieuwe segmenten komen onderaan. Verwijder je de standaard-template, dan krijgt een nieuwe productie een vaste indeling van zes segmenten.
-
-## Standaardbezetting per segment
-
-Hier leg je per segmentnaam vast welke posities je meestal nodig hebt, bijvoorbeeld bij *Eerste helft*: Camera overzicht, Camera links, Camera rechts, Regie livestream, Commentaar. Op het tabblad **Bezetting** van een productie verschijnen die posities dan als snelkeuzeknoppen.
-
-- Kies bij **Kies segment** een segmentnaam, of typ een nieuwe bij **Of nieuw segment**. **Algemeen** geldt voor segmenten zonder eigen lijst.
-- Voeg posities toe uit de **Catalogus** en zet ze met de pijlen in volgorde.
-- Druk op **Opslaan**: pas dan is de lijst bewaard.
-
-> De lijst hoort bij de **exacte** segmentnaam. Er wordt niemand automatisch ingepland: het zijn alleen voorstellen.

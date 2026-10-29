@@ -27,7 +27,7 @@ describe('DayPlanning', () => {
 
   it('shows the times in Amsterdam time, with the end of each stream', () => {
     render(<DayPlanning productions={[AFTERNOON, EVENING]}/>);
-    const rows = within(screen.getByRole('list')).getAllByRole('listitem').map((li) => li.textContent);
+    const rows = within(screen.getByRole('table')).getAllByRole('row').map((row) => row.textContent);
     expect(rows).toEqual([
       '12:45Opbouw',
       '14:45VerzamelenFortuna 2 – Uit',

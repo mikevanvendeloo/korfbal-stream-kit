@@ -1,0 +1,52 @@
+import {describe, expect, it} from 'vitest';
+import {layOutTimes, planDraaiboekImport} from './draaiboekFile';
+import type {DraaiboekFile} from '../schemas/draaiboekFile';
+
+const item = (title: string, extra: Partial<DraaiboekFile['items'][number]> = {}) => ({cue: '', title, durationSec: 60, ...extra});
+
+describe('planDraaiboekImport', () => {
+  it('matches hoofdstukken ignoring case and spacing, adds missing ones and orders by the production\'s hoofdstukken', () => {
+    const plan = planDraaiboekImport({items: [
+      item('Na', {chapter: 'Nabeschouwing'}),
+      item('Aftrap', {chapter: 'eerste  HELFT'}),
+      item('Opening', {chapter: 'Voorbeschouwing'}),
+    ]}, ['Voorbeschouwing', 'Eerste helft']);
+    expect(plan.newChapters).toEqual(['Nabeschouwing']);
+    expect(plan.items.map((i) => [i.index, i.chapterName, i.orderIndex])).toEqual([[2, 'Voorbeschouwing', 1], [1, 'Eerste helft', 2], [0, 'Nabeschouwing', 3]]);
+  });
+
+  it('keeps a linked item with its parent and gives an item without hoofdstuk the one before it', () => {
+    const plan = planDraaiboekImport({items: [
+      item('Aftrap', {id: 'a', chapter: 'Eerste helft'}),
+      item('Camera', {id: 'b', parentId: 'a', chapter: 'Rust'}),
+      item('Los'),
+    ]}, []);
+    expect(plan.newChapters).toEqual(['Eerste helft']);
+    expect(plan.items.map((i) => [i.chapterName, i.parentIndex])).toEqual([['Eerste helft', null], ['Eerste helft', 0], ['Eerste helft', null]]);
+  });
+
+  it('puts a file without hoofdstukken in the production\'s first one, or a new Draaiboek', () => {
+    expect(planDraaiboekImport({items: [item('A')]}, ['Voorbereiding']).items[0].chapterName).toBe('Voorbereiding');
+    expect(planDraaiboekImport({items: [item('A')]}, []).newChapters).toEqual(['Draaiboek']);
+  });
+});
+
+describe('layOutTimes', () => {
+  const kickoff = new Date('2026-11-14T19:30:00Z');
+  const liveStart = new Date('2026-11-14T19:00:00Z');
+  const row = (durationSec: number, anchorType: string | null = null, startOffsetSec: number | null = null) =>
+    ({durationSec, isTimeAnchor: anchorType != null, anchorType, startOffsetSec});
+
+  it('lays out backwards and forwards from the anchor', () => {
+    const times = layOutTimes([row(600), row(0, 'MATCH_START'), row(2100)], {kickoff, liveStart});
+    expect(times.map((t) => t.timeStart?.toISOString())).toEqual(['2026-11-14T19:20:00.000Z', '2026-11-14T19:30:00.000Z', '2026-11-14T19:30:00.000Z']);
+    expect(times[2].timeEnd?.toISOString()).toBe('2026-11-14T20:05:00.000Z');
+    expect(layOutTimes([row(60, 'LIVESTREAM_START')], {kickoff, liveStart})[0].timeStart).toEqual(liveStart);
+  });
+
+  it('uses the offset from the kickoff without an anchor, else no time', () => {
+    const times = layOutTimes([row(60, null, -300), row(60)], {kickoff, liveStart});
+    expect(times[0].timeStart?.toISOString()).toBe('2026-11-14T19:25:00.000Z');
+    expect(times[1]).toEqual({timeStart: null, timeEnd: null});
+  });
+});

@@ -3,6 +3,7 @@ import {emitToOrganization} from './socket';
 import {prisma, prismaUnscoped} from './prisma';
 import {bindOrganization, requireOrganizationId, runWithOrganization} from './organizationContext';
 import {logger} from '../utils/logger';
+import {liveChapters} from './productionTiming';
 
 interface ClockState {
   productionTime: number; // in seconds
@@ -88,14 +89,25 @@ export function liveStateSnapshot() {
   return {productionId, activeEventId, clocks: {...clocks}, isClockRunning};
 }
 
+/** Sends the live state to the organization. Never rejects: it is mostly called without await. */
 export async function broadcastState() {
+  try {
+    await sendState();
+  } catch (err) {
+    logger.error('Live state broadcast failed:', err);
+  }
+}
+
+async function sendState() {
   const state = live();
   emit('callsheet_state_update', liveStateSnapshot());
 
   // Als er een actieve productie is, stuur dan ook de geüpdatete events mee
-  if (state.productionId) {
+  // Read the id once: the show can stop (productionId = null) while we wait for the database
+  const productionId = state.productionId;
+  if (productionId) {
     const events = await prisma.productionEvent.findMany({
-      where: { productionId: state.productionId },
+      where: { productionId },
       include: {
         positions: { include: { position: true } },
       },
@@ -103,7 +115,7 @@ export async function broadcastState() {
     });
 
     // Sanitize elk event om stack overflow in socket.io-parser te voorkomen
-    emit('production_events_update', { items: events.map(sanitizeEvent) });
+    emit('production_events_update', { items: events.map(sanitizeEvent), chapters: await liveChapters(productionId) });
   }
 }
 
@@ -118,7 +130,7 @@ export function startProductionClock(productionId: number) {
 
   state.clockInterval = setInterval(bindOrganization(() => {
     state.clocks.productionTime++;
-    broadcastState().catch((err) => logger.error('Live state broadcast failed:', err));
+    broadcastState();
   }), 1000);
 
   logger.info(`Production clock started for production ID: ${productionId}`);

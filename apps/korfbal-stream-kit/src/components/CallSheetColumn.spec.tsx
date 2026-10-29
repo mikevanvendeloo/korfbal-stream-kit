@@ -56,3 +56,25 @@ describe('CallSheetColumn wait row', () => {
     expect(screen.queryByRole('status')).toBeNull();
   });
 });
+
+describe('CallSheetColumn hoofdstukken', () => {
+  const chapters = [{id: 1, name: 'Voorbeschouwing', order: 1}, {id: 2, name: 'Rust', order: 2}];
+  // The camera has 'c' (3) and the everyone-item 'e' (5) in Voorbeschouwing; Rust holds only regie item 'd' (4)
+  const inChapters = showItems.map((e) => ({...e, chapterId: e.id === 'd' ? 2 : 1}));
+  beforeEach(() => vi.useFakeTimers({toFake: ['Date']}));
+  afterEach(() => vi.useRealTimers());
+
+  it('shows a heading per hoofdstuk, "niets voor jou" without own items, and the hoofdstuk in the wait row', () => {
+    vi.setSystemTime(next.calculatedTime.getTime() - 270_000);
+    render(
+      <CallSheetColumn title="Kolom" positionId={CAMERA.id} items={inChapters} activeEvent={{...active, chapterId: 1}}
+                       autoAdvanceEventId={null} elapsedTime={0} allPositions={[REGIE, CAMERA]} chapters={chapters}
+                       allTimes={['chapter:1', slot(2), slot(4), 'chapter:2', slot(5)]}
+                       onPositionChange={() => undefined} secondaryPositionId={null} accentColor="blue" isCompact/>
+    );
+    const headings = screen.getAllByRole('heading', {level: 2}).map((h) => h.textContent);
+    expect(headings).toEqual(['Voorbeschouwing', 'Rust— niets voor jou']);
+    expect(screen.getByRole('status').textContent).toContain('Shots zaal');
+    expect(screen.getByRole('status').textContent).toContain('· Voorbeschouwing');
+  });
+});

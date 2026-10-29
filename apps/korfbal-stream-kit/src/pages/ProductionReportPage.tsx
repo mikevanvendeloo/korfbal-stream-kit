@@ -47,7 +47,7 @@ function matchClub(teamName?: string, list?: Club[]): Club | undefined {
 }
 
 // Amsterdam time, whatever the device's zone
-const timeLocal = (iso: string) => formatTime(iso);
+const timeLocal = (iso?: string | null) => formatTime(iso, {fallback: '--:--'});
 
 export default function ProductionReportPage() {
   const params = useParams<{ id: string }>();
@@ -56,6 +56,8 @@ export default function ProductionReportPage() {
   const saveMutation = useSaveProductionReport(productionId);
   const {data: clubs} = useClubs();
   const timing = useProductionTiming(productionId);
+  // The end of the livestream: the latest end of a hoofdstuk (none without timed items)
+  const liveEnd = (timing.data ?? []).reduce<string | null>((latest, c) => (c.end && (!latest || c.end > latest) ? c.end : latest), null);
 
   const [matchSponsor, setMatchSponsor] = useState('');
   const [ballSponsor, setBallSponsor] = useState('');
@@ -198,7 +200,7 @@ export default function ProductionReportPage() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b dark:border-gray-600">
-                  <th className="text-left py-2 pr-4 font-medium">Segment</th>
+                  <th className="text-left py-2 pr-4 font-medium">Hoofdstuk</th>
                   <th className="text-left py-2 pr-4 font-medium">Start</th>
                   <th className="text-left py-2 pr-4 font-medium">Einde</th>
                   <th className="text-left py-2 font-medium">Duur</th>
@@ -213,23 +215,23 @@ export default function ProductionReportPage() {
                     <td className="py-2 text-gray-400">-</td>
                   </tr>
                 )}
-                {timing.data.map((segment) => (
-                  <tr key={segment.id} className="border-b dark:border-gray-700">
-                    <td className="py-2 pr-4">{segment.naam}</td>
-                    <td className="py-2 pr-4 font-mono">{timeLocal(segment.start!)}</td>
-                    <td className="py-2 pr-4 font-mono">{timeLocal(segment.end!)}</td>
-                    <td className="py-2">{segment.duurInMinuten} min</td>
+                {timing.data.map((chapter) => (
+                  <tr key={chapter.id} className="border-b dark:border-gray-700">
+                    <td className="py-2 pr-4">{chapter.name}</td>
+                    <td className="py-2 pr-4 font-mono">{timeLocal(chapter.start)}</td>
+                    <td className="py-2 pr-4 font-mono">{timeLocal(chapter.end)}</td>
+                    <td className="py-2">{chapter.durationMinutes} min</td>
                   </tr>
                 ))}
-                {data.production.liveTime && (
+                {liveEnd && (
                   <tr className="border-t-2 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
                     <td className="py-2 pr-4 font-medium uppercase text-green-700 dark:text-green-400">Livestream Einde</td>
                     <td className="py-2 pr-4 font-mono text-gray-400">-</td>
                     <td className="py-2 pr-4 font-mono font-bold text-green-700 dark:text-green-400">
-                      {timeLocal(new Date(new Date(data.production.liveTime).getTime() + timing.data.reduce((acc, s) => acc + s.duurInMinuten, 0) * 60000).toISOString())}
+                      {timeLocal(liveEnd)}
                     </td>
                     <td className="py-2 font-medium text-green-700 dark:text-green-400">
-                      {timing.data.reduce((acc, s) => acc + s.duurInMinuten, 0)} min
+                      {timing.data.reduce((acc, c) => acc + c.durationMinutes, 0)} min
                     </td>
                   </tr>
                 )}

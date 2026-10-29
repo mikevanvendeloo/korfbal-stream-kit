@@ -1,6 +1,5 @@
 import {useActiveProduction, useProductionCrew, useProductionInterviews, useProductionTiming} from '../hooks/useProductions';
 import ProductionHeader from '../components/ProductionHeader';
-import {MdAnchor} from 'react-icons/md';
 import {PositionCategory} from "../hooks/usePositions";
 import PlayerCard from "../components/PlayerCard";
 import InterviewSelector from "../components/InterviewSelector";
@@ -26,8 +25,8 @@ export default function ActiveProductionPage() {
   // From the day planning: the own verzameltijd or the organization's default; opbouw only before the day's first stream
   const gatheringTime = active.planned?.crewCallTime ?? null;
   const setupTime = active.planned?.setupTime ?? null;
-  const totalDuration = (timing.data || []).reduce((sum, s) => sum + s.duurInMinuten, 0);
-  const endLiveTime = active.liveTime ? new Date(new Date(active.liveTime).getTime() + totalDuration * 60000) : null;
+  // The end of the livestream as the API derives it (the latest item end), the same as in the reports
+  const endLiveTime = active.liveEnd ?? null;
 
   return (
     <div className="container py-6 text-gray-800 dark:text-gray-100">
@@ -63,10 +62,9 @@ export default function ActiveProductionPage() {
                 <div key={s.id} className="p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <div>
                     <div className="font-medium flex items-center gap-2">
-                      {s.volgorde}. {s.naam}
-                      {s.isTimeAnchor && <MdAnchor className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+                      {s.name}
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">{s.duurInMinuten} min</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{s.durationMinutes} min</div>
                   </div>
                   <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                     {formatTime(s.start, {fallback: '--:--'})}

@@ -52,11 +52,10 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Application
     productionId = production.id;
 
     // 3. Create a template with a time anchor
-    const template = await prisma.callSheetTemplate.create({
-      data: {
-        name: 'Test Timing Template',
-        items: {
-          create: [
+    const template = await prisma.callSheetTemplate.create({ data: { name: 'Test Timing Template' } });
+    const chapter = await prisma.callSheetTemplateChapter.create({ data: { templateId: template.id, name: 'Draaiboek', orderIndex: 0 } });
+    await prisma.callSheetTemplateItem.createMany({
+          data: [
             {
               title: 'Match Start',
               durationSec: 0,
@@ -64,7 +63,8 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Application
               isInVenue: true,
               isInLivestream: true,
               isTimeAnchor: true,
-              anchorType: 'MATCH_START'
+              anchorType: 'MATCH_START',
+              chapterId: chapter.id,
             },
             {
               title: 'Pre-match Show',
@@ -73,10 +73,9 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Application
               isInVenue: true,
               isInLivestream: true,
               isTimeAnchor: false,
+              chapterId: chapter.id,
             }
-          ]
-        }
-      }
+          ].map((item) => ({ ...item, templateId: template.id }))
     });
     templateId = template.id;
   });

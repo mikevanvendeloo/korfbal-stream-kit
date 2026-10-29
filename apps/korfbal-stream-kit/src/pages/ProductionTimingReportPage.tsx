@@ -66,7 +66,7 @@ export default function ProductionTimingReportPage() {
           onClick={() => {
             // We create a CSV for simplicity as it's easily opened in Excel
             const rows: string[][] = [
-              ['Segment', 'Item Titel', 'Geplande Start', 'Werkelijke Start', 'Geplande Duur', 'Werkelijke Duur', 'Status']
+              ['Hoofdstuk', 'Item Titel', 'Geplande Start', 'Werkelijke Start', 'Geplande Duur', 'Werkelijke Duur', 'Status']
             ];
 
             data.callsheets.forEach(cs => {
@@ -74,7 +74,7 @@ export default function ProductionTimingReportPage() {
                 const event = data.productionEvents?.find(e => e.callSheetItemId === item.id);
                 const actualDuration = itemActualDurations[item.id] ?? event?.durationSec;
                 rows.push([
-                  item.productionSegment?.naam || '-',
+                  item.chapter?.name || '-',
                   item.title,
                   formatTime(item.timeStart),
                   formatTime(event?.actualStartTime),
@@ -107,7 +107,7 @@ export default function ProductionTimingReportPage() {
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segment</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hoofdstuk</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gepland</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Werkelijk</th>
@@ -137,7 +137,7 @@ export default function ProductionTimingReportPage() {
 
                 return (
                   <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                    <td className="px-4 py-3 text-sm text-gray-500 truncate max-w-[120px]">{item.productionSegment?.naam || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 truncate max-w-[120px]">{item.chapter?.name || '-'}</td>
                     <td className="px-4 py-3 text-sm font-medium">{item.title}</td>
                     <td className="px-4 py-3 text-sm font-mono text-gray-500">{formatTime(item.timeStart)}</td>
                     <td className="px-4 py-3 text-sm font-mono">{formatTime(event?.actualStartTime)}</td>

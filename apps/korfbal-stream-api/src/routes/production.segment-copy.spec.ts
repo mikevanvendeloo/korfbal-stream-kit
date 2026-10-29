@@ -6,7 +6,7 @@ import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import * as prismaSvc from '../services/prisma';
 const prisma = (prismaSvc as any).prisma as any;
 
-type Segment = { id: number; productionId: number; naam: string; volgorde: number; duurInMinuten: number; isTimeAnchor: boolean };
+type Segment = { id: number; productionId: number; name: string; orderIndex: number };
 type Assign = { id: number; productionSegmentId: number; personId: number; positionId: number; createdAt: Date };
 
 describe('Production segment assignments copy API', () => {
@@ -15,17 +15,17 @@ describe('Production segment assignments copy API', () => {
 
   beforeEach(() => {
     segments = [
-      { id: 1, productionId: 10, naam: 'Bron', volgorde: 1, duurInMinuten: 10, isTimeAnchor: false },
-      { id: 2, productionId: 10, naam: 'Doel A', volgorde: 2, duurInMinuten: 25, isTimeAnchor: false },
-      { id: 3, productionId: 10, naam: 'Doel B', volgorde: 3, duurInMinuten: 25, isTimeAnchor: false },
-      { id: 4, productionId: 99, naam: 'Andere productie', volgorde: 1, duurInMinuten: 10, isTimeAnchor: false },
+      { id: 1, productionId: 10, name: 'Bron', orderIndex: 1 },
+      { id: 2, productionId: 10, name: 'Doel A', orderIndex: 2 },
+      { id: 3, productionId: 10, name: 'Doel B', orderIndex: 3 },
+      { id: 4, productionId: 99, name: 'Andere productie', orderIndex: 1 },
     ];
     assignments = [
       { id: 1, productionSegmentId: 1, personId: 101, positionId: 201, createdAt: new Date() },
       { id: 2, productionSegmentId: 1, personId: 102, positionId: 202, createdAt: new Date() },
     ];
 
-    prisma.productionSegment = {
+    prisma.productionChapter = {
       findUnique: vi.fn(async ({ where }: any) => segments.find((s) => s.id === where.id) || null),
       findMany: vi.fn(async ({ where }: any) => {
         const ids = where?.id?.in as number[];
@@ -34,7 +34,7 @@ describe('Production segment assignments copy API', () => {
       }),
     };
 
-    prisma.segmentRoleAssignment = {
+    prisma.chapterRoleAssignment = {
       findMany: vi.fn(async ({ where }: any) => assignments.filter((a) => a.productionSegmentId === where.productionSegmentId)),
       deleteMany: vi.fn(async ({ where }: any) => {
         const set = new Set(where.productionSegmentId.in as number[]);

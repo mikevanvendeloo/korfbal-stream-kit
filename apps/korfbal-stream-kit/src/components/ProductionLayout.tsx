@@ -70,7 +70,7 @@ function ReportSubTabs({id, rapport}: { id: number; rapport: string }) {
   return (
     <nav aria-label="Rapport" className="flex gap-2 mt-3">
       <NavLink to={rapport} end className={subTabClass}>Productierapport</NavLink>
-      <NavLink to={adminPaths.crewReport(id)} className={subTabClass}>Crewrapport</NavLink>
+      <NavLink to={adminPaths.crewReport(id)} className={subTabClass}>Callsheet</NavLink>
       <NavLink to={adminPaths.timingReport(id)} className={subTabClass}>Tijdsanalyse</NavLink>
     </nav>
   );

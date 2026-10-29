@@ -3,11 +3,11 @@ import {createUrl, extractError} from "../lib/api";
 import {Position, PositionCategory} from "./usePositions";
 
 export type CrewReport = {
-  segments: Array<{ id: number; naam: string; volgorde: number }>;
+  chapters: Array<{ id: number; name: string; orderIndex: number }>;
   groupedPositions: Array<{ category: PositionCategory, positions: Position[] }>;
-  /** Effective crew per segment: production-wide positions plus the ones for that segment only. */
-  cells: Array<{ segmentId: number; positionId: number; personName: string; type: 'segment' | 'production' }>;
-  callsheets: Array<CallSheet & { items: Array<CallSheetItem & { productionSegment: { naam: string } | null; positionIds: number[] }> }>;
+  /** Effective crew per hoofdstuk: production-wide positions plus the ones for that hoofdstuk only. */
+  cells: Array<{ chapterId: number; positionId: number; personName: string; type: 'chapter' | 'production' }>;
+  callsheets: Array<CallSheet & { items: Array<CallSheetItem & { chapter: { name: string } | null; positionIds: number[] }> }>;
   productionEvents?: Array<{
     callSheetItemId?: string | null;
     actualStartTime?: string | null;
@@ -38,7 +38,8 @@ export type CallSheet = { id: number; productionId: number; name: string; color?
 export type CallSheetItem = {
   id: string;
   callSheetId: number;
-  productionSegmentId?: number | null;
+  /** The hoofdstuk the item is in (every item has one) */
+  chapterId?: number | null;
   cue: string;
   title: string;
   note?: string | null;
@@ -48,11 +49,14 @@ export type CallSheetItem = {
   durationSec: number;
   orderIndex: number;
   isInVenue?: boolean;
+  isInLivestream?: boolean;
   isTimeAnchor?: boolean;
   anchorType?: string | null;
   autoAdvance?: boolean;
   parentId?: string | null;
   positionIds?: number[];
+  /** As the API lists them (GET /callsheets/:id) */
+  positions?: { positionId: number }[];
 }
 
 export function useCalculateCallSheetTimes(callSheetId: number) {
@@ -178,5 +182,29 @@ export function useDeleteCallSheetItem(callSheetId: number) {
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['production', 'callsheets', callSheetId] })
+  });
+}
+
+/** The answer of a draaiboek import: the number of items and the hoofdstukken it added. */
+export type DraaiboekImportResult = { ok: boolean; items: number; newChapters: string[] };
+
+/**
+ * Importeer draaiboek: a JSON file (a production draaiboek or a draaiboek template export) replaces the
+ * callsheet's items. Afterwards the callsheet, its hoofdstukken and the timing are fetched again.
+ */
+export function useImportDraaiboek(productionId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({callSheetId, file}: { callSheetId: number; file: File }): Promise<DraaiboekImportResult> => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(createUrl(`/api/production/callsheets/${callSheetId}/import-json`), {method: 'POST', body: formData});
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+    onSuccess: (_data, {callSheetId}) => Promise.all([
+      qc.invalidateQueries({queryKey: ['production', 'callsheets', callSheetId]}),
+      qc.invalidateQueries({queryKey: ['production', productionId]}),
+    ]),
   });
 }

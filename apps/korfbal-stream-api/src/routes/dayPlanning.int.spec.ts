@@ -22,11 +22,12 @@ describe.runIf(runDb)('day planning: opbouw and verzamelen (integration)', () =>
     settingsBefore = await inTestOrganization(() => getDayPlanningSettings());
     await inTestOrganization(() => setDayPlanningSettings(DEFAULT_DAY_PLANNING));
     afternoon = await createProductionScenario(prisma, {
-      items: [], liveTime: AFTERNOON_LIVE, segments: [{naam: 'Wedstrijd', duurInMinuten: 100}],
+      // The livestream ends with its last item (openspec/changes/chapters D1)
+      items: [{title: 'Wedstrijd', durationSec: 100 * 60}], startsAt: AFTERNOON_LIVE, callSheet: true, liveTime: AFTERNOON_LIVE,
       match: {date: new Date('2026-12-12T14:30:00.000Z'), homeTeamName: 'Dagplanning 2'},
     });
     evening = await createProductionScenario(prisma, {
-      items: [], liveTime: EVENING_LIVE, segments: [{naam: 'Wedstrijd', duurInMinuten: 110}],
+      items: [{title: 'Wedstrijd', durationSec: 110 * 60}], startsAt: EVENING_LIVE, callSheet: true, liveTime: EVENING_LIVE,
       match: {date: new Date('2026-12-12T18:30:00.000Z'), homeTeamName: 'Dagplanning 1'},
     });
     shows.push(afternoon, evening);

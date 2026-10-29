@@ -39,9 +39,9 @@ Er zijn twee manieren:
 
 Bij **Aanwezig** staan personen in *cursief* die er wel waren, maar geen positie hadden.
 
-## Crewrapport
+## Callsheet
 
-Het crewrapport toont het tijdschema, de bezetting per segment en de interviews van één productie. Kies bovenaan een positie om er een **call sheet voor die positie** van te maken: alleen de items voor die positie (en items voor iedereen). Met **Download PNG** bewaar je het als afbeelding, bijvoorbeeld om te delen met de crew.
+De callsheet (Rapport → **Callsheet**, voorheen *Crewrapport*) toont het tijdschema, de bezetting per hoofdstuk en de interviews van één productie. Kies bovenaan een positie om er een **call sheet voor die positie** van te maken: alleen de items voor die positie (en items voor iedereen). Met **Download PNG** bewaar je het als afbeelding, bijvoorbeeld om te delen met de crew.
 
 ## Tijdsanalyse
 
@@ -62,7 +62,7 @@ Onder **Rapportages** staan overzichten van het actieve seizoen. Bij elk overzic
 | **Crewrollen** | Per productie wie de technische en algemene rollen had: een kolom per positie met de categorie **TECHNICAL** of **GENERAL** (regie livestream, camera's, oplopen geluid, regie LED-scherm, showcaller, runner, …) |
 | **Tijdsanalyse** | Een lijst producties; open per productie de tijdsanalyse |
 
-> Dagbezetting en Positieoverzicht gebruiken de **productie-brede** posities, niet de afwijkingen per segment. Entertainmentrollen en Crewrollen tonen beide: wie een positie voor de hele productie had én wie die positie alleen in een segment deed. Welke kolommen er staan, volgt uit de categorie van de posities bij **Stamgegevens → Posities**.
+> Dagbezetting en Positieoverzicht gebruiken de **productie-brede** posities, niet de afwijkingen per hoofdstuk. Entertainmentrollen en Crewrollen tonen beide: wie een positie voor de hele productie had én wie die positie alleen in een hoofdstuk deed. Welke kolommen er staan, volgt uit de categorie van de posities bij **Stamgegevens → Posities**.
 
 ### Dagplanning
 

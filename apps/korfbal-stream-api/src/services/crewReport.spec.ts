@@ -12,15 +12,15 @@ describe('buildCrewCells', () => {
       [10, 11],
       [{personId: 1, personName: 'Anna', position: regie}],
       [
-        {segmentId: 11, personId: 2, personName: 'Bas', position: camera},
+        {chapterId: 11, personId: 2, personName: 'Bas', position: camera},
         // Also production-wide: listed once, as a segment assignment
-        {segmentId: 11, personId: 1, personName: 'Anna', position: regie},
+        {chapterId: 11, personId: 1, personName: 'Anna', position: regie},
       ],
     );
     expect(cells).toEqual([
-      {segmentId: 10, positionId: 2, personName: 'Anna', type: 'production'},
-      {segmentId: 11, positionId: 1, personName: 'Bas', type: 'segment'},
-      {segmentId: 11, positionId: 2, personName: 'Anna', type: 'segment'},
+      {chapterId: 10, positionId: 2, personName: 'Anna', type: 'production'},
+      {chapterId: 11, positionId: 1, personName: 'Bas', type: 'chapter'},
+      {chapterId: 11, positionId: 2, personName: 'Anna', type: 'chapter'},
     ]);
   });
 });

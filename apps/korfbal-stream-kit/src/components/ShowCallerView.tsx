@@ -1,6 +1,6 @@
 import {useNavigate, useParams} from 'react-router-dom';
 import {calculateEventTimes, ProductionEvent, useLiveState} from '../hooks/useLiveState';
-import {useEffect, useMemo, useRef, useState} from "react";
+import {Fragment, useEffect, useMemo, useRef, useState} from "react";
 import {MatchHeader} from "./MatchHeader";
 import {TimeDisplay} from "./TimeDisplay";
 import {CallSheetItem} from "./CallSheetItem";
@@ -11,6 +11,8 @@ import {PHONE_QUERY, useMediaQuery} from "../hooks/useMediaQuery";
 import {useWakeLock} from "../hooks/useWakeLock";
 import {ShowCallerPhone} from "./ShowCallerPhone";
 import {InterviewPhotosToggle} from "./InterviewPhotosToggle";
+import {chapterTimes, currentChapter, minutesSeconds} from "../lib/liveChapters";
+import {formatTime} from "../lib/time";
 
 // Helper om een naam om te zetten naar een URL-vriendelijke slug
 const toSlug = (name: string) => {
@@ -24,6 +26,7 @@ export const ShowCallerView = () => {
   const {
     allItems,
     allPositions,
+    chapters = [],
     activeEvent,
     activeEventElapsedTime,
     productionClock,
@@ -172,6 +175,9 @@ export const ShowCallerView = () => {
     });
   }, [allItems]);
 
+  // Hoofdstukken (openspec/changes/chapters D5): headings with their planned times; not steps
+  const plannedChapters = useMemo(() => chapterTimes(calculateEventTimes(allItems), chapters), [allItems, chapters]);
+
   if (isLoading && allItems.length === 0) return <div
     className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white flex items-center justify-center">Laden...</div>;
   if (error) return <div
@@ -180,6 +186,26 @@ export const ShowCallerView = () => {
   const isRelevantForMe = (event: ProductionEvent) => {
     if (selectedPositionId === -1) return true;
     return event.positions.length === 0 || event.positions.some(p => p.position.id === selectedPositionId);
+  };
+
+  // The hoofdstuk that runs now, with the time it still takes (the rest of this item plus the later ones)
+  const current = currentChapter(allItems, activeEvent?.id ?? null, activeEventRemainingTime?.rawSeconds ?? null, chapters);
+  const startsChapter = (idx: number) => {
+    const chapterId = rows[idx].mainEvent.chapterId;
+    return chapterId != null && chapterId !== rows[idx - 1]?.mainEvent.chapterId;
+  };
+  const chapterHeading = (chapterId: number) => {
+    const chapter = chapters.find((c) => c.id === chapterId);
+    if (!chapter) return null;
+    const time = plannedChapters.get(chapterId);
+    const relevant = allItems.some((e) => e.chapterId === chapterId && isRelevantForMe(e));
+    return (
+      <div key={`chapter-${chapterId}`} role="heading" aria-level={2}
+           className={`flex items-baseline gap-3 border-b-2 border-gray-300 dark:border-white/20 pb-1 pt-2 ${relevant ? '' : 'opacity-40'}`}>
+        <span className="text-lg font-black uppercase tracking-widest text-gray-800 dark:text-white">{chapter.name}</span>
+        {time?.start && <span className="font-mono text-sm text-gray-500 dark:text-white/50">{formatTime(time.start)} – {formatTime(time.end)}</span>}
+      </div>
+    );
   };
 
   if (isPhone) {
@@ -196,6 +222,7 @@ export const ShowCallerView = () => {
         systemTime={systemTime}
         isRelevant={isRelevantForMe}
         controls={controls}
+        chapters={chapters}
       />
     );
   }
@@ -447,6 +474,12 @@ export const ShowCallerView = () => {
             </div>
           </div>
         </div>
+        {current && (
+          <div aria-label="Lopend hoofdstuk" className="mx-auto mt-2 flex w-fit items-baseline gap-2 rounded-full bg-gray-900 px-4 py-1 text-sm text-white dark:bg-white dark:text-gray-900">
+            <span className="font-semibold">Hoofdstuk: {current.name}</span>
+            <span className="font-mono tabular-nums">· nog {minutesSeconds(current.remainingSec)}</span>
+          </div>
+        )}
         {controls.error && (
           <button type="button" role="alert" onClick={controls.clearError}
                   className="mx-auto mt-2 block rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-3 py-1.5 text-sm">
@@ -468,8 +501,10 @@ export const ShowCallerView = () => {
             const isRowRelevant = isMainRelevant || relevantLinkedCount > 0;
 
             // Focus mode logica: verberg rijen die niet relevant zijn EN geen actief event hebben
+            const heading = startsChapter(idx) ? chapterHeading(row.mainEvent.chapterId as number) : null;
             if (isFocusMode && !isRowRelevant && !isRowActive) {
-              return null;
+              // A hidden row still shows its hoofdstuk's heading
+              return heading;
             }
 
             // Als de rij niet relevant is voor de huidige positie, tonen we hem subtieler
@@ -477,7 +512,9 @@ export const ShowCallerView = () => {
             const rowScale = isRowActive ? 'scale-[1.01]' : 'scale-100';
 
             return (
-              <div key={row.mainEvent.id}
+              <Fragment key={row.mainEvent.id}>
+              {heading}
+              <div
                    id={`row-${row.mainEvent.id}`}
                    className={`transition-all duration-500 ${rowOpacity} ${rowScale} ${isRowActive ? 'z-10 relative' : ''}`}>
                 {row.isBoth && row.linked.length === 0 ? (
@@ -588,6 +625,7 @@ export const ShowCallerView = () => {
                   </div>
                 )}
               </div>
+              </Fragment>
             );
           })}
         </div>

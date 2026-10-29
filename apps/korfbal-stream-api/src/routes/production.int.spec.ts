@@ -13,8 +13,8 @@ const runDb = process.env.REQUIRE_DB === 'true';
 async function resetDb() {
   await prisma.$transaction([
     prisma.productionPerson.deleteMany({}),
-    prisma.segmentRoleAssignment.deleteMany({}), // Added to clean up assignments
-    prisma.productionSegment.deleteMany({}), // Added to clean up segments
+    prisma.chapterRoleAssignment.deleteMany({}), // Added to clean up assignments
+    prisma.productionChapter.deleteMany({}), // Added to clean up segments
     prisma.production.deleteMany({}),
     prisma.matchRoleAssignment.deleteMany({}),
     prisma.personSkill.deleteMany({}),
@@ -121,7 +121,7 @@ describe.runIf(runDb)('Production API (integration)', () => {
     expect(list3.body[0].person.name).toBe('Bob');
   });
 
-  it('should create a production with the new default segments', async () => {
+  it('should create a production with the standard hoofdstukken', async () => {
     const match = await prisma.matchSchedule.create({
       data: { seasonId: await currentSeasonId(prisma),
         externalId: 'm-segments',
@@ -136,19 +136,11 @@ describe.runIf(runDb)('Production API (integration)', () => {
     expect(createRes.status).toBe(201);
     const productionId = createRes.body.id;
 
-    const segmentsRes = await request(app).get(`/api/production/${productionId}/segments`);
-    expect(segmentsRes.status).toBe(200);
-    expect(segmentsRes.body).toBeInstanceOf(Array);
-    expect(segmentsRes.body.length).toBe(6);
-
-    const segments = segmentsRes.body;
-
-    expect(segments[0]).toMatchObject({ naam: 'Voorbeschouwing', duurInMinuten: 20, volgorde: 1, isTimeAnchor: false });
-    expect(segments[1]).toMatchObject({ naam: 'Oplopen', duurInMinuten: 10, volgorde: 2, isTimeAnchor: false });
-    expect(segments[2]).toMatchObject({ naam: 'Eerste helft', duurInMinuten: 35, volgorde: 3, isTimeAnchor: true });
-    expect(segments[3]).toMatchObject({ naam: 'Rust', duurInMinuten: 10, volgorde: 4, isTimeAnchor: false });
-    expect(segments[4]).toMatchObject({ naam: 'Tweede helft', duurInMinuten: 35, volgorde: 5, isTimeAnchor: false });
-    expect(segments[5]).toMatchObject({ naam: 'Nabeschouwing', duurInMinuten: 20, volgorde: 6, isTimeAnchor: false });
+    const chaptersRes = await request(app).get(`/api/production/${productionId}/chapters`);
+    expect(chaptersRes.status).toBe(200);
+    expect(chaptersRes.body.map((c: { name: string; orderIndex: number }) => [c.name, c.orderIndex])).toEqual([
+      ['Voorbereiding', 1], ['Voorbeschouwing', 2], ['Oplopen', 3], ['Eerste helft', 4], ['Rust', 5], ['Tweede helft', 6], ['Nabeschouwing', 7],
+    ]);
   });
 
   it('should return production report with correct attendees and assignment status', async () => {

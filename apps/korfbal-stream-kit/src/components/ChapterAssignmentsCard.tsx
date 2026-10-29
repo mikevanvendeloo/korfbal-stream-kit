@@ -1,39 +1,43 @@
 import React from 'react';
 import {Person, useSkillsCatalog} from '../hooks/usePersons'; // Importeer Person type
 import {
-  Position,
   ProductionPersonPosition,
-  ProductionSegment,
-  useAddSegmentAssignment,
-  useCopySegmentAssignments,
-  useDeleteSegmentAssignment,
-  useSegmentAssignments,
-  useSegmentDefaultPositions,
+  ProductionChapter,
+  useAddChapterAssignment,
+  useChapterAssignments,
+  useChapterStandardPositions,
+  useCopyChapterAssignments,
+  useDeleteChapterAssignment,
 } from '../hooks/useProductions';
 import IconButton from './IconButton';
+import {Position} from '../hooks/usePositions';
 import {MdContentCopy, MdDelete} from 'react-icons/md';
 import CopyAssignmentsModal from './CopyAssignmentsModal';
 
-export default function SegmentAssignmentsCard({
-                                                 segment,
-                                                 allSegments,
+/** Bezetting of one hoofdstuk: the production-wide positions plus its own afwijkingen. */
+export default function ChapterAssignmentsCard({
+                                                 chapter,
+                                                 chapterNumber,
+                                                 allChapters,
                                                  personFilterId,
                                                  productionPersons, // NIEUW: Alle aanwezige personen voor de productie
                                                  allPositions, // NIEUW: Alle beschikbare posities
                                                  productionPersonPositions, // NIEUW: Productie-brede positie toewijzingen
                                                }: Readonly<{
-  segment: ProductionSegment;
-  allSegments: Array<ProductionSegment>;
+  chapter: ProductionChapter;
+  /** Its number in the draaiboek (1-based) */
+  chapterNumber: number;
+  allChapters: Array<ProductionChapter>;
   personFilterId?: number | null;
   productionPersons: Array<{ id: number; person: Person }>; // Aangepast type voor productionPersons
   allPositions: Position[];
   productionPersonPositions: ProductionPersonPosition[];
 }>) {
-  const segmentAssignments = useSegmentAssignments(segment.id); // Dit zijn de segment-specifieke overrides
-  const addSegmentAssignment = useAddSegmentAssignment(segment.id);
-  const deleteSegmentAssignment = useDeleteSegmentAssignment(segment.id);
-  const copyMut = useCopySegmentAssignments(segment.id);
-  const defs = useSegmentDefaultPositions(segment.id); // Standaard posities voor dit segment (template)
+  const chapterAssignments = useChapterAssignments(chapter.id); // the afwijkingen for this hoofdstuk
+  const addChapterAssignment = useAddChapterAssignment(chapter.id);
+  const deleteChapterAssignment = useDeleteChapterAssignment(chapter.id);
+  const copyMut = useCopyChapterAssignments(chapter.id);
+  const defs = useChapterStandardPositions(chapter.id); // the hoofdstuk standard positions (draaiboek template)
   const skills = useSkillsCatalog(); // Nog steeds nodig voor skill-filtering in dropdown
 
   const [personId, setPersonId] = React.useState<number | ''>('');
@@ -55,29 +59,28 @@ export default function SegmentAssignmentsCard({
     return c?.id ?? null;
   }, [requiredSkillCode, skills.data]);
 
-  // NIEUW: Bereken de effectieve toewijzingen voor dit segment
+  // The effective assignments for this hoofdstuk
   const effectiveAssignments = React.useMemo(() => {
-    if (!productionPersons || !allPositions || !productionPersonPositions || !segmentAssignments.data) {
+    if (!productionPersons || !allPositions || !productionPersonPositions || !chapterAssignments.data) {
       return [];
     }
 
     // Map om de effectieve toewijzingen per persoon bij te houden
-    const assignmentsMap = new Map<number, { person: Person; positions: { position: Position; type: 'segment' | 'production' }[] }>();
+    const assignmentsMap = new Map<number, { person: Person; positions: { position: Position; type: 'chapter' | 'production' }[] }>();
 
-    // Stap 1: Verwerk segment-specifieke toewijzingen (deze overschrijven productie-brede)
-    segmentAssignments.data.forEach(sa => {
+    // Step 1: the afwijkingen of this hoofdstuk (they override the production-wide positions)
+    chapterAssignments.data.forEach(sa => {
       if (!assignmentsMap.has(sa.person.id)) {
         assignmentsMap.set(sa.person.id, { person: sa.person, positions: [] });
       }
-      assignmentsMap.get(sa.person.id)?.positions.push({ position: sa.position, type: 'segment' });
+      assignmentsMap.get(sa.person.id)?.positions.push({ position: sa.position, type: 'chapter' });
     });
 
-    // Stap 2: Voeg productie-brede toewijzingen toe, alleen als er GEEN segment-specifieke override is
+    // Step 2: the production-wide positions, for whoever has no afwijking here
     productionPersons.forEach(pp => {
       const personEffectiveEntry = assignmentsMap.get(pp.person.id);
 
       if (!personEffectiveEntry) {
-        // Als de persoon nog geen segment-specifieke toewijzingen heeft, voeg dan productie-brede toe
         const prodAssignments = productionPersonPositions.filter(ppp => ppp.personId === pp.person.id);
         if (prodAssignments.length > 0) {
           assignmentsMap.set(pp.person.id, {
@@ -86,10 +89,8 @@ export default function SegmentAssignmentsCard({
           });
         }
       } else {
-        // Als de persoon al segment-specifieke toewijzingen heeft, controleer dan of er productie-brede posities zijn die NIET zijn overschreven
         const prodAssignments = productionPersonPositions.filter(ppp => ppp.personId === pp.person.id);
         prodAssignments.forEach(pa => {
-          // Voeg productie-brede positie alleen toe als deze niet al segment-specifiek is toegewezen
           if (!personEffectiveEntry.positions.some(p => p.position.id === pa.position.id)) {
             personEffectiveEntry.positions.push({ position: pa.position, type: 'production' });
           }
@@ -104,7 +105,7 @@ export default function SegmentAssignmentsCard({
 
     // Sorteer de personen op naam
     return Array.from(assignmentsMap.values()).sort((a, b) => a.person.name.localeCompare(b.person.name));
-  }, [productionPersons, allPositions, productionPersonPositions, segmentAssignments.data]);
+  }, [productionPersons, allPositions, productionPersonPositions, chapterAssignments.data]);
 
 
   async function handleAdd(e: React.FormEvent) {
@@ -112,7 +113,7 @@ export default function SegmentAssignmentsCard({
     setError(null);
     try {
       if (!personId || !positionId) return;
-      await addSegmentAssignment.mutateAsync({ personId: Number(personId), positionId: Number(positionId) });
+      await addChapterAssignment.mutateAsync({ personId: Number(personId), positionId: Number(positionId) });
       setPositionId('');
       // keep person selected for quick multi-role adding
     } catch (err: any) {
@@ -124,46 +125,6 @@ export default function SegmentAssignmentsCard({
     if (!personFilterId) return effectiveAssignments;
     return effectiveAssignments.filter((ea) => ea.person.id === personFilterId);
   }
-
-  // Filter persons based on required skill if a position is selected
-  const filteredProductionPersons = React.useMemo(() => {
-    if (!requiredSkillId) return productionPersons;
-    // We need to know which persons have the required skill.
-    // However, `productionPersons` only contains basic person info.
-    // We need to fetch skills for each person or have them available.
-    // Since we don't have skills in `productionPersons` prop, we can't filter client-side easily
-    // without fetching skills for all persons.
-    // BUT, the test mocks `useCrewPersonsForSegment` which returns persons with `skillIds`.
-    // The component currently receives `productionPersons` which might NOT have `skillIds`.
-    // Let's assume for now we can't filter perfectly without extra data.
-    // However, the prompt says "SegmentAssignmentsCard component moet worden gefixed".
-    // This implies I should implement the filtering.
-
-    // To implement filtering, I need to know the skills of the persons.
-    // I can use `useCrewPersonsForSegment` again? No, that was removed.
-    // I should probably fetch skills or assume `productionPersons` might be enriched?
-    // Or I can use `usePersons` hook to get all persons with skills?
-    // Let's look at `useProductionPersons` hook result type. It returns `ProductionPerson[]`.
-    // `ProductionPerson` has `person: { id, name, gender }`. No skills.
-
-    // If I cannot filter, I cannot satisfy the requirement.
-    // But wait, the previous implementation used `useCrewPersonsForSegment` which returned `CrewPerson[]` with `skillIds`.
-    // Maybe I should bring back `useCrewPersonsForSegment` or similar logic?
-    // Or maybe I should just filter based on `requiredSkillCode` if I can get the person's skills.
-
-    // Let's check if I can use `useSkillsCatalog` to find which persons have the skill?
-    // No, `useSkillsCatalog` returns `Skill[]`.
-
-    // The best way is probably to fetch person skills.
-    // But doing that for every person in the dropdown might be heavy.
-    // Alternatively, `productionPersons` prop could be enriched.
-
-    // Let's look at how `ProductionWideAssignmentsCard` did it:
-    // It fetched skills for all production persons in a `useEffect`.
-
-    // I will implement similar logic here: fetch skills for production persons to enable filtering.
-    return productionPersons;
-  }, [productionPersons, requiredSkillId]);
 
   // State to hold person skills
   const [personSkills, setPersonSkills] = React.useState<Record<number, number[]>>({});
@@ -207,8 +168,7 @@ export default function SegmentAssignmentsCard({
     <div className="border rounded p-3">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <div className="font-medium">{segment.volgorde}. {segment.naam}</div>
-          <div className="text-xs text-gray-500">Duur: {segment.duurInMinuten} min</div>
+          <div className="font-medium">{chapterNumber}. {chapter.name}</div>
         </div>
         <IconButton ariaLabel="Kopieer toewijzingen" title="Kopieer naar…" onClick={() => setShowCopy(true)}>
           <MdContentCopy className="w-5 h-5" />
@@ -253,22 +213,21 @@ export default function SegmentAssignmentsCard({
             ))}
           </select>
         </label>
-        <button type="submit" className="px-3 py-1 border rounded bg-green-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" disabled={!personId || !positionId || addSegmentAssignment.isPending || productionPersons.length === 0}>Toevoegen</button>
+        <button type="submit" className="px-3 py-1 border rounded bg-green-600 text-white disabled:opacity-60 disabled:cursor-not-allowed" disabled={!personId || !positionId || addChapterAssignment.isPending || productionPersons.length === 0}>Toevoegen</button>
       </form>
 
       {/* Default positions overview - deze sectie kan nog steeds nuttig zijn voor suggesties */}
       <div className="mb-2">
-        <div className="text-xs text-gray-500 mb-1">Standaard posities voor dit segment (template)</div>
+        <div className="text-xs text-gray-500 mb-1">Standaardposities voor dit hoofdstuk (draaiboek-template)</div>
         <ul className="flex flex-wrap gap-2">
           {(defs.data || []).sort((a, b) => a.order - b.order).map((p) => {
-            // Controleer of deze positie al effectief is toegewezen (segment-specifiek of productie-breed)
             const isEffectivelyAssigned = effectiveAssignments.some(ea => ea.person.id === Number(personId) && ea.positions.some(pos => pos.position.id === p.id));
             return (
               <li key={p.id}>
                 <button
                   type="button"
                   className={`px-2 py-0.5 rounded border text-xs ${isEffectivelyAssigned ? 'bg-green-50 border-green-300 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300' : 'bg-gray-50 border-gray-300 text-gray-700 dark:bg-gray-900/30 dark:border-gray-700 dark:text-gray-200'}`}
-                  title={isEffectivelyAssigned ? 'Reeds effectief toegewezen' : 'Selecteer om segment-specifiek toe te wijzen'}
+                  title={isEffectivelyAssigned ? 'Reeds effectief toegewezen' : 'Kies om alleen voor dit hoofdstuk toe te wijzen'}
                   onClick={() => setPositionId(p.id)}
                   disabled={isEffectivelyAssigned}
                 >
@@ -281,7 +240,7 @@ export default function SegmentAssignmentsCard({
       </div>
 
       <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-        {segmentAssignments.isLoading && <li className="py-2 text-sm text-gray-500">Laden…</li>}
+        {chapterAssignments.isLoading && <li className="py-2 text-sm text-gray-500">Laden…</li>}
         {filteredEffectiveAssignments().map((ea) => (
           <li key={ea.person.id} className="py-2 flex flex-col">
             <div className="font-medium">{ea.person.name}</div>
@@ -292,17 +251,16 @@ export default function SegmentAssignmentsCard({
                 ea.positions.map(p => (
                   <li key={p.position.id} className="flex items-center gap-1">
                     <span>{p.position.name}</span>
-                    {p.type === 'segment' && (
+                    {p.type === 'chapter' && (
                       <IconButton
-                        ariaLabel="Verwijder segment-specifieke toewijzing"
-                        title="Verwijder segment-specifieke toewijzing"
+                        ariaLabel="Verwijder toewijzing voor dit hoofdstuk"
+                        title="Verwijder toewijzing voor dit hoofdstuk"
                         onClick={async () => {
                           setError(null);
                           try {
-                            // Zoek de specifieke segmentAssignment ID om te verwijderen
-                            const assignmentToDelete = segmentAssignments.data?.find(sa => sa.personId === ea.person.id && sa.positionId === p.position.id);
+                            const assignmentToDelete = chapterAssignments.data?.find(sa => sa.personId === ea.person.id && sa.positionId === p.position.id);
                             if (assignmentToDelete) {
-                              await deleteSegmentAssignment.mutateAsync(assignmentToDelete.id);
+                              await deleteChapterAssignment.mutateAsync(assignmentToDelete.id);
                             }
                           } catch (e: any) {
                             setError(e?.message || 'Verwijderen mislukt');
@@ -328,12 +286,12 @@ export default function SegmentAssignmentsCard({
 
       {showCopy && (
         <CopyAssignmentsModal
-          segments={allSegments.map(s => ({ id: s.id, naam: s.naam, volgorde: s.volgorde }))}
-          sourceSegmentId={segment.id}
+          chapters={allChapters.map((c, i) => ({ id: c.id, name: c.name, number: i + 1 }))}
+          sourceChapterId={chapter.id}
           onCancel={() => setShowCopy(false)}
-          onConfirm={async ({ targetSegmentIds, mode }) => {
+          onConfirm={async ({ targetChapterIds, mode }) => {
             try {
-              await copyMut.mutateAsync({ targetSegmentIds, mode });
+              await copyMut.mutateAsync({ targetChapterIds, mode });
               setShowCopy(false);
             } catch (e: any) {
               setError(e?.message || 'Kopiëren mislukt');

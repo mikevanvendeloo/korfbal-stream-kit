@@ -18,7 +18,7 @@ The screen with a large button (logo + name) per active Organisatie, shown befor
 A secret of an Organisatie for devices that can't choose one: vMix data sources and triggers and scoreboard displays send it as `?key=` (or `X-Api-Key`). Opens only the feed routes, never Beheer. Shown once at creation (`sk_…`); afterwards only its prefix is visible. Can be revoked.
 
 **Standaardset** (standard set)
-The skills, positions with links, title templates, callsheet templates and segment templates every new Organisatie gets (`applyStandardSet`). Idempotent: only adds what is missing. Fortuna's own crew and sponsors are not part of it.
+The skills, positions with links, title templates and draaiboek templates with their hoofdstukken every new Organisatie gets (`applyStandardSet`). Idempotent: only adds what is missing. Fortuna's own crew and sponsors are not part of it.
 
 **Wedstrijdbron** (match source)
 Where an Organisatie's match schedule is imported from (`MatchSource`): provider (now Sportclub Vrijwilligersmanagement), address (https) and token. The token is never shown, only whether it is set; changing provider or address clears it. Managed at Beheer → Setup → Organisatie → Wedstrijdimport. A failing source is reported as a category (`SOURCE_*` code with a Dutch message and hint), never with the source's own answer.
@@ -29,16 +29,16 @@ The indoor part of the korfball season (roughly November to April). Its start da
 ## Production & Show
 
 **Production**
-A single live broadcast event. Links a MatchSchedule to all resources needed to produce the show: crew, callsheets, segments, production events, and vMix titles. A match can exist without a production, but a production always references exactly one match.
+A single live broadcast event. Links a MatchSchedule to all resources needed to produce the show: crew, callsheets with their hoofdstukken, production events, and vMix titles. A match can exist without a production, but a production always references exactly one match.
 
 **Active Production**
 The one production with `isActive=true` within an Organisatie. Each organization has at most one active production (so two organizations can be live at the same time). All show control operations and Socket.io live state are scoped to the organization's active production. Activation is transactional — activating one production atomically deactivates the organization's others.
 
-**Segment**
-A named macro time block within a production (e.g. "Voorbeschouwing", "Eerste helft", "Rust"). Ordered by `volgorde`. Segments define the high-level structure of the broadcast; they do not contain individual cues — those live in CallSheetItems and ProductionEvents.
+**Segment** *(retired)*
+Former name of a production's time block with its own duration and anchor, and of segment templates. Replaced by **Hoofdstuk**; don't use it for new work. Only older backups and exports still contain `segments` (read on restore), and the bezetting routes keep the path `/segments/:segmentId/...`.
 
-**Volgorde**
-Dutch for "sequence". The ordering field for Segments within a production. Unique per production (DB constraint). Reordering uses a 2-phase approach to avoid constraint violations: bump the conflicting value by 1000, re-insert, then renumber all sequentially.
+**Volgorde** *(retired)*
+Former ordering field of segments. A hoofdstuk's place is `orderIndex`, written with the whole structure at once (see **Hoofdstuk**).
 
 **ProductionEvent**
 A single entry in the live show timeline — a "cue" that the show caller steps through during the broadcast. Has a status (WAITING → ACTIVE → COMPLETED), an optional vMix input name for automatic triggering, and optional auto-advance. Not the same as a CallSheetItem, though items can be promoted to events via sync.
@@ -47,7 +47,7 @@ A single entry in the live show timeline — a "cue" that the show caller steps 
 The set of operations that advance the live show through its ProductionEvents: start, next, previous, and stop. Operated via the `/api/show` endpoints. Show control also drives the production clock and triggers Socket.io broadcasts.
 
 **Time Anchor**
-The single reference point for absolute time calculations within a production. One segment or callsheet item is marked `isTimeAnchor=true`. Its time is set to a known absolute value (e.g. match kick-off); all other items are calculated relative to it — backwards for items before the anchor, forwards for items after.
+The single reference point for absolute time calculations within a production. One callsheet item is marked `isTimeAnchor=true` (a hoofdstuk has no anchor of its own). Its time is set to a known absolute value (e.g. match kick-off); all other items are calculated relative to it — backwards for items before the anchor, forwards for items after.
 
 **Auto-Advance**
 A flag on a ProductionEvent (`autoAdvance=true` with a `durationSec > 0`) that causes the show to automatically advance to the next event after the configured duration expires, without manual intervention. A scheduled timer is set on event activation and cancelled if the operator advances or stops manually.
@@ -83,6 +83,9 @@ A named run-of-show document within a production. A production can have multiple
 
 **CallSheetItem**
 A single cue entry in a callsheet. Has a title, optional cue code, timing fields (`timeStart`, `timeEnd`, `durationSec`), position assignments (which crew roles see this item), and visibility flags (`isInVenue`, `isInLivestream`). Can be promoted to a ProductionEvent via the sync operation.
+
+**Hoofdstuk** (chapter)
+A named part of a draaiboek (template or production) that groups its items in show order, e.g. "Voorbereiding" (a checklist: is everything connected), "Voorbeschouwing", "Oplopen", "Eerste helft", "Rust", "Tweede helft", "Nabeschouwing". Every item belongs to exactly one hoofdstuk. A hoofdstuk has no duration of its own: its start, end and duration follow from its items (at Korfbal League matches the rust is 10 minutes and each half about 35 minutes, as items in those hoofdstukken). It is a heading, not a step: the Show Caller advances per item. Carries the standard positions and the per-production bezetting that segments carried. Replaces Segment (OpenSpec change `chapters`).
 
 ---
 

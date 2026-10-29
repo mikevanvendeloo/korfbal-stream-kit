@@ -5,7 +5,6 @@ import {withoutOrganization, testDb as prisma} from '../../test-helpers';
 import {runWithOrganization} from '../services/organizationContext';
 import {standardPositions, standardSkills, standardTitles} from '../standardSet/data';
 import {standardCallSheetTemplates} from '../standardSet/callSheetTemplates';
-import {standardSegmentTemplates} from '../standardSet/segmentTemplates';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 const SLUG = 'org-api-test';
@@ -28,11 +27,10 @@ describe.runIf(runDb)('Organizations API (integration)', () => {
       expect(await prisma.positionLink.count()).toBeGreaterThan(0);
       expect(await prisma.titleDefinition.count({where: {productionId: null}})).toBe(standardTitles.length);
       expect((await prisma.callSheetTemplate.findMany()).map((t) => t.name).sort()).toEqual(standardCallSheetTemplates.map((t) => t.name).sort());
-      expect((await prisma.segmentTemplate.findMany()).map((t) => t.name).sort()).toEqual(standardSegmentTemplates.map((t) => t.name).sort());
-      expect(await prisma.segmentTemplate.count({where: {isDefault: true}})).toBe(1);
       // Template items keep their positions and parent links
-      const draaiboek = await prisma.callSheetTemplate.findFirstOrThrow({where: {name: 'Draaiboek Korfbal League wedstrijd'}, include: {items: {include: {positions: true}}}});
-      expect(draaiboek.items.length).toBe(61);
+      const draaiboek = await prisma.callSheetTemplate.findFirstOrThrow({where: {name: 'Draaiboek Korfbal League wedstrijd'}, include: {items: {include: {positions: true}}, chapters: true}});
+      expect(draaiboek.items.length).toBe(62);
+      expect(draaiboek.chapters).toHaveLength(7);
       expect(draaiboek.items.every((i) => i.positions.length > 0)).toBe(true);
       expect(draaiboek.items.some((i) => i.parentId)).toBe(true);
     });
@@ -43,15 +41,15 @@ describe.runIf(runDb)('Organizations API (integration)', () => {
 
   it('leaves no organization behind when the standard set fails, so the slug can be used again', async () => {
     const slug = `${SLUG}-broken`;
-    // A segment template the database refuses: the standard set fails halfway (after skills, positions, …)
-    const broken = {name: 'Kapot', isDefault: false, items: [{nope: true}]} as unknown as (typeof standardSegmentTemplates)[number];
-    standardSegmentTemplates.push(broken);
+    // A draaiboek template with an item in an unknown hoofdstuk: the standard set fails halfway (after skills, positions, …)
+    const broken = {name: 'Kapot', chapters: [], items: [{title: 'Los', chapter: 'Nergens', durationSec: 0, orderIndex: 1, isInVenue: false, isInLivestream: true, positions: []}]};
+    standardCallSheetTemplates.push(broken);
     try {
       const failed = await request(app).post('/api/organizations').send({name: 'Kapot', slug});
       expect(failed.status).toBe(500);
       expect(await prisma.organization.count({where: {slug}})).toBe(0);
     } finally {
-      standardSegmentTemplates.splice(standardSegmentTemplates.indexOf(broken), 1);
+      standardCallSheetTemplates.splice(standardCallSheetTemplates.indexOf(broken), 1);
     }
     // Not 409 "slug in gebruik": nothing of the failed attempt is left
     const again = await request(app).post('/api/organizations').send({name: 'Hersteld', slug});

@@ -5,6 +5,7 @@ import type {PositionCategory} from '@prisma/client';
 import {resolveSeasonId} from '../services/season';
 import {amsterdamDay, amsterdamDayRange} from '../utils/time';
 import {getDayPlanningSettings, planDay} from '../services/dayPlanning';
+import {liveEnds} from '../services/productionTiming';
 
 export const reportsRouter: Router = Router();
 
@@ -35,11 +36,6 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
       include: {
         matchSchedule: true,
         productionPersons: true, // NIEUW: Aanwezigheidsregistratie ophalen
-        segments: {
-          select: {
-            duurInMinuten: true
-          }
-        },
         productionPositions: {
           orderBy: {
             position: {
@@ -107,14 +103,14 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
       return a.name.localeCompare(b.name);
     });
 
+    const ends = await liveEnds(productions.map((p) => p.id));
     // The day planning: opbouw before the first stream, then per stream verzamelen, live and einde
     const planned = planDay(productions, await getDayPlanningSettings());
 
     return res.json({
       date,
       productions: productions.map(p => {
-        const totalDuration = p.segments.reduce((sum, s) => sum + s.duurInMinuten, 0);
-        const endLiveTime = p.liveTime ? new Date(new Date(p.liveTime).getTime() + totalDuration * 60000) : null;
+        const endLiveTime = ends.get(p.id) ?? null;
         const plan = planned.get(p.id);
         return {
           id: p.id,
@@ -129,7 +125,8 @@ reportsRouter.get('/daily-occupancy', async (req, res, next) => {
             crewCallTime: plan.crewCallTime,
             crewCallIsDefault: plan.crewCallIsDefault,
             liveStart: plan.liveStart,
-            liveEnd: new Date(plan.liveStart.getTime() + totalDuration * 60000),
+            // The latest item end; unknown (null) while no item has a time (openspec/changes/chapters D1)
+            liveEnd: ends.get(p.id) ?? null,
           },
         };
       }),
@@ -161,11 +158,6 @@ reportsRouter.get('/daily-occupancy-by-position', async (req, res, next) => {
       },
       include: {
         matchSchedule: true,
-        segments: {
-          select: {
-            duurInMinuten: true
-          }
-        },
         productionPositions: {
           include: {
             person: true,
@@ -236,11 +228,11 @@ reportsRouter.get('/daily-occupancy-by-position', async (req, res, next) => {
         return a.name.localeCompare(b.name);
       });
 
+    const ends = await liveEnds(productions.map((p) => p.id));
     return res.json({
       date,
       productions: productions.map(p => {
-        const totalDuration = p.segments.reduce((sum, s) => sum + s.duurInMinuten, 0);
-        const endLiveTime = p.liveTime ? new Date(new Date(p.liveTime).getTime() + totalDuration * 60000) : null;
+        const endLiveTime = ends.get(p.id) ?? null;
         return {
           id: p.id,
           time: p.matchSchedule.date,
@@ -266,11 +258,6 @@ reportsRouter.get('/interviews', async (req, res, next) => {
       where: { matchSchedule: { seasonId } },
       include: {
         matchSchedule: true,
-        segments: {
-          select: {
-            duurInMinuten: true
-          }
-        },
         interviewSubjects: {
           include: {
             player: true,
@@ -285,6 +272,7 @@ reportsRouter.get('/interviews', async (req, res, next) => {
       },
     });
 
+    const ends = await liveEnds(productions.map((p) => p.id));
     const report = productions.map(p => {
       const homeInterviews = p.interviewSubjects
         .filter(s => s.side === 'HOME')
@@ -293,8 +281,7 @@ reportsRouter.get('/interviews', async (req, res, next) => {
         .filter(s => s.side === 'AWAY')
         .map(s => ({ name: s.player.name, role: s.role, photoUrl: s.player.photoUrl }));
 
-      const totalDuration = p.segments.reduce((sum, s) => sum + s.duurInMinuten, 0);
-      const endLiveTime = p.liveTime ? new Date(new Date(p.liveTime).getTime() + totalDuration * 60000) : null;
+      const endLiveTime = ends.get(p.id) ?? null;
 
       return {
         id: p.id,
@@ -328,10 +315,9 @@ async function rolesReport(categories: PositionCategory[], seasonIdParam: unknow
       where: {matchSchedule: {seasonId}},
       include: {
         matchSchedule: true,
-        // As on the Bezetting tab: the production-wide positions plus the ones for a segment only
-        segments: {
+        // As on the Bezetting tab: the production-wide positions plus the ones for a hoofdstuk only
+        chapters: {
           select: {
-            duurInMinuten: true,
             bezetting: {where: {position: {category: {in: categories}}}, select: {positionId: true, person: {select: {name: true}}}},
           },
         },
@@ -344,21 +330,21 @@ async function rolesReport(categories: PositionCategory[], seasonIdParam: unknow
     }),
   ]);
 
+  const ends = await liveEnds(productions.map((p) => p.id));
   return {
     positions,
     productions: productions.map((p) => {
       const byPosition = new Map<number, Set<string>>();
-      for (const {positionId, person} of [...p.productionPositions, ...p.segments.flatMap((s) => s.bezetting)]) {
+      for (const {positionId, person} of [...p.productionPositions, ...p.chapters.flatMap((c) => c.bezetting)]) {
         byPosition.set(positionId, (byPosition.get(positionId) ?? new Set<string>()).add(person.name));
       }
       const assignments: Record<number, string[]> = {};
       for (const [positionId, names] of byPosition) assignments[positionId] = [...names].sort((a, b) => a.localeCompare(b));
-      const totalDuration = p.segments.reduce((sum, s) => sum + s.duurInMinuten, 0);
       return {
         id: p.id,
         date: p.matchSchedule.date,
         liveTime: p.liveTime,
-        endLiveTime: p.liveTime ? new Date(p.liveTime.getTime() + totalDuration * 60000) : null,
+        endLiveTime: ends.get(p.id) ?? null,
         homeTeam: p.matchSchedule.homeTeamName,
         awayTeam: p.matchSchedule.awayTeamName,
         assignments,

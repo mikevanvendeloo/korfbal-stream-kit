@@ -1,13 +1,17 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest';
-import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {MemoryRouter, Route, Routes} from 'react-router-dom';
 import CallSheetEditPage from './CallSheetEditPage';
 
-// The test environment runs in UTC (vite.config.ts), not in Amsterdam: the new item's fields must
-// still mean Amsterdam time.
-type Call = { method: string; url: string; body: any };
+// A production's draaiboek in hoofdstukken (openspec/changes/chapters): the API is faked per path
+type Call = { method: string; path: string; body: any };
 let calls: Call[] = [];
+
+const items = [
+  {id: 'a', callSheetId: 5, chapterId: 11, cue: 'START', title: 'Livestream starten', durationSec: 0, orderIndex: 1, isTimeAnchor: true, anchorType: 'LIVESTREAM_START', timeStart: '2026-11-14T18:25:00.000Z', positions: [{positionId: 1}, {positionId: 2}]},
+  {id: 'b', callSheetId: 5, chapterId: 22, cue: '', title: 'Eerste helft', durationSec: 2100, orderIndex: 2, timeStart: '2026-11-14T18:30:00.000Z', positions: [{positionId: 1}]},
+];
 
 function renderPage() {
   const qc = new QueryClient({defaultOptions: {queries: {retry: false}}});
@@ -22,67 +26,42 @@ function renderPage() {
   );
 }
 
-/** Types into a field and leaves it (the fields read what was typed on blur). */
-function type(field: HTMLElement, text: string) {
-  fireEvent.change(field, {target: {value: text}});
-  fireEvent.blur(field);
-}
-
-async function fillNewItem() {
-  fireEvent.change(await screen.findByPlaceholderText('Bv. PRE_MATCH'), {target: {value: 'START'}});
-  fireEvent.change(screen.getByPlaceholderText('Titel van het item'), {target: {value: 'Aftrap'}});
-}
-
-const posted = () => calls.find((c) => c.method === 'POST' && c.url.endsWith('/items'));
-
-describe('CallSheetEditPage new item times (24-hour, Amsterdam time)', () => {
+describe('CallSheetEditPage (hoofdstukken)', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     calls = [];
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: any, init?: any) => {
-      const url = typeof input === 'string' ? input : input.toString();
+      const path = new URL(typeof input === 'string' ? input : input.toString(), 'http://localhost').pathname;
       const method = init?.method ?? 'GET';
       const body = init?.body ? JSON.parse(init.body) : undefined;
-      calls.push({method, url, body});
-      if (method === 'GET' && url.endsWith('/callsheets/5')) return {ok: true, json: async () => ({id: 5, name: 'Draaiboek', items: []})} as any;
-      if (method === 'GET') return {ok: true, json: async () => []} as any;
-      return {ok: true, json: async () => ({id: 'x', ...body})} as any;
+      calls.push({method, path, body});
+      const json = (data: unknown) => ({ok: true, json: async () => data}) as Response;
+      if (method === 'GET' && path.endsWith('/callsheets/5')) return json({id: 5, name: 'Draaiboek', items});
+      if (method === 'GET' && path.endsWith('/production/3/chapters')) return json([{id: 11, productionId: 3, name: 'Voorbeschouwing', orderIndex: 1}, {id: 22, productionId: 3, name: 'Eerste helft', orderIndex: 2}]);
+      if (method === 'GET' && path.endsWith('/production/positions')) return json([{id: 1, name: 'Showcaller', category: 'GENERAL'}, {id: 2, name: 'Regie livestream', category: 'TECHNICAL'}]);
+      if (method === 'GET' && path.endsWith('/production/3')) return json({id: 3, chaptersAutoPlaced: false});
+      if (method === 'GET') return json([]);
+      if (method === 'POST' && path.endsWith('/items')) return json({id: 'nieuw', ...body});
+      return json({ok: true});
     });
   });
 
-  it('sends start 07-11-2026 19:30 and end 19:45 as UTC', async () => {
+  it('shows the hoofdstukken with their items as quiet lines with the cue', async () => {
     renderPage();
-    await fillNewItem();
-    type(screen.getByLabelText('Begin Datum'), '07-11-2026');
-    type(screen.getByLabelText('Begin Tijd'), '19:30');
-    type(screen.getByLabelText('Einde Datum'), '7-11-2026');
-    type(screen.getByLabelText('Einde Tijd'), '1945');
-    fireEvent.click(screen.getByRole('button', {name: /Item toevoegen aan callsheet/}));
-    await waitFor(() => expect(posted()).toBeTruthy());
-    expect(posted()!.body.timeStart).toBe('2026-11-07T18:30:00.000Z');
-    expect(posted()!.body.timeEnd).toBe('2026-11-07T18:45:00.000Z');
+    const voor = await screen.findByRole('region', {name: 'Hoofdstuk Voorbeschouwing'});
+    expect(within(voor).getByRole('button', {name: 'Livestream starten openen'}).textContent).toContain('START');
+    expect(within(voor).getByText('Regie livestream')).toBeTruthy();
+    expect(within(voor).queryByText('Showcaller')).toBeNull();
+    expect(within(screen.getByRole('region', {name: 'Hoofdstuk Eerste helft'})).getByText('Eerste helft', {selector: 'span'})).toBeTruthy();
   });
 
-  it('leaves the times out when the fields are empty', async () => {
+  it('adds a new item at the end of a hoofdstuk, with Showcaller', async () => {
     renderPage();
-    await fillNewItem();
-    fireEvent.click(screen.getByRole('button', {name: /Item toevoegen aan callsheet/}));
-    await waitFor(() => expect(posted()).toBeTruthy());
-    expect(posted()!.body.timeStart).toBeUndefined();
-    expect(posted()!.body.timeEnd).toBeUndefined();
-  });
-
-  it.each([
-    ['25:00 as a time', '07-11-2026', '25:00'],
-    ['31-02-2026 as a day', '31-02-2026', '19:30'],
-    ['a day without a time', '07-11-2026', ''],
-  ])('shows a message and does not add the item for %s', async (_case, day, time) => {
-    renderPage();
-    await fillNewItem();
-    type(screen.getByLabelText('Begin Datum'), day);
-    type(screen.getByLabelText('Begin Tijd'), time);
-    fireEvent.click(screen.getByRole('button', {name: /Item toevoegen aan callsheet/}));
-    expect(await screen.findByText('Begin: Vul een geldige datum (DD-MM-JJJJ) en tijd (uu:mm) in.')).toBeInTheDocument();
-    expect(posted()).toBeUndefined();
+    fireEvent.click(await screen.findByRole('button', {name: 'Item toevoegen aan Voorbeschouwing'}));
+    await waitFor(() => expect(calls.find((c) => c.method === 'PUT' && c.path.endsWith('/callsheets/5/structure'))).toBeTruthy());
+    const post = calls.find((c) => c.method === 'POST' && c.path.endsWith('/callsheets/5/items'));
+    expect(post?.body).toMatchObject({title: 'Nieuw item', chapterId: 11, positionIds: [1]});
+    const structure = calls.find((c) => c.method === 'PUT' && c.path.endsWith('/structure'));
+    expect(structure?.body).toEqual({chapters: [{id: 11, itemIds: ['a', 'nieuw']}, {id: 22, itemIds: ['b']}]});
   });
 });

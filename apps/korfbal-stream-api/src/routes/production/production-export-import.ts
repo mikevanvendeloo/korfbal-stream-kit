@@ -9,6 +9,7 @@ import {amsterdamDay, parseInstant} from '../../utils/time';
 import {migrateLegacySeasonAssets} from '../../services/seasonAssetMigration';
 import {contentDisposition} from '../../utils/attachment';
 import {titlePartsForCreate} from '../../services/backupFields';
+import {ChapterRestore, fileChapterOrder, fileChapters} from '../../services/chapterMigration';
 
 export const productionExportImportRouter: Router = Router();
 
@@ -45,7 +46,7 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
             person: true
           }
         },
-        segments: {
+        chapters: {
           include: {
             bezetting: {
               include: {
@@ -54,7 +55,7 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
               }
             }
           },
-          orderBy: { volgorde: 'asc' }
+          orderBy: { orderIndex: 'asc' }
         },
         TitleDefinition: {
           include: {
@@ -74,6 +75,7 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
         callSheets: {
           include: {
             items: {
+              orderBy: { orderIndex: 'asc' },
               include: {
                 positions: {
                   include: {
@@ -150,12 +152,10 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
         positionName: pp.position.name,
         isStudio: pp.position.isStudio
       })),
-      segments: production.segments.map(seg => ({
-        naam: seg.naam,
-        volgorde: seg.volgorde,
-        duurInMinuten: seg.duurInMinuten,
-        isTimeAnchor: seg.isTimeAnchor,
-        assignments: seg.bezetting.map(bez => ({
+      chapters: production.chapters.map(chapter => ({
+        name: chapter.name,
+        orderIndex: chapter.orderIndex,
+        assignments: chapter.bezetting.map(bez => ({
           personName: bez.person.name,
           positionName: bez.position.name,
           isStudio: bez.position.isStudio
@@ -195,7 +195,7 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
         color: cs.color,
         items: cs.items.map(item => ({
           id: item.id,
-          productionSegmentVolgorde: item.productionSegmentId ? production.segments.find(s => s.id === item.productionSegmentId)?.volgorde : null,
+          chapterOrderIndex: production.chapters.find(c => c.id === item.chapterId)?.orderIndex ?? null,
           cue: item.cue,
           title: item.title,
           note: item.note,
@@ -226,6 +226,7 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
         anchorType: ev.anchorType,
         autoAdvance: ev.autoAdvance,
         callSheetItemId: ev.callSheetItemId,
+        chapterOrderIndex: production.chapters.find(c => c.id === ev.chapterId)?.orderIndex ?? null,
         isInLivestream: ev.isInLivestream,
         isInVenue: ev.isInVenue,
         isTimeAnchor: ev.isTimeAnchor,
@@ -399,30 +400,20 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
         }
       }
 
-      // 6. Process Segments and Assignments
-      if (Array.isArray(data.segments)) {
-        await tx.productionSegment.deleteMany({ where: { productionId: production.id } });
-        for (const segData of data.segments) {
-          const segment = await tx.productionSegment.create({
-            data: {
-              productionId: production.id,
-              naam: segData.naam,
-              volgorde: segData.volgorde,
-              duurInMinuten: segData.duurInMinuten,
-              isTimeAnchor: segData.isTimeAnchor
-            }
-          });
-          if (Array.isArray(segData.assignments)) {
-            for (const assignData of segData.assignments) {
-              const person = await tx.person.findFirst({ where: { name: assignData.personName } });
-              if (!person) continue;
-              const position = await positionOf(assignData.positionName, { isStudio: assignData.isStudio });
-              await tx.segmentRoleAssignment.create({
-                data: { productionSegmentId: segment.id, personId: person.id, positionId: position.id }
-              });
-            }
+      // 6. Hoofdstukken and their bezetting (`chapters`; `segments` in older exports)
+      const chapterRestore = new ChapterRestore(tx, production.id);
+      const chapters = fileChapters(data);
+      if (chapters) {
+        await chapterRestore.restore(chapters, async (chapter, chapterId) => {
+          for (const assignData of chapter.assignments) {
+            const person = await tx.person.findFirst({ where: { name: assignData.personName } });
+            if (!person) continue;
+            const position = await positionOf(assignData.positionName, { isStudio: assignData.isStudio });
+            await tx.chapterRoleAssignment.create({
+              data: { productionSegmentId: chapterId, personId: person.id, positionId: position.id }
+            });
           }
-        }
+        });
       }
 
       // 7. Process Titles
@@ -501,20 +492,12 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
 
           // First pass: create items (without parentId to avoid FK issues if parent not yet created)
           for (const itemData of csData.items) {
-            let segmentId = null;
-            if (itemData.productionSegmentVolgorde != null) {
-              const segment = await tx.productionSegment.findFirst({
-                where: { productionId: production.id, volgorde: itemData.productionSegmentVolgorde }
-              });
-              segmentId = segment?.id || null;
-            }
-
             // New ids: item ids are global, and the export may come from another organization
             const item = await tx.callSheetItem.create({
               data: {
                 id: randomUUID(),
                 callSheetId: cs.id,
-                productionSegmentId: segmentId,
+                chapterId: await chapterRestore.itemChapter(fileChapterOrder(itemData)),
                 cue: itemData.cue,
                 title: itemData.title,
                 note: itemData.note,
@@ -576,6 +559,7 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
               anchorType: evData.anchorType,
               autoAdvance: evData.autoAdvance,
               callSheetItemId: evData.callSheetItemId ? itemIdMap.get(evData.callSheetItemId) ?? null : null,
+              chapterId: chapterRestore.eventChapter(fileChapterOrder(evData)),
               isInLivestream: evData.isInLivestream,
               isInVenue: evData.isInVenue,
               isTimeAnchor: evData.isTimeAnchor,
@@ -607,6 +591,9 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
           }
         }
       }
+
+      // Items and events of an export without hoofdstukken get one (openspec/changes/chapters D7)
+      await chapterRestore.finish();
 
       return production;
     }, LONG_TRANSACTION);

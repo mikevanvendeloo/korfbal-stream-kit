@@ -1,6 +1,6 @@
 import {QueryClient, useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {createUrl, extractError} from '../lib/api';
-import {Position, PositionCategory, SegmentDefaultPosition} from "./usePositions";
+import {Position, PositionCategory} from "./usePositions";
 import {Person} from "./usePersons";
 import {useProductionTitles} from "./useTitles";
 
@@ -25,8 +25,12 @@ export type Production = {
   /** Own opbouw / verzamel time; null = the organization's default (see `planned`) */
   setupTime?: string | null;
   crewCallTime?: string | null;
+  /** Hoofdstukken placed by the segment migration and not yet checked (openspec/changes/chapters D7) */
+  chaptersAutoPlaced?: boolean;
   /** Only on a single production (GET /api/production/:id and /active): the times as they count */
   planned?: PlannedTimes | null;
+  /** Only on /api/production/active: the end of the livestream (latest item end) */
+  liveEnd?: string | null;
   callSheetTemplateId?: number | null;
   /** Only in the list (GET /api/production): the minimum staffing of the people present */
   staffing?: StaffingSummary;
@@ -49,23 +53,30 @@ export type PlannedTimes = {
   setupIsDefault: boolean;
 };
 
-export type ProductionSegment = {
+/** A hoofdstuk of the production's draaiboek (GET /api/production/:id/chapters, in order). */
+export type ProductionChapter = {
   id: number;
   productionId: number;
-  naam: string;
-  volgorde: number;
-  duurInMinuten: number;
-  isTimeAnchor: boolean;
+  name: string;
+  orderIndex: number;
 };
 
+/** A hoofdstuk with its times, derived from its items (null without timed items). */
 export type ProductionTiming = {
   id: number;
-  naam: string;
-  volgorde: number;
-  duurInMinuten: number;
-  isTimeAnchor: boolean;
-  start?: string;
-  end?: string;
+  name: string;
+  orderIndex: number;
+  durationMinutes: number;
+  start: string | null;
+  end: string | null;
+}
+
+/** A standard position of a hoofdstuk (from the production's draaiboek template, else the standard list). */
+export type ChapterStandardPosition = {
+  id: number;
+  name: string;
+  order: number;
+  requiredSkillCode: string | null;
 }
 
 export type ProductionPerson = {
@@ -82,7 +93,8 @@ export type ProductionPersonPosition = {
   position: Position;
 }
 
-export type SegmentAssignment = {
+/** A person in a position for one hoofdstuk only (an afwijking on the production-wide positions). */
+export type ChapterAssignment = {
   id: number;
   personId: number;
   positionId: number;
@@ -236,66 +248,14 @@ export function useImportProduction() {
   });
 }
 
-export function useProductionSegments(productionId: number) {
+export function useProductionChapters(productionId: number) {
   return useQuery({
-    queryKey: ['production', productionId, 'segments'],
+    queryKey: ['production', productionId, 'chapters'],
     enabled: !!productionId,
-    queryFn: async (): Promise<ProductionSegment[]> => {
-      const res = await fetch(createUrl(`/api/production/${productionId}/segments`));
+    queryFn: async (): Promise<ProductionChapter[]> => {
+      const res = await fetch(createUrl(`/api/production/${productionId}/chapters`));
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
-    },
-  });
-}
-
-export function useCreateSegment(productionId: number) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: { naam: string, duurInMinuten: number, volgorde: number, isTimeAnchor: boolean }): Promise<ProductionSegment> => {
-      const res = await fetch(createUrl(`/api/production/${productionId}/segments`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      if (!res.ok) throw new Error(await extractError(res));
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['production', productionId, 'segments'] });
-      qc.invalidateQueries({ queryKey: ['production', productionId, 'timing'] });
-    }
-  });
-}
-
-export function useUpdateSegment() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: { id: number, naam?: string, duurInMinuten?: number, volgorde?: number, isTimeAnchor?: boolean }): Promise<ProductionSegment> => {
-      const res = await fetch(createUrl(`/api/production/segments/${input.id}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      if (!res.ok) throw new Error(await extractError(res));
-      return res.json();
-    },
-    onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ['production', data.productionId, 'segments'] });
-      qc.invalidateQueries({ queryKey: ['production', data.productionId, 'timing'] });
-    },
-  });
-}
-
-export function useDeleteSegment(productionId: number) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: number) => {
-      const res = await fetch(createUrl(`/api/production/segments/${id}`), { method: 'DELETE' });
-      if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['production', productionId, 'segments'] });
-      qc.invalidateQueries({ queryKey: ['production', productionId, 'timing'] });
     },
   });
 }
@@ -444,69 +404,72 @@ export function useUpdateProductionPersonPositions(productionId: number) {
   });
 }
 
-export function useSegmentAssignments(segmentId: number) {
+// Bezetting per hoofdstuk. The API keeps the paths /api/production/segments/:segmentId/... (a segment is a hoofdstuk now).
+const chapterAssignmentsKey = (chapterId: number) => ['production', 'chapters', chapterId, 'assignments'];
+
+export function useChapterAssignments(chapterId: number) {
   return useQuery({
-    queryKey: ['production', 'segments', segmentId, 'assignments'],
-    enabled: !!segmentId,
-    queryFn: async (): Promise<SegmentAssignment[]> => {
-      const res = await fetch(createUrl(`/api/production/segments/${segmentId}/assignments`));
+    queryKey: chapterAssignmentsKey(chapterId),
+    enabled: !!chapterId,
+    queryFn: async (): Promise<ChapterAssignment[]> => {
+      const res = await fetch(createUrl(`/api/production/segments/${chapterId}/assignments`));
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },
   });
 }
 
-export function useAddSegmentAssignment(segmentId: number) {
+export function useAddChapterAssignment(chapterId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { personId: number, positionId: number }): Promise<void> => {
-      const res = await fetch(createUrl(`/api/production/segments/${segmentId}/assignments`), {
+      const res = await fetch(createUrl(`/api/production/segments/${chapterId}/assignments`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
       });
       if (!res.ok) throw new Error(await extractError(res));
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['production', 'segments', segmentId, 'assignments'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: chapterAssignmentsKey(chapterId) }),
   });
 }
 
-export function useDeleteSegmentAssignment(segmentId: number) {
+export function useDeleteChapterAssignment(chapterId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(createUrl(`/api/production/segments/${segmentId}/assignments/${id}`), { method: 'DELETE' });
+      const res = await fetch(createUrl(`/api/production/segments/${chapterId}/assignments/${id}`), { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['production', 'segments', segmentId, 'assignments'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: chapterAssignmentsKey(chapterId) }),
   });
 }
 
-export function useCopySegmentAssignments(segmentId: number) {
+export function useCopyChapterAssignments(chapterId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { targetSegmentIds: number[], mode: 'replace' | 'append' }): Promise<void> => {
-      const res = await fetch(createUrl(`/api/production/segments/${segmentId}/copy-assignments`), {
+    mutationFn: async (input: { targetChapterIds: number[], mode: 'merge' | 'overwrite' }): Promise<void> => {
+      const res = await fetch(createUrl(`/api/production/segments/${chapterId}/assignments/copy`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
+        body: JSON.stringify({ targetSegmentIds: input.targetChapterIds, mode: input.mode }),
       });
       if (!res.ok) throw new Error(await extractError(res));
     },
     onSuccess: (_data, vars) => {
-      vars.targetSegmentIds.forEach(id => {
-        qc.invalidateQueries({ queryKey: ['production', 'segments', id, 'assignments'] });
+      vars.targetChapterIds.forEach(id => {
+        qc.invalidateQueries({ queryKey: chapterAssignmentsKey(id) });
       });
     },
   });
 }
 
-export function useSegmentDefaultPositions(segmentId: number) {
+export function useChapterStandardPositions(chapterId: number) {
   return useQuery({
-    queryKey: ['segment-default-positions', segmentId],
-    enabled: !!segmentId,
-    queryFn: async (): Promise<SegmentDefaultPosition[]> => {
-      const res = await fetch(createUrl(`/api/production/segments/${segmentId}/positions`));
+    queryKey: ['production', 'chapters', chapterId, 'standard-positions'],
+    enabled: !!chapterId,
+    queryFn: async (): Promise<ChapterStandardPosition[]> => {
+      const res = await fetch(createUrl(`/api/production/segments/${chapterId}/positions`));
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
     },

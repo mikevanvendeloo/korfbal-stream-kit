@@ -9,7 +9,8 @@ export type DayPlanningTimes = {
   crewCallTime: string;
   crewCallIsDefault: boolean;
   liveStart: string;
-  liveEnd: string;
+  /** null when no item of the draaiboek has a time */
+  liveEnd: string | null;
 };
 
 export type DailyOccupancyReport = {

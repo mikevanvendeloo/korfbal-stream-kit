@@ -21,7 +21,7 @@ function binary(res: NodeJS.ReadableStream, done: (err: Error | null, body: Buff
 }
 
 /** In the order the Backup page's restore needs: skills before people and positions. */
-const ENTITIES = ['skills', 'positions', 'persons', 'matches', 'segment-templates', 'sponsors', 'settings', 'producties'];
+const ENTITIES = ['skills', 'positions', 'persons', 'matches', 'sponsors', 'settings', 'producties'];
 
 /**
  * Round trip: everything exported from organization A, restored into a new organization B with another

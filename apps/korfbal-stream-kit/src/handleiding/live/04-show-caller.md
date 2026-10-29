@@ -39,6 +39,8 @@ Volgend en vorig gaan door **alle** items van de productie, ook die van andere p
 
 - Een grote klokbalk met **Zaal**, **Tijd** en **Resterend** (of **Productie** als er geen item actief is).
 - Twee banen: **Zaal draaiboek** (groen, links) en **Stream draaiboek** (blauw, rechts). Een item dat voor beide geldt, staat over de hele breedte.
+- Een kopregel per **hoofdstuk** van het draaiboek, met de geplande begin- en eindtijd. Een hoofdstuk is een kop, geen stap: **Volgend** en **Vorig** gaan per item. Met een positie gekozen zijn hoofdstukken zonder items voor die positie lichter.
+- Bovenin **Hoofdstuk: …** met **nog …**: hoe lang het lopende hoofdstuk nog duurt (de rest van het huidige item plus de items erna in dat hoofdstuk).
 - Per regel het hoofditem, met de items die eraan gekoppeld zijn ernaast.
 - Het actieve item is iets groter. Kleuren zijn hetzelfde als op [de callsheet](/handleiding/callsheet#kleuren).
 
@@ -46,8 +48,8 @@ Volgend en vorig gaan door **alle** items van de productie, ook die van andere p
 
 Op een telefoon krijgt de Show Caller een eigen, eenvoudige weergave, gemaakt om met één hand te bedienen:
 
-- **Nu**: het item dat nu loopt, met de resterende tijd in grote cijfers. De balk is groen, oranje in de laatste 10 seconden en rood als het item over tijd is.
-- **Volgende**: het item dat start als je op **Volgend** drukt, met de begintijd en duur. Is het niet voor jouw positie, dan staat dat erbij.
+- **Nu**: het item dat nu loopt, met de resterende tijd in grote cijfers. De balk is groen, oranje in de laatste 10 seconden en rood als het item over tijd is. Erboven staat het hoofdstuk met hoe lang het nog duurt.
+- **Volgende**: het item dat start als je op **Volgend** drukt, met de begintijd en duur. Is het niet voor jouw positie, dan staat dat erbij. Begint het volgende item een nieuw hoofdstuk, dan staat de naam van dat hoofdstuk erboven.
 - **Daarna voor jou**: de items die daarna komen voor je positie (en items voor iedereen), met tijd en duur. Via het menu (de drie puntjes) wissel je naar **alle items**.
 - In het blok **Nu**, bij **Zet**: **15s**, **30s** en **60s** zetten de resterende tijd van het huidige item meteen op die waarde.
 - Onderaan, onder je duim: **Stop**, **Vorig** en een grote knop **Volgend**. Voor de start staat daar **Start show**. Stop vraagt eerst om bevestiging.

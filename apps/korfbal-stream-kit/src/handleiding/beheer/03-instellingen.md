@@ -93,11 +93,11 @@ Alleen sponsors die op **actief** staan, doen mee.
 
 ## Backup
 
-Per onderdeel (Personen, Skills, Posities, Wedstrijden, Producties, Clubs, Sponsors, Instellingen, Segment templates) maak je met **Backup** een JSON-bestand, en zet je het met **Restore** terug.
+Per onderdeel (Personen, Skills, Posities, Wedstrijden, Producties, Clubs, Sponsors, Instellingen) maak je met **Backup** een JSON-bestand, en zet je het met **Restore** terug. **Segment-templates (oude backup)** heeft alleen **Restore**: segment-templates uit een oudere backup worden draaiboek-templates met hoofdstukken.
 
 Backup en restore gaan over de **gekozen organisatie** (de naam staat op het tabblad): een backup bevat alleen haar gegevens, en een restore zet ze terug in die organisatie zonder die van andere organisaties aan te raken. Een oude backup van voor de organisaties komt in de gekozen organisatie. **Clubs** (met spelers) zijn gedeeld door alle organisaties. Kies dus eerst de juiste organisatie voor je een restore doet. Het **actieve seizoen** geldt voor de hele installatie: een restore van **Instellingen** verandert het niet. Kies het zo nodig zelf bij **Actief seizoen**.
 
-Een restore **vult aan en werkt bij**, hij wist niets. Bestaande gegevens worden herkend (personen en sponsors op naam, skills op code, posities op naam, wedstrijden op hun code of datum en teams) en overschreven met wat in het bestand staat. Een productie die al bestaat, krijgt de segmenten, titels, interviews en het draaiboek uit het bestand.
+Een restore **vult aan en werkt bij**, hij wist niets. Bestaande gegevens worden herkend (personen en sponsors op naam, skills op code, posities op naam, wedstrijden op hun code of datum en teams) en overschreven met wat in het bestand staat. Een productie die al bestaat, krijgt de hoofdstukken, titels, interviews en het draaiboek uit het bestand (een oude backup met segmenten wordt in hoofdstukken omgezet).
 
 **Instellingen** bevat ook de gegevens van de organisatie zelf (naam, eigen club en logo) en de startdatum van de zaalcompetitie per seizoen. Een restore neemt naam, club en logo over in de gekozen organisatie, maar nooit haar **slug**. De startdatum van de zaalcompetitie komt alleen terug bij een seizoen dat al bestaat en nog geen datum heeft.
 
@@ -107,7 +107,7 @@ Met **Afbeeldingen downloaden** krijg je een zip met de sponsorlogo's en het log
 
 > **Niet** in de backup:
 > - de API-sleutels en de wedstrijdimport (adres en token) ([Organisaties](/admin/handleiding/organisaties));
-> - draaiboek-templates, titel-templates en de standaardbezetting per segment (draaiboek-templates kun je wel los exporteren);
+> - draaiboek-templates (met de standaardbezetting per hoofdstuk) en titel-templates (draaiboek-templates kun je wel los exporteren);
 > - de koppelingen tussen posities.
 >
-> Zet een volledige backup terug in deze volgorde: Skills, Posities, Personen, Clubs, Wedstrijden, Producties, Sponsors, Segment templates, Instellingen.
+> Zet een volledige backup terug in deze volgorde: Skills, Posities, Personen, Clubs, Wedstrijden, Producties, Sponsors, Instellingen.

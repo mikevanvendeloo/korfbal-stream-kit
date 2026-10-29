@@ -1,11 +1,12 @@
 import React from 'react';
 import {useNavigate} from 'react-router-dom';
 import {ChevronLeft, ChevronRight, FastForward, MoreVertical, Play, Square} from 'lucide-react';
-import type {ProductionEvent} from '../hooks/useLiveState';
+import type {LiveChapter, ProductionEvent} from '../hooks/useLiveState';
 import {REMAINING_PRESETS, type ShowControls} from '../hooks/useShowControls';
 import {InterviewText} from './InterviewText';
 import {useInterviewPhotos} from '../hooks/useInterviewPhotos';
 import {formatTime} from '../lib/time';
+import {chapterName, currentChapter, minutesSeconds} from '../lib/liveChapters';
 
 type TimedEvent = ProductionEvent & { calculatedTime: Date | null };
 type Remaining = { minutes: string; seconds: string; isNegative: boolean; rawSeconds: number } | null;
@@ -24,6 +25,8 @@ export type ShowCallerPhoneProps = {
   systemTime: string;
   isRelevant: (event: ProductionEvent) => boolean;
   controls: ShowControls;
+  /** The hoofdstukken (headings, not steps): a label above Nu, and at Volgende when it changes */
+  chapters?: LiveChapter[];
 };
 
 const hhmm = (d: Date | null) => formatTime(d, {fallback: '--:--'});
@@ -55,7 +58,7 @@ function Tags({event, autoTimer}: { event: ProductionEvent; autoTimer: boolean }
  * buttons at the bottom under your thumb. Same data and actions as the wide Show Caller.
  */
 export function ShowCallerPhone(props: ShowCallerPhoneProps) {
-  const {productionId, positionSlug, positionName, items, activeEventId, remaining, autoAdvanceEventId, isConnected, systemTime, isRelevant, controls} = props;
+  const {productionId, positionSlug, positionName, items, activeEventId, remaining, autoAdvanceEventId, isConnected, systemTime, isRelevant, controls, chapters = []} = props;
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [onlyMine, setOnlyMine] = React.useState(true);
@@ -65,6 +68,9 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
   const active = activeIndex >= 0 ? items[activeIndex] : null;
   // Before the start the first item is what "Start show" begins with
   const next = active ? items[activeIndex + 1] ?? null : items[0] ?? null;
+  const current = currentChapter(items, activeEventId, remaining?.rawSeconds ?? null, chapters);
+  // Volgende names its hoofdstuk only when it is another one than now (or before the start)
+  const nextChapter = next && (!active || next.chapterId !== active.chapterId) ? chapterName(chapters, next.chapterId) : null;
   const later = items
     .slice((active ? activeIndex + 1 : 0) + 1)
     .filter((e) => e.status !== 'COMPLETED')
@@ -138,6 +144,12 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
               </span>
             </div>
             <div className="px-4 py-3 space-y-2">
+              {current && (
+                <p aria-label="Hoofdstuk" className="flex items-baseline justify-between gap-2 text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400 min-w-0">
+                  <span className="truncate">{current.name}</span>
+                  <span className="shrink-0 font-mono normal-case tracking-normal">nog {minutesSeconds(current.remainingSec)}</span>
+                </p>
+              )}
               <h2 className={`text-2xl font-bold leading-tight ${isRelevant(active) ? '' : 'text-gray-500 dark:text-gray-400'}`}>
                 <InterviewText text={active.title} photos/>
               </h2>
@@ -176,6 +188,7 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
         </div>
         {next ? (
           <>
+            {nextChapter && <p aria-label="Hoofdstuk van volgende" className="mt-1 truncate text-xs font-semibold uppercase tracking-widest text-blue-700 dark:text-blue-300">{nextChapter}</p>}
             <h3 className={`mt-1 text-xl font-semibold leading-snug ${isRelevant(next) ? '' : 'text-gray-500 dark:text-gray-400'}`}>
               <InterviewText text={next.title} photos/>
             </h3>

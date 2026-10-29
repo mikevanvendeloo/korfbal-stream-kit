@@ -5,27 +5,27 @@ const CATEGORY_ORDER: PositionCategory[] = ['GENERAL', 'TECHNICAL', 'ENTERTAINME
 type PositionLike = { id: number; name: string; category: PositionCategory; sortOrder: number };
 type Assignment = { personId: number; personName: string; position: PositionLike };
 
-export type CrewCell = { segmentId: number; positionId: number; personName: string; type: 'segment' | 'production' };
+export type CrewCell = { chapterId: number; positionId: number; personName: string; type: 'chapter' | 'production' };
 
 /**
- * Who does what per segment, as on the Bezetting tab: the production-wide positions of each person,
- * plus the positions assigned for that segment only.
+ * Who does what per hoofdstuk, as on the Bezetting tab: the production-wide positions of each person,
+ * plus the positions assigned for that hoofdstuk only.
  */
 export function buildCrewCells(
-  segmentIds: number[],
+  chapterIds: number[],
   productionWide: Assignment[],
-  perSegment: Array<Assignment & { segmentId: number }>,
+  perChapter: Array<Assignment & { chapterId: number }>,
 ): CrewCell[] {
   const cells: CrewCell[] = [];
-  for (const segmentId of segmentIds) {
+  for (const chapterId of chapterIds) {
     const seen = new Set<string>();
     const add = (a: Assignment, type: CrewCell['type']) => {
       const key = `${a.personId}|${a.position.id}`;
       if (seen.has(key)) return;
       seen.add(key);
-      cells.push({segmentId, positionId: a.position.id, personName: a.personName, type});
+      cells.push({chapterId, positionId: a.position.id, personName: a.personName, type});
     };
-    perSegment.filter((a) => a.segmentId === segmentId).forEach((a) => add(a, 'segment'));
+    perChapter.filter((a) => a.chapterId === chapterId).forEach((a) => add(a, 'chapter'));
     productionWide.forEach((a) => add(a, 'production'));
   }
   return cells;

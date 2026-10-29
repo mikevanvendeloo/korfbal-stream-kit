@@ -11,7 +11,7 @@ Op de startpagina van Beheer staat onder het welkomstwoord **Eerstvolgende produ
 | Menu | Waarvoor |
 |---|---|
 | **Producties** | Per wedstrijd: draaiboek, beschikbaarheid, bezetting, vMix-titels en rapport. Ook een snelkoppeling naar de actieve productie. |
-| **Stamgegevens** | Eén keer of per seizoen: draaiboeken (herbruikbare draaiboek- en segment-templates, standaardbezetting per segment), crew (personen, posities, skills), competitie (wedstrijden, clubs en spelers), sponsors en vMix |
+| **Stamgegevens** | Eén keer of per seizoen: draaiboeken (herbruikbare draaiboek-templates met hoofdstukken en standaardbezetting), crew (personen, posities, skills), competitie (wedstrijden, clubs en spelers), sponsors en vMix |
 | **Rapportages** | Overzichten over producties heen |
 
 Rechtsboven:
@@ -33,7 +33,7 @@ Rechtsboven:
 1. Start het seizoen en importeer wedstrijden en spelers ([Instellingen en een nieuw seizoen](/admin/handleiding/instellingen)).
 2. Controleer de crew, posities en skills, en de sponsors ([Stamgegevens](/admin/handleiding/stamgegevens)).
 3. Richt vMix in ([vMix koppelen](/admin/handleiding/vmix)).
-4. Maak of controleer de draaiboek- en segment-templates ([Draaiboek-templates](/admin/handleiding/draaiboek-templates)).
+4. Maak of controleer de draaiboek-templates en hun hoofdstukken ([Draaiboek-templates](/admin/handleiding/draaiboek-templates)).
 
 **Per wedstrijd** (verkort als afvinklijst in [De week voor de livestream](/admin/handleiding/week-voor-de-livestream))
 

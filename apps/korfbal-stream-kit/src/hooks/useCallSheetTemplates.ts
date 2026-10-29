@@ -16,6 +16,8 @@ export interface CallSheetTemplate {
 export interface CallSheetTemplateItem {
   id: string;
   templateId: number;
+  /** Cue code (e.g. for vMix), copied to the production's callsheet item */
+  cue: string;
   title: string;
   note: string | null;
   durationSec: number;
@@ -26,11 +28,24 @@ export interface CallSheetTemplateItem {
   anchorType: string | null;
   autoAdvance: boolean;
   parentId: string | null;
+  /** The item's hoofdstuk (openspec/changes/chapters) */
+  chapterId: string | null;
   positions: { positionId: number; position: { name: string } }[];
+}
+
+/** A hoofdstuk of a template, with its standard positions in order */
+export interface CallSheetTemplateChapter {
+  id: string;
+  name: string;
+  orderIndex: number;
+  positions: { positionId: number; orderIndex: number; position: { id: number; name: string } }[];
 }
 
 export interface FullCallSheetTemplate extends CallSheetTemplate {
   items: CallSheetTemplateItem[];
+  chapters: CallSheetTemplateChapter[];
+  /** Placed by the hoofdstuk migration (from the old segments) and not yet checked: Beheer asks to check the hoofdstukken */
+  chaptersAutoPlaced: boolean;
 }
 
 export function useCallSheetTemplates() {
@@ -198,7 +213,7 @@ export function useCallSheetTemplates() {
     }
   }, []);
 
-  const applyTemplate = useCallback(async (templateId: number, productionId: number, options?: { segmentId?: number, replace?: boolean }) => {
+  const applyTemplate = useCallback(async (templateId: number, productionId: number, options?: { replace?: boolean }) => {
     setLoading(true);
     setError(null);
     try {

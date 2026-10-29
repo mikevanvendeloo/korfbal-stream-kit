@@ -4,11 +4,13 @@ import type {StandardCallSheetTemplate} from './types';
 export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
   {
     name: "Alleen wedstrijd",
+    chapters: [{name: "Eerste helft"}, {name: "Rust"}, {name: "Tweede helft"}],
     items: [
       {
         title: "Wedstrijd (1e helft)",
         durationSec: 1500,
         orderIndex: 0,
+        chapter: "Eerste helft",
         isInVenue: true,
         isInLivestream: true,
         positions: [
@@ -24,6 +26,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Rust",
         durationSec: 600,
         orderIndex: 1,
+        chapter: "Rust",
         isInVenue: true,
         isInLivestream: true,
         positions: [
@@ -35,6 +38,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Wedstrijd (2e helft)",
         durationSec: 1500,
         orderIndex: 2,
+        chapter: "Tweede helft",
         isInVenue: true,
         isInLivestream: true,
         positions: [
@@ -50,12 +54,22 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
   },
   {
     name: "Draaiboek Korfbal League wedstrijd",
+    chapters: [
+      {name: "Voorbereiding"},
+      {name: "Voorbeschouwing"},
+      {name: "Oplopen"},
+      {name: "Eerste helft"},
+      {name: "Rust"},
+      {name: "Tweede helft"},
+      {name: "Nabeschouwing"},
+    ],
     items: [
       {
         key: "cmnk0x8hb0001byxttepl0gv0",
         title: "Thumbnail neerzetten",
         durationSec: 15,
         orderIndex: 1,
+        chapter: "Voorbereiding",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -68,6 +82,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Livestream starten",
         durationSec: 0,
         orderIndex: 2,
+        chapter: "Voorbeschouwing",
         isInVenue: false,
         isInLivestream: true,
         isTimeAnchor: true,
@@ -82,6 +97,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Intro filmpje starten",
         durationSec: 48,
         orderIndex: 3,
+        chapter: "Voorbeschouwing",
         isInVenue: false,
         isInLivestream: true,
         autoAdvance: true,
@@ -95,6 +111,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Regisseur zet microfoon presentator open",
         durationSec: 0,
         orderIndex: 4,
+        chapter: "Voorbeschouwing",
         isInVenue: false,
         isInLivestream: true,
         autoAdvance: true,
@@ -109,6 +126,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Presentator heet publiek welkom",
         durationSec: 15,
         orderIndex: 5,
+        chapter: "Voorbeschouwing",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -122,6 +140,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "KL promo afspelen",
         durationSec: 53,
         orderIndex: 6,
+        chapter: "Voorbeschouwing",
         isInVenue: false,
         isInLivestream: true,
         autoAdvance: true,
@@ -135,6 +154,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Presentator & Analist gesprek",
         durationSec: 150,
         orderIndex: 7,
+        chapter: "Voorbeschouwing",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -147,6 +167,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Reclame",
         durationSec: 35,
         orderIndex: 8,
+        chapter: "Voorbeschouwing",
         isInVenue: false,
         isInLivestream: true,
         autoAdvance: true,
@@ -161,6 +182,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Interview met uit coach",
         durationSec: 180,
         orderIndex: 9,
+        chapter: "Voorbeschouwing",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -174,6 +196,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Interview met thuis coach",
         durationSec: 180,
         orderIndex: 10,
+        chapter: "Voorbeschouwing",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -188,6 +211,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Nabeschouwing en voorspelling",
         durationSec: 105,
         orderIndex: 11,
+        chapter: "Voorbeschouwing",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -202,6 +226,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Reclame",
         durationSec: 35,
         orderIndex: 12,
+        chapter: "Voorbeschouwing",
         isInVenue: false,
         isInLivestream: true,
         autoAdvance: true,
@@ -217,6 +242,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Check audio licht-PC & LED PC unmuted",
         durationSec: 0,
         orderIndex: 13,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: false,
         positions: [
@@ -230,6 +256,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Licht uit",
         durationSec: 0,
         orderIndex: 14,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: true,
         positions: [
@@ -245,6 +272,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Start oploopfilm",
         durationSec: 42,
         orderIndex: 15,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: true,
         autoAdvance: true,
@@ -261,6 +289,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Check geluid speaker (unmute en schuif open)",
         durationSec: 0,
         orderIndex: 16,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: true,
         parentKey: "cmnk0x8jo000vbyxtdguv2vhd",
@@ -274,6 +303,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Regisseur checkt geluid commentatoren & zaal",
         durationSec: 0,
         orderIndex: 17,
+        chapter: "Oplopen",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -286,6 +316,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Na oploopfilm, \"Opstellen teams\" muziek weer aan",
         durationSec: 0,
         orderIndex: 18,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: false,
         positions: [
@@ -300,6 +331,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Regisseur geeft commentatoren aan dat ze kunnen beginnen",
         durationSec: 0,
         orderIndex: 19,
+        chapter: "Oplopen",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -312,6 +344,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Commentatoren praten over wedstrijd (opstellingen)",
         durationSec: 120,
         orderIndex: 20,
+        chapter: "Oplopen",
         isInVenue: false,
         isInLivestream: true,
         parentKey: "cmnk0x8k90013byxtrw1kj8l4",
@@ -328,6 +361,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Speaker introduceert wedstrijd",
         durationSec: 180,
         orderIndex: 21,
+        chapter: "Oplopen",
         note: "'Prietpraat' over de wedstrijd en andere achtergrond informatie",
         isInVenue: true,
         isInLivestream: false,
@@ -348,6 +382,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Regisseur toont opstellingen",
         durationSec: 0,
         orderIndex: 22,
+        chapter: "Oplopen",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -360,6 +395,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Regisseur stopt commentatoren",
         durationSec: 30,
         orderIndex: 23,
+        chapter: "Oplopen",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -372,6 +408,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Start oploop muziek tegenstander",
         durationSec: 15,
         orderIndex: 24,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: false,
         positions: [
@@ -384,6 +421,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Regisseur telt af start oplopen",
         durationSec: 3,
         orderIndex: 25,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: true,
         positions: [
@@ -401,6 +439,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Signaal aan speaker (lamp op deuropening)",
         durationSec: 15,
         orderIndex: 26,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: false,
         positions: [
@@ -413,6 +452,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Oplopen tegenstander door speaker",
         durationSec: 120,
         orderIndex: 27,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: true,
         positions: [
@@ -425,6 +465,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Start oploop muziek eigen ploeg",
         durationSec: 15,
         orderIndex: 28,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: false,
         positions: [
@@ -437,6 +478,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Oplopen eigen ploeg door speaker",
         durationSec: 120,
         orderIndex: 29,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: true,
         positions: [
@@ -449,6 +491,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Oplopen scheidsrechters (muziek eigen ploeg loopt door)",
         durationSec: 30,
         orderIndex: 30,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: true,
         positions: [
@@ -461,6 +504,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Scheidsrechters in midden, zaallampen aan",
         durationSec: 0,
         orderIndex: 31,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: true,
         positions: [
@@ -473,6 +517,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Muziek \"na oplopen\" aan",
         durationSec: 0,
         orderIndex: 32,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: true,
         positions: [
@@ -485,6 +530,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Tonen en melden wedstrijdsponsor",
         durationSec: 30,
         orderIndex: 33,
+        chapter: "Oplopen",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -497,6 +543,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Zaallicht op wedstrijd niveau",
         durationSec: 0,
         orderIndex: 34,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: true,
         positions: [
@@ -509,6 +556,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Teams geven elkaar hand",
         durationSec: 30,
         orderIndex: 35,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: true,
         positions: [
@@ -521,6 +569,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Muziek uitfaden naar influiten",
         durationSec: 0,
         orderIndex: 36,
+        chapter: "Oplopen",
         isInVenue: true,
         isInLivestream: false,
         positions: [
@@ -533,6 +582,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Start wedstrijd",
         durationSec: 0,
         orderIndex: 37,
+        chapter: "Eerste helft",
         isInVenue: true,
         isInLivestream: true,
         isTimeAnchor: true,
@@ -545,8 +595,9 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
       {
         key: "cmnk0x8mh0023byxtis41e3o6",
         title: "Eerste helft",
-        durationSec: 1800,
+        durationSec: 2100,
         orderIndex: 38,
+        chapter: "Eerste helft",
         note: "Eerste helft zuivere speeltijd. Bij timeout's statistieken tonen en bij dode spelmomenten eventueel de wedstrijd sponsor.",
         isInVenue: false,
         isInLivestream: true,
@@ -559,6 +610,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Speaker kondigt rust aan",
         durationSec: 30,
         orderIndex: 39,
+        chapter: "Eerste helft",
         isInVenue: true,
         isInLivestream: false,
         autoAdvance: true,
@@ -575,6 +627,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Commentatoren kondigen rust aan",
         durationSec: 30,
         orderIndex: 40,
+        chapter: "Eerste helft",
         isInVenue: false,
         isInLivestream: true,
         autoAdvance: true,
@@ -586,13 +639,27 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         ]
       },
       {
+        key: "standard-rust",
+        title: "Rust",
+        durationSec: 600,
+        orderIndex: 40,
+        chapter: "Rust",
+        isInVenue: true,
+        isInLivestream: true,
+        positions: [
+          "Regie livestream",
+          "Showcaller"
+        ]
+      },
+      {
         key: "cmnk0x8n00029byxtah2pb4yl",
         title: "Toon statistieken",
         durationSec: 30,
         orderIndex: 41,
+        chapter: "Rust",
         isInVenue: false,
         isInLivestream: true,
-        parentKey: "cmnk0x8mh0023byxtis41e3o6",
+        parentKey: "standard-rust",
         positions: [
           "Regie livestream",
           "Regie LEDscherm",
@@ -604,6 +671,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Speel reclame af op LEDScherm",
         durationSec: 180,
         orderIndex: 42,
+        chapter: "Rust",
         isInVenue: true,
         isInLivestream: false,
         parentKey: "cmnk0x8n00029byxtah2pb4yl",
@@ -618,6 +686,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Reclame",
         durationSec: 180,
         orderIndex: 43,
+        chapter: "Rust",
         isInVenue: false,
         isInLivestream: true,
         autoAdvance: true,
@@ -633,6 +702,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Analyse eerste heflt",
         durationSec: 300,
         orderIndex: 44,
+        chapter: "Rust",
         isInVenue: false,
         isInLivestream: true,
         autoAdvance: true,
@@ -648,6 +718,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Reclame",
         durationSec: 180,
         orderIndex: 45,
+        chapter: "Rust",
         isInVenue: false,
         isInLivestream: true,
         autoAdvance: true,
@@ -661,6 +732,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Commentatoren open zetten",
         durationSec: 0,
         orderIndex: 46,
+        chapter: "Rust",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -674,6 +746,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Speaker openzetten",
         durationSec: 0,
         orderIndex: 47,
+        chapter: "Rust",
         isInVenue: true,
         isInLivestream: false,
         positions: [
@@ -684,8 +757,9 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
       {
         key: "cmnk0x8o7002nbyxty1usplls",
         title: "Tweede helft",
-        durationSec: 1800,
+        durationSec: 2100,
         orderIndex: 48,
+        chapter: "Tweede helft",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -701,6 +775,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Statistieken tonen",
         durationSec: 20,
         orderIndex: 49,
+        chapter: "Nabeschouwing",
         isInVenue: true,
         isInLivestream: true,
         positions: [
@@ -714,6 +789,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Reclame",
         durationSec: 180,
         orderIndex: 50,
+        chapter: "Nabeschouwing",
         isInVenue: true,
         isInLivestream: true,
         positions: [
@@ -727,6 +803,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Analyse en statistieken",
         durationSec: 120,
         orderIndex: 51,
+        chapter: "Nabeschouwing",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -741,6 +818,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Interview coach tegenstander",
         durationSec: 180,
         orderIndex: 52,
+        chapter: "Nabeschouwing",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -756,6 +834,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Interview speler tegenstander",
         durationSec: 180,
         orderIndex: 53,
+        chapter: "Nabeschouwing",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -771,6 +850,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Reclame",
         durationSec: 35,
         orderIndex: 54,
+        chapter: "Nabeschouwing",
         isInVenue: false,
         isInLivestream: true,
         autoAdvance: true,
@@ -787,6 +867,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Interview coach eigen ploeg",
         durationSec: 180,
         orderIndex: 55,
+        chapter: "Nabeschouwing",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -802,6 +883,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Interview speler eigen ploeg",
         durationSec: 180,
         orderIndex: 56,
+        chapter: "Nabeschouwing",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -817,6 +899,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Reacties op interviews, standen, volgende wedstrijd",
         durationSec: 60,
         orderIndex: 57,
+        chapter: "Nabeschouwing",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -831,6 +914,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Reclame",
         durationSec: 35,
         orderIndex: 58,
+        chapter: "Nabeschouwing",
         isInVenue: false,
         isInLivestream: true,
         autoAdvance: true,
@@ -847,6 +931,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Korfballeague promo kort",
         durationSec: 60,
         orderIndex: 59,
+        chapter: "Nabeschouwing",
         isInVenue: false,
         isInLivestream: true,
         autoAdvance: true,
@@ -860,6 +945,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Highlights wedstrijd",
         durationSec: 180,
         orderIndex: 60,
+        chapter: "Nabeschouwing",
         isInVenue: false,
         isInLivestream: true,
         positions: [
@@ -872,6 +958,7 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         title: "Credits",
         durationSec: 60,
         orderIndex: 61,
+        chapter: "Nabeschouwing",
         isInVenue: false,
         isInLivestream: true,
         positions: [

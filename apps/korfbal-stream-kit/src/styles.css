@@ -70,6 +70,7 @@ html, body, #root {
 .report-container.exporting table.data-table td,
 .report-container.exporting table.data-table th {
   font-size: 1.8rem !important; /* ~28.8px */
+  line-height: 1.3 !important;
   padding: 14px 18px !important;
   background-color: white !important;
   border-bottom: 1px solid #d1d5db !important;
@@ -90,6 +91,7 @@ html, body, #root {
 .report-container.exporting [class*="text-lg"] {
   font-size: 2.2rem !important;
   font-weight: bold !important;
+  line-height: 1.25 !important;
   margin-bottom: 1rem !important;
 }
 
@@ -97,10 +99,34 @@ html, body, #root {
 .report-container.exporting span,
 .report-container.exporting div:not(.text-base):not(.text-lg) {
   font-size: 1.4rem !important;
+  /* Tailwind's text-sm / text-xs also fix the line height: with the larger export font the lines would
+     overlap (e.g. the match time over the team name) */
+  line-height: 1.35 !important;
 }
 
 .report-container.exporting .text-xs {
   font-size: 1.25rem !important;
+  line-height: 1.35 !important;
+}
+
+/* The day planning: one line per row (as wide as it needs), icons scale with the text in the middle of their row */
+.report-container.exporting .day-planning-section {
+  max-width: none !important;
+}
+
+.report-container.exporting table.day-planning {
+  min-width: 0 !important;
+}
+
+.report-container.exporting table.day-planning td {
+  padding: 10px 14px !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+}
+
+/* html2canvas draws text a little lower than the browser does: lower the icons as much */
+.report-container.exporting table.day-planning svg {
+  transform: translateY(0.2em);
 }
 
 .report-container.exporting .text-red-500 {

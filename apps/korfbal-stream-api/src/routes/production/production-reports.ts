@@ -4,6 +4,7 @@ import {z} from 'zod';
 import {prisma} from '../../services/prisma';
 import {PositionCategory} from '@prisma/client';
 import {getProductionReportData, ProductionWithData} from "../../services/production";
+import {liveEnds, productionChapterTimings} from '../../services/productionTiming';
 import {logger} from "../../utils/logger";
 import {findSponsorByName, pdfImage, pdfImageData} from "../../services/reportSponsors";
 import {currentOrganizationRef, sponsorLogoRelPath} from "../../services/sponsorLogos";
@@ -40,50 +41,31 @@ const categoryLabels: Record<PositionCategory, string> = {
   [PositionCategory.GENERAL]: 'Algemeen',
 };
 
-// Helper functie om timing te berekenen
-function calculateTiming(segments: ProductionWithData['segments'], matchDate: Date, liveTime?: Date | null) {
-  let timing: Array<{ id: number; naam: string; start: string; end: string; duurInMinuten: number }> = [];
-
-  if (segments.length > 0) {
-    const anchorIdx = segments.findIndex((s) => s.isTimeAnchor);
-    if (anchorIdx !== -1) {
-      const anchorStart = matchDate.getTime();
-      const result = segments.map((s) => ({ id: s.id, naam: s.naam, start: '', end: '', duurInMinuten: s.duurInMinuten }));
-
-      // forward from anchor
-      let t = anchorStart;
-      for (let i = anchorIdx; i < result.length; i++) {
-        result[i].start = new Date(t).toISOString();
-        t += result[i].duurInMinuten * 60 * 1000;
-        result[i].end = new Date(t).toISOString();
-      }
-
-      // backward from anchor
-      t = anchorStart;
-      for (let i = anchorIdx - 1; i >= 0; i--) {
-        t -= result[i].duurInMinuten * 60 * 1000;
-        result[i].start = new Date(t).toISOString();
-        result[i].end = new Date(t + result[i].duurInMinuten * 60 * 1000).toISOString();
-      }
-
-      timing = result;
-    }
+/**
+ * The report's timing table: the hoofdstukken with their times from the items (openspec/changes/chapters
+ * D1), plus LIVESTREAM START when set, and the end of the livestream (latest item end).
+ */
+async function calculateTiming(production: ProductionWithData) {
+  // Hoofdstukken without times (no item has a time yet) are left out
+  const timing: Array<{ id: number; name: string; start: string; end: string; durationMinutes: number }> = [];
+  for (const {id, name, start, end, durationMinutes} of await productionChapterTimings(production.id)) {
+    if (start && end) timing.push({id, name, start, end, durationMinutes});
   }
+  const liveEnd = (await liveEnds([production.id])).get(production.id) ?? null;
 
-  // Voeg Livestream start toe als liveTime is ingesteld
-  if (liveTime) {
+  if (production.liveTime) {
     timing.unshift({
       id: -1,
-      naam: 'LIVESTREAM START',
-      start: liveTime.toISOString(),
-      end: liveTime.toISOString(),
-      duurInMinuten: 0
+      name: 'LIVESTREAM START',
+      start: production.liveTime.toISOString(),
+      end: production.liveTime.toISOString(),
+      durationMinutes: 0
     });
     // Sorteer op starttijd
     timing.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   }
 
-  return timing;
+  return {timing, liveEnd};
 }
 
 // GET /api/production/:id/report - Haal het productie rapport op (enriched met productie data)
@@ -241,7 +223,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
     doc.moveDown(1.5);
 
     // Tijdschema
-    const timing = calculateTiming(production.segments, matchDate, production.liveTime);
+    const {timing, liveEnd} = await calculateTiming(production);
     if (timing.length > 0) {
       doc.fontSize(12).font('Helvetica-Bold').text('Tijdschema');
       doc.moveDown(0.5);
@@ -260,13 +242,13 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
         const startTime = formatTime(new Date(segment.start));
         const currentY = doc.y;
         doc.text(startTime, doc.page.margins.left, currentY, { width: 50 });
-        doc.text(segment.naam, doc.page.margins.left + 60, currentY, { width: pageWidth - 60 });
+        doc.text(segment.name, doc.page.margins.left + 60, currentY, { width: pageWidth - 60 });
         doc.moveDown(0.2);
       });
 
       if (production.liveTime) {
-        const totalDuration = timing.reduce((sum, s) => sum + s.duurInMinuten, 0);
-        const endLiveTime = new Date(new Date(production.liveTime).getTime() + totalDuration * 60000);
+        const totalDuration = timing.reduce((sum, s) => sum + s.durationMinutes, 0);
+        const endLiveTime = liveEnd ?? new Date(new Date(production.liveTime).getTime() + totalDuration * 60000);
         const endTimeStr = formatTime(endLiveTime);
 
         const currentY = doc.y;
@@ -534,8 +516,8 @@ productionReportsRouter.get('/:id/report/markdown', async (req, res, next) => {
     });
 
     // Then, add segment-specific assignments
-    production.segments.forEach((segment) => {
-      const section = mapSegmentToSection(segment.naam);
+    production.chapters.forEach((segment) => {
+      const section = mapSegmentToSection(segment.name);
       if (!rolesBySection[section]) rolesBySection[section] = [];
 
       const positionMap = new Map<string, { names: Set<string>; isStudio: boolean }>();
@@ -617,7 +599,7 @@ productionReportsRouter.get('/:id/report/markdown', async (req, res, next) => {
     markdown += `${attendeeNamesForMarkdown.join(', ') || 'Geen aanwezigen'}\n\n`;
 
     // Tijdschema
-    const timing = calculateTiming(production.segments, matchDate, production.liveTime);
+    const {timing, liveEnd} = await calculateTiming(production);
     if (timing.length > 0) {
       markdown += `## Tijdschema\n\n`;
       markdown += `| Segment | Start | Einde | Duur |\n`;
@@ -625,12 +607,12 @@ productionReportsRouter.get('/:id/report/markdown', async (req, res, next) => {
       timing.forEach((segment) => {
         const startTime = formatTime(new Date(segment.start));
         const endTime = formatTime(new Date(segment.end));
-        markdown += `| ${segment.naam} | ${startTime} | ${endTime} | ${segment.duurInMinuten} min |\n`;
+        markdown += `| ${segment.name} | ${startTime} | ${endTime} | ${segment.durationMinutes} min |\n`;
       });
 
       if (production.liveTime) {
-        const totalDuration = timing.reduce((sum, s) => sum + s.duurInMinuten, 0);
-        const endLiveTime = new Date(new Date(production.liveTime).getTime() + totalDuration * 60000);
+        const totalDuration = timing.reduce((sum, s) => sum + s.durationMinutes, 0);
+        const endLiveTime = liveEnd ?? new Date(new Date(production.liveTime).getTime() + totalDuration * 60000);
         const endTimeStr = formatTime(endLiveTime);
         markdown += `| **LIVESTREAM EINDE** | - | **${endTimeStr}** | **${totalDuration} min** |\n`;
       }
@@ -788,8 +770,8 @@ productionReportsRouter.get('/:id/report/whatsapp', async (req, res, next) => {
     });
 
     // Then, add segment-specific assignments
-    production.segments.forEach((segment) => {
-      const section = mapSegmentToSection(segment.naam);
+    production.chapters.forEach((segment) => {
+      const section = mapSegmentToSection(segment.name);
       if (!rolesBySection[section]) rolesBySection[section] = [];
 
       const positionMap = new Map<string, { names: Set<string>; isStudio: boolean }>();
@@ -871,17 +853,17 @@ productionReportsRouter.get('/:id/report/whatsapp', async (req, res, next) => {
     text += `${whatsappAttendeeNames.join(', ') || 'Geen aanwezigen'}\n\n`;
 
     // Tijdschema
-    const timing = calculateTiming(production.segments, matchDate, production.liveTime);
+    const {timing, liveEnd} = await calculateTiming(production);
     if (timing.length > 0) {
       text += `*🕒 Tijdschema*\n`;
       timing.forEach((segment) => {
         const startTime = formatTime(new Date(segment.start));
-        text += `• ${startTime} - ${segment.naam}\n`;
+        text += `• ${startTime} - ${segment.name}\n`;
       });
 
       if (production.liveTime) {
-        const totalDuration = timing.reduce((sum, s) => sum + s.duurInMinuten, 0);
-        const endLiveTime = new Date(new Date(production.liveTime).getTime() + totalDuration * 60000);
+        const totalDuration = timing.reduce((sum, s) => sum + s.durationMinutes, 0);
+        const endLiveTime = liveEnd ?? new Date(new Date(production.liveTime).getTime() + totalDuration * 60000);
         const endTimeStr = formatTime(endLiveTime);
         text += `• ${endTimeStr} - *LIVESTREAM EINDE*\n`;
       }

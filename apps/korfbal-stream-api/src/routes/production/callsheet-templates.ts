@@ -6,8 +6,11 @@ import {LONG_TRANSACTION, prisma} from '../../services/prisma';
 import {findPositionByName, SHOWCALLER_POSITION} from '../../domain/positionSkill';
 import {NotFoundError} from '../../middleware/error';
 import {contentDisposition} from '../../utils/attachment';
+import {callSheetTemplateChaptersRouter, importedChapterName, importedItemChapters, templateChaptersByName, templateItemChapter} from './callsheet-template-chapters';
 
 export const callSheetTemplateRouter: Router = Router();
+// Hoofdstukken (openspec/changes/chapters D4): /:id/chapters, /chapters/:chapterId, /:id/structure
+callSheetTemplateRouter.use(callSheetTemplateChaptersRouter);
 const uploadMem = keepOrganizationContext(multer({ storage: multer.memoryStorage() }).single('file'));
 
 interface TemplateItemData {
@@ -22,6 +25,9 @@ interface TemplateItemData {
   anchorType?: string;
   autoAdvance: boolean;
   positionIds: number[];
+  /** The item's hoofdstuk (column "Hoofdstuk"); none in an older export */
+  chapterName?: string;
+  cue?: string;
 }
 
 // --- Templates ---
@@ -66,6 +72,11 @@ callSheetTemplateRouter.get('/:id', async (req, res, next) => {
     const template = await prisma.callSheetTemplate.findUnique({
       where: { id },
       include: {
+        // The hoofdstukken in order, with their standard positions; every item has its chapterId
+        chapters: {
+          orderBy: { orderIndex: 'asc' },
+          include: { positions: { orderBy: { orderIndex: 'asc' }, include: { position: true } } }
+        },
         items: {
           include: {
             positions: { include: { position: true } }
@@ -116,7 +127,7 @@ callSheetTemplateRouter.post('/:id/items', async (req, res, next) => {
     const {
       title, note, durationSec, orderIndex,
       isInVenue, isInLivestream, isTimeAnchor, anchorType,
-      autoAdvance, positionIds, parentId
+      autoAdvance, positionIds, parentId, cue
     } = req.body;
 
     console.log(`[CallSheetTemplates] Adding item to template ${templateId}`, { title, orderIndex });
@@ -132,15 +143,19 @@ callSheetTemplateRouter.post('/:id/items', async (req, res, next) => {
       data: {
         template: { connect: { id: templateId } },
         title,
+        cue: typeof cue === 'string' ? cue.trim().slice(0, 50) : '',
         note,
         durationSec: Number(durationSec) || 0,
-        orderIndex: Number(orderIndex) || 0,
+        // Without a place: at the end of the draaiboek
+        orderIndex: Number(orderIndex) || ((await prisma.callSheetTemplateItem.aggregate({ where: { templateId }, _max: { orderIndex: true } }))._max.orderIndex ?? 0) + 1,
         isInVenue: !!isInVenue,
         isInLivestream: isInLivestream !== false,
         isTimeAnchor: !!isTimeAnchor,
         anchorType,
         autoAdvance: !!autoAdvance,
-        parentId: parentId || undefined,
+        // A relation like the hoofdstuk below (Prisma doesn't mix a plain parentId with connect)
+        ...(parentId ? { parent: { connect: { id: String(parentId) } } } : {}),
+        chapter: { connect: { id: await templateItemChapter(templateId, req.body.chapterId) } },
         positions: {
           create: (positionIds || []).map((pid: number) => ({
             position: { connect: { id: pid } }
@@ -162,7 +177,7 @@ callSheetTemplateRouter.put('/items/:itemId', async (req, res, next) => {
     const {
       title, note, durationSec, orderIndex,
       isInVenue, isInLivestream, isTimeAnchor, anchorType,
-      autoAdvance, positionIds, parentId
+      autoAdvance, positionIds, parentId, cue
     } = req.body;
 
     // Update positions and fields
@@ -171,6 +186,9 @@ callSheetTemplateRouter.put('/items/:itemId', async (req, res, next) => {
       // but the simplest is to just update this one and let the user reorder.
       // However, the request specifically asked: "waarna alles vanaf dat nummer eentje wordt opgeschoven"
       const currentItem = await tx.callSheetTemplateItem.findUnique({ where: { id: itemId } });
+      if (!currentItem) throw new NotFoundError('Item niet gevonden');
+      // Another hoofdstuk of the same template, when given
+      const chapterId = req.body.chapterId !== undefined ? await templateItemChapter(currentItem.templateId, req.body.chapterId) : undefined;
       if (currentItem && orderIndex !== undefined && Number(orderIndex) !== currentItem.orderIndex) {
         const newIdx = Number(orderIndex);
         // Shift items that are at or after the new index
@@ -191,6 +209,7 @@ callSheetTemplateRouter.put('/items/:itemId', async (req, res, next) => {
       return tx.callSheetTemplateItem.update({
         where: { id: itemId },
         data: {
+          cue: typeof cue === 'string' ? cue.trim().slice(0, 50) : undefined,
           title,
           note,
           durationSec: durationSec !== undefined ? Number(durationSec) : undefined,
@@ -201,6 +220,7 @@ callSheetTemplateRouter.put('/items/:itemId', async (req, res, next) => {
           anchorType,
           autoAdvance: autoAdvance !== undefined ? !!autoAdvance : undefined,
           parentId: parentId !== undefined ? (parentId || null) : undefined,
+          chapterId,
           positions: {
             create: (positionIds || []).map((pid: number) => ({
               position: { connect: { id: pid } }
@@ -276,7 +296,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
       const production = await tx.production.findUnique({
         where: { id: productionId },
         include: {
-          segments: { orderBy: { volgorde: 'asc' } },
+          chapters: { orderBy: { orderIndex: 'asc' } },
           matchSchedule: true
         }
       });
@@ -323,6 +343,26 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
         });
       }
 
+      // The production's hoofdstukken become the template's (openspec/changes/chapters D3). A hoofdstuk
+      // with the same name stays, with its bezetting; the others go (their old items are gone already).
+      const templateChapters = await tx.callSheetTemplateChapter.findMany({ where: { templateId }, orderBy: { orderIndex: 'asc' } });
+      const productionChapterOf = new Map<string, number>(); // template hoofdstuk → production hoofdstuk
+      if (templateChapters.length > 0) {
+        const existingByName = new Map(production.chapters.map((c) => [c.name, c]));
+        const kept = new Set<number>();
+        // orderIndex is unique per production: park the existing ones first
+        await tx.productionChapter.updateMany({ where: { productionId }, data: { orderIndex: { increment: 1000 } } });
+        for (const [i, chapter] of templateChapters.entries()) {
+          const existing = existingByName.get(chapter.name);
+          const productionChapter = existing && !kept.has(existing.id)
+            ? await tx.productionChapter.update({ where: { id: existing.id }, data: { orderIndex: i + 1 } })
+            : await tx.productionChapter.create({ data: { productionId, name: chapter.name, orderIndex: i + 1 } });
+          kept.add(productionChapter.id);
+          productionChapterOf.set(chapter.id, productionChapter.id);
+        }
+        await tx.productionChapter.deleteMany({ where: { productionId, id: { notIn: [...kept] } } });
+      }
+
       // Create a new CallSheet for this production
       const callSheet = await tx.callSheet.create({
         data: { productionId, name: template.name }
@@ -345,8 +385,8 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
         itemsToCreate.push({
           id: itemId,
           callSheetId: callSheet.id,
-          productionSegmentId: null,
-          cue: '',
+          chapterId: (tItem.chapterId && productionChapterOf.get(tItem.chapterId)) || null,
+          cue: tItem.cue,
           title: tItem.title,
           note: tItem.note,
           durationSec: tItem.durationSec,
@@ -364,6 +404,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
           productionId: productionId,
           callSheetItemId: itemId,
           title: tItem.title,
+          chapterId: (tItem.chapterId && productionChapterOf.get(tItem.chapterId)) || null,
           order: tItem.orderIndex,
           status: 'WAITING' as const,
           durationSec: tItem.durationSec,
@@ -438,7 +479,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
       // Update production with template link
       await tx.production.update({
         where: { id: productionId },
-        data: { callSheetTemplateId: templateId }
+        data: { callSheetTemplateId: templateId, chaptersAutoPlaced: false }
       });
 
       return { success: true, message: 'Draaiboek succesvol toegepast!', production };
@@ -524,7 +565,7 @@ callSheetTemplateRouter.get('/:id/export', async (req, res, next) => {
       where: { id },
       include: {
         items: {
-          include: { positions: { include: { position: true } } },
+          include: { positions: { include: { position: true } }, chapter: true },
           orderBy: { orderIndex: 'asc' }
         }
       }
@@ -538,7 +579,7 @@ callSheetTemplateRouter.get('/:id/export', async (req, res, next) => {
     const positions = await prisma.position.findMany({ orderBy: { name: 'asc' } });
 
     // Header row
-    const headers = ['Volgorde', 'Titel', 'Notitie', 'Duur (sec)', 'Tijd Anchor', 'Anchor Type', 'Auto Advance', 'Zaal (inVenue)', 'Stream (inStream)'];
+    const headers = ['Volgorde', 'Titel', 'Notitie', 'Duur (sec)', 'Tijd Anchor', 'Anchor Type', 'Auto Advance', 'Zaal (inVenue)', 'Stream (inStream)', 'Hoofdstuk', 'Cue'];
     positions.forEach(p => headers.push(p.name));
 
     worksheet.addRow(headers);
@@ -554,7 +595,9 @@ callSheetTemplateRouter.get('/:id/export', async (req, res, next) => {
         item.anchorType || '',
         item.autoAdvance ? 'JA' : 'NEE',
         item.isInVenue ? 'JA' : 'NEE',
-        item.isInLivestream ? 'JA' : 'NEE'
+        item.isInLivestream ? 'JA' : 'NEE',
+        item.chapter?.name ?? '',
+        item.cue
       ];
 
       const itemPosIds = new Set(item.positions.map(p => p.positionId));
@@ -598,6 +641,8 @@ callSheetTemplateRouter.post('/import', uploadMem, async (req, res, next) => {
 
     const itemsToCreate: TemplateItemData[] = [];
     const positionColumns: { col: number, id: number }[] = [];
+    let chapterColumn: number | null = null;
+    let cueColumn: number | null = null;
 
     // Skip header row
     worksheet.eachRow((row, rowNumber) => {
@@ -605,6 +650,8 @@ callSheetTemplateRouter.post('/import', uploadMem, async (req, res, next) => {
         // Find position columns
         row.eachCell((cell, colNumber) => {
           const header = cell.text.toLowerCase();
+          if (header.trim() === 'hoofdstuk') chapterColumn = colNumber;
+          if (header.trim() === 'cue') cueColumn = colNumber;
           const posId = posMap.get(header);
           if (posId !== undefined) {
             positionColumns.push({ col: colNumber, id: posId });
@@ -645,16 +692,23 @@ callSheetTemplateRouter.post('/import', uploadMem, async (req, res, next) => {
         isTimeAnchor,
         anchorType: anchorType || undefined,
         autoAdvance,
-        positionIds
+        positionIds,
+        chapterName: chapterColumn ? importedChapterName(row.getCell(chapterColumn).text) || undefined : undefined,
+        cue: cueColumn ? row.getCell(cueColumn).text.trim().slice(0, 50) : ''
       });
     });
 
-    // Create items in sequence
+    // Hoofdstukken from the Hoofdstuk column, in order of appearance (openspec/changes/chapters)
+    const chapterIds = await templateChaptersByName(template.id, [...new Set(itemsToCreate.map((i) => i.chapterName).filter((n): n is string => !!n))]);
+
+    // Create items in sequence; rows without a hoofdstuk (an older export: all of them) go into the one before, else Draaiboek
+    const chapterOf = importedItemChapters(template.id, chapterIds);
     for (const itemData of itemsToCreate) {
-      const { positionIds, templateId: _, ...data } = itemData;
+      const { positionIds, templateId: _, chapterName, ...data } = itemData;
       await prisma.callSheetTemplateItem.create({
         data: {
           ...data,
+          chapter: { connect: { id: await chapterOf(chapterName) } },
           template: { connect: { id: template.id } },
           positions: {
             create: (positionIds || []).map((pid: number) => ({ positionId: pid }))
@@ -679,8 +733,9 @@ callSheetTemplateRouter.get('/:id/export-json', async (req, res, next) => {
     const template = await prisma.callSheetTemplate.findUnique({
       where: { id },
       include: {
+        chapters: { orderBy: { orderIndex: 'asc' }, include: { positions: { orderBy: { orderIndex: 'asc' }, include: { position: true } } } },
         items: {
-          include: { positions: { include: { position: true } } },
+          include: { positions: { include: { position: true } }, chapter: true },
           orderBy: { orderIndex: 'asc' }
         }
       }
@@ -688,11 +743,17 @@ callSheetTemplateRouter.get('/:id/export-json', async (req, res, next) => {
 
     if (!template) return res.status(404).json({ error: 'Template not found' });
 
+    // Version 2: with the hoofdstukken (and their standard positions); every item names its hoofdstuk
     const exportData = {
-      version: 1,
+      version: 2,
       name: template.name,
+      chapters: template.chapters.map(chapter => ({
+        name: chapter.name,
+        positions: chapter.positions.map(p => p.position.name)
+      })),
       items: template.items.map(item => ({
         id: item.id,
+        cue: item.cue,
         title: item.title,
         note: item.note,
         durationSec: item.durationSec,
@@ -703,6 +764,7 @@ callSheetTemplateRouter.get('/:id/export-json', async (req, res, next) => {
         anchorType: item.anchorType,
         autoAdvance: item.autoAdvance,
         parentId: item.parentId,
+        chapter: item.chapter?.name ?? null,
         positions: item.positions.map(p => p.position.name)
       }))
     };
@@ -732,8 +794,9 @@ callSheetTemplateRouter.post('/import-json', uploadMem, async (req, res, next) =
     const { name, items, version } = data;
     const finalName = req.body.name || name;
 
-    if (version && version > 1) {
-      return res.status(400).json({ error: `Unsupported template version: ${version}. Only version 1 is supported.` });
+    // Version 1: without hoofdstukken (all in one hoofdstuk Draaiboek); version 2: with hoofdstukken
+    if (version && version > 2) {
+      return res.status(400).json({ error: `Unsupported template version: ${version}. Only versions 1 and 2 are supported.` });
     }
 
     if (!finalName) return res.status(400).json({ error: 'Template name is required' });
@@ -748,10 +811,26 @@ callSheetTemplateRouter.post('/import-json', uploadMem, async (req, res, next) =
 
     const idMapping: Record<string, string> = {};
 
+    // The hoofdstukken (version 2): in the given order, then any further name an item mentions
+    const chapterList: Array<{ name?: unknown; positions?: unknown }> = Array.isArray(data.chapters) ? data.chapters : [];
+    const chapterNames = [...chapterList.map((c) => importedChapterName(c?.name)), ...items.map((i: { chapter?: unknown }) => importedChapterName(i?.chapter))].filter(Boolean);
+    const chapterIds = await templateChaptersByName(template.id, [...new Set(chapterNames)]);
+    for (const chapter of chapterList) {
+      const chapterId = chapterIds.get(importedChapterName(chapter?.name));
+      const names = Array.isArray(chapter?.positions) ? chapter.positions : [];
+      const positionIds = [...new Set(names.map((n) => findPositionByName(positions, String(n))?.id).filter((id): id is number => !!id))];
+      if (chapterId && positionIds.length > 0) {
+        await prisma.callSheetTemplateChapterPosition.createMany({ data: positionIds.map((positionId, orderIndex) => ({ chapterId, positionId, orderIndex })) });
+      }
+    }
+
+    // Items without a hoofdstuk (version 1: all of them) go into the one before, else Draaiboek
+    const chapterOf = importedItemChapters(template.id, chapterIds);
     for (const item of items) {
       const createdItem = await prisma.callSheetTemplateItem.create({
         data: {
           templateId: template.id,
+          cue: typeof item.cue === 'string' ? item.cue.trim().slice(0, 50) : '',
           title: item.title,
           note: item.note ?? null,
           durationSec: Number(item.durationSec) || 0,
@@ -761,6 +840,7 @@ callSheetTemplateRouter.post('/import-json', uploadMem, async (req, res, next) =
           isTimeAnchor: !!item.isTimeAnchor,
           anchorType: item.anchorType ?? null,
           autoAdvance: !!item.autoAdvance,
+          chapterId: await chapterOf(importedChapterName(item.chapter) || undefined),
         }
       });
 
