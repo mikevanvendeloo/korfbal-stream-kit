@@ -21,6 +21,11 @@ const DEFAULT_LIVE_BEFORE_MATCH = 5 * MINUTE;
 const VOORBEREIDING = 'Voorbereiding';
 /** Once per organization: other segment templates were kept as templates with hoofdstukken only */
 const SEGMENT_TEMPLATES_CONVERTED_KEY = 'chaptersSegmentTemplatesConverted';
+/**
+ * Once per organization: its productions and templates were placed. From then on the API puts every new
+ * item and event in a hoofdstuk, so later starts only tidy up strays and never flag or add hoofdstukken.
+ */
+const CHAPTERS_MIGRATED_KEY = 'chaptersMigrated';
 /** The holding hoofdstuk of a restore; it stays when the file has no segments to place the items in */
 export const DRAAIBOEK = 'Draaiboek';
 
@@ -204,6 +209,10 @@ async function defaultSegmentTemplate() {
 /** Migrates the organization in the context: productions, draaiboek templates and, once, the other segment templates. */
 export async function migrateOrganizationChapters(): Promise<{ productions: number; templates: number; keptSegmentTemplates: number }> {
   const summary = {productions: 0, templates: 0, keptSegmentTemplates: 0};
+  if (await getSetting<boolean>(CHAPTERS_MIGRATED_KEY)) {
+    summary.productions = await placeStrays();
+    return summary;
+  }
 
   const productionIds = await prisma.production.findMany({
     where: {OR: [{callSheets: {some: {items: {some: {chapterId: null}}}}}, {productionEvents: {some: {chapterId: null}}}]},
@@ -242,7 +251,37 @@ export async function migrateOrganizationChapters(): Promise<{ productions: numb
     }
     await setSetting(SEGMENT_TEMPLATES_CONVERTED_KEY, true);
   }
+  await setSetting(CHAPTERS_MIGRATED_KEY, true);
   return summary;
+}
+
+/**
+ * After the migration: an item or event that still has no hoofdstuk (e.g. written by an older version
+ * during an upgrade) goes to its callsheet item's hoofdstuk, else the production's last one. The
+ * production's hoofdstukken and its check flag are left alone. Returns the number of productions touched.
+ */
+async function placeStrays(): Promise<number> {
+  const productions = await prisma.production.findMany({
+    where: {OR: [{callSheets: {some: {items: {some: {chapterId: null}}}}}, {productionEvents: {some: {chapterId: null}}}]},
+    select: {id: true, chapters: {orderBy: {orderIndex: 'desc'}, take: 1, select: {id: true}}},
+  });
+  let touched = 0;
+  for (const production of productions) {
+    const last = production.chapters[0]?.id;
+    if (last == null) continue; // no hoofdstuk at all: nothing to place it in without adding one
+    await prisma.$transaction(async (tx) => {
+      await tx.callSheetItem.updateMany({where: {callSheet: {productionId: production.id}, chapterId: null}, data: {chapterId: last}});
+      const events = await tx.productionEvent.findMany({where: {productionId: production.id, chapterId: null}, select: {id: true, callSheetItemId: true}});
+      for (const event of events) {
+        const item = event.callSheetItemId
+          ? await tx.callSheetItem.findFirst({where: {id: event.callSheetItemId, callSheet: {productionId: production.id}}, select: {chapterId: true}})
+          : null;
+        await tx.productionEvent.update({where: {id: event.id}, data: {chapterId: item?.chapterId ?? last}});
+      }
+    });
+    touched++;
+  }
+  return touched;
 }
 
 /** At startup: every organization, each in its own context; a failing organization doesn't stop the others. */

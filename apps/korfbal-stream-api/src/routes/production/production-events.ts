@@ -1,6 +1,7 @@
 import {Router} from 'express';
 import {prisma} from '../../services/prisma';
 import {liveChapters} from '../../services/productionTiming';
+import {productionEventChapter} from './production-chapters';
 
 export const productionEventsRouter: Router = Router();
 
@@ -31,10 +32,12 @@ productionEventsRouter.post('/:id/events', async (req, res, next) => {
       return res.status(404).json({ error: 'Production not found' });
     }
 
-    // Create the event
+    // Create the event, in a hoofdstuk (openspec/changes/chapters D1)
+    const chapterId = await productionEventChapter(productionId, req.body.callSheetItemId);
     const event = await prisma.productionEvent.create({
       data: {
         productionId,
+        chapterId,
         title,
         vMixInputName,
         metadata: metadata || null,

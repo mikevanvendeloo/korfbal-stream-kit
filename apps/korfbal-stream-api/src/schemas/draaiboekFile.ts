@@ -20,7 +20,8 @@ export const DraaiboekFileItemSchema = z.object({
   isInVenue: z.boolean().optional(),
   isInLivestream: z.boolean().optional(),
   isTimeAnchor: z.boolean().optional(),
-  anchorType: text(30).nullish(),
+  /** An empty value (older template files) counts as none */
+  anchorType: z.preprocess((v) => (v === '' ? null : v), z.enum(['MATCH_START', 'LIVESTREAM_START']).nullish()),
   autoAdvance: z.boolean().optional(),
   parentId: id.nullish(),
   chapter: text(100).nullish(),

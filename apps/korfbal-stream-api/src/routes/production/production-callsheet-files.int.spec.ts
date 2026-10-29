@@ -139,4 +139,20 @@ describe.runIf(runDb)('productiedraaiboek export and import (integration)', () =
     const withCue = (await draaiboek(sourceCallSheetId)).filter((i) => i.cue);
     expect(imported.map(({title, chapter}) => ({title, chapter}))).toEqual(withCue.map(({title, chapter}) => ({title, chapter})));
   });
+
+  it('keeps one time anchor: the first one the file flags', async () => {
+    const res = await request(app).post(`/api/production/callsheets/${targetCallSheetId}/import-json`).send({version: 2, items: [
+      {title: 'Start livestream', durationSec: 300, isTimeAnchor: true, anchorType: 'LIVESTREAM_START'},
+      {title: 'Aftrap', durationSec: 0, isTimeAnchor: true, anchorType: 'MATCH_START'},
+    ]});
+    expect(res.status, res.text).toBe(200);
+    const items = await prisma.callSheetItem.findMany({where: {callSheetId: targetCallSheetId}, orderBy: {orderIndex: 'asc'}});
+    expect(items.map((i) => [i.title, i.isTimeAnchor])).toEqual([['Start livestream', true], ['Aftrap', false]]);
+  });
+
+  it('refuses an unknown anchor type', async () => {
+    const res = await request(app).post(`/api/production/callsheets/${targetCallSheetId}/import-json`)
+      .send({version: 2, items: [{title: 'Raar', durationSec: 0, isTimeAnchor: true, anchorType: 'HALFTIME'}]});
+    expect(res.status).toBe(400);
+  });
 });

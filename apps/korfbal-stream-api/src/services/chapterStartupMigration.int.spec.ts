@@ -138,4 +138,22 @@ describe.runIf(runDb)('startup migration: segments become hoofdstukken (integrat
     expect(events.body.chapters.map((c: { name: string }) => c.name)).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust']);
     expect(new Set(events.body.items.map((e: { chapterId: number | null }) => e.chapterId)).has(null)).toBe(false);
   });
+
+  it('after a restart leaves a migrated production alone: a new event is in a hoofdstuk, a stray one goes to the last', async () => {
+    await inOrg(() => prisma.production.update({where: {id: show.productionId}, data: {chaptersAutoPlaced: false}}));
+    const posted = await request(app).post(`/api/production/${show.productionId}/events`).set('X-Organization', SLUG)
+      .send({title: 'Handmatig na de start', order: 99, positionIds: []});
+    expect(posted.status, posted.text).toBe(201);
+    expect(posted.body.chapterId).not.toBeNull();
+    // An event an older version wrote without a hoofdstuk, long before the kickoff
+    const stray = await inOrg(() => prisma.productionEvent.create({
+      data: {productionId: show.productionId, title: 'Zwerver', order: 100, plannedStartTime: new Date(KICKOFF.getTime() - 120 * MIN)},
+    }));
+
+    expect(await inOrg(() => migrateOrganizationChapters())).toEqual({productions: 1, templates: 0, keptSegmentTemplates: 0});
+    expect(await chapterNames(show.productionId)).toEqual(['Voorbereiding', 'Voorbeschouwing', 'Eerste helft', 'Rust']);
+    const production = await inOrg(() => prisma.production.findUniqueOrThrow({where: {id: show.productionId}, include: {chapters: {orderBy: {orderIndex: 'desc'}, take: 1}}}));
+    expect(production.chaptersAutoPlaced).toBe(false);
+    expect((await inOrg(() => prisma.productionEvent.findUniqueOrThrow({where: {id: stray.id}}))).chapterId).toBe(production.chapters[0].id);
+  });
 });

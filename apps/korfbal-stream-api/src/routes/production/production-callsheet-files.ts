@@ -182,11 +182,14 @@ productionCallsheetFilesRouter.post('/callsheets/:callSheetId/import-json', uplo
     const file = parsed.data;
     const {production} = callSheet;
     const plan = planDraaiboekImport(file, production.chapters.map((c) => c.name));
+    // One time anchor per draaiboek: the first one the file flags
+    const anchorIndex = file.items.findIndex((item) => item.isTimeAnchor);
+    const isAnchor = (index: number) => index === anchorIndex;
     const kickoff = production.matchSchedule.date;
     const liveStart = production.liveTime ?? new Date(kickoff.getTime() - DEFAULT_LIVE_BEFORE_MATCH_MS);
     const times = layOutTimes(plan.items.map(({index}) => {
       const item = file.items[index];
-      return {durationSec: item.durationSec, isTimeAnchor: !!item.isTimeAnchor, anchorType: item.anchorType || null, startOffsetSec: item.startOffsetSec ?? null};
+      return {durationSec: item.durationSec, isTimeAnchor: isAnchor(index), anchorType: item.anchorType ?? null, startOffsetSec: item.startOffsetSec ?? null};
     }), {kickoff, liveStart});
 
     await prisma.$transaction(async (tx) => {
@@ -218,8 +221,8 @@ productionCallsheetFilesRouter.post('/callsheets/:callSheetId/import-json', uplo
             orderIndex: planned.orderIndex,
             isInVenue: !!item.isInVenue,
             isInLivestream: item.isInLivestream !== false,
-            isTimeAnchor: !!item.isTimeAnchor,
-            anchorType: item.anchorType || null,
+            isTimeAnchor: isAnchor(planned.index),
+            anchorType: item.anchorType ?? null,
             autoAdvance: !!item.autoAdvance,
             timeStart: times[i].timeStart,
             timeEnd: times[i].timeEnd,

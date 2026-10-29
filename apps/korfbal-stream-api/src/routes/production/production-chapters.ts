@@ -125,7 +125,25 @@ export async function productionItemChapter(callSheetId: number, chapterId: unkn
   }
   const last = await prisma.callSheetItem.findFirst({where: {callSheetId, chapterId: {not: null}}, orderBy: {orderIndex: 'desc'}});
   if (last?.chapterId) return last.chapterId;
+  return productionLastChapter(productionId);
+}
+
+/** The production's last hoofdstuk, else a new one "Draaiboek" (for an item or event without a better place). */
+export async function productionLastChapter(productionId: number): Promise<number> {
   const lastChapter = await prisma.productionChapter.findFirst({where: {productionId}, orderBy: {orderIndex: 'desc'}});
   if (lastChapter) return lastChapter.id;
   return (await prisma.productionChapter.create({data: {productionId, name: 'Draaiboek', orderIndex: 1}})).id;
+}
+
+/**
+ * The hoofdstuk of a new LIVE event: that of its callsheet item (of the same production) when it names
+ * one, else the production's last hoofdstuk. Every event is in a hoofdstuk, so a restart's migration
+ * never takes it for unmigrated data.
+ */
+export async function productionEventChapter(productionId: number, callSheetItemId: unknown): Promise<number> {
+  if (typeof callSheetItemId === 'string' && callSheetItemId) {
+    const item = await prisma.callSheetItem.findFirst({where: {id: callSheetItemId, callSheet: {productionId}}, select: {chapterId: true}});
+    if (item?.chapterId) return item.chapterId;
+  }
+  return productionLastChapter(productionId);
 }
