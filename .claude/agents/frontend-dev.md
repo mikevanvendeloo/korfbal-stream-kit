@@ -12,7 +12,7 @@ Examples:
 
 - User: \"We need a new dashboard page that shows user analytics\"
   Assistant: \"I'll launch the frontend-dev agent to design the dashboard UI, implement it, and set up both unit and e2e tests.\""
-model: inherit
+model: sonnet
 color: red
 memory: project
 ---

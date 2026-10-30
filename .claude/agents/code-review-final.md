@@ -13,7 +13,7 @@ Examples:
   user: \"Refactor the payment processing module and add retry logic\"
   assistant: (after the refactoring and test agents have completed)
   \"The refactoring and test-runner agents have completed. Now I'll launch the code-review-final agent to review all changes in the MR.\""
-model: inherit
+model: sonnet
 color: orange
 memory: project
 ---
