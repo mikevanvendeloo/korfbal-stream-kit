@@ -258,7 +258,7 @@ export function useCallSheetTemplates() {
         method: 'POST',
         body: formData,
       });
-      if (!res.ok) throw new Error('Failed to import template');
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || 'Importeren mislukt');
       return await res.json() as CallSheetTemplate;
     } catch (err: any) {
       setError(err.message);
@@ -280,7 +280,7 @@ export function useCallSheetTemplates() {
         method: 'POST',
         body: formData,
       });
-      if (!res.ok) throw new Error('Failed to import template (JSON)');
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || 'Importeren mislukt');
       return await res.json() as CallSheetTemplate;
     } catch (err: any) {
       setError(err.message);

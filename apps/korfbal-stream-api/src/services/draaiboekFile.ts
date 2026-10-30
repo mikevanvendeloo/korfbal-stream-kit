@@ -107,3 +107,26 @@ export function templateTimes<C extends { id: string; orderIndex: number; minDur
     }),
   };
 }
+
+type ProductionExportItem = { orderIndex?: number; chapterOrderIndex?: number | null } & Record<string, unknown>;
+
+/**
+ * The draaiboek of a whole production export (Producties → Exporteer: `chapters` at the top, the items in
+ * `callSheets[0]`, each naming its hoofdstuk by `chapterOrderIndex`) as a version 2 draaiboek file; null when
+ * the data is not such an export.
+ */
+export function draaiboekFromProductionExport(data: unknown): { version: 2; name: unknown; chapters: unknown[]; items: unknown[] } | null {
+  const exported = data as { items?: unknown; callSheets?: Array<{ name?: unknown; items?: unknown }>; chapters?: Array<{ name?: unknown; orderIndex?: number; minDurationSec?: unknown }> } | null;
+  if (!exported || typeof exported !== 'object' || exported.items !== undefined || !Array.isArray(exported.callSheets)) return null;
+  const callSheet = exported.callSheets.find((c) => Array.isArray(c?.items));
+  if (!callSheet) return null;
+  const chapters = [...(Array.isArray(exported.chapters) ? exported.chapters : [])].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+  const chapterName = new Map(chapters.map((c) => [c.orderIndex, c.name]));
+  const items = [...(callSheet.items as ProductionExportItem[])].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+  return {
+    version: 2,
+    name: callSheet.name,
+    chapters: chapters.map((c) => ({name: c.name, minDurationSec: c.minDurationSec})),
+    items: items.map(({chapterOrderIndex, ...item}) => ({...item, chapter: chapterName.get(chapterOrderIndex ?? undefined) ?? null})),
+  };
+}

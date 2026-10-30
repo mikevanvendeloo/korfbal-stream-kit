@@ -86,14 +86,14 @@ Een item met **Auto** gaat nog steeds vanzelf door als zijn tijd om is. Zie de [
 
 ### Importeren en exporteren
 
-Met **Excel Import** of **JSON Import** maak je een template uit een bestand. Vul eerst een naam in; pas daarna kun je een bestand kiezen. Via de knoppen op een kaart exporteer je een template naar Excel of JSON. Beide nemen de hoofdstukken mee (JSON ook de standaardbezetting per hoofdstuk).
+Met **Excel Import** of **JSON Import** maak je een template uit een bestand: kies het bestand, controleer de naam en klik op **Importeren**. Bij JSON wordt de naam uit het bestand voorgesteld. Zo maak je ook een template van het draaiboek van een productie: importeer hier het bestand van **Exporteer JSON** in het draaiboek, of van **Exporteer** bij de productie (de hele productie; alleen het draaiboek wordt gebruikt). Via de knoppen op een kaart exporteer je een template naar Excel of JSON. Beide nemen de hoofdstukken mee (JSON ook de standaardbezetting per hoofdstuk).
 
 In Excel staan per regel: Volgorde, Titel, Notitie, Duur (sec), Tijd Anchor (JA/NEE), Anchor Type (MATCH_START of LIVESTREAM_START), Auto Advance (JA), Zaal (JA), Stream (NEE om uit te zetten), **Hoofdstuk**, **Cue**. Daarna één kolom per positie, met precies de naam van de positie als kop, en een X bij de items voor die positie.
 
 > - Een kolom met een positienaam die niet bestaat, wordt zonder melding overgeslagen.
 > - Excel neemt geen gekoppelde items (parent) mee; JSON wel.
 > - Een bestand zonder hoofdstukken (een oudere export) wordt na de import op tijd ingedeeld, zoals bij de overstap; controleer de indeling.
-> - Een naam die al bestaat geeft geen foutmelding: er gebeurt dan niets. Kies een andere naam.
+> - Een naam die al bestaat geeft een foutmelding. Kies een andere naam.
 
 ### Interviewnamen
 

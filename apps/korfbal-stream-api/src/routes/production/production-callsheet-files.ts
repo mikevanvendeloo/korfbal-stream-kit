@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {Router, type NextFunction, type Request, type Response} from 'express';
 import multer from 'multer';
+import {z} from 'zod';
 import ExcelJS from 'exceljs';
 import {keepOrganizationContext} from '../../middleware/organizationContext';
 import {LONG_TRANSACTION, prisma} from '../../services/prisma';
@@ -8,6 +9,7 @@ import {positionResolver} from '../../services/positions';
 import {broadcastState} from '../../services/productionState';
 import {DraaiboekFileSchema} from '../../schemas/draaiboekFile';
 import {chapterKey, chapterMinimums, layOutTimes, planDraaiboekImport} from '../../services/draaiboekFile';
+import {createTemplateFromDraaiboek} from './callsheet-templates';
 import {contentDisposition} from '../../utils/attachment';
 import {amsterdamDay, toAmsterdamInputValue} from '../../utils/time';
 
@@ -38,6 +40,8 @@ const callSheetIdOf = (value: string) => {
   return Number.isInteger(id) && id > 0 ? id : null;
 };
 
+type LoadedCallSheet = NonNullable<Awaited<ReturnType<typeof loadCallSheet>>>;
+
 async function loadCallSheet(callSheetId: number) {
   return prisma.callSheet.findUnique({
     where: {id: callSheetId},
@@ -48,7 +52,51 @@ async function loadCallSheet(callSheetId: number) {
   });
 }
 
-const fileName = (callSheet: NonNullable<Awaited<ReturnType<typeof loadCallSheet>>>, extension: string) => {
+/** The draaiboek as a version 2 file object */
+async function draaiboekFileOf(callSheet: LoadedCallSheet) {
+  const {production} = callSheet;
+  const kickoff = production.matchSchedule.date.getTime();
+  // The standard positions come from the hoofdstuk with the same name in the production's template
+  const templateChapters = production.callSheetTemplateId
+    ? await prisma.callSheetTemplateChapter.findMany({
+      where: {templateId: production.callSheetTemplateId},
+      include: {positions: {orderBy: {orderIndex: 'asc'}, include: {position: true}}},
+    })
+    : [];
+  const chapterName = new Map(production.chapters.map((c) => [c.id, c.name]));
+
+  return {
+    version: 2,
+    kind: 'productie-draaiboek',
+    name: callSheet.name,
+    match: {date: production.matchSchedule.date, homeTeam: production.matchSchedule.homeTeamName, awayTeam: production.matchSchedule.awayTeamName},
+    chapters: production.chapters.map((c) => ({
+      name: c.name,
+      minDurationSec: c.minDurationSec,
+      positions: templateChapters.find((t) => chapterKey(t.name) === chapterKey(c.name))?.positions.map((p) => p.position.name) ?? [],
+    })),
+    items: callSheet.items.map((item) => ({
+      id: item.id,
+      cue: item.cue,
+      title: item.title,
+      note: item.note,
+      color: item.color,
+      durationSec: item.durationSec,
+      orderIndex: item.orderIndex,
+      isInVenue: item.isInVenue,
+      isInLivestream: item.isInLivestream,
+      isTimeAnchor: item.isTimeAnchor,
+      anchorType: item.anchorType,
+      autoAdvance: item.autoAdvance,
+      parentId: item.parentId,
+      chapter: chapterName.get(item.chapterId) ?? null,
+      positions: item.positions.map((p) => p.position.name),
+      startOffsetSec: item.timeStart ? Math.round((item.timeStart.getTime() - kickoff) / 1000) : null,
+    })),
+  };
+}
+
+const fileName = (callSheet: LoadedCallSheet, extension: string) => {
   const match = callSheet.production.matchSchedule;
   return `draaiboek-${amsterdamDay(match.date)}-${match.homeTeamName}-${match.awayTeamName}.${extension}`;
 };
@@ -60,48 +108,27 @@ productionCallsheetFilesRouter.get('/callsheets/:callSheetId/export-json', async
     if (!callSheetId) return res.status(400).json({error: 'Ongeldig callsheet-id'});
     const callSheet = await loadCallSheet(callSheetId);
     if (!callSheet) return res.status(404).json({error: 'Draaiboek niet gevonden'});
-    const {production} = callSheet;
-    const kickoff = production.matchSchedule.date.getTime();
-    // The standard positions come from the hoofdstuk with the same name in the production's template
-    const templateChapters = production.callSheetTemplateId
-      ? await prisma.callSheetTemplateChapter.findMany({
-        where: {templateId: production.callSheetTemplateId},
-        include: {positions: {orderBy: {orderIndex: 'asc'}, include: {position: true}}},
-      })
-      : [];
-    const chapterName = new Map(production.chapters.map((c) => [c.id, c.name]));
-
     res.setHeader('Content-Disposition', contentDisposition(fileName(callSheet, 'json')));
-    return res.json({
-      version: 2,
-      kind: 'productie-draaiboek',
-      name: callSheet.name,
-      match: {date: production.matchSchedule.date, homeTeam: production.matchSchedule.homeTeamName, awayTeam: production.matchSchedule.awayTeamName},
-      chapters: production.chapters.map((c) => ({
-        name: c.name,
-        minDurationSec: c.minDurationSec,
-        positions: templateChapters.find((t) => chapterKey(t.name) === chapterKey(c.name))?.positions.map((p) => p.position.name) ?? [],
-      })),
-      items: callSheet.items.map((item) => ({
-        id: item.id,
-        cue: item.cue,
-        title: item.title,
-        note: item.note,
-        color: item.color,
-        durationSec: item.durationSec,
-        orderIndex: item.orderIndex,
-        isInVenue: item.isInVenue,
-        isInLivestream: item.isInLivestream,
-        isTimeAnchor: item.isTimeAnchor,
-        anchorType: item.anchorType,
-        autoAdvance: item.autoAdvance,
-        parentId: item.parentId,
-        chapter: chapterName.get(item.chapterId) ?? null,
-        positions: item.positions.map((p) => p.position.name),
-        startOffsetSec: item.timeStart ? Math.round((item.timeStart.getTime() - kickoff) / 1000) : null,
-      })),
-    });
+    return res.json(await draaiboekFileOf(callSheet));
   } catch (err) {
+    return next(err);
+  }
+});
+
+// POST /api/production/callsheets/:callSheetId/save-as-template: the draaiboek as a new draaiboek template, without a file
+const SaveAsTemplateSchema = z.object({name: z.string().trim().min(1, 'Geef het template een naam').max(200)});
+productionCallsheetFilesRouter.post('/callsheets/:callSheetId/save-as-template', async (req, res, next) => {
+  try {
+    const callSheetId = callSheetIdOf(req.params.callSheetId);
+    if (!callSheetId) return res.status(400).json({error: 'Ongeldig callsheet-id'});
+    const parsed = SaveAsTemplateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({error: parsed.error.issues[0]?.message ?? 'Ongeldige invoer'});
+    const callSheet = await loadCallSheet(callSheetId);
+    if (!callSheet) return res.status(404).json({error: 'Draaiboek niet gevonden'});
+    const template = await createTemplateFromDraaiboek(parsed.data.name, await draaiboekFileOf(callSheet));
+    return res.status(201).json({id: template.id, name: template.name});
+  } catch (err) {
+    if ((err as {code?: string})?.code === 'P2002') return res.status(409).json({error: 'Er bestaat al een template met deze naam'});
     return next(err);
   }
 });

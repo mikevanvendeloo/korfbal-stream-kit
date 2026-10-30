@@ -234,6 +234,7 @@ const ROUTES: Record<string, Probe> = {
   'POST /api/production/callsheet/set-active/:id': {write: (a) => `/api/production/callsheet/set-active/${a.eventId}`, body: (a) => ({productionId: a.productionId})},
   'POST /api/production/callsheet/update-scoreboard-time': LIVE,
   'POST /api/production/callsheets/:callSheetId/import-json': {write: (a) => `/api/production/callsheets/${a.callSheetId}/import-json`, body: () => ({version: 2, items: [{title: 'Overgenomen', durationSec: 10}]})},
+  'POST /api/production/callsheets/:callSheetId/save-as-template': {write: (a) => `/api/production/callsheets/${a.callSheetId}/save-as-template`, body: () => ({name: 'Overgenomen template'})},
   'POST /api/production/callsheets/:callSheetId/calculate-times': {write: (a) => `/api/production/callsheets/${a.callSheetId}/calculate-times`},
   'POST /api/production/callsheets/:callSheetId/items': {write: (a) => `/api/production/callsheets/${a.callSheetId}/items`, body: () => ({id: 'leak-b-item', cue: 'X', title: 'Overgenomen', durationSec: 10, orderIndex: 9})},
   'POST /api/production/callsheets/:callSheetId/sync-to-events': {write: (a) => `/api/production/callsheets/${a.callSheetId}/sync-to-events`},

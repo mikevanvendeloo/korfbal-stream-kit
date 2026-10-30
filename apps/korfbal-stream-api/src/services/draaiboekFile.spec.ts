@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {layOutTimes, planDraaiboekImport} from './draaiboekFile';
+import {draaiboekFromProductionExport, layOutTimes, planDraaiboekImport} from './draaiboekFile';
 import type {DraaiboekFile} from '../schemas/draaiboekFile';
 
 const item = (title: string, extra: Partial<DraaiboekFile['items'][number]> = {}) => ({cue: '', title, durationSec: 60, ...extra});
@@ -57,5 +57,30 @@ describe('layOutTimes', () => {
     const times = layOutTimes([row(60, null, -300), row(60)], {kickoff, liveStart});
     expect(times[0].timeStart?.toISOString()).toBe('2026-11-14T19:25:00.000Z');
     expect(times[1]).toEqual({timeStart: null, timeEnd: null});
+  });
+});
+
+describe('draaiboekFromProductionExport', () => {
+  it('takes the draaiboek of a whole production export, with each item\'s hoofdstuk by name', () => {
+    const file = draaiboekFromProductionExport({
+      version: 1,
+      chapters: [{name: 'Rust', orderIndex: 2, minDurationSec: 600}, {name: 'Voorbeschouwing', orderIndex: 1, minDurationSec: null}],
+      callSheets: [{name: 'Korfbal League', items: [
+        {id: 'b', title: 'Rustinterview', orderIndex: 1, chapterOrderIndex: 2},
+        {id: 'a', title: 'Opening', orderIndex: 0, chapterOrderIndex: 1, isInVenue: true},
+      ]}],
+    });
+    expect(file?.name).toBe('Korfbal League');
+    expect(file?.chapters).toEqual([{name: 'Voorbeschouwing', minDurationSec: null}, {name: 'Rust', minDurationSec: 600}]);
+    expect(file?.items).toEqual([
+      {id: 'a', title: 'Opening', orderIndex: 0, isInVenue: true, chapter: 'Voorbeschouwing'},
+      {id: 'b', title: 'Rustinterview', orderIndex: 1, chapter: 'Rust'},
+    ]);
+  });
+
+  it('leaves a draaiboek file and anything else alone', () => {
+    expect(draaiboekFromProductionExport({version: 2, items: [], callSheets: []})).toBeNull();
+    expect(draaiboekFromProductionExport({callSheets: [{name: 'x'}]})).toBeNull();
+    expect(draaiboekFromProductionExport(null)).toBeNull();
   });
 });
