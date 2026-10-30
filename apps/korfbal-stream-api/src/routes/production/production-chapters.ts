@@ -16,8 +16,8 @@ const positiveId = (value: string) => {
   return Number.isInteger(id) && id > 0 ? id : null;
 };
 
-const chapterJson = ({id, productionId, name, orderIndex}: {id: number; productionId: number; name: string; orderIndex: number}) =>
-  ({id, productionId, name, orderIndex});
+const chapterJson = ({id, productionId, name, orderIndex, minDurationSec}: {id: number; productionId: number; name: string; orderIndex: number; minDurationSec: number | null}) =>
+  ({id, productionId, name, orderIndex, minDurationSec});
 
 // GET /api/production/:id/chapters: the hoofdstukken in order
 productionChaptersRouter.get('/:id/chapters', async (req, res, next) => {
@@ -32,30 +32,30 @@ productionChaptersRouter.get('/:id/chapters', async (req, res, next) => {
   }
 });
 
-// POST /api/production/:id/chapters {name}: a new hoofdstuk at the end
+// POST /api/production/:id/chapters {name, minDurationSec?}: a new hoofdstuk at the end
 productionChaptersRouter.post('/:id/chapters', async (req, res, next) => {
   try {
     const productionId = positiveId(req.params.id);
     if (!productionId) return res.status(400).json({error: 'Ongeldig productie-id'});
-    const {name} = ChapterCreateSchema.parse(req.body);
+    const {name, minDurationSec} = ChapterCreateSchema.parse(req.body);
     const production = await prisma.production.findUnique({where: {id: productionId}, include: {chapters: {select: {orderIndex: true}}}});
     if (!production) return res.status(404).json({error: 'Productie niet gevonden'});
     const orderIndex = Math.max(0, ...production.chapters.map((c) => c.orderIndex)) + 1;
-    return res.status(201).json(chapterJson(await prisma.productionChapter.create({data: {productionId, name, orderIndex}})));
+    return res.status(201).json(chapterJson(await prisma.productionChapter.create({data: {productionId, name, orderIndex, minDurationSec: minDurationSec ?? null}})));
   } catch (err) {
     return next(err);
   }
 });
 
-// PUT /api/production/chapters/:chapterId {name}: rename
+// PUT /api/production/chapters/:chapterId {name?, minDurationSec?}: rename and/or the Minimale duur (null = none)
 productionChaptersRouter.put('/chapters/:chapterId', async (req, res, next) => {
   try {
     const chapterId = positiveId(req.params.chapterId);
     if (!chapterId) return res.status(400).json({error: 'Ongeldig hoofdstuk-id'});
-    const {name} = ProductionChapterUpdateSchema.parse(req.body);
+    const {name, minDurationSec} = ProductionChapterUpdateSchema.parse(req.body);
     const chapter = await prisma.productionChapter.findUnique({where: {id: chapterId}});
     if (!chapter) return res.status(404).json({error: 'Hoofdstuk niet gevonden'});
-    return res.json(chapterJson(await prisma.productionChapter.update({where: {id: chapterId}, data: {name}})));
+    return res.json(chapterJson(await prisma.productionChapter.update({where: {id: chapterId}, data: {name, minDurationSec}})));
   } catch (err) {
     return next(err);
   }

@@ -21,26 +21,26 @@ async function assertPositionsExist(positionIds: number[]) {
   if (found !== new Set(positionIds).size) throw new NotFoundError('Positie niet gevonden');
 }
 
-// POST /api/callsheets/templates/:id/chapters {name}: a new hoofdstuk at the end
+// POST /api/callsheets/templates/:id/chapters {name, minDurationSec?}: a new hoofdstuk at the end
 callSheetTemplateChaptersRouter.post('/:id/chapters', async (req, res, next) => {
   try {
     const templateId = positiveId(req.params.id);
     if (!templateId) return res.status(400).json({error: 'Ongeldig template-id'});
-    const {name} = ChapterCreateSchema.parse(req.body);
+    const {name, minDurationSec} = ChapterCreateSchema.parse(req.body);
     const template = await prisma.callSheetTemplate.findUnique({where: {id: templateId}, include: {chapters: {select: {orderIndex: true}}}});
     if (!template) return res.status(404).json({error: 'Template niet gevonden'});
     const orderIndex = Math.max(-1, ...template.chapters.map((c) => c.orderIndex)) + 1;
-    const chapter = await prisma.callSheetTemplateChapter.create({data: {templateId, name, orderIndex}, include: {positions: true}});
+    const chapter = await prisma.callSheetTemplateChapter.create({data: {templateId, name, orderIndex, minDurationSec: minDurationSec ?? null}, include: {positions: true}});
     return res.status(201).json(chapter);
   } catch (err) {
     return next(err);
   }
 });
 
-// PUT /api/callsheets/templates/chapters/:chapterId {name?, positionIds?}: rename, and/or the standard positions in order
+// PUT /api/callsheets/templates/chapters/:chapterId {name?, positionIds?, minDurationSec?}: rename, the standard positions in order, the Minimale duur (null = none)
 callSheetTemplateChaptersRouter.put('/chapters/:chapterId', async (req, res, next) => {
   try {
-    const {name, positionIds} = TemplateChapterUpdateSchema.parse(req.body);
+    const {name, positionIds, minDurationSec} = TemplateChapterUpdateSchema.parse(req.body);
     const chapterId = req.params.chapterId;
     const chapter = await prisma.callSheetTemplateChapter.findUnique({where: {id: chapterId}});
     if (!chapter) return res.status(404).json({error: 'Hoofdstuk niet gevonden'});
@@ -52,7 +52,7 @@ callSheetTemplateChaptersRouter.put('/chapters/:chapterId', async (req, res, nex
       }
       return tx.callSheetTemplateChapter.update({
         where: {id: chapterId},
-        data: name === undefined ? {} : {name},
+        data: {name, minDurationSec},
         include: {positions: {orderBy: {orderIndex: 'asc'}, include: {position: true}}},
       });
     });
@@ -153,7 +153,7 @@ callSheetTemplateChaptersRouter.post('/from-callsheet/:callSheetId', async (req,
       for (const [orderIndex, source] of callSheet.production.chapters.entries()) {
         const positions = sourceChapters.find((c) => c.name === source.name)?.positions ?? [];
         const chapter = await tx.callSheetTemplateChapter.create({
-          data: {templateId: created.id, name: source.name, orderIndex, positions: {create: positions.map((p) => ({positionId: p.positionId, orderIndex: p.orderIndex}))}},
+          data: {templateId: created.id, name: source.name, orderIndex, minDurationSec: source.minDurationSec, positions: {create: positions.map((p) => ({positionId: p.positionId, orderIndex: p.orderIndex}))}},
         });
         chapterOf.set(source.id, chapter.id);
       }

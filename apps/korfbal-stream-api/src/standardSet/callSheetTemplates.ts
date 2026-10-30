@@ -4,7 +4,7 @@ import type {StandardCallSheetTemplate} from './types';
 export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
   {
     name: "Alleen wedstrijd",
-    chapters: [{name: "Eerste helft"}, {name: "Rust"}, {name: "Tweede helft"}],
+    chapters: [{name: "Eerste helft", minDurationSec: 2100}, {name: "Rust", minDurationSec: 600}, {name: "Tweede helft", minDurationSec: 2100}],
     items: [
       {
         title: "Wedstrijd (1e helft)",
@@ -58,9 +58,9 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
       {name: "Voorbereiding"},
       {name: "Voorbeschouwing"},
       {name: "Oplopen"},
-      {name: "Eerste helft"},
-      {name: "Rust"},
-      {name: "Tweede helft"},
+      {name: "Eerste helft", minDurationSec: 2100},
+      {name: "Rust", minDurationSec: 600},
+      {name: "Tweede helft", minDurationSec: 2100},
       {name: "Nabeschouwing"},
     ],
     items: [

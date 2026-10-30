@@ -13,7 +13,7 @@ import {findPositionByName, positionKey, SHOWCALLER_POSITION} from '../../domain
 import {findOrCreatePosition} from '../../services/positions';
 import {excelCellToDate, parseInstant, parseOptionalInstant} from '../../utils/time';
 import {productionItemChapter} from './production-chapters';
-import {chapterKey} from '../../services/draaiboekFile';
+import {chapterKey, chapterMinimums, layOutTimes} from '../../services/draaiboekFile';
 
 export const productionCallsheetsRouter: Router = Router();
 
@@ -101,7 +101,8 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/calculate-times', asyn
       include: {
         production: {
           include: {
-            matchSchedule: true
+            matchSchedule: true,
+            chapters: {select: {id: true, minDurationSec: true}},
           }
         },
         items: {
@@ -117,64 +118,13 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/calculate-times', asyn
 
     logger.info(`Calculating times for callsheet ${callSheetId}. Match start: ${matchStartTime.toISOString()}, Live start: ${liveStartTime.toISOString()}`);
 
-    // Find anchor item
-    const anchorItem = cs.items.find(it => it.isTimeAnchor);
-    if (!anchorItem) {
+    if (!cs.items.some((it) => it.isTimeAnchor)) {
       return res.status(400).json({ error: 'No time anchor found in callsheet' });
     }
 
-    let anchorTime: Date;
-    if (anchorItem.anchorType === 'MATCH_START') {
-      anchorTime = matchStartTime;
-    } else if (anchorItem.anchorType === 'LIVESTREAM_START') {
-      anchorTime = liveStartTime;
-    } else {
-      anchorTime = matchStartTime; // Default to match start
-    }
-
-    logger.info(`Anchor found: "${anchorItem.title}" (${anchorItem.id}), type: ${anchorItem.anchorType}, time: ${anchorTime.toISOString()}`);
-
-    // Calculate times relative to anchor
-    // We assume items are in order.
-    // The anchor item starts at anchorTime.
-    // Items before the anchor are calculated backwards.
-    // Items after the anchor are calculated forwards.
-
-    const anchorIndex = cs.items.findIndex(it => it.id === anchorItem.id);
-
-    const updates = [];
-
-    // Current item time
-    let currentTime = new Date(anchorTime);
-
-    // Anchor and forwards
-    for (let i = anchorIndex; i < cs.items.length; i++) {
-      const it = cs.items[i];
-      const timeStart = new Date(currentTime);
-      const timeEnd = new Date(timeStart.getTime() + (it.durationSec || 0) * 1000);
-
-      updates.push(prisma.callSheetItem.update({
-        where: { id: it.id },
-        data: { timeStart, timeEnd }
-      }));
-
-      currentTime = new Date(timeEnd);
-    }
-
-    // Backwards from anchor
-    currentTime = new Date(anchorTime);
-    for (let i = anchorIndex - 1; i >= 0; i--) {
-      const it = cs.items[i];
-      const timeEnd = new Date(currentTime);
-      const timeStart = new Date(timeEnd.getTime() - (it.durationSec || 0) * 1000);
-
-      updates.push(prisma.callSheetItem.update({
-        where: { id: it.id },
-        data: { timeStart, timeEnd }
-      }));
-
-      currentTime = new Date(timeStart);
-    }
+    // Every anchor at its own time, Zaal and Stream as parallel lanes, a hoofdstuk at least its minimum
+    const times = layOutTimes(cs.items, {kickoff: matchStartTime, liveStart: liveStartTime, chapterMinimums: chapterMinimums(cs.production.chapters)});
+    const updates = cs.items.map((it, i) => prisma.callSheetItem.update({where: {id: it.id}, data: times[i]}));
 
     logger.info(`Updated ${updates.length} items for callsheet ${callSheetId}`);
 

@@ -1,7 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {render, screen, within} from '@testing-library/react';
 import {CallSheetColumn} from './CallSheetColumn';
-import {CAMERA, REGIE, showItems} from '../test/showCaller';
+import {CAMERA, LED, REGIE, remaining, rustHallDone, rustItems, showItems} from '../test/showCaller';
 
 vi.mock('../hooks/useFontSize', () => ({useFontSize: () => ({fontSize: 'm'})}));
 
@@ -76,5 +76,31 @@ describe('CallSheetColumn hoofdstukken', () => {
     expect(headings).toEqual(['Voorbeschouwing', 'Rust— niets voor jou']);
     expect(screen.getByRole('status').textContent).toContain('Shots zaal');
     expect(screen.getByRole('status').textContent).toContain('· Voorbeschouwing');
+  });
+});
+
+describe('CallSheetColumn: the hall item next to the stream', () => {
+  const slots = rustItems.map((e) => `${e.calculatedTime.toISOString()}#0`);
+
+  it('shows the running hall item as active with its own countdown, and no wait row for the LED', () => {
+    render(
+      <CallSheetColumn title="LED" positionId={LED.id} items={rustItems} activeEvent={rustItems[2]} activeEventRemainingTime={remaining(90)}
+                       activeVenueEvent={rustItems[1]} activeVenueRemainingTime={remaining(75)}
+                       autoAdvanceEventId={null} elapsedTime={0} allTimes={slots} allPositions={[REGIE, LED]}
+                       onPositionChange={() => undefined} secondaryPositionId={null} accentColor="blue" isCompact/>
+    );
+    const led = document.getElementById('event-r2') as HTMLElement;
+    expect(led.className).toContain('bg-green');
+    expect(led.textContent).toContain('1:15');
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('waits for the samenkomstpunt once the hall lane is done', () => {
+    render(
+      <CallSheetColumn title="LED" positionId={LED.id} items={rustHallDone} activeEvent={rustHallDone[4]} activeVenueEvent={null}
+                       autoAdvanceEventId={null} elapsedTime={0} allTimes={slots} allPositions={[REGIE, LED]}
+                       onPositionChange={() => undefined} secondaryPositionId={null} accentColor="blue" isCompact/>
+    );
+    expect(within(screen.getByRole('status')).getByText(/Volgende:/).textContent).toContain('Start tweede helft');
   });
 });

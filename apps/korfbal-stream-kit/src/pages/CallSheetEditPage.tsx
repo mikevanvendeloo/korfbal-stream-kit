@@ -15,7 +15,8 @@ import {useQueryClient} from '@tanstack/react-query';
 import ChapterBoard from '../components/ChapterBoard';
 import DraaiboekItem, {DraaiboekItemData} from '../components/DraaiboekItem';
 import {appendItem, buildStructure} from '../lib/chapterStructure';
-import {addProductionChapter, deleteProductionChapter, renameProductionChapter, saveCallSheetStructure} from '../lib/chaptersApi';
+import {addProductionChapter, deleteProductionChapter, renameProductionChapter, saveCallSheetStructure, updateProductionChapter} from '../lib/chaptersApi';
+import {parallelLanes} from '../lib/lanes';
 import {usePositionsCatalog} from '../hooks/usePositions';
 import {adminPaths} from '../lib/adminPaths';
 import {formatTime} from '../lib/time';
@@ -56,6 +57,14 @@ export default function CallSheetEditPage() {
     [chapters.data, data],
   );
   const items = React.useMemo(() => (data?.items ?? []).map(asItem), [data]);
+  // The lane edge of items that run next to the other lane (openspec/changes/parallel-lanes D5)
+  const lanes = React.useMemo(() => {
+    const byId = new Map((data?.items ?? []).map((it) => [it.id, it]));
+    return parallelLanes(structure.flatMap((c) => c.itemIds.flatMap((id) => {
+      const it = byId.get(id);
+      return it ? [{id: it.id, chapterId: c.id, isTimeAnchor: !!it.isTimeAnchor, isInVenue: !!it.isInVenue, isInLivestream: it.isInLivestream !== false}] : [];
+    })));
+  }, [structure, data]);
   const parentOptions = items.map((it) => ({id: it.id, label: it.cue ? `${it.cue}: ${it.title}` : it.title}));
   const chapterSubtitle = (chapterId: number) => {
     const t = timing.data?.find((c) => c.id === chapterId);
@@ -173,7 +182,10 @@ export default function CallSheetEditPage() {
         </div>
       )}
       <ChapterBoard
-        chapters={(chapters.data ?? []).map((c) => ({id: c.id, name: c.name, subtitle: chapterSubtitle(c.id)}))}
+        chapters={(chapters.data ?? []).map((c) => ({
+          id: c.id, name: c.name, subtitle: chapterSubtitle(c.id), minDurationSec: c.minDurationSec ?? null,
+          overrunSec: timing.data?.find((t) => t.id === c.id)?.overrunSec ?? 0,
+        }))}
         items={items}
         structure={structure}
         itemLabel={(it) => it.title}
@@ -181,6 +193,7 @@ export default function CallSheetEditPage() {
         onAddItem={handleAddItem}
         onAddChapter={(name) => run(() => addProductionChapter(productionId, name))}
         onRenameChapter={(chapterId, name) => run(() => renameProductionChapter(chapterId, name))}
+        onChangeMinimum={(chapterId, minDurationSec) => run(() => updateProductionChapter(chapterId, {minDurationSec}))}
         onDeleteChapter={(chapterId, without) => run(async () => {
           // Items first to their new hoofdstuk (the structure lists every hoofdstuk), then the empty one away
           await saveCallSheetStructure(callSheetId, [...without, {id: chapterId, itemIds: []}]);
@@ -192,6 +205,7 @@ export default function CallSheetEditPage() {
             handle={handle}
             positions={positions}
             fixedPositionIds={showcallerId ? [showcallerId] : []}
+            lane={lanes.get(item.id)}
             parentOptions={parentOptions}
             open={openItem === item.id}
             onOpen={() => setOpenItem(item.id)}

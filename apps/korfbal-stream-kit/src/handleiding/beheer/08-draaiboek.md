@@ -22,7 +22,7 @@ Kies bij **Draaiboek (CallSheet Template)** een draaiboek-template en klik op **
 
 ## Hoofdstukken
 
-Onder **Hoofdstukken** zie je de hoofdstukken van het draaiboek met hun begin, einde en duur. Die tijden volgen uit de items in elk hoofdstuk (zie [Draaiboek-templates](/admin/handleiding/draaiboek-templates#hoofdstukken)). Hoofdstukken en items wijzig je via **Bewerk Draaiboek**.
+Onder **Hoofdstukken** zie je de hoofdstukken van het draaiboek met hun begin, einde en duur. Die tijden volgen uit de items in elk hoofdstuk, met Zaal en Stream naast elkaar en de minimale duur (zie [Draaiboek-templates](/admin/handleiding/draaiboek-templates#hoofdstukken)). Hoofdstukken en items wijzig je via **Bewerk Draaiboek**. Toepassen van een template neemt de **Minimale duur** van de hoofdstukken mee.
 
 Met het **diskette-icoon** bewaar je het draaiboek van deze productie als nieuwe draaiboek-template, met de hoofdstukken, items en de standaardbezetting per hoofdstuk (de naam moet uniek zijn).
 
@@ -42,12 +42,30 @@ De knoppen werken pas als de productie een draaiboek heeft (kies eerst een draai
 
 Met **Bewerk Draaiboek** open je het draaiboek van deze productie, in hoofdstukken, net als bij een [draaiboek-template](/admin/handleiding/draaiboek-templates#hoofdstukken): sleep items binnen en tussen hoofdstukken, of een heel hoofdstuk; voeg hoofdstukken toe, hernoem of verwijder ze. De hoofdstukken horen bij de productie; de volgorde geldt na **PAS TOE OP LIVE VIEW** ook in LIVE. Staat er **Hoofdstukken automatisch ingedeeld — controleer de indeling**, kijk de indeling dan na en klik op **Indeling klopt**. Elk item staat op één regel met zijn berekende begintijd, de **cue**, de titel, labels en de posities; klik op een regel om de cue, titel, notitie, duur, **Zaal**/**Stream**, **Auto**, het tijdanker, de koppeling en de posities te wijzigen, en druk op **Opslaan** (net als bij een [draaiboek-template](/admin/handleiding/draaiboek-templates#items)). Een nieuw item maak je met **+** in de kop van een hoofdstuk: het komt achteraan in dat hoofdstuk en opent meteen.
 
-- **Tijden herberekenen** rekent alle tijden opnieuw uit vanaf het tijdanker: bij *Start wedstrijd* vanaf de aanvang, bij *Start livestream* vanaf de livestream-start.
+- **Tijden herberekenen** rekent alle tijden opnieuw uit vanaf de tijdankers. Een anker *Start livestream* begint op de livestream-start, een anker *Start wedstrijd* altijd op de aanvangstijd. De items daartussen volgen elkaar op vanaf de livestream-start, met Zaal en Stream als [twee banen naast elkaar](#zaal-en-stream-parallel) en elk hoofdstuk minstens zijn [minimale duur](#minimale-duur); is er tijd over of loopt het uit, dan valt dat vlak vóór *Start wedstrijd*. Je kunt van elke soort één anker hebben.
 - **PAS TOE OP LIVE VIEW** zet het bewerkte draaiboek door naar LIVE.
 
 > **Wijzigingen in de callsheet zijn pas in LIVE te zien na PAS TOE OP LIVE VIEW.** Die knop vervangt wel alles wat er in LIVE al is gebeurd, dus gebruik hem niet tijdens of na de uitzending.
 >
 > Heeft het draaiboek geen tijdanker, dan doet *Tijden herberekenen* niets en zie je geen melding.
+
+### Minimale duur
+
+In de kop van elk hoofdstuk staat **Minimale duur** (minuten:seconden, bijvoorbeeld `10:00`; leeg = zo lang als de items). Het volgende hoofdstuk begint niet eerder dan het begin van dit hoofdstuk plus de minimale duur. Lopen de items langer, dan staat er *loopt m:ss langer dan de minimale duur*. Een gewijzigde minimale duur telt mee bij de hoofdstuktijden; klik op **Tijden herberekenen** om ook de begintijden van de items bij te werken. Meer uitleg bij [Draaiboek-templates](/admin/handleiding/draaiboek-templates#minimale-duur).
+
+### Zaal en Stream: parallel
+
+Een item met alleen **Zaal** loopt in de zaalbaan, een item met alleen **Stream** in de streambaan; die lopen tegelijk. Een item met **Zaal én Stream** (of geen van beide), een tijdanker en het begin van een hoofdstuk zijn samenkomstpunten: daar komen de banen samen. Items die naast de andere baan lopen, hebben links een **groene** (zaal) of **blauwe** (stream) rand.
+
+Voorbeeld, de rust: na *Speaker kondigt rust aan* (zaal én stream) loopt in de zaal *Reclame LED*, *Reclame* en *Statistieken*, en tegelijk in de stream *Commentatoren*, *Analyse eerste helft* en *Reclame*. Beide komen samen bij *Start tweede helft*, als de langste baan klaar is en niet eerder dan de minimale duur van de rust.
+
+**In LIVE volgt Volgend de stream.** Heeft een stuk tussen twee samenkomstpunten geen stream-items, dan volgt **Volgend** de zaal:
+
+- **Voorbereiding**: alleen checks in de zaal, dus **Volgend** gaat langs elk item;
+- **Rust**: beide banen; **Volgend** gaat langs de stream-items en de zaal loopt vanzelf mee (met **Zaal ›** een stap verder);
+- **na de stream**, bijvoorbeeld een prijsuitreiking alleen in de zaal: **Volgend** gaat weer langs de zaal-items.
+
+Een item met **Auto** gaat nog steeds vanzelf door als zijn tijd om is. De uitgebreide uitleg staat bij [Draaiboek-templates](/admin/handleiding/draaiboek-templates#zaal-en-stream-parallel).
 
 ## Interviewnamen in titels
 

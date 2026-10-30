@@ -13,6 +13,7 @@ import {ShowCallerPhone} from "./ShowCallerPhone";
 import {InterviewPhotosToggle} from "./InterviewPhotosToggle";
 import {chapterTimes, currentChapter, minutesSeconds} from "../lib/liveChapters";
 import {formatTime} from "../lib/time";
+import {blockIndexes, hallLaneState, parallelLanes} from "../lib/lanes";
 
 // Helper om een naam om te zetten naar een URL-vriendelijke slug
 const toSlug = (name: string) => {
@@ -36,7 +37,9 @@ export const ShowCallerView = () => {
     isLoading, error,
     autoAdvanceEventId,
     isConnected,
-    timeSinceLastSync
+    timeSinceLastSync,
+    activeVenueEventId = null,
+    activeVenueRemainingTime = null,
   } = useLiveState();
 
   const {fontSize, setFontSize} = useFontSize();
@@ -143,37 +146,62 @@ export const ShowCallerView = () => {
     const timedItems = calculateEventTimes(allItems);
     if (!timedItems.length) return [];
 
+    const ordered = [...timedItems].sort((a, b) => a.order - b.order);
+    // Zaal and Stream as parallel lanes (openspec/changes/parallel-lanes D1): the items of one block side by side
+    const laneOfItem = parallelLanes(ordered);
+    const blocks = blockIndexes(ordered);
+    const blockOf = new Map(ordered.map((e, i) => [e.id, blocks[i]]));
+
     // Pak alleen de 'hoofd' items (geen parent) en sorteer op 'order'
-    const mainTrack = timedItems
-      .filter(e => !e.parentId)
-      .sort((a, b) => a.order - b.order);
+    const mainTrack = ordered.filter(e => !e.parentId);
 
-    return mainTrack.map(mainEvent => {
+    type Row = {
+      mainEvent: typeof ordered[number];
+      linked: typeof ordered;
+      isBoth: boolean;
+      /** A parallel block: every item sits in the column of its lane (the main event too) */
+      lanes: boolean;
+      block: number | undefined;
+      streamItems: typeof ordered;
+      venueItems: typeof ordered;
+    };
+    const result: Row[] = [];
+    for (const mainEvent of mainTrack) {
       // Zoek alle items die aan dit hoofd-item gekoppeld zijn
-      const linked = timedItems.filter(e => e.parentId === mainEvent.id);
-
-      // Check of het hoofditem voor beide is, of specifiek voor één track
-      const isBoth = mainEvent.isInLivestream && mainEvent.isInVenue;
-
+      const linked = ordered.filter(e => e.parentId === mainEvent.id);
       // Filter linked items op kolom
       const linkedStream = linked.filter(e => e.isInLivestream);
       const linkedVenue = linked.filter(e => e.isInVenue);
-
-      return {
+      const lane = laneOfItem.get(mainEvent.id);
+      const block = blockOf.get(mainEvent.id);
+      const previous = result[result.length - 1];
+      if (lane && previous?.lanes && previous.block === block) {
+        previous.linked.push(mainEvent, ...linked);
+        (lane === 'ZAAL' ? previous.venueItems : previous.streamItems).push(mainEvent);
+        previous.venueItems.push(...linkedVenue);
+        previous.streamItems.push(...linkedStream);
+        continue;
+      }
+      result.push({
         mainEvent,
-        linked,
-        isBoth,
+        linked: [...linked],
+        // Check of het hoofditem voor beide is, of specifiek voor één track
+        isBoth: mainEvent.isInLivestream && mainEvent.isInVenue,
+        lanes: !!lane,
+        block,
         // Items voor de respectievelijke kolommen als het niet 'Both' is
-        streamItems: linkedStream,
-        venueItems: linkedVenue,
-        // De visuele hoogte van deze rij
-        maxDuration: Math.max(
-          mainEvent.durationSec || 0,
-          ...linked.map(c => c.durationSec || 0)
-        )
-      };
-    });
+        streamItems: lane === 'STREAM' ? [mainEvent, ...linkedStream] : linkedStream,
+        venueItems: lane === 'ZAAL' ? [mainEvent, ...linkedVenue] : linkedVenue,
+      });
+    }
+    return result;
   }, [allItems]);
+  const lane = useMemo(() => hallLaneState(allItems, activeEvent?.id ?? null, activeVenueEventId), [allItems, activeEvent?.id, activeVenueEventId]);
+  const venueEvent = lane.running;
+  const venueRunning = venueEvent ? {id: venueEvent.id, remainingSec: activeVenueRemainingTime?.rawSeconds ?? null} : null;
+  // The active item and the hall item next to it both count down
+  const isOn = (id: string) => id === activeEvent?.id || id === activeVenueEventId;
+  const remainingFor = (id: string) => id === activeEvent?.id ? activeEventRemainingTime : id === activeVenueEventId ? activeVenueRemainingTime : null;
 
   // Hoofdstukken (openspec/changes/chapters D5): headings with their planned times; not steps
   const plannedChapters = useMemo(() => chapterTimes(calculateEventTimes(allItems), chapters), [allItems, chapters]);
@@ -189,7 +217,7 @@ export const ShowCallerView = () => {
   };
 
   // The hoofdstuk that runs now, with the time it still takes (the rest of this item plus the later ones)
-  const current = currentChapter(allItems, activeEvent?.id ?? null, activeEventRemainingTime?.rawSeconds ?? null, chapters);
+  const current = currentChapter(allItems, activeEvent?.id ?? null, activeEventRemainingTime?.rawSeconds ?? null, chapters, venueRunning);
   const startsChapter = (idx: number) => {
     const chapterId = rows[idx].mainEvent.chapterId;
     return chapterId != null && chapterId !== rows[idx - 1]?.mainEvent.chapterId;
@@ -223,15 +251,17 @@ export const ShowCallerView = () => {
         isRelevant={isRelevantForMe}
         controls={controls}
         chapters={chapters}
+        activeVenueEventId={activeVenueEventId}
+        venueRemaining={activeVenueRemainingTime}
       />
     );
   }
 
   // Interview photos only at the current and the next item (what Next makes active, as on the phone)
-  const inShowOrder = [...allItems].sort((a, b) => a.order - b.order);
-  const activeIndex = inShowOrder.findIndex((e) => e.id === activeEvent?.id);
-  const nextEventId = (activeIndex >= 0 ? inShowOrder[activeIndex + 1] : inShowOrder[0])?.id ?? null;
-  const photosAt = (id: string) => id === activeEvent?.id || id === nextEventId;
+  const nextEventId = lane.streamNext?.id ?? null;
+  const photosAt = (id: string) => isOn(id) || id === nextEventId;
+  // Volgend goes on to a samenkomstpunt while the hall item still runs: pressing it ends that item
+  const hallBusy = lane.endsHallItem ? `Zaal nog ${minutesSeconds(activeVenueRemainingTime?.rawSeconds ?? 0)} bezig` : null;
 
   return (
     <div className="bg-white dark:bg-gray-950 min-h-screen text-gray-900 dark:text-white flex flex-col font-sans selection:bg-blue-500/30">
@@ -465,6 +495,22 @@ export const ShowCallerView = () => {
             <div className="flex items-center gap-3 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
               <Spotlight className="w-4 h-4 text-emerald-600 dark:text-emerald-500"/>
               <h2 className="text-sm font-black uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-400">Zaal draaiboek</h2>
+              {/* The hall lane runs by itself next to the stream; Zaal › moves it on by hand (parallel-lanes D4) */}
+              {activeEvent && (venueEvent || lane.done || lane.canAdvance) && (
+                <div aria-label="Zaal" className="ml-auto flex min-w-0 items-center gap-2 text-sm text-emerald-800 dark:text-emerald-200">
+                  <span className="truncate">
+                    {venueEvent
+                      ? <>{venueEvent.title} · <span className="font-mono tabular-nums">nog {minutesSeconds(activeVenueRemainingTime?.rawSeconds ?? 0)}</span></>
+                      : lane.done ? `Zaal klaar · volgende: ${lane.afterBlock?.title ?? 'einde'}` : 'Zaal wacht'}
+                  </span>
+                  {lane.canAdvance && (
+                    <button type="button" onClick={controls.venueNext} disabled={isProcessing} aria-label="Zaal ›" title="Zaal: naar het volgende zaalitem"
+                            className="shrink-0 rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-30">
+                      Zaal ›
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <div className="col-span-6">
@@ -480,6 +526,11 @@ export const ShowCallerView = () => {
             <span className="font-mono tabular-nums">· nog {minutesSeconds(current.remainingSec)}</span>
           </div>
         )}
+        {hallBusy && (
+          <div role="note" aria-label="Volgend" className="mx-auto mt-2 w-fit rounded-full border border-amber-400 bg-amber-50 px-4 py-1 text-sm font-semibold text-amber-900 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-200">
+            Volgend: {hallBusy}
+          </div>
+        )}
         {controls.error && (
           <button type="button" role="alert" onClick={controls.clearError}
                   className="mx-auto mt-2 block rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-3 py-1.5 text-sm">
@@ -493,7 +544,7 @@ export const ShowCallerView = () => {
         <div className="space-y-8">
           {rows.map((row, idx) => {
             const isMainActive = activeEvent?.id === row.mainEvent.id;
-            const isAnyLinkedActive = row.linked.some(l => l.id === activeEvent?.id);
+            const isAnyLinkedActive = row.linked.some(l => isOn(l.id));
             const isRowActive = isMainActive || isAnyLinkedActive;
 
             const isMainRelevant = isRelevantForMe(row.mainEvent);
@@ -538,7 +589,7 @@ export const ShowCallerView = () => {
                   <div className="grid grid-cols-12 gap-4">
                     {/* LINKER KOLOM: Venue */}
                     <div className="col-span-6 space-y-4">
-                      {row.mainEvent.isInVenue && (
+                      {!row.lanes && row.mainEvent.isInVenue && (
                         <CallSheetItem
                           item={row.mainEvent}
                           showInterviewPhotos={photosAt(row.mainEvent.id)}
@@ -551,7 +602,7 @@ export const ShowCallerView = () => {
                         />
                       )}
                       {row.venueItems.map(item => {
-                        const isActive = activeEvent?.id === item.id;
+                        const isActive = isOn(item.id);
                         const isRelevant = isRelevantForMe(item);
 
                         if (isFocusMode && !isRelevant && !isActive) return null;
@@ -564,14 +615,20 @@ export const ShowCallerView = () => {
                             isActive={isActive}
                             isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
                             elapsedTime={activeEventElapsedTime}
-                            remainingTimeDisplay={isActive ? activeEventRemainingTime : null}
+                            remainingTimeDisplay={remainingFor(item.id)}
                             hideStreamVenueLabels={true}
                             isVenueItem={true}
                           />
                         );
                       })}
+                      {/* The hall lane of the running block is done: it waits for the samenkomstpunt */}
+                      {row.lanes && lane.done && row.block !== undefined && row.block === lane.blockOf.get(activeEvent?.id ?? '') && (
+                        <div role="status" className="rounded-lg border-2 border-dashed border-emerald-500/60 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 text-emerald-900 dark:text-emerald-100 font-semibold min-w-0 truncate">
+                          Zaal klaar · volgende: {lane.afterBlock?.title ?? 'einde'}
+                        </div>
+                      )}
                       {/* Indien leeg in deze kolom voor deze rij */}
-                      {!row.mainEvent.isInVenue && row.venueItems.filter(item => !isFocusMode || isRelevantForMe(item) || activeEvent?.id === item.id).length === 0 && (
+                      {!row.mainEvent.isInVenue && row.venueItems.filter(item => !isFocusMode || isRelevantForMe(item) || isOn(item.id)).length === 0 && (
                         <div
                           className="h-full min-h-[100px] border-2 border-dashed border-emerald-500/10 dark:border-emerald-500/5 rounded-lg flex items-center justify-center bg-emerald-500/5">
                           <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-600/20 dark:text-emerald-500/10 italic">Geen zaal actie</span>
@@ -581,7 +638,7 @@ export const ShowCallerView = () => {
 
                     {/* RECHTER KOLOM: Livestream */}
                     <div className="col-span-6 space-y-4">
-                      {row.mainEvent.isInLivestream && (
+                      {!row.lanes && row.mainEvent.isInLivestream && (
                         <CallSheetItem
                           item={row.mainEvent}
                           showInterviewPhotos={photosAt(row.mainEvent.id)}
@@ -594,7 +651,7 @@ export const ShowCallerView = () => {
                         />
                       )}
                       {row.streamItems.map(item => {
-                        const isActive = activeEvent?.id === item.id;
+                        const isActive = isOn(item.id);
                         const isRelevant = isRelevantForMe(item);
 
                         // In focus mode, toon alleen relevante items OF actieve items
@@ -608,14 +665,14 @@ export const ShowCallerView = () => {
                             isActive={isActive}
                             isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
                             elapsedTime={activeEventElapsedTime}
-                            remainingTimeDisplay={isActive ? activeEventRemainingTime : null}
+                            remainingTimeDisplay={remainingFor(item.id)}
                             hideStreamVenueLabels={true}
                             isVenueItem={false}
                           />
                         );
                       })}
                       {/* Indien leeg in deze kolom voor deze rij */}
-                      {!row.mainEvent.isInLivestream && row.streamItems.filter(item => !isFocusMode || isRelevantForMe(item) || activeEvent?.id === item.id).length === 0 && (
+                      {!row.mainEvent.isInLivestream && row.streamItems.filter(item => !isFocusMode || isRelevantForMe(item) || isOn(item.id)).length === 0 && (
                         <div
                           className="h-full min-h-[100px] border-2 border-dashed border-white/5 rounded-lg flex items-center justify-center">
                           <span className="text-[10px] font-bold uppercase tracking-widest text-white/10 italic">Geen stream actie</span>

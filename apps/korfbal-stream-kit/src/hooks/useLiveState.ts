@@ -4,6 +4,7 @@ import {EventStatus, TriggerSource} from '@prisma/client';
 import {createUrl} from "../lib/api";
 import {getSharedSocket, SocketListener} from "../lib/socket";
 import {formatTime as formatAmsterdamTime, fromAmsterdamInput, todayAmsterdam} from '../lib/time';
+import {hallLaneItems} from '../lib/lanes';
 
 // --- Type definities ---
 type ClockMode = 'stopped' | 'counting_up' | 'counting_down';
@@ -25,6 +26,8 @@ export interface LiveChapter {
   id: number;
   name: string;
   order: number;
+  /** Minimale duur in seconds (null = as long as its items; openspec/changes/parallel-lanes) */
+  minDurationSec?: number | null;
 }
 
 export interface ProductionEvent {
@@ -145,12 +148,26 @@ export const useLiveState = () => {
   const [activeEventRemainingTime, setActiveEventRemainingTime] = useState<DisplayTime | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [autoAdvanceEventId, setAutoAdvanceEventId] = useState<string | null>(null);
+  // The hall lane next to the stream (openspec/changes/parallel-lanes D4)
+  const [activeVenueEventId, setActiveVenueEventId] = useState<string | null>(null);
+  const [activeVenueStartTime, setActiveVenueStartTime] = useState<string | null>(null);
+  const [activeVenueRemainingTime, setActiveVenueRemainingTime] = useState<DisplayTime | null>(null);
 
   const timeStateRef = useRef<TimeState | null>(null);
   const eventStartTimeRef = useRef<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const activeEventRef = useRef<ProductionEvent | null>(null);
+  const allItemsRef = useRef<ProductionEvent[]>([]);
+  const venueRef = useRef<{ id: string; startedAt: number } | null>(null);
+
+  /** The hall item that runs now (null: none), with when it started */
+  const setVenue = (id: string | null, startTime: string | null) => {
+    venueRef.current = id ? {id, startedAt: startTime ? new Date(startTime).getTime() : Date.now()} : null;
+    setActiveVenueEventId(id);
+    setActiveVenueStartTime(id ? startTime : null);
+    if (!id) setActiveVenueRemainingTime(null);
+  };
 
   useEffect(() => {
     const fetchData = async (isInitial = false) => {
@@ -166,10 +183,14 @@ export const useLiveState = () => {
           const eventsData = await eventsResponse.json();
           const items: ProductionEvent[] = eventsData.items;
           setAllItems(items);
+          allItemsRef.current = items;
           setChapters(Array.isArray(eventsData.chapters) ? eventsData.chapters : []);
 
-          // Zet het initiële actieve event op basis van de status
-          const active = items.find(item => item.status === 'ACTIVE');
+          // Zet het initiële actieve event op basis van de status; a hall-lane item runs next to it (parallel-lanes D4)
+          const inHall = hallLaneItems(items);
+          const venue = items.find((item, i) => item.status === 'ACTIVE' && inHall[i]);
+          setVenue(venue?.id ?? null, venue?.actualStartTime ? new Date(venue.actualStartTime).toISOString() : null);
+          const active = items.find((item, i) => item.status === 'ACTIVE' && !inHall[i]);
           if (active) {
             setActiveEvent(active);
             activeEventRef.current = active;
@@ -298,6 +319,13 @@ export const useLiveState = () => {
         setActiveEventElapsedTime(0);
         setActiveEventRemainingTime(null);
       }
+
+      // The hall item's countdown
+      const venue = venueRef.current;
+      const venueEvent = venue ? allItemsRef.current.find((e) => e.id === venue.id) : undefined;
+      setActiveVenueRemainingTime(venue && venueEvent?.durationSec != null
+        ? formatTime(venueEvent.durationSec - (Date.now() - venue.startedAt) / 1000)
+        : null);
     };
 
     listen('production_events_update_needed', () => {
@@ -313,6 +341,10 @@ export const useLiveState = () => {
     listen('heartbeat', () => setLastSyncTime(Date.now()));
 
     listen('callsheet_state_update', (state: any) => {
+      if (state && 'activeVenueEventId' in state) {
+        const id: string | null = state.activeVenueEventId ?? null;
+        if (id !== (venueRef.current?.id ?? null)) setVenue(id, state.activeVenueStartTime ?? null);
+      }
       if (state.clocks) {
         // Update venue clock from global state if no specific time_state_update was received yet
         // or as a fallback. Format seconds to MM:SS
@@ -358,12 +390,18 @@ export const useLiveState = () => {
       setActiveEventRemainingTime(null);
     });
 
+    // The hall lane moved on (by itself or with Zaal ›): the hall item that runs now, or null
+    listen('venue_event_update', (event: ProductionEvent | null) => {
+      setVenue(event?.id ?? null, event?.actualStartTime ? new Date(event.actualStartTime).toISOString() : null);
+    });
+
     listen('auto_advance_scheduled', (data: { eventId: string, delayMs: number }) => {
       setAutoAdvanceEventId(data.eventId);
     });
 
     listen('production_events_update', (data: { items: ProductionEvent[]; chapters?: LiveChapter[] }) => {
       setAllItems(data.items);
+      allItemsRef.current = data.items;
       if (Array.isArray(data.chapters)) setChapters(data.chapters);
     });
 
@@ -374,6 +412,7 @@ export const useLiveState = () => {
       setActiveEventElapsedTime(0);
       setActiveEventRemainingTime(null);
       setAutoAdvanceEventId(null);
+      setVenue(null, null);
       setProductionClock(formatTime(0));
       if (timeStateRef.current) {
         timeStateRef.current = { ...timeStateRef.current, mode: 'stopped' };
@@ -405,5 +444,8 @@ export const useLiveState = () => {
     activeEventRemainingTime,
     isLoading,
     autoAdvanceEventId,
+    activeVenueEventId,
+    activeVenueStartTime,
+    activeVenueRemainingTime,
   };
 };

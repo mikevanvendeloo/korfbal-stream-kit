@@ -6,7 +6,7 @@ import {runWithOrganization} from './organizationContext';
 import {logger} from '../utils/logger';
 
 /**
- * An organization was switched off: its live show stops right away. Clock and auto-advance timer stop,
+ * An organization was switched off: its live show stops right away. Clock, auto-advance and hall lane timers stop,
  * the in-memory state (live state, production clock, vMix push memory) is forgotten and its sockets are
  * closed. The database is left alone, so switching it on again picks up the active production.
  * The background services skip it from now on (no live state, so not in `liveOrganizationIds`).

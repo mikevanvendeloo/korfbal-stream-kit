@@ -18,7 +18,8 @@ Rechtsboven staan drie ronde knoppen:
 |---|---|
 | **Start Show** (groen) | Maakt het eerste item actief en start de productieklok |
 | **Herstart Show** (oranje, als de show loopt) | Begint opnieuw bij het eerste item, na een bevestiging |
-| **Volgend item** | Het volgende item wordt actief |
+| **Volgend item** | Het volgende item wordt actief; bij Zaal en Stream naast elkaar het volgende stream-item (zie [hieronder](#zaal-en-stream-naast-elkaar)) |
+| **Zaal ›** (groen, bij **Zaal draaiboek**) | Zet de zaalbaan met de hand een stap verder: het lopende zaal-item is klaar en het volgende zaal-item start. Alleen te zien als de zaal naast de stream loopt |
 | **Vorig item** | Terug naar het vorige item |
 | **Einde show** (rood, als de show loopt) | Stopt de show, na een bevestiging: het huidige item is klaar, de klok stopt en alle schermen zijn bij |
 | **Zet 15s**, **30s**, **60s** | Zet de resterende tijd van het huidige item meteen op 15, 30 of 60 seconden (er wordt niets bij opgeteld). Handig om een item netjes af te ronden of wat ruimte te geven. De items erna schuiven mee, en een item met *Auto* gaat na die tijd door. |
@@ -31,7 +32,7 @@ Wat er bij **Volgend item** gebeurt:
 - het volgende item start **nu**;
 - alle tijden in het draaiboek schuiven mee met dit moment. Loopt de show uit, dan schuiven alle volgende items ook op.
 
-Volgend en vorig gaan door **alle** items van de productie, ook die van andere posities.
+Volgend en vorig gaan door de items van **alle** posities. Lopen Zaal en Stream naast elkaar, dan slaan ze de zaal-items over: die lopen vanzelf mee (zie [Zaal en Stream naast elkaar](#zaal-en-stream-naast-elkaar)).
 
 > Gaat er iets mis met een knop (bijvoorbeeld *volgend* aan het einde van de show), dan zie je een melding onder de knoppen. Tik erop om hem weg te halen.
 
@@ -40,7 +41,7 @@ Volgend en vorig gaan door **alle** items van de productie, ook die van andere p
 - Een grote klokbalk met **Zaal**, **Tijd** en **Resterend** (of **Productie** als er geen item actief is).
 - Twee banen: **Zaal draaiboek** (groen, links) en **Stream draaiboek** (blauw, rechts). Een item dat voor beide geldt, staat over de hele breedte.
 - Een kopregel per **hoofdstuk** van het draaiboek, met de geplande begin- en eindtijd. Een hoofdstuk is een kop, geen stap: **Volgend** en **Vorig** gaan per item. Met een positie gekozen zijn hoofdstukken zonder items voor die positie lichter.
-- Bovenin **Hoofdstuk: …** met **nog …**: hoe lang het lopende hoofdstuk nog duurt (de rest van het huidige item plus de items erna in dat hoofdstuk).
+- Bovenin **Hoofdstuk: …** met **nog …**: hoe lang het lopende hoofdstuk nog duurt: de rest van het huidige item plus de items erna in dat hoofdstuk (bij Zaal en Stream naast elkaar telt de langste baan), en niet korter dan de **minimale duur** van het hoofdstuk.
 - Per regel het hoofditem, met de items die eraan gekoppeld zijn ernaast.
 - Het actieve item is iets groter. Kleuren zijn hetzelfde als op [de callsheet](/handleiding/callsheet#kleuren).
 
@@ -50,14 +51,36 @@ Op een telefoon krijgt de Show Caller een eigen, eenvoudige weergave, gemaakt om
 
 - **Nu**: het item dat nu loopt, met de resterende tijd in grote cijfers. De balk is groen, oranje in de laatste 10 seconden en rood als het item over tijd is. Erboven staat het hoofdstuk met hoe lang het nog duurt.
 - **Volgende**: het item dat start als je op **Volgend** drukt, met de begintijd en duur. Is het niet voor jouw positie, dan staat dat erbij. Begint het volgende item een nieuw hoofdstuk, dan staat de naam van dat hoofdstuk erboven.
-- **Daarna voor jou**: de items die daarna komen voor je positie (en items voor iedereen), met tijd en duur. Via het menu (de drie puntjes) wissel je naar **alle items**.
+- **Zaal** (groen, tussen **Nu** en **Volgende**): alleen als de zaal naast de stream loopt. Het zaal-item dat nu loopt met zijn resterende tijd, en de knop **Zaal ›**. Is de zaal eerder klaar dan de stream, dan staat er **Zaal klaar · volgende: …**.
+- **Daarna voor jou**: de items die daarna komen voor je positie (en items voor iedereen), met tijd en duur; zaal-items die vanzelf meelopen hebben het label **Zaal**. Via het menu (de drie puntjes) wissel je naar **alle items**.
 - In het blok **Nu**, bij **Zet**: **15s**, **30s** en **60s** zetten de resterende tijd van het huidige item meteen op die waarde.
-- Onderaan, onder je duim: **Stop**, **Vorig** en een grote knop **Volgend**. Voor de start staat daar **Start show**. Stop vraagt eerst om bevestiging.
+- Onderaan, onder je duim: **Stop**, **Vorig** en een grote knop **Volgend**. Voor de start staat daar **Start show**. Stop vraagt eerst om bevestiging. Staat er in de knop **Volgend** *Zaal nog m:ss bezig*, dan stopt Volgend ook het zaal-item dat nog loopt.
 - In het menu (drie puntjes): **Interviewfoto's: aan** (of **uit**) om de foto's te wisselen, **Wissel positie**, **Callsheet view**, **Tijden herberekenen**, **Herstart show** en **Draaiboek resetten**. Herstarten en resetten vragen eerst om bevestiging.
 
 Lukt een actie niet, bijvoorbeeld *volgend* bij het laatste item, dan zie je bovenaan een melding. Tik erop om hem weg te halen.
 
 > **Scherm aan houden.** De Show Caller vraagt de telefoon het scherm aan te laten. Dat lukt alleen als de app via **https** wordt geopend. Via een gewoon `http://`-adres in de zaal gaat het scherm na de ingestelde tijd toch uit: zet die tijd op je telefoon dan tijdelijk langer.
+
+## Zaal en Stream naast elkaar
+
+In de rust gebeuren in de zaal en in de stream verschillende dingen tegelijk: in de zaal reclame op het LED-scherm en statistieken, in de stream de commentatoren en de analyse van de eerste helft. In het draaiboek zijn **Zaal** en **Stream** dan twee **banen** die naast elkaar lopen; een item voor zaal én stream (bijvoorbeeld *Start tweede helft*) is een **samenkomstpunt** waar ze weer samenkomen.
+
+**Volgend volgt de stream.** Heeft een stuk tussen twee samenkomstpunten geen stream-items, dan volgt **Volgend** de zaal. Bijvoorbeeld:
+
+- **Voorbereiding**: alleen checks in de zaal, dus **Volgend** gaat langs elk item;
+- **Rust**: beide banen. **Volgend** gaat langs de stream-items; de zaal loopt vanzelf mee: het eerste zaal-item start met het eerste stream-item, elk volgend zaal-item start als de tijd van het vorige om is;
+- **na de stream**, bijvoorbeeld een prijsuitreiking alleen in de zaal: **Volgend** gaat weer langs de zaal-items.
+
+Een item met **Auto** gaat nog steeds vanzelf door als zijn tijd om is.
+
+Wat je ziet als de zaal naast de stream loopt:
+
+- In de groene baan **Zaal draaiboek** (op de telefoon het groene blok **Zaal**) staat het zaal-item dat nu loopt, met de resterende tijd. Het heeft een dikke rand, net als het stream-item.
+- **Zaal ›** zet de zaal met de hand een stap verder, bijvoorbeeld als de reclame eerder klaar is.
+- Is de zaal klaar en de stream nog niet, dan staat er een gestippelde regel **Zaal klaar · volgende: …** met het samenkomstpunt waarop de zaal wacht.
+- Loopt er in de zaal nog iets en is de volgende stap een samenkomstpunt, dan staat er bij **Volgend** een waarschuwing: **Zaal nog m:ss bezig** (op een groot scherm: *Volgend: Zaal nog m:ss bezig*). Druk je toch op **Volgend**, dan stopt het zaal-item en gaat de show verder.
+
+De werkelijke begin- en eindtijden van de zaal-items komen in de tijdsanalyse (Beheer → Rapportages).
 
 ## Interviewfoto's
 

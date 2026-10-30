@@ -1,5 +1,6 @@
 import type {DraaiboekFile} from '../schemas/draaiboekFile';
 import {DRAAIBOEK} from './chapterMigration';
+import {chapterMinimums, chapterSpan, ItemTimes, LaneItem, LaneOptions, layOutLaneTimes} from './laneTimes';
 
 /**
  * Importing a draaiboek file into a production's callsheet (pure part): which hoofdstuk each item goes
@@ -70,33 +71,39 @@ export function planDraaiboekImport(file: DraaiboekFile, existingChapters: strin
 }
 
 /**
- * Planned start and end of items in show order, as "Tijden berekenen" does: from the first anchor
- * (match start, or the livestream start), backwards and forwards by duration. Without an anchor an item
- * keeps its offset from the kickoff when the file gives one.
+ * Planned start and end of items in show order ("Tijden herberekenen", applying a template and the import):
+ * Zaal and Stream as parallel lanes, every anchor at its own time and a minimum per hoofdstuk
+ * (services/laneTimes.ts). Without lanes or minimums the items follow each other end to end.
  */
-export function layOutTimes(
-  items: Array<{ durationSec: number; isTimeAnchor: boolean; anchorType: string | null; startOffsetSec: number | null }>,
-  {kickoff, liveStart}: { kickoff: Date; liveStart: Date },
-): Array<{ timeStart: Date | null; timeEnd: Date | null }> {
-  const anchorIndex = items.findIndex((it) => it.isTimeAnchor);
-  if (anchorIndex === -1) {
-    return items.map((it) => {
-      if (it.startOffsetSec == null) return {timeStart: null, timeEnd: null};
-      const start = kickoff.getTime() + it.startOffsetSec * 1000;
-      return {timeStart: new Date(start), timeEnd: new Date(start + it.durationSec * 1000)};
-    });
-  }
-  const anchorTime = items[anchorIndex].anchorType === 'LIVESTREAM_START' ? liveStart : kickoff;
-  const times: Array<{ timeStart: Date | null; timeEnd: Date | null }> = items.map(() => ({timeStart: null, timeEnd: null}));
-  let t = anchorTime.getTime();
-  for (let i = anchorIndex; i < items.length; i++) {
-    times[i] = {timeStart: new Date(t), timeEnd: new Date(t + items[i].durationSec * 1000)};
-    t += items[i].durationSec * 1000;
-  }
-  t = anchorTime.getTime();
-  for (let i = anchorIndex - 1; i >= 0; i--) {
-    times[i] = {timeStart: new Date(t - items[i].durationSec * 1000), timeEnd: new Date(t)};
-    t -= items[i].durationSec * 1000;
-  }
-  return times;
+export function layOutTimes(items: LaneItem[], options: LaneOptions): ItemTimes[] {
+  return layOutLaneTimes(items, options);
+}
+
+export {chapterMinimums} from './laneTimes';
+
+const TEMPLATE_KICKOFF = new Date(0);
+const TEMPLATE_LIVE_START = new Date(-30 * 60 * 1000);
+
+/**
+ * The times of a draaiboek template relative to the match start, in seconds (parallel-lanes D2): every
+ * item's `startOffsetSec` (null without an anchor) and every hoofdstuk's start, end and overrun. Items go in
+ * show order: the hoofdstukken' order, then the items' own order. The livestream start sits 30 minutes
+ * before the kickoff, as for a production without a live time.
+ */
+export function templateTimes<C extends { id: string; orderIndex: number; minDurationSec: number | null }, I extends LaneItem & { id: string; orderIndex: number; chapterId: string | null }>(
+  chapters: C[], items: I[],
+) {
+  const chapterOrder = new Map(chapters.map((c) => [c.id, c.orderIndex]));
+  const ordered = [...items].sort((a, b) =>
+    (chapterOrder.get(a.chapterId ?? '') ?? Infinity) - (chapterOrder.get(b.chapterId ?? '') ?? Infinity) || a.orderIndex - b.orderIndex);
+  const laid = layOutLaneTimes(ordered, {kickoff: TEMPLATE_KICKOFF, liveStart: TEMPLATE_LIVE_START, chapterMinimums: chapterMinimums(chapters)});
+  const span = new Map(ordered.map((item, i) => [item.id, {start: laid[i].timeStart?.getTime() ?? null, end: laid[i].timeEnd?.getTime() ?? null}]));
+  const seconds = (ms: number | null) => (ms == null ? null : Math.round(ms / 1000));
+  return {
+    items: items.map((item) => ({...item, startOffsetSec: seconds(span.get(item.id)?.start ?? null)})),
+    chapters: chapters.map((chapter) => {
+      const s = chapterSpan(chapter, items.filter((i) => i.chapterId === chapter.id).map((i) => span.get(i.id) ?? {start: null, end: null}));
+      return {...chapter, startOffsetSec: seconds(s.start), endOffsetSec: seconds(s.end), overrunSec: s.overrunSec};
+    }),
+  };
 }

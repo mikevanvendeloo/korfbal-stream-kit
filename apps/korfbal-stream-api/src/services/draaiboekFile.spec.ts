@@ -44,6 +44,15 @@ describe('layOutTimes', () => {
     expect(layOutTimes([row(60, 'LIVESTREAM_START')], {kickoff, liveStart})[0].timeStart).toEqual(liveStart);
   });
 
+  it('starts every anchor at its own time: the room or overrun before the match start falls just before it', () => {
+    // Live 19:00, 10 min of program, then the oploop: kickoff stays at 19:30
+    const room = layOutTimes([row(60), row(0, 'LIVESTREAM_START'), row(600), row(120), row(0, 'MATCH_START'), row(2100)], {kickoff, liveStart});
+    expect(room.map((t) => t.timeStart?.toISOString().slice(11, 16))).toEqual(['18:59', '19:00', '19:00', '19:10', '19:30', '19:30']);
+    // 40 min of program before a 19:30 kickoff: still 19:30
+    const overrun = layOutTimes([row(0, 'LIVESTREAM_START'), row(2400), row(0, 'MATCH_START')], {kickoff, liveStart});
+    expect(overrun.map((t) => t.timeStart?.toISOString().slice(11, 16))).toEqual(['19:00', '19:00', '19:30']);
+  });
+
   it('uses the offset from the kickoff without an anchor, else no time', () => {
     const times = layOutTimes([row(60, null, -300), row(60)], {kickoff, liveStart});
     expect(times[0].timeStart?.toISOString()).toBe('2026-11-14T19:25:00.000Z');

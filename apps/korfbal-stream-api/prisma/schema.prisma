@@ -238,6 +238,8 @@ model CallSheetTemplateChapter {
   templateId     Int
   name           String
   orderIndex     Int
+  /// Minimum duration in seconds (openspec/changes/parallel-lanes D2); null = as long as its items
+  minDurationSec Int?
   template       CallSheetTemplate                  @relation(fields: [templateId], references: [id], onDelete: Cascade)
   items          CallSheetTemplateItem[]
   positions      CallSheetTemplateChapterPosition[]
@@ -351,6 +353,8 @@ model ProductionChapter {
   productionId   Int
   name           String                  @map("naam")
   orderIndex     Int                     @map("volgorde")
+  /// Minimum duration in seconds (openspec/changes/parallel-lanes D2); null = as long as its items
+  minDurationSec Int?
   /// Deprecated (segment duration, read by the startup migration); dropped in the follow-up release
   duurInMinuten  Int                     @default(0)
   /// Deprecated (segment anchor, read by the startup migration); dropped in the follow-up release

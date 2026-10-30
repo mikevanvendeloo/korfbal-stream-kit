@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import {chapterName, chapterTimes, currentChapter, minutesSeconds, withChapterHeadings} from './liveChapters';
-import {showItem} from '../test/showCaller';
+import {rustChapters, rustItems, showItem} from '../test/showCaller';
 
 const chapters = [{id: 1, name: 'Voorbeschouwing', order: 1}, {id: 2, name: 'Eerste helft', order: 2}];
 const events = [
@@ -47,5 +47,23 @@ describe('withChapterHeadings', () => {
       'chapter:1', slots[0], 'chapter:2', slots[1], 'chapter:3', slots[2],
     ]);
     expect(withChapterHeadings(slots, items, [])).toEqual(slots);
+  });
+});
+
+describe('currentChapter with parallel lanes', () => {
+  const now = new Date(2026, 9, 17, 20, 0).getTime();
+  const started = rustItems.map((e) => (e.id === 'r1' ? {...e, actualStartTime: new Date(now - 60_000)} : e)) as typeof rustItems;
+  const withoutMinimum = rustChapters.map((c) => ({...c, minDurationSec: null}));
+
+  it('lasts as long as the longer lane: the stream with the analysis, the hall with the statistics', () => {
+    // Stream: 100 s of the commentators + 240 s analysis; hall: 50 s LED + 60 s statistics
+    expect(currentChapter(started, 'r3', 100, withoutMinimum, {id: 'r2', remainingSec: 50}, now)).toEqual({name: 'Rust', remainingSec: 340});
+    // A longer hall lane wins
+    expect(currentChapter(started, 'r3', 10, withoutMinimum, {id: 'r2', remainingSec: 400}, now)).toEqual({name: 'Rust', remainingSec: 460});
+  });
+
+  it('ends no earlier than the start of the hoofdstuk plus its Minimale duur', () => {
+    // Started a minute ago, at least 10 minutes: 9 minutes to go
+    expect(currentChapter(started, 'r3', 100, rustChapters, {id: 'r2', remainingSec: 50}, now)).toEqual({name: 'Rust', remainingSec: 540});
   });
 });

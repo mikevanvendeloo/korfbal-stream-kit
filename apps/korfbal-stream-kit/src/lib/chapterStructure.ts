@@ -75,32 +75,6 @@ export function removeChapter<C extends ChapterId>(structure: Structure<C>, chap
   return rest.map((c) => (c.id === moveItemsTo ? {...c, itemIds: [...c.itemIds, ...removed.itemIds]} : c));
 }
 
-type TimedItem = { id: string; durationSec: number; isTimeAnchor: boolean; anchorType: string | null };
-
-/**
- * Start and end of every hoofdstuk of a template in seconds relative to the match start (the items laid
- * end to end from the Start wedstrijd anchor, else from the first anchor, as the API places them), or
- * null for a hoofdstuk without items.
- */
-export function relativeChapterTimes<C extends ChapterId>(structure: Structure<C>, items: TimedItem[]): Map<C, { start: number; end: number } | null> {
-  const byId = new Map(items.map((it) => [it.id, it]));
-  const ordered = structure.flatMap((c) => c.itemIds).map((id) => byId.get(id)).filter((it): it is TimedItem => !!it);
-  let anchor = ordered.findIndex((it) => it.isTimeAnchor && it.anchorType === 'MATCH_START');
-  if (anchor === -1) anchor = Math.max(0, ordered.findIndex((it) => it.isTimeAnchor));
-  const start = new Map<string, number>();
-  let t = 0;
-  for (let i = anchor; i < ordered.length; i++) { start.set(ordered[i].id, t); t += ordered[i].durationSec; }
-  t = 0;
-  for (let i = anchor - 1; i >= 0; i--) { t -= ordered[i].durationSec; start.set(ordered[i].id, t); }
-  return new Map(structure.map((c) => {
-    const timed = c.itemIds.filter((id) => start.has(id));
-    if (timed.length === 0) return [c.id, null];
-    const starts = timed.map((id) => start.get(id) ?? 0);
-    const ends = timed.map((id) => (start.get(id) ?? 0) + (byId.get(id)?.durationSec ?? 0));
-    return [c.id, {start: Math.min(...starts), end: Math.max(...ends)}];
-  }));
-}
-
 /** "−30:00" / "+35:00" / "0:00": seconds relative to the match start. */
 export function formatRelative(seconds: number): string {
   const sign = seconds < 0 ? '−' : seconds > 0 ? '+' : '';

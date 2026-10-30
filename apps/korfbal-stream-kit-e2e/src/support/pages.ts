@@ -86,12 +86,15 @@ export class ShowCallerPhone {
   readonly next: Locator;
   readonly later: Locator;
   readonly controls: Locator;
+  /** The hall lane next to the stream (parallel-lanes): only where Zaal and Stream run in parallel */
+  readonly hall: Locator;
 
   constructor(private readonly page: Page) {
     this.now = page.getByRole('region', {name: 'Nu'});
     this.next = page.getByRole('region', {name: 'Volgende'});
     this.later = page.getByRole('region', {name: 'Daarna'});
     this.controls = page.getByRole('navigation', {name: 'Show bediening'});
+    this.hall = page.getByRole('region', {name: 'Zaal'});
   }
 
   async open(productionId: number, position = 'all') {
@@ -102,6 +105,7 @@ export class ShowCallerPhone {
   start = () => this.controls.getByRole('button', {name: 'Start show'}).click();
   nextItem = () => this.controls.getByRole('button', {name: 'Volgend item'}).click();
   previousItem = () => this.controls.getByRole('button', {name: 'Vorig item'}).click();
+  venueNext = () => this.hall.getByRole('button', {name: 'Zaal ›'}).click();
   setRemaining = (sec: 15 | 30 | 60) => this.now.getByRole('button', {name: `Resterend ${sec} seconden`}).click();
 
   async stop() {

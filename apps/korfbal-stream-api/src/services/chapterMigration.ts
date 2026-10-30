@@ -301,11 +301,13 @@ export async function migrateAllChapters(): Promise<void> {
 
 
 /** A hoofdstuk in a backup or production export: `chapters` now, `segments` (naam, volgorde, duration) in older files. */
-export type FileChapter = { name: string; orderIndex: number; legacy?: { duurInMinuten: number; isTimeAnchor: boolean }; assignments: FileAssignment[] };
+export type FileChapter = { name: string; orderIndex: number; minDurationSec?: number | null; legacy?: { duurInMinuten: number; isTimeAnchor: boolean }; assignments: FileAssignment[] };
 /** A bezetting row in a file */
 export type FileAssignment = { personName: string; positionName: string; isStudio?: boolean };
 type FileRow = Record<string, unknown> | null | undefined;
 const assignmentsOf = (row: FileRow): FileAssignment[] => (Array.isArray(row?.assignments) ? row.assignments : []);
+/** A Minimale duur from a file: whole seconds up to a day, else none */
+const minimumOf = (value: unknown): number | null => (Number.isInteger(value) && Number(value) > 0 && Number(value) <= 86400 ? Number(value) : null);
 
 /** The hoofdstukken of a file in either format; null when it has neither (the production keeps its own). */
 export function fileChapters(data: { chapters?: unknown; segments?: unknown }): FileChapter[] | null {
@@ -313,6 +315,7 @@ export function fileChapters(data: { chapters?: unknown; segments?: unknown }): 
     return data.chapters.map((c: FileRow, i: number) => ({
       name: String(c?.name ?? '').trim() || DRAAIBOEK,
       orderIndex: Number.isInteger(c?.orderIndex) ? Number(c?.orderIndex) : i + 1,
+      minDurationSec: minimumOf(c?.minDurationSec),
       assignments: assignmentsOf(c),
     }));
   }
@@ -353,7 +356,7 @@ export class ChapterRestore {
       // A duplicate order (a hand-edited file) gets a free place instead of failing the unique key
       const orderIndex = seen.has(chapter.orderIndex) ? 1000 + i : chapter.orderIndex;
       seen.add(orderIndex);
-      const row = await this.tx.productionChapter.create({data: {productionId: this.productionId, name: chapter.name, orderIndex}});
+      const row = await this.tx.productionChapter.create({data: {productionId: this.productionId, name: chapter.name, orderIndex, minDurationSec: chapter.minDurationSec ?? null}});
       this.byOrder.set(chapter.orderIndex, row.id);
       if (chapter.legacy) this.legacy.push({chapterId: row.id, ...chapter.legacy});
       if (withChapter) await withChapter(chapter, row.id);

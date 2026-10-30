@@ -1933,3 +1933,45 @@ describe.runIf(runDb)('background loops skip a restored show that has not starte
     await runWithOrganization(organizationId, () => liveState.stopProduction(show.productionId));
   });
 });
+
+describe.runIf(runDb)('Zaal › (venue-next, parallel-lanes)', () => {
+  const OTHER = 'sec-venue-other';
+  let organizationId: number;
+  let show: ProductionScenario;
+
+  beforeAll(async () => {
+    organizationId = await ensureOrganization(prisma, OTHER, 'Sec Venue Other');
+    show = await createProductionScenario(prisma, {
+      organizationId, active: true,
+      items: [{title: 'Analyse'}, {title: 'Reclame LED', isInVenue: true, isInLivestream: false}, {title: 'Tweede helft', isInVenue: true}],
+    });
+  });
+
+  afterAll(async () => {
+    await runWithOrganization(organizationId, () => liveState.stopProduction(show.productionId));
+    liveState.discardLiveState(organizationId);
+    await show?.cleanup();
+    await prisma.organization.deleteMany({where: {slug: OTHER}});
+  });
+
+  it('refuses another organization\'s production (404) and a cross-site POST (403), and leaves its hall lane alone', async () => {
+    expect((await request(app).post(`/api/show/start/${show.productionId}`).set('X-Organization', OTHER)).status).toBe(200);
+    await new Promise((r) => setTimeout(r, 300));
+    const before = await runWithOrganization(organizationId, async () => liveState.liveStateSnapshot());
+    expect(before.activeVenueEventId).toBe(show.eventIds[1]);
+
+    expect((await request(app).post(`/api/production/${show.productionId}/venue-next`)).status).toBe(404);
+    const crossSite = await request(app).post(`/api/production/${show.productionId}/venue-next`).set('X-Organization', OTHER).set('Origin', 'https://evil.example');
+    expect(crossSite.status).toBe(403);
+    expect(crossSite.body.code).toBe('CROSS_SITE_REFUSED');
+    expect(await runWithOrganization(organizationId, async () => liveState.liveStateSnapshot())).toMatchObject({activeVenueEventId: show.eventIds[1]});
+  });
+
+  it('switching the organization off stops its hall lane timer', async () => {
+    const state = await runWithOrganization(organizationId, async () => liveState.getCurrentState());
+    expect(state.venueTimer).not.toBeNull();
+    liveState.discardLiveState(organizationId);
+    expect(state.venueTimer).toBeNull();
+    expect(liveState.hasLiveState(organizationId)).toBe(false);
+  });
+});

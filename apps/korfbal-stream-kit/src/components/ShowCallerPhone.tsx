@@ -7,6 +7,7 @@ import {InterviewText} from './InterviewText';
 import {useInterviewPhotos} from '../hooks/useInterviewPhotos';
 import {formatTime} from '../lib/time';
 import {chapterName, currentChapter, minutesSeconds} from '../lib/liveChapters';
+import {hallLaneState} from '../lib/lanes';
 
 type TimedEvent = ProductionEvent & { calculatedTime: Date | null };
 type Remaining = { minutes: string; seconds: string; isNegative: boolean; rawSeconds: number } | null;
@@ -27,6 +28,9 @@ export type ShowCallerPhoneProps = {
   controls: ShowControls;
   /** The hoofdstukken (headings, not steps): a label above Nu, and at Volgende when it changes */
   chapters?: LiveChapter[];
+  /** The hall item running next to the stream and its countdown (openspec/changes/parallel-lanes D4) */
+  activeVenueEventId?: string | null;
+  venueRemaining?: Remaining;
 };
 
 const hhmm = (d: Date | null) => formatTime(d, {fallback: '--:--'});
@@ -58,23 +62,28 @@ function Tags({event, autoTimer}: { event: ProductionEvent; autoTimer: boolean }
  * buttons at the bottom under your thumb. Same data and actions as the wide Show Caller.
  */
 export function ShowCallerPhone(props: ShowCallerPhoneProps) {
-  const {productionId, positionSlug, positionName, items, activeEventId, remaining, autoAdvanceEventId, isConnected, systemTime, isRelevant, controls, chapters = []} = props;
+  const {productionId, positionSlug, positionName, items, activeEventId, remaining, autoAdvanceEventId, isConnected, systemTime, isRelevant, controls, chapters = [], activeVenueEventId = null, venueRemaining = null} = props;
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [onlyMine, setOnlyMine] = React.useState(true);
   const [photosOn, setPhotosOn] = useInterviewPhotos();
 
-  const activeIndex = items.findIndex((e) => e.id === activeEventId);
-  const active = activeIndex >= 0 ? items[activeIndex] : null;
-  // Before the start the first item is what "Start show" begins with
-  const next = active ? items[activeIndex + 1] ?? null : items[0] ?? null;
-  const current = currentChapter(items, activeEventId, remaining?.rawSeconds ?? null, chapters);
+  const active = items.find((e) => e.id === activeEventId) ?? null;
+  // Volgend follows the stream: hall-lane items run by themselves next to it (parallel-lanes D4).
+  // Before the start the first item is what "Start show" begins with.
+  const lane = hallLaneState(items, activeEventId, activeVenueEventId);
+  const next = lane.streamNext;
+  const venue = lane.running;
+  const current = currentChapter(items, activeEventId, remaining?.rawSeconds ?? null, chapters,
+    venue ? {id: venue.id, remainingSec: venueRemaining?.rawSeconds ?? null} : null);
   // Volgende names its hoofdstuk only when it is another one than now (or before the start)
   const nextChapter = next && (!active || next.chapterId !== active.chapterId) ? chapterName(chapters, next.chapterId) : null;
   const later = items
-    .slice((active ? activeIndex + 1 : 0) + 1)
+    .filter((e) => (!active || e.order > active.order) && e.id !== next?.id && e.id !== venue?.id)
     .filter((e) => e.status !== 'COMPLETED')
     .filter((e) => !positionName || !onlyMine || isRelevant(e));
+  // Volgend goes on to a samenkomstpunt while the hall item still runs: pressing it ends that item
+  const hallBusy = lane.endsHallItem ? `Zaal nog ${minutesSeconds(venueRemaining?.rawSeconds ?? 0)} bezig` : null;
 
   const confirmThen = (question: string, action: () => void) => () => {
     setMenuOpen(false);
@@ -180,6 +189,35 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
         )}
       </section>
 
+      {/* The hall lane: runs by itself next to the stream; Zaal › moves it on by hand */}
+      {active && (venue || lane.done || lane.canAdvance) && (
+        <section aria-label="Zaal" className="mx-3 mt-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 border-l-4 border-l-emerald-500 px-4 py-3">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <span className="text-xs font-bold uppercase tracking-widest text-emerald-800 dark:text-emerald-300">Zaal</span>
+            {venue && (
+              <span aria-label="Zaal resterend" className={`font-mono font-bold tabular-nums text-2xl leading-none ${venueRemaining?.isNegative ? 'text-red-600' : 'text-emerald-800 dark:text-emerald-200'}`}>
+                {venueRemaining ? `${venueRemaining.isNegative ? '-' : ''}${venueRemaining.minutes}:${venueRemaining.seconds}` : '--:--'}
+              </span>
+            )}
+          </div>
+          <div className="mt-1 flex items-center gap-2 min-w-0">
+            <p className="flex-1 min-w-0 text-base font-semibold leading-snug">
+              {venue
+                ? <InterviewText text={venue.title}/>
+                : lane.done
+                  ? <>Zaal klaar · volgende: {lane.afterBlock ? <InterviewText text={lane.afterBlock.title}/> : 'einde'}</>
+                  : 'Zaal wacht'}
+            </p>
+            {lane.canAdvance && (
+              <button type="button" onClick={controls.venueNext} disabled={controls.isProcessing} aria-label="Zaal ›"
+                      className="shrink-0 h-11 px-3 rounded-xl bg-emerald-600 text-white text-sm font-bold active:scale-95 disabled:opacity-50">
+                Zaal ›
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Next: what the Next button (or Start show) makes active */}
       <section aria-label="Volgende" className="mx-3 mt-3 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-4 py-3">
         <div className="flex items-baseline justify-between text-xs font-bold uppercase tracking-widest text-gray-500">
@@ -210,7 +248,10 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
             {later.map((e) => (
               <li key={e.id} className={`flex items-baseline gap-3 px-4 py-2.5 ${isRelevant(e) ? '' : 'opacity-50'}`}>
                 <span className="font-mono text-sm tabular-nums text-gray-500 shrink-0">{hhmm(e.calculatedTime)}</span>
-                <span className="flex-1 min-w-0 text-base leading-snug"><InterviewText text={e.title}/></span>
+                <span className="flex-1 min-w-0 text-base leading-snug">
+                  {lane.hall.has(e.id) && <span className="mr-1.5 rounded px-1 align-middle text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">Zaal</span>}
+                  <InterviewText text={e.title}/>
+                </span>
                 <span className="font-mono text-xs tabular-nums text-gray-400 shrink-0">{duration(e.durationSec)}</span>
               </li>
             ))}
@@ -233,8 +274,9 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
               <ChevronLeft className="w-6 h-6"/>Vorig
             </button>
             <button type="button" onClick={controls.next} disabled={controls.isProcessing || !next} aria-label="Volgend item"
-                    className="col-span-2 h-16 rounded-2xl flex items-center justify-center gap-1 bg-blue-600 text-white text-xl font-bold active:scale-95 disabled:opacity-50">
-              Volgend<ChevronRight className="w-7 h-7"/>
+                    className="col-span-2 h-16 rounded-2xl flex flex-col items-center justify-center bg-blue-600 text-white text-xl font-bold active:scale-95 disabled:opacity-50 min-w-0">
+              <span className="flex items-center gap-1">Volgend<ChevronRight className="w-7 h-7"/></span>
+              {hallBusy && <span role="note" className="max-w-full truncate px-1 text-[11px] font-semibold leading-tight text-amber-200">{hallBusy}</span>}
             </button>
           </>
         ) : (

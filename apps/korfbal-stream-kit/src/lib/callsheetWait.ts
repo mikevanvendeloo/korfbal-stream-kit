@@ -1,4 +1,5 @@
 import type {ProductionEvent} from '../hooks/useLiveState';
+import {laneOf} from './lanes';
 
 type TimedItem = ProductionEvent & { calculatedTime?: Date | null };
 
@@ -26,13 +27,17 @@ export type CallsheetWait =
 /**
  * The gap in a position's callsheet: an item runs, but not one for this position (or linked to one).
  * null while nothing runs, while the position has something on now, or when it has no items at all.
+ * `venue` is the hall item running next to the stream (openspec/changes/parallel-lanes D4): it counts as
+ * on now too, and a hall item that is already over is not "next".
  */
-export function callsheetWait(items: TimedItem[], active: ProductionEvent | null, positionId: number, now: number = Date.now()): CallsheetWait | null {
+export function callsheetWait(
+  items: TimedItem[], active: ProductionEvent | null, positionId: number, now: number = Date.now(), venue: ProductionEvent | null = null,
+): CallsheetWait | null {
   if (!active) return null;
   const mine = items.filter((item) => isForPosition(item, positionId));
-  if (mine.length === 0 || mine.some((item) => runsWith(item, active))) return null;
+  if (mine.length === 0 || mine.some((item) => runsWith(item, active) || (!!venue && runsWith(item, venue)))) return null;
   const next = mine
-    .filter((item) => item.order > active.order)
+    .filter((item) => item.order > active.order && !(laneOf(item) === 'ZAAL' && item.status === 'COMPLETED'))
     .sort((a, b) => a.order - b.order)[0];
   if (!next) return {kind: 'done'};
   const secondsLeft = next.calculatedTime ? Math.round((next.calculatedTime.getTime() - now) / 1000) : null;

@@ -50,3 +50,22 @@ describe('DraaiboekItem', () => {
     await waitFor(() => expect(handlers.onSave).toHaveBeenCalledWith(expect.objectContaining({cue: 'INTRO2', positionIds: [1, 2, 4, 6, 5]})));
   });
 });
+
+describe('DraaiboekItem lanes', () => {
+  it('shows the lane of an item that runs in parallel with a green (Zaal) or blue (Stream) edge', () => {
+    const {container, rerender} = render(<DraaiboekItem item={{...item, isInLivestream: false}} handle={{}} positions={positions} parentOptions={[]} open={false}
+                                                        onOpen={vi.fn()} onClose={vi.fn()} onSave={vi.fn(async () => undefined)} onDelete={vi.fn()} lane="ZAAL"/>);
+    const row = container.querySelector('[data-lane]') as HTMLElement;
+    expect(row.dataset.lane).toBe('ZAAL');
+    expect(row.className).toContain('border-l-emerald-500');
+    expect(screen.getByText('Baan Zaal')).toBeTruthy();
+    rerender(<DraaiboekItem item={{...item, isInVenue: false}} handle={{}} positions={positions} parentOptions={[]} open={false}
+                            onOpen={vi.fn()} onClose={vi.fn()} onSave={vi.fn(async () => undefined)} onDelete={vi.fn()}/>);
+    expect(container.querySelector('[data-lane]')).toBeNull();
+  });
+
+  it('shows a template item\'s start relative to the kickoff', () => {
+    renderItem(false, {item: {...item, timeStart: undefined, startOffsetSec: 2100}});
+    expect(screen.getByTitle('t.o.v. de aftrap').textContent).toBe('+35:00');
+  });
+});

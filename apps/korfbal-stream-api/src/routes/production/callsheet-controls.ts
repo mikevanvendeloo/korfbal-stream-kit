@@ -1,5 +1,6 @@
 import {Router} from 'express';
-import {getNextEvent, getPreviousEvent, setActiveEvent, updateScoreboardClock} from '../../services/productionState';
+import {getNextEvent, getPreviousEvent, setActiveEvent, updateScoreboardClock, venueNext} from '../../services/productionState';
+import {prisma} from '../../services/prisma';
 
 export const callsheetControlsRouter: Router = Router();
 
@@ -57,4 +58,20 @@ callsheetControlsRouter.post('/callsheet/update-scoreboard-time', (req, res) => 
     }
     updateScoreboardClock(timeInSeconds);
     return res.status(200).json({ message: 'Scoreboard time updated.' });
+});
+
+// Zaal ›: moves the hall lane on by hand (openspec/changes/parallel-lanes D4). A foreign or unknown
+// production answers 404; a production that isn't live 409. Answers the live state snapshot.
+callsheetControlsRouter.post('/:id/venue-next', async (req, res, next) => {
+    try {
+        const productionId = Number(req.params.id);
+        if (!Number.isInteger(productionId) || productionId <= 0) return res.status(400).json({ error: 'Ongeldig productie-id' });
+        const production = await prisma.production.findUnique({ where: { id: productionId }, select: { id: true } });
+        if (!production) return res.status(404).json({ error: 'Productie niet gevonden' });
+        const snapshot = await venueNext(productionId);
+        if (!snapshot) return res.status(409).json({ error: 'Deze productie is niet live' });
+        return res.status(200).json(snapshot);
+    } catch (err) {
+        return next(err);
+    }
 });

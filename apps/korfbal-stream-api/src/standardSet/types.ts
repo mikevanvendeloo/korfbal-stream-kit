@@ -56,6 +56,8 @@ export interface StandardCallSheetTemplateItem {
 export interface StandardChapter {
   name: string;
   positions?: string[];
+  /** Minimale duur in seconds (parallel-lanes D3) */
+  minDurationSec?: number;
 }
 
 export interface StandardCallSheetTemplate {

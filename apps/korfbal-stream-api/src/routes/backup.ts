@@ -300,6 +300,7 @@ backupRouter.get('/producties/export', async (_req, res, next) => {
       chapters: p.chapters.map(chapter => ({
         name: chapter.name,
         orderIndex: chapter.orderIndex,
+        minDurationSec: chapter.minDurationSec,
         assignments: chapter.bezetting.map(bez => ({
           personName: bez.person.name,
           positionName: bez.position.name,

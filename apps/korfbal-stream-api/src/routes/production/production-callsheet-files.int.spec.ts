@@ -140,14 +140,16 @@ describe.runIf(runDb)('productiedraaiboek export and import (integration)', () =
     expect(imported.map(({title, chapter}) => ({title, chapter}))).toEqual(withCue.map(({title, chapter}) => ({title, chapter})));
   });
 
-  it('keeps one time anchor: the first one the file flags', async () => {
+  it('keeps one time anchor per kind, each at its own time', async () => {
     const res = await request(app).post(`/api/production/callsheets/${targetCallSheetId}/import-json`).send({version: 2, items: [
       {title: 'Start livestream', durationSec: 300, isTimeAnchor: true, anchorType: 'LIVESTREAM_START'},
       {title: 'Aftrap', durationSec: 0, isTimeAnchor: true, anchorType: 'MATCH_START'},
+      {title: 'Nog een aftrap', durationSec: 0, isTimeAnchor: true, anchorType: 'MATCH_START'},
     ]});
     expect(res.status, res.text).toBe(200);
     const items = await prisma.callSheetItem.findMany({where: {callSheetId: targetCallSheetId}, orderBy: {orderIndex: 'asc'}});
-    expect(items.map((i) => [i.title, i.isTimeAnchor])).toEqual([['Start livestream', true], ['Aftrap', false]]);
+    expect(items.map((i) => [i.title, i.isTimeAnchor])).toEqual([['Start livestream', true], ['Aftrap', true], ['Nog een aftrap', false]]);
+    expect(items[1].timeStart?.toISOString()).toBe(KICKOFF_B.toISOString());
   });
 
   it('refuses an unknown anchor type', async () => {
