@@ -36,7 +36,6 @@ import {organizationsRouter} from './routes/organizations';
 import {matchSourceRouter} from './routes/matchSource';
 import {applyStandardSetWhereMissing} from './services/standardSet';
 import {migrateLogoStorage} from './services/logoStorage';
-import {migrateAllChapters} from './services/chapterMigration';
 
 const app: Express = express();
 /** The HTTP server with Socket.io; tests listen on it to connect socket clients. */
@@ -97,12 +96,10 @@ app.use((req, res, next) => {
 
     // vMix and the scoreboard poll every second: a successful GET only with DEBUG_LOGGING, writes and errors always.
     // The key is already off the URL (extractApiKey); this keeps it out if the order ever changes
-    const level = req.method === 'GET' && res.statusCode < 400 ? 'debug' : 'info';
-    logger.log(level, `${methodEmoji} ${req.method} ${withoutApiKey(req.originalUrl)} ${statusEmoji}  ${res.statusCode}`, {
-      query: Object.keys(req.query).length > 0 ? req.query : undefined,
-      duration: `${duration}ms`,
-      ip: req.ip,
-    });
+    const message = `${methodEmoji} ${req.method} ${withoutApiKey(req.originalUrl)} ${statusEmoji}  ${res.statusCode}`;
+    const meta = {query: Object.keys(req.query).length > 0 ? req.query : undefined, duration: `${duration}ms`, ip: req.ip};
+    if (req.method === 'GET' && res.statusCode < 400) logger.debug(message, meta);
+    else logger.info(message, meta);
   });
   next();
 });
@@ -406,10 +403,6 @@ if (process.env.NODE_ENV !== 'test') {
     // Logos from the id directories and the shared legacy directory into sponsors/<slug>/ (idempotent)
     await migrateLogoStorage().catch((err) => {
       logger.error('Moving logos into the slug directories failed', err as any);
-    });
-    // Segments become hoofdstukken of the draaiboek (openspec/changes/chapters D7; idempotent; removed in the follow-up release)
-    await migrateAllChapters().catch((err) => {
-      logger.error('Placing hoofdstukken failed', err as any);
     });
     httpServer.listen(port, () => {
       logger.info(`🚀 API Server running on http://localhost:${port}`);
