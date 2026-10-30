@@ -1,97 +1,23 @@
-import {useEffect, useRef, useState} from 'react';
-import {
-  fetchMatchClock,
-  fetchScoreboard,
-  fetchShotclock,
-  MatchClockItem,
-  ScoreboardItem,
-  ShotclockItem
-} from '../lib/api';
+import {fetchMatchClock, fetchScoreboard, fetchShotclock} from '../lib/api';
+import {usePolledDevice} from './usePolledDevice';
 
+export {DEVICE_FAILURE_THRESHOLD} from './usePolledDevice';
+export type {DeviceStatus, PolledDevice} from './usePolledDevice';
+
+// The API answers 502 when the device doesn't respond; an empty list is no usable answer either.
+const hasItems = (items: unknown[]) => Array.isArray(items) && items.length > 0;
+
+/** Score from the scoreboard device. */
 export function useScoreboard(pollMs = 1000) {
-  const [data, setData] = useState<ScoreboardItem[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const timerRef = useRef<number | null>(null);
-
-  const load = async () => {
-    try {
-      setError(null);
-      const res = await fetchScoreboard();
-      setData(res);
-    } catch (e) {
-      setError(e as Error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    timerRef.current = window.setInterval(load, pollMs);
-    return () => {
-      if (timerRef.current) window.clearInterval(timerRef.current);
-    };
-  }, [pollMs]);
-
-  return { data, isLoading, isError: !!error, error, refetch: load };
+  return usePolledDevice(fetchScoreboard, pollMs, hasItems);
 }
 
+/** Shot clock: a separate device. */
 export function useShotclock(pollMs = 500) {
-  const [data, setData] = useState<ShotclockItem[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const timerRef = useRef<number | null>(null);
-
-  const load = async () => {
-    try {
-      setError(null);
-      const res = await fetchShotclock();
-      setData(res);
-    } catch (e) {
-      setError(e as Error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    timerRef.current = window.setInterval(load, pollMs);
-    return () => {
-      if (timerRef.current) window.clearInterval(timerRef.current);
-    };
-  }, [pollMs]);
-
-  return { data, isLoading, isError: !!error, error, refetch: load };
+  return usePolledDevice(fetchShotclock, pollMs, hasItems);
 }
 
-
+/** Match clock (zaalklok): read from the scoreboard device. */
 export function useMatchClock(pollMs = 1000) {
-  const [data, setData] = useState<MatchClockItem[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const timerRef = useRef<number | null>(null);
-
-  const load = async () => {
-    try {
-      setError(null);
-      const res = await fetchMatchClock();
-      setData(res);
-    } catch (e) {
-      setError(e as Error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    timerRef.current = window.setInterval(load, pollMs);
-    return () => {
-      if (timerRef.current) window.clearInterval(timerRef.current);
-    };
-  }, [pollMs]);
-
-  return { data, isLoading, isError: !!error, error, refetch: load };
+  return usePolledDevice(fetchMatchClock, pollMs, hasItems);
 }
