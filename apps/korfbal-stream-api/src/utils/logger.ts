@@ -1,5 +1,6 @@
 import winston from 'winston';
 import {AxiosError} from "axios";
+import {dailyLogFile} from './dailyLogFile';
 
 // Helper functie om AxiosError objecten te 'sanitizen'
 const sanitizeAxiosError = (error: any) => {
@@ -105,15 +106,17 @@ const logFormat = winston.format.combine(
 );
 
 export const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
+  // DEBUG_LOGGING=true also logs what vMix and other devices fetch (each successful GET, the resolved content)
+  level: process.env.LOG_LEVEL || (process.env.DEBUG_LOGGING === 'true' ? 'debug' : 'info'),
   format: logFormat,
   transports: [
     new winston.transports.Console({
       // Colour codes only on a terminal: in docker logs they show up as escape sequences
       format: PRETTY ? winston.format.combine(winston.format.colorize(), logFormat) : logFormat,
     }),
-    new winston.transports.File({
-      filename: 'error.log',
+    // Errors also in a file per day (LOG_DIR, default logs/), the last 14 days
+    new winston.transports.Stream({
+      stream: dailyLogFile(process.env.LOG_DIR || 'logs', 'error', 14),
       level: 'error',
       format: logFormat,
     }),

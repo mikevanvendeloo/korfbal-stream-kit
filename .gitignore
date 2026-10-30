@@ -52,6 +52,8 @@ vitest.config.*.timestamp*
 test-output
 /korfbal-stream-kit.iml
 /error.log
+# The API error log per day (utils/dailyLogFile.ts)
+logs/
 /apps/korfbal-stream-api/.env
 /storage/
 /dbdata

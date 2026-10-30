@@ -48,7 +48,7 @@ export async function findClubByTeamName(prisma: PrismaClient | any, teamName: s
   if (!teamName) return null;
   const raw = String(teamName).trim();
   const normalized = normalizeTeamNameForClubMatch(raw);
-  logger.info('club-match: raw', { raw, normalized });
+  logger.debug('club-match: raw', { raw, normalized });
   // Try exact match first (shortName or name), case-insensitive
   let club = await prisma.club.findFirst({
     where: {
@@ -59,11 +59,11 @@ export async function findClubByTeamName(prisma: PrismaClient | any, teamName: s
     } as any,
   });
   if (club) {
-    logger.info('club-match: found exact match', { raw, normalized, club: { id: club.id, name: club.name, shortName: club.shortName } });
+    logger.debug('club-match: found exact match', { raw, normalized, club: { id: club.id, name: club.name, shortName: club.shortName } });
     log?.debug?.('club-match: exact', { raw, normalized, club: { id: club.id, name: club.name, shortName: club.shortName } });
     return club;
   }
-  logger.info('club-match: no exact match, searching for contains');
+  logger.debug('club-match: no exact match, searching for contains');
   // Fallback: contains search (ILIKE)
   club = await prisma.club.findFirst({
     where: {

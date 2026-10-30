@@ -79,8 +79,8 @@ COPY apps/korfbal-stream-api/docker/collect-prisma-runtime.cjs /tmp/collect-pris
 RUN node /tmp/collect-prisma-runtime.cjs /prisma-runtime
 
 # Schrijfbare paden voor de non-root runtime-user (storage/uploads als er geen volume gemount is,
-# en error.log van winston in de werkmap)
-RUN mkdir -p /writable/storage /writable/uploads && touch /writable/error.log
+# en logs/ voor de foutlog per dag)
+RUN mkdir -p /writable/storage /writable/uploads /writable/logs
 
 # ----------------------------------------------------------------
 

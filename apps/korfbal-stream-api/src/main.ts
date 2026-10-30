@@ -95,8 +95,10 @@ app.use((req, res, next) => {
     const methodEmoji = methodEmojis[req.method] || '📡';
     const statusEmoji = statusEmojis(res.statusCode);
 
+    // vMix and the scoreboard poll every second: a successful GET only with DEBUG_LOGGING, writes and errors always.
     // The key is already off the URL (extractApiKey); this keeps it out if the order ever changes
-    logger.info(`${methodEmoji} ${req.method} ${withoutApiKey(req.originalUrl)} ${statusEmoji}  ${res.statusCode}`, {
+    const level = req.method === 'GET' && res.statusCode < 400 ? 'debug' : 'info';
+    logger.log(level, `${methodEmoji} ${req.method} ${withoutApiKey(req.originalUrl)} ${statusEmoji}  ${res.statusCode}`, {
       query: Object.keys(req.query).length > 0 ? req.query : undefined,
       duration: `${duration}ms`,
       ip: req.ip,
