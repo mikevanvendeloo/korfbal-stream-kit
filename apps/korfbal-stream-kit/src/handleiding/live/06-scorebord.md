@@ -12,10 +12,27 @@ De app leest het scorebord en de schotklok in de zaal uit via het netwerk. De ad
 - **Oranje**: 11 tot en met 15 seconden.
 - **Rood**: 10 seconden of minder.
 
+## Verbinding met scorebord en schotklok
+
+Onderaan het scherm staat een balk met **● Scorebord** en **● Schotklok**. De wedstrijdklok komt van het scorebord, dus valt onder **Scorebord**.
+
+- **Groene stip**: het apparaat antwoordt.
+- **Grijze stip**: de app maakt verbinding (net geopend of na **Reconnect**).
+- **Rode stip** met *geen verbinding*: het apparaat gaf drie keer achter elkaar geen antwoord. De app vraagt het dan niet meer op.
+
+Eén gemist antwoord is geen probleem: de laatste stand blijft staan. Pas na drie keer achter elkaar geen antwoord geldt het apparaat als niet verbonden. Dan zie je:
+
+- Schotklok: **UIT**.
+- Wedstrijdklok: **-:-**.
+- Score thuis en uit: **-**.
+
+Het scorebord en de schotklok zijn aparte apparaten: valt de schotklok uit, dan blijven score en wedstrijdklok gewoon lopen, en andersom.
+
+**Opnieuw verbinden**: zet het apparaat aan of los de netwerkfout op en druk dan op **Reconnect** naast de rode stip. De app probeert het meteen opnieuw. Lukt dat, dan wordt de stip groen en loopt alles weer. Lukt het drie keer niet, dan wordt de stip weer rood.
+
 ## Als iets niet klopt
 
-- **Fout bij laden.**: het scorebord of de wedstrijdklok is niet bereikbaar. Controleer of het scorebord aan staat en op het netwerk zit.
-- Geen schotklok: die is niet bereikbaar. Dit geeft bewust geen foutmelding; de rest blijft werken.
+- **UIT**, **-:-** of **-** met een rode stip: zie hierboven. Controleer of het apparaat aan staat en op het netwerk zit, en druk op **Reconnect**.
 - **0 – 0** terwijl er al gescoord is: het scorebord geeft (nog) geen stand door.
 
 > De teksten op dit scherm, zoals *Time*, *Home*, *Away* en *1st half*, zijn standaard Engels. Ze kunnen bij de installatie worden aangepast.

@@ -4,6 +4,18 @@ import {labels} from '../config/scoreboardLabels';
 import {useActiveProduction} from '../hooks/useProductions';
 import {Club, useClubs} from '../hooks/useClubs';
 import ClubLogo from '../components/ClubLogo';
+import DeviceStatusBar from '../components/DeviceStatusBar';
+import type {DeviceStatus} from '../hooks/usePolledDevice';
+
+/** Shown instead of a value when its device is disconnected. */
+const OFFLINE = {shotclock: 'UIT', clock: '-:-', score: '-'} as const;
+
+/** The scoreboard device gives both the score and the match clock: it counts as one device. */
+function combinedStatus(a: DeviceStatus, b: DeviceStatus): DeviceStatus {
+  if (a === 'disconnected' || b === 'disconnected') return 'disconnected';
+  if (a === 'connected' && b === 'connected') return 'connected';
+  return 'connecting';
+}
 
 function fmt(n: number | undefined) {
   if (typeof n !== 'number' || isNaN(n)) return '';
@@ -19,9 +31,12 @@ function fmtClockParts(totalSeconds?: number): { m: string; ss: string } | null 
 }
 
 function useMatchData() {
-  const { data: sb, isLoading: sbLoading, isError: sbErr } = useScoreboard(1000);
-  const { data: sc, isLoading: scLoading } = useShotclock(500);
-  const { data: mc, isLoading: mcLoading, isError: mcErr } = useMatchClock(1000);
+  const scoreboard = useScoreboard(1000);
+  const shotclock = useShotclock(500);
+  const clock = useMatchClock(1000);
+  const sb = scoreboard.data;
+  const sc = shotclock.data;
+  const mc = clock.data;
 
   const { home, guest } = useMemo(() => {
     const item = sb?.[0];
@@ -38,11 +53,29 @@ function useMatchData() {
     return { total: m * 60 + s, period: item.period } as const;
   }, [mc]);
 
-  // Ignore shotclock errors to prevent "Fout bij laden" when shotclock is offline
-  return { home, guest, shot, matchClock, loading: sbLoading || scLoading || mcLoading, error: sbErr || mcErr };
+  const scoreboardStatus = combinedStatus(scoreboard.status, clock.status);
+  const reconnectScoreboard = () => {
+    if (scoreboard.status === 'disconnected') scoreboard.reconnect();
+    if (clock.status === 'disconnected') clock.reconnect();
+  };
+
+  return {
+    home,
+    guest,
+    shot,
+    matchClock,
+    scoreOffline: scoreboard.status === 'disconnected',
+    clockOffline: clock.status === 'disconnected',
+    shotOffline: shotclock.status === 'disconnected',
+    loading: scoreboard.isLoading || shotclock.isLoading || clock.isLoading,
+    devices: [
+      {name: 'Scorebord', status: scoreboardStatus, onReconnect: reconnectScoreboard},
+      {name: 'Schotklok', status: shotclock.status, onReconnect: shotclock.reconnect},
+    ],
+  };
 }
 export default function ScoreboardPage() {
-  const { home, guest, shot, matchClock, loading, error } = useMatchData();
+  const { home, guest, shot, matchClock, scoreOffline, clockOffline, shotOffline, loading, devices } = useMatchData();
   const { data: active } = useActiveProduction();
   const { data: clubs } = useClubs();
 
@@ -76,14 +109,16 @@ export default function ScoreboardPage() {
   const homeClub = matchClub(homeTeamName, clubs);
   const awayClub = matchClub(awayTeamName, clubs);
 
-  const shotColorClass = shot?.color === 'red' ? 'text-red-500' : shot?.color === 'orange' ? 'text-orange-400' : 'text-green-500';
+  const shotColorClass = shotOffline ? 'text-gray-400' : shot?.color === 'red' ? 'text-red-500' : shot?.color === 'orange' ? 'text-orange-400' : 'text-green-500';
+  // "UIT" is three characters: smaller than the digits, so it fits the column at 360 px.
+  const shotSizeClass = shotOffline ? 'text-[10vw] sm:text-[4rem] lg:text-[6rem]' : 'text-[18vw] sm:text-[10rem]';
 
   const parts = fmtClockParts(matchClock?.total);
   const periodLabel = matchClock?.period === 1 ? labels.firstHalf : matchClock?.period === 2 ? labels.secondHalf : '';
 
   return (
-    <div className="min-h-[calc(100vh-57px)] bg-black text-white flex items-center justify-center p-4">
-      <div className="w-full max-w-5xl grid grid-cols-3 gap-4 items-stretch">
+    <div className="min-h-[calc(100vh-57px)] bg-black text-white flex flex-col items-center">
+      <div className="w-full max-w-5xl grid grid-cols-3 gap-4 items-stretch my-auto p-4">
         {/* Active production teams header */}
         {(homeTeamName || awayTeamName) && (
           <div className="col-span-3 flex items-center justify-center gap-6 mb-4">
@@ -118,7 +153,9 @@ export default function ScoreboardPage() {
             {/* Time header centered above colon */}
             <div className="absolute left-1/2 -translate-x-1/2 -top-6 text-gray-300 text-center text-base sm:text-lg">{labels.time}</div>
             <div aria-label="match-clock" className="font-mono tabular-nums text-center text-[14vw] sm:text-[6rem] leading-none">
-              {parts ? (
+              {clockOffline ? (
+                OFFLINE.clock
+              ) : parts ? (
                 <>
                   <span>{parts.m}</span>
                   <span className="inline-block px-2">:</span>
@@ -139,15 +176,15 @@ export default function ScoreboardPage() {
         <div className="col-span-1 flex flex-col justify-center">
           <div className="text-gray-300 text-center text-lg sm:text-xl mb-2">{labels.home}</div>
           <div aria-label="home-score" className="font-mono tabular-nums text-right text-[20vw] sm:text-[12rem] leading-none">
-            {fmt(home)}
+            {scoreOffline ? OFFLINE.score : fmt(home)}
           </div>
         </div>
 
         {/* Shotclock */}
         <div className="col-span-1 flex flex-col items-center justify-center">
           <div className="text-gray-300 text-center text-lg sm:text-xl mb-2">Shotclock</div>
-          <div aria-label="shotclock" className={`font-mono tabular-nums ${shotColorClass} text-center text-[18vw] sm:text-[10rem] leading-none`}>
-            {typeof shot?.time === 'number' ? shot.time : ''}
+          <div aria-label="shotclock" className={`font-mono tabular-nums ${shotColorClass} text-center ${shotSizeClass} leading-none`}>
+            {shotOffline ? OFFLINE.shotclock : typeof shot?.time === 'number' ? shot.time : ''}
           </div>
         </div>
 
@@ -155,15 +192,16 @@ export default function ScoreboardPage() {
         <div className="col-span-1 flex flex-col justify-center">
           <div className="text-gray-300 text-center text-lg sm:text-xl mb-2">{labels.away}</div>
           <div aria-label="guest-score" className="font-mono tabular-nums text-right text-[20vw] sm:text-[12rem] leading-none">
-            {fmt(guest)}
+            {scoreOffline ? OFFLINE.score : fmt(guest)}
           </div>
         </div>
 
         {/* Status */}
         <div className="col-span-3 text-center text-sm text-gray-400 mt-4">
-          {loading ? 'Laden…' : error ? 'Fout bij laden.' : ''}
+          {loading ? 'Laden…' : ''}
         </div>
       </div>
+      <DeviceStatusBar devices={devices} />
     </div>
   );
 }
