@@ -9,12 +9,13 @@ import {adminPaths} from '../lib/adminPaths';
 import {downloadExport} from '../lib/download';
 
 export default function CallSheetTemplatesPage() {
-  const { fetchTemplates, createTemplate, deleteTemplate, importTemplate, importTemplateJson, loading } = useCallSheetTemplates();
+  const { fetchTemplates, createTemplate, deleteTemplate, importTemplate, importTemplateJson, loading, error } = useCallSheetTemplates();
   const [templates, setTemplates] = useState<CallSheetTemplate[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [isImporting, setIsImporting] = useState<'excel' | 'json' | null>(null);
   const [importName, setImportName] = useState('');
+  const [importFile, setImportFile] = useState<File | null>(null);
 
   const loadTemplates = async () => {
     const data = await fetchTemplates();
@@ -42,17 +43,38 @@ export default function CallSheetTemplatesPage() {
     }
   };
 
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !importName.trim() || !isImporting) return;
+  // A JSON file (also a production draaiboek export) suggests its own name; the name stays editable
+  const chooseImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setImportFile(file);
+    if (!file || importName.trim()) return;
+    let suggested = file.name.replace(/\.(json|xlsx)$/i, '');
+    if (isImporting === 'json') {
+      try {
+        const name = JSON.parse(await file.text())?.name;
+        if (typeof name === 'string' && name.trim()) suggested = name.trim();
+      } catch {
+        // Not valid JSON: the import itself reports it
+      }
+    }
+    setImportName(suggested);
+  };
+
+  const closeImport = () => {
+    setIsImporting(null);
+    setImportName('');
+    setImportFile(null);
+  };
+
+  const handleImport = async () => {
+    if (!importFile || !importName.trim() || !isImporting) return;
 
     const imported = isImporting === 'excel'
-      ? await importTemplate(importName, file)
-      : await importTemplateJson(importName, file);
+      ? await importTemplate(importName.trim(), importFile)
+      : await importTemplateJson(importName.trim(), importFile);
 
     if (imported) {
-      setImportName('');
-      setIsImporting(null);
+      closeImport();
       loadTemplates();
     }
   };
@@ -125,22 +147,26 @@ export default function CallSheetTemplatesPage() {
                 onChange={(e) => setImportName((e.target as HTMLInputElement).value)}
                 className="bg-gray-50 dark:bg-black/20 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white"
               />
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <Input
                   type="file"
+                  aria-label={isImporting === 'excel' ? 'Excel-bestand' : 'JSON-bestand'}
                   accept={isImporting === 'excel' ? '.xlsx' : '.json'}
-                  onChange={handleImport}
-                  disabled={!importName.trim()}
-                  className="bg-gray-50 dark:bg-black/20 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white cursor-pointer"
+                  onChange={chooseImportFile}
+                  className="min-w-0 flex-1 bg-gray-50 dark:bg-black/20 border-gray-200 dark:border-white/10 text-gray-900 dark:text-white cursor-pointer"
                 />
-                <Button onClick={() => setIsImporting(null)} variant="ghost" className="text-gray-600 dark:text-white/60">
+                <Button onClick={handleImport} disabled={!importFile || !importName.trim() || loading} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  Importeren
+                </Button>
+                <Button onClick={closeImport} variant="ghost" className="text-gray-600 dark:text-white/60">
                   Annuleren
                 </Button>
               </div>
+              {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
               <p className="text-xs text-gray-500 dark:text-white/40 italic">
                 {isImporting === 'excel'
                   ? 'De Excel moet de volgende kolommen bevatten: Titel, Notitie, Duur (sec), Posities, Tijd Anchor, Anchor Type, Auto Advance, Zaal, Stream.'
-                  : 'Het JSON-bestand moet een "name" en een lijst met "items" bevatten.'}
+                  : 'Een JSON-bestand van een template of een draaiboek dat bij een productie is geëxporteerd (Exporteer JSON).'}
               </p>
             </div>
           </CardContent>
