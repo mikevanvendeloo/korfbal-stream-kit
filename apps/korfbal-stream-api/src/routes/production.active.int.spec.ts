@@ -36,6 +36,16 @@ describe.runIf(runDb)('GET /api/production/active (integration)', () => {
     expect(res.body.item).toMatchObject({id: productionId, isActive: true, matchSchedule: {homeTeamName: 'Vorig seizoen'}});
   });
 
+  it('sends the clubs\' abbreviations with the match, null without a known club', async () => {
+    const club = await prisma.club.create({data: {name: 'Vorig seizoen', shortName: 'Vorig seizoen', abbreviation: 'VSZ', slug: `vorig-seizoen-${Date.now()}`}});
+    try {
+      const res = await request(app).get('/api/production/active');
+      expect(res.body.item.matchSchedule).toMatchObject({homeAbbreviation: 'VSZ', awayAbbreviation: null});
+    } finally {
+      await prisma.club.delete({where: {id: club.id}});
+    }
+  });
+
   it('answers null when no production is active', async () => {
     await prisma.production.update({where: {id: productionId}, data: {isActive: false}});
     const res = await request(app).get('/api/production/active');
