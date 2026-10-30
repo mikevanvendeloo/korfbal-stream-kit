@@ -307,6 +307,7 @@ SCOREBOARD_BASE_URL=http://<scoreboard-ip>/scoreboard
 SHOTCLOCK_BASE_URL=http://<shotclock-ip>/shotclock
 ASSETS_DIR=storage
 HOST_IP=<optional, for vMix endpoint auto-detection in Docker>
+DEBUG_LOGGING=<optional, true: also log every successful GET (vMix, scoreboard polling) and the vMix data source content; LOG_LEVEL overrides>
 ```
 
 The match import is not an env var: each organization configures its source (provider, URL, token) in Beheer → Setup → Organisatie → Wedstrijdimport (`MatchSource`).

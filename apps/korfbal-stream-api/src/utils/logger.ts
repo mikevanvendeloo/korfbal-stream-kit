@@ -105,7 +105,8 @@ const logFormat = winston.format.combine(
 );
 
 export const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
+  // DEBUG_LOGGING=true also logs what vMix and other devices fetch (each successful GET, the resolved content)
+  level: process.env.LOG_LEVEL || (process.env.DEBUG_LOGGING === 'true' ? 'debug' : 'info'),
   format: logFormat,
   transports: [
     new winston.transports.Console({

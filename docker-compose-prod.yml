@@ -9,6 +9,13 @@
 #
 # Bij een upgrade draait de migrate-job eerst de nieuwe migraties; controleren: docker compose -f docker-compose-prod.yml logs migrate-streamz
 # Terug naar een oudere versie draait geen migraties terug: maak eerst een backup.
+# Docker keeps the console log of a container in a file; without a limit it grows until the disk is full
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   streamz-db:
     image: postgres:16-alpine
@@ -52,6 +59,7 @@ services:
 
   korfbal-streamz-api:
     image: mvanvendeloo/korfbal-stream-api:${STREAMZ_API_VERSION:-2026.10.13}
+    logging: *logging
     networks:
       - korfbal-network
     # Secrets (POSTGRES_PASSWORD, DATABASE_URL, HOST_IP) staan lokaal in
@@ -61,6 +69,8 @@ services:
       TZ: Europe/Amsterdam
       NODE_ENV: production
       PORT: 3333
+      # true: also log every successful GET (vMix, scoreboard) and what the vMix data sources return
+      DEBUG_LOGGING: ${DEBUG_LOGGING:-false}
       ASSETS_DIR: /app/storage
       UPLOADS_DIR: /app/uploads
     depends_on:
@@ -80,6 +90,7 @@ services:
       retries: 5
   korfbal-streamz-kit:
     image: mvanvendeloo/korfbal-stream-kit:${STREAMZ_KIT_VERSION:-2026.10.14}
+    logging: *logging
     networks:
       - korfbal-network
     ports:

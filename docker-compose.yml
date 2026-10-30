@@ -13,6 +13,13 @@
 # npm run api:dev. Geeft `up` "port is already allocated", kijk dan met `docker ps` wat de poort al heeft.
 name: korfbal-dev
 
+# Docker keeps the console log of a container in a file; without a limit it grows until the disk is full
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
     image: postgres:16-alpine
@@ -58,6 +65,7 @@ services:
   # De servicenaam moet korfbal-streamz-api blijven: nginx.conf proxyt daarnaartoe.
   korfbal-streamz-api:
     image: korfbal-stream-api:dev
+    logging: *logging
     networks:
       - korfbal-network
     # Lokale secrets (optioneel), niet ingecheckt; zie secrets.env.example.
@@ -69,6 +77,8 @@ services:
       NODE_ENV: production
       DATABASE_URL: "postgresql://korfbal:korfbal@db:5432/korfbal?schema=public"
       PORT: 3333
+      # true: also log every successful GET (vMix, scoreboard) and what the vMix data sources return
+      DEBUG_LOGGING: ${DEBUG_LOGGING:-false}
       ASSETS_DIR: /app/storage
       UPLOADS_DIR: /app/uploads
     depends_on:
@@ -92,6 +102,7 @@ services:
       context: .
       dockerfile: apps/korfbal-stream-kit/Dockerfile
     image: korfbal-stream-kit:dev
+    logging: *logging
     networks:
       - korfbal-network
     ports:

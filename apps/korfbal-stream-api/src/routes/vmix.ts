@@ -328,7 +328,7 @@ vmixRouter.post('/sponsor-rows', async (req, res, next) => {
     // Log seed and sizes for reproducibility/debugging
     try {
       const mode = canGuaranteeNoAdjOverlap ? 'group-of-3' : 'partition-fallback';
-      logger.info(`vmix/sponsor-rows seed=${seedStr} mode=${mode} sponsorsUnique=${uniqueSponsorLogos.length} players=${players.length}`);
+      logger.debug(`vmix/sponsor-rows seed=${seedStr} mode=${mode} sponsorsUnique=${uniqueSponsorLogos.length} players=${players.length}`);
       if (!canGuaranteeNoAdjOverlap) {
         logger.warn('Only < 6 unique sponsors available; cannot fully avoid overlap between consecutive rows. Minimizing overlap.');
       }
@@ -504,7 +504,7 @@ vmixRouter.get('/sponsor-slides', async (req, res, next) => {
     // Log seed and sizes for reproducibility/debugging
     try {
       const mode = canGuaranteeNoAdjOverlap ? 'group-of-3' : 'partition-fallback';
-      logger.info(`vmix/sponsor-slides seed=${seedStr} mode=${mode} sponsorsUnique=${uniqueSponsorLogos.length} players=${players.length}`);
+      logger.debug(`vmix/sponsor-slides seed=${seedStr} mode=${mode} sponsorsUnique=${uniqueSponsorLogos.length} players=${players.length}`);
       if (!canGuaranteeNoAdjOverlap) {
         logger.warn('Only < 6 unique sponsors available; cannot fully avoid overlap between consecutive rows. Minimizing overlap.');
       }
@@ -975,7 +975,7 @@ async function resolveProductionTitles(id: number, only?: TitleRole): Promise<Vm
   const ms = production.matchSchedule;
   const homeClub = await findClubByTeamName(prisma as any, ms.homeTeamName, logger);
   const awayClub = await findClubByTeamName(prisma as any, ms.awayTeamName, logger);
-  logger.info('🎬 vMix resolver – clubs resolved', {
+  logger.debug('🎬 vMix resolver – clubs resolved', {
     productionId: production.id,
     match: { homeTeamName: ms.homeTeamName, awayTeamName: ms.awayTeamName },
     homeClub: homeClub ? { id: homeClub.id, name: homeClub.name, shortName: homeClub.shortName } : null,
@@ -1009,7 +1009,7 @@ async function resolveProductionTitles(id: number, only?: TitleRole): Promise<Vm
       acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    logger.info('🎬 vMix resolver – interview overrides loaded', { productionId: production.id, selections: summary });
+    logger.debug('🎬 vMix resolver – interview overrides loaded', { productionId: production.id, selections: summary });
   }
 
   function findInterviewSelection(side: 'HOME'|'AWAY'|'NONE', role: 'PLAYER'|'COACH', defId?: number | null) {
@@ -1069,7 +1069,7 @@ async function resolveProductionTitles(id: number, only?: TitleRole): Promise<Vm
           : side === 'AWAY'
           ? ((awayClub?.name || awayClub?.shortName) ?? '')
           : '';
-        logger.info('Club player selected for interview: ', { playerId: sel.playerId, clubName, isPlayers, side, name: p.name });
+        logger.debug('Club player selected for interview: ', { playerId: sel.playerId, clubName, isPlayers, side, name: p.name });
         const fn = (p.function || '').trim().replace('Hoofd coach','Coach');
         const suffix = clubName ? ` ${clubName}` : '';
         const functionName = fn ? `${fn}${suffix}`.trim() : (isPlayers ? `Speler${suffix}`.trim() : `Coach${suffix}`.trim());
@@ -1106,7 +1106,7 @@ async function resolveProductionTitles(id: number, only?: TitleRole): Promise<Vm
     effectiveDefinitions = templates;
   }
 
-  logger.info('🎬 vMix resolver – Effective Definitions:', effectiveDefinitions.map((def: any) => ({ id: def.id, name: def.name, order: def.order, parts: def.parts.map((p: any) => ({ sourceType: p.sourceType, teamSide: p.teamSide, customFunction: p.customFunction, customName: p.customName })) })));
+  logger.debug('🎬 vMix resolver – Effective Definitions:', effectiveDefinitions.map((def: any) => ({ id: def.id, name: def.name, order: def.order, parts: def.parts.map((p: any) => ({ sourceType: p.sourceType, teamSide: p.teamSide, customFunction: p.customFunction, customName: p.customName })) })));
 
   if (only) {
     const isRole = (part: any) => part.sourceType === only.sourceType && (part.teamSide || 'NONE') === only.teamSide;
@@ -1129,7 +1129,7 @@ async function resolveProductionTitles(id: number, only?: TitleRole): Promise<Vm
     }
   }
 
-  logger.info('🎬 vMix resolver – Final Result:', result);
+  logger.debug('🎬 vMix resolver – Final Result:', result);
   return result;
 }
 
