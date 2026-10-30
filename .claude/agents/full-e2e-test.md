@@ -9,7 +9,7 @@ Examples:
 
 - user: \"Before we merge, audit the e2e tests\"
   assistant: \"I'll launch the full-e2e-test agent for a comprehensive audit and report.\""
-model: inherit
+model: sonnet
 color: cyan
 memory: project
 ---

@@ -11,7 +11,7 @@ Examples:
 
 - user: \"Refactor the OrderService to support multiple discount strategies\"
   assistant: \"I'll launch the backend-dev agent to refactor this using clean design patterns and update the tests accordingly.\""
-model: inherit
+model: sonnet
 color: green
 memory: project
 ---

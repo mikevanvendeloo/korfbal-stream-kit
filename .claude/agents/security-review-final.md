@@ -13,7 +13,7 @@ Examples:
   user: \"Refactor the payment processing module to use the new provider SDK\"
   assistant: *after implementation is done*
   \"Implementation and tests are passing. Let me launch the security-review-final agent since this touches sensitive payment processing code.\""
-model: inherit
+model: sonnet
 color: purple
 memory: project
 ---
