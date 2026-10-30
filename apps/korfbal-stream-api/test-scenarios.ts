@@ -33,6 +33,9 @@ export type ScenarioItem = {
   autoAdvance?: boolean;
   isInVenue?: boolean;
   isInLivestream?: boolean;
+  /** A time anchor (`anchorType` default MATCH_START) */
+  isTimeAnchor?: boolean;
+  anchorType?: 'MATCH_START' | 'LIVESTREAM_START';
   /** Name of its hoofdstuk (one of `chapters`); default the hoofdstuk of the item before, else the first */
   chapter?: string;
 };
@@ -50,6 +53,8 @@ export type ScenarioOptions = {
   startsAt?: Date;
   /** The production's hoofdstukken, in order (default one, "Draaiboek"); items and events are placed in them */
   chapters?: string[];
+  /** Minimale duur in seconds per hoofdstuk name */
+  chapterMinimums?: Record<string, number>;
   report?: Partial<Prisma.ProductionReportUncheckedCreateWithoutProductionInput>;
   /** The production's broadcast start (Production.liveTime) */
   liveTime?: Date;
@@ -178,7 +183,7 @@ async function buildScenario(db: PrismaClient, organizationId: number, options: 
   // Hoofdstukken: every item (and its event) is in one
   const chapterIds: Record<string, number> = {};
   for (const [i, name] of (options.chapters ?? ['Draaiboek']).entries()) {
-    chapterIds[name] = (await db.productionChapter.create({data: {organizationId, productionId: production.id, name, orderIndex: i + 1}})).id;
+    chapterIds[name] = (await db.productionChapter.create({data: {organizationId, productionId: production.id, name, orderIndex: i + 1, minDurationSec: options.chapterMinimums?.[name] ?? null}})).id;
   }
   const itemChapterIds: number[] = [];
   for (const item of items) {
@@ -198,6 +203,7 @@ async function buildScenario(db: PrismaClient, organizationId: number, options: 
         productionId: production.id, order: i + 1, title: item.title, durationSec, chapterId: itemChapterIds[i],
         status: item.status ?? 'WAITING', autoAdvance: item.autoAdvance ?? false,
         isInVenue: item.isInVenue ?? false, isInLivestream: item.isInLivestream ?? true,
+        isTimeAnchor: item.isTimeAnchor ?? false, anchorType: item.isTimeAnchor ? item.anchorType ?? 'MATCH_START' : null,
         plannedStartTime: new Date(plannedStart), plannedEndTime: new Date(plannedStart + durationSec * 1000),
         positions: {create: (item.positions ?? []).map((name) => ({positionId: positionIds[name], organizationId}))},
       },
@@ -216,6 +222,7 @@ async function buildScenario(db: PrismaClient, organizationId: number, options: 
         data: {
           organizationId, id: randomUUID(), callSheetId: callSheet.id, chapterId: event.chapterId as number, cue: `C${event.order}`, title: event.title,
           durationSec: event.durationSec ?? 0, orderIndex: event.order, timeStart: event.plannedStartTime, timeEnd: event.plannedEndTime,
+          isInVenue: event.isInVenue, isInLivestream: event.isInLivestream, isTimeAnchor: event.isTimeAnchor, anchorType: event.anchorType,
         },
       });
       callSheetItemIds.push(item.id);

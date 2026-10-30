@@ -134,3 +134,23 @@ describe('buildCallsheetTiming', () => {
     expect(timing).toMatchObject({currentTitle: '', currentRemaining: '', currentState: 'normal', nextTitle: '', nextStartsIn: '', nextState: 'normal'});
   });
 });
+
+describe('selectCurrentAndNext with the hall lane (parallel-lanes D4)', () => {
+  const ev = (id: string, order: number, status: string, positions: string[]) => ({
+    id, order, title: id, status, durationSec: 60, actualStartTime: null, plannedStartTime: null,
+    positions: positions.map((name) => ({position: {name}})),
+  });
+  const events = [ev('stream', 1, 'ACTIVE', ['Regie livestream']), ev('zaal', 2, 'ACTIVE', ['Speaker']), ev('zaal2', 3, 'WAITING', ['Speaker']), ev('join', 4, 'WAITING', [])];
+
+  it('the hall item is current for its own positions, the next one after it', () => {
+    const {current, next} = selectCurrentAndNext(events, 'stream', ['Speaker'], 'zaal');
+    expect(current?.id).toBe('zaal');
+    expect(next?.id).toBe('zaal2');
+  });
+
+  it('the stream item stays current for the stream positions', () => {
+    const {current, next} = selectCurrentAndNext(events, 'stream', ['Regie livestream'], 'zaal');
+    expect(current?.id).toBe('stream');
+    expect(next?.id).toBe('join');
+  });
+});

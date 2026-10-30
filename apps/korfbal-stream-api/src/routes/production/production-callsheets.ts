@@ -13,7 +13,7 @@ import {findPositionByName, positionKey, SHOWCALLER_POSITION} from '../../domain
 import {findOrCreatePosition} from '../../services/positions';
 import {excelCellToDate, parseInstant, parseOptionalInstant} from '../../utils/time';
 import {productionItemChapter} from './production-chapters';
-import {chapterKey, layOutTimes} from '../../services/draaiboekFile';
+import {chapterKey, chapterMinimums, layOutTimes} from '../../services/draaiboekFile';
 
 export const productionCallsheetsRouter: Router = Router();
 
@@ -101,7 +101,8 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/calculate-times', asyn
       include: {
         production: {
           include: {
-            matchSchedule: true
+            matchSchedule: true,
+            chapters: {select: {id: true, minDurationSec: true}},
           }
         },
         items: {
@@ -121,8 +122,8 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/calculate-times', asyn
       return res.status(400).json({ error: 'No time anchor found in callsheet' });
     }
 
-    // Every anchor at its own time (livestream start, match start), the items in between end to end
-    const times = layOutTimes(cs.items, {kickoff: matchStartTime, liveStart: liveStartTime});
+    // Every anchor at its own time, Zaal and Stream as parallel lanes, a hoofdstuk at least its minimum
+    const times = layOutTimes(cs.items, {kickoff: matchStartTime, liveStart: liveStartTime, chapterMinimums: chapterMinimums(cs.production.chapters)});
     const updates = cs.items.map((it, i) => prisma.callSheetItem.update({where: {id: it.id}, data: times[i]}));
 
     logger.info(`Updated ${updates.length} items for callsheet ${callSheetId}`);

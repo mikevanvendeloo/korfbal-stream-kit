@@ -4,6 +4,7 @@ import {prisma, prismaUnscoped} from './prisma';
 import {bindOrganization, requireOrganizationId, runWithOrganization} from './organizationContext';
 import {logger} from '../utils/logger';
 import {liveChapters} from './productionTiming';
+import {blockIndexes, chapterMinimums, hallLaneItems, laneOf, relayOutFrom} from './laneTimes';
 
 interface ClockState {
   productionTime: number; // in seconds
@@ -17,6 +18,10 @@ interface LiveProductionState {
   isClockRunning: boolean;
   autoAdvanceTimer: NodeJS.Timeout | null;
   clockInterval: NodeJS.Timeout | null;
+  /** The Zaal item running in the hall lane next to the stream (parallel-lanes D4) */
+  activeVenueEventId: string | null;
+  activeVenueStartTime: string | null;
+  venueTimer: NodeJS.Timeout | null;
 }
 
 // The in-memory "source of truth" for the live show, one per organization (D6). Every exported
@@ -31,6 +36,9 @@ function newLiveState(): LiveProductionState {
     isClockRunning: false,
     autoAdvanceTimer: null,
     clockInterval: null,
+    activeVenueEventId: null,
+    activeVenueStartTime: null,
+    venueTimer: null,
   };
 }
 
@@ -47,6 +55,11 @@ function live(): LiveProductionState {
 function clearAutoAdvance(state: LiveProductionState) {
   if (state.autoAdvanceTimer) clearTimeout(state.autoAdvanceTimer);
   state.autoAdvanceTimer = null;
+}
+
+function clearVenueTimer(state: LiveProductionState) {
+  if (state.venueTimer) clearTimeout(state.venueTimer);
+  state.venueTimer = null;
 }
 
 /** Live events only reach the clients of the organization in the context (room org:<id>). */
@@ -85,8 +98,8 @@ function sanitizeEvent(event: any) {
  * make socket.io-parser (hasBinary) fail with 'Maximum call stack size exceeded', and JSON too.
  */
 export function liveStateSnapshot() {
-  const {productionId, activeEventId, clocks, isClockRunning} = live();
-  return {productionId, activeEventId, clocks: {...clocks}, isClockRunning};
+  const {productionId, activeEventId, clocks, isClockRunning, activeVenueEventId, activeVenueStartTime} = live();
+  return {productionId, activeEventId, clocks: {...clocks}, isClockRunning, activeVenueEventId, activeVenueStartTime};
 }
 
 /** Sends the live state to the organization. Never rejects: it is mostly called without await. */
@@ -167,6 +180,7 @@ export function discardLiveState(organizationId: number) {
   state.clockInterval = null;
   state.isClockRunning = false;
   clearAutoAdvance(state);
+  clearVenueTimer(state);
   liveStates.delete(organizationId);
 }
 
@@ -226,24 +240,20 @@ async function restoreActiveProduction() {
   const activeProduction = await prisma.production.findFirst({
     where: { isActive: true },
     orderBy: { createdAt: 'desc' },
-    include: {
-      productionEvents: {
-        where: { status: 'ACTIVE' },
-        orderBy: { order: 'asc' },
-        take: 1
-      }
-    }
   });
   if (!activeProduction) {
     logger.info('No active production found to restore.');
     return;
   }
   state.productionId = activeProduction.id;
-  if (activeProduction.productionEvents.length === 0) {
+  const {events, hall} = await laneEvents(activeProduction.id);
+  const venueEvent = events.find((e) => e.status === 'ACTIVE' && hall.has(e.id));
+  if (venueEvent) restoreVenueEvent(venueEvent);
+  const activeEvent = events.find((e) => e.status === 'ACTIVE' && !hall.has(e.id));
+  if (!activeEvent) {
     logger.info(`Restored active production ${activeProduction.id} but no active event found.`);
     return;
   }
-  const activeEvent = activeProduction.productionEvents[0];
   state.activeEventId = activeEvent.id;
   logger.info(`Restored active production ${activeProduction.id} with event ${activeEvent.id}`);
 
@@ -347,9 +357,11 @@ export async function setActiveEvent(eventId: string, productionId: number) {
   }
 
   // Set every other ACTIVE event of this production to COMPLETED - not just the one in memory, so a
-  // leftover ACTIVE event (e.g. from a restored backup or a restart) can't linger next to the new one
+  // leftover ACTIVE event (e.g. from a restored backup or a restart) can't linger next to the new one.
+  // The item running in the hall lane goes on (a samenkomstpunt ends it below).
+  const running = [eventId, ...(state.productionId === productionId && state.activeVenueEventId ? [state.activeVenueEventId] : [])];
   await prisma.productionEvent.updateMany({
-    where: { productionId, status: 'ACTIVE', id: { not: eventId } },
+    where: { productionId, status: 'ACTIVE', id: { notIn: running } },
     data: { status: 'COMPLETED' }
   });
 
@@ -435,6 +447,9 @@ export async function setActiveEvent(eventId: string, productionId: number) {
     logger.info(`No auto-advance for event ${activeEvent.id} ("${activeEvent.title}"). AutoAdvance: ${activeEvent.autoAdvance}, Duration: ${activeEvent.durationSec}`);
   }
 
+  // The hall lane: a samenkomstpunt ends its item, a block with Zaal items starts it
+  await followWithHallLane(productionId, activeEvent);
+
   // Herbereken de tijden voor de hele callsheet bij elke event-wissel
   await recalculateProductionTimes(productionId, activeEvent.actualStartTime || new Date(), eventId);
 
@@ -508,38 +523,16 @@ export async function recalculateProductionTimes(productionId: number, anchorTim
   const anchorIdx = allEvents.findIndex(e => e.id === anchorEventId);
   if (anchorIdx === -1) return;
 
-  const eventUpdates = [];
-
-  // Anchor zelf
-  const anchorEnd = new Date(anchorTime.getTime() + ((allEvents[anchorIdx].durationSec || 0) * 1000));
-  eventUpdates.push(prisma.productionEvent.update({
-    where: { id: allEvents[anchorIdx].id },
-    data: { plannedStartTime: anchorTime, plannedEndTime: anchorEnd }
+  // From the active item: Zaal and Stream as parallel lanes, each hoofdstuk at least its minimum (parallel-lanes D2)
+  const chapters = await prisma.productionChapter.findMany({where: {productionId}, select: {id: true, minDurationSec: true}});
+  const times = relayOutFrom(
+    allEvents.map((ev) => ({...ev, durationSec: ev.durationSec || 0})),
+    anchorIdx, anchorTime, chapterMinimums(chapters),
+  );
+  const eventUpdates = allEvents.map((ev, i) => prisma.productionEvent.update({
+    where: { id: ev.id },
+    data: { plannedStartTime: times[i].timeStart, plannedEndTime: times[i].timeEnd }
   }));
-
-  // Vooruit rekenen vanaf anker
-  let nextStart = anchorEnd;
-  for (let i = anchorIdx + 1; i < allEvents.length; i++) {
-    const ev = allEvents[i];
-    const end = new Date(nextStart.getTime() + ((ev.durationSec || 0) * 1000));
-    eventUpdates.push(prisma.productionEvent.update({
-      where: { id: ev.id },
-      data: { plannedStartTime: nextStart, plannedEndTime: end }
-    }));
-    nextStart = end;
-  }
-
-  // Achteruit rekenen vanaf anker
-  let prevStart = anchorTime;
-  for (let i = anchorIdx - 1; i >= 0; i--) {
-    const ev = allEvents[i];
-    const start = new Date(prevStart.getTime() - ((ev.durationSec || 0) * 1000));
-    eventUpdates.push(prisma.productionEvent.update({
-      where: { id: ev.id },
-      data: { plannedStartTime: start, plannedEndTime: prevStart }
-    }));
-    prevStart = start;
-  }
 
   if (eventUpdates.length > 0) {
     await prisma.$transaction(eventUpdates);
@@ -562,13 +555,13 @@ export async function recalculateProductionTimes(productionId: number, anchorTim
 
     const callSheetItemUpdates = [];
     for (const item of itemsToUpdate) {
-      const correspondingEvent = allEvents.find(e => e.callSheetItemId === item.id);
-      if (correspondingEvent) {
+      const eventIndex = allEvents.findIndex(e => e.callSheetItemId === item.id);
+      if (eventIndex !== -1) {
         callSheetItemUpdates.push(prisma.callSheetItem.update({
           where: { id: item.id },
           data: {
-            timeStart: correspondingEvent.plannedStartTime,
-            timeEnd: correspondingEvent.plannedEndTime
+            timeStart: times[eventIndex].timeStart,
+            timeEnd: times[eventIndex].timeEnd
           }
         }));
       }
@@ -617,18 +610,9 @@ async function getNextEventWithId(productionId: number, activeEventId: string | 
         return -1;
     })();
 
-    const next = await prisma.productionEvent.findFirst({
-        where: {
-            productionId,
-            order: {
-                gt: currentEventOrder,
-            },
-        },
-        orderBy: [
-            { order: 'asc' },
-            { createdAt: 'asc' }
-        ],
-    });
+    // Volgend follows the stream: Zaal items next to Stream items run by themselves (parallel-lanes D4)
+    const {events, hall} = await laneEvents(productionId);
+    const next = events.find((e) => e.order > currentEventOrder && !hall.has(e.id)) ?? null;
 
     if (next) {
         logger.info(`getNextEventWithId: next event will be ${next.id} ("${next.title}") with order ${next.order}`);
@@ -646,18 +630,132 @@ export async function getPreviousEvent(): Promise<ProductionEvent | null> {
     const currentEvent = await prisma.productionEvent.findUnique({ where: { id: state.activeEventId }});
     if (!currentEvent) return null;
 
-    return prisma.productionEvent.findFirst({
-        where: {
-            productionId: state.productionId,
-            order: {
-                lt: currentEvent.order,
-            },
-        },
-        orderBy: [
-            { order: 'desc' },
-            { createdAt: 'desc' }
-        ],
+    const {events, hall} = await laneEvents(state.productionId);
+    return [...events].reverse().find((e) => e.order < currentEvent.order && !hall.has(e.id)) ?? null;
+}
+
+type LaneEvent = ProductionEvent;
+
+/** The production's events in show order, and which of them run in the hall lane by themselves. */
+async function laneEvents(productionId: number): Promise<{ events: LaneEvent[]; hall: Set<string>; block: Map<string, number> }> {
+  const events = await prisma.productionEvent.findMany({where: {productionId}, orderBy: [{order: 'asc'}, {createdAt: 'asc'}]});
+  const inHall = hallLaneItems(events);
+  const blocks = blockIndexes(events);
+  return {
+    events,
+    hall: new Set(events.filter((_, i) => inHall[i]).map((e) => e.id)),
+    block: new Map(events.map((e, i) => [e.id, blocks[i]])),
+  };
+}
+
+const eventInclude = {positions: {include: {position: true}}} as const;
+
+function scheduleVenueAdvance(event: { id: string; durationSec: number | null; actualStartTime: Date | null }) {
+  const state = live();
+  clearVenueTimer(state);
+  if (event.durationSec == null) return;
+  const startedAt = event.actualStartTime?.getTime() ?? Date.now();
+  const delayMs = Math.max(0, startedAt + event.durationSec * 1000 - Date.now());
+  state.venueTimer = setTimeout(bindOrganization(() => {
+    advanceHallLane(event.id).catch((err) => logger.error(`Advancing the hall lane from ${event.id} failed:`, err));
+  }), delayMs);
+}
+
+function restoreVenueEvent(event: LaneEvent) {
+  const state = live();
+  state.activeVenueEventId = event.id;
+  state.activeVenueStartTime = (event.actualStartTime ?? new Date()).toISOString();
+  scheduleVenueAdvance(event);
+}
+
+async function startVenueEvent(eventId: string) {
+  const state = live();
+  const event = await prisma.productionEvent.update({
+    where: {id: eventId},
+    data: {status: 'ACTIVE', actualStartTime: new Date()},
+    include: eventInclude,
+  });
+  state.activeVenueEventId = event.id;
+  state.activeVenueStartTime = (event.actualStartTime as Date).toISOString();
+  scheduleVenueAdvance(event);
+  logger.info(`Hall lane: event ${event.id} ("${event.title}") started`);
+  emit('venue_event_update', sanitizeEvent(event));
+}
+
+/** Ends the item running in the hall lane (its actual end goes in `metadata.actualEndTime`). */
+async function endVenueEvent() {
+  const state = live();
+  clearVenueTimer(state);
+  const eventId = state.activeVenueEventId;
+  state.activeVenueEventId = null;
+  state.activeVenueStartTime = null;
+  if (!eventId) return;
+  const event = await prisma.productionEvent.findUnique({where: {id: eventId}, select: {metadata: true}});
+  if (event) {
+    const metadata = event.metadata && typeof event.metadata === 'object' && !Array.isArray(event.metadata) ? event.metadata : {};
+    await prisma.productionEvent.update({
+      where: {id: eventId},
+      data: {status: 'COMPLETED', metadata: {...metadata, actualEndTime: new Date().toISOString()}},
     });
+  }
+  emit('venue_event_update', null);
+}
+
+/** The next waiting hall item of the block of `fromId`, after it */
+function nextHallEvent(lane: Awaited<ReturnType<typeof laneEvents>>, from: LaneEvent): LaneEvent | undefined {
+  return lane.events.find((e) => e.order > from.order && lane.hall.has(e.id) && e.status === 'WAITING' && lane.block.get(e.id) === lane.block.get(from.id));
+}
+
+/** The hall item `fromId` is over: the next one of its block starts, else the hall lane waits. */
+async function advanceHallLane(fromId: string) {
+  const state = live();
+  if (state.activeVenueEventId !== fromId || !state.productionId) return;
+  const lane = await laneEvents(state.productionId);
+  const from = lane.events.find((e) => e.id === fromId);
+  await endVenueEvent();
+  const next = from && nextHallEvent(lane, from);
+  if (next) await startVenueEvent(next.id);
+  broadcastState();
+}
+
+/**
+ * The hall lane follows the stream (D4): a samenkomstpunt ends the hall item that still runs; a Stream item
+ * starts the hall lane of its block when none of its Zaal items has run yet.
+ */
+async function followWithHallLane(productionId: number, active: LaneEvent) {
+  const state = live();
+  const lane = await laneEvents(productionId);
+  const block = lane.block.get(active.id);
+  // Lanes never leave their block: a samenkomstpunt (a block of its own) or another block ends the hall item
+  if (state.activeVenueEventId && lane.block.get(state.activeVenueEventId) !== block) await endVenueEvent();
+  if (laneOf(active) !== 'STREAM') return;
+  const hallItems = lane.events.filter((e) => lane.hall.has(e.id) && lane.block.get(e.id) === block);
+  if (hallItems.length === 0 || hallItems.some((e) => e.status !== 'WAITING' || e.id === state.activeVenueEventId)) return;
+  await startVenueEvent(hallItems[0].id);
+}
+
+/**
+ * Zaal ›: moves the hall lane on by hand (POST /api/production/:id/venue-next). Ends the hall item that runs
+ * and starts the next one of its block; without one running it starts the first waiting one of the block
+ * of the active Stream item. Null when the production is not live.
+ */
+export async function venueNext(productionId: number) {
+  const state = live();
+  if (state.productionId !== productionId) return null;
+  const lane = await laneEvents(productionId);
+  const running = state.activeVenueEventId ? lane.events.find((e) => e.id === state.activeVenueEventId) : undefined;
+  if (running) {
+    const next = nextHallEvent(lane, running);
+    await endVenueEvent();
+    if (next) await startVenueEvent(next.id);
+  } else {
+    const active = lane.events.find((e) => e.id === state.activeEventId);
+    const block = active ? lane.block.get(active.id) : undefined;
+    const first = lane.events.find((e) => lane.hall.has(e.id) && e.status === 'WAITING' && block !== undefined && lane.block.get(e.id) === block);
+    if (first) await startVenueEvent(first.id);
+  }
+  await broadcastState();
+  return liveStateSnapshot();
 }
 
 export function getActiveProductionId() {
@@ -673,9 +771,10 @@ export async function stopProduction(productionId: number) {
 
   logger.info(`Stopping production ${productionId}`);
 
-  // Stop clock and auto-advance
+  // Stop clock and auto-advance, and the hall lane
   stopProductionClock();
   clearAutoAdvance(state);
+  await endVenueEvent().catch(err => logger.error('Failed to end the hall item on stop:', err));
 
   // Mark currently active event as COMPLETED
   if (state.activeEventId) {
@@ -738,6 +837,7 @@ export async function startProduction(productionId: number, firstEvent: Producti
   });
 
   emit('active_event_update', sanitizeEvent(activeEvent));
+  await followWithHallLane(productionId, activeEvent);
 
   // Zoek alle callsheet items voor deze productie die gepland zijn
   const callSheets = await prisma.callSheet.findMany({

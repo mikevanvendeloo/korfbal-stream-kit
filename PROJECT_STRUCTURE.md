@@ -75,7 +75,8 @@ apps/korfbal-stream-api/
     │   ├── production.ts              # Production report data loading
     │   ├── reportSponsors.ts          # Match/ball sponsor name → sponsor logo (report page + PDF); pdfImage(): PNG/JPEG by magic bytes, else a note
     │   ├── productionStaffing.ts      # Minimum staffing summary for many productions at once (productions list "Bezetting")
-    │   ├── productionState.ts         # In-memory live state per organization (active production/event, clocks)
+    │   ├── productionState.ts         # In-memory live state per organization (active production/event, clocks, hall lane: activeVenueEventId)
+    │   ├── laneTimes.ts               # Zaal and Stream as parallel lanes: the one timing rule (layOutTimes, template times, live relayout), hoofdstuk minimum
     │   ├── matchChange.ts             # A moved match shifts its production's liveTime, callsheet item and planned event times (not while live)
     │   ├── socket.ts                  # Socket.io server, room org:<id> per handshake, emitToOrganization, broadcastState()
     │   ├── timeSyncService.ts         # Production time / countdown
@@ -317,13 +318,13 @@ No login (internal LAN tool), but every `/api` request needs an organization: `X
 
 #### Hoofdstukken and bezetting (openspec/changes/chapters)
 
-A hoofdstuk is `{id, productionId, name, orderIndex}`; every callsheet item has a `chapterId`.
+A hoofdstuk is `{id, productionId, name, orderIndex, minDurationSec}` (Minimale duur in seconds, null = as long as its items); every callsheet item has a `chapterId`.
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/production/:id/chapters | The production's hoofdstukken in order |
-| POST | /api/production/:id/chapters | New hoofdstuk at the end (`{name}`) |
-| PUT | /api/production/chapters/:chapterId | Rename (`{name}`) |
+| POST | /api/production/:id/chapters | New hoofdstuk at the end (`{name, minDurationSec?}`) |
+| PUT | /api/production/chapters/:chapterId | Rename and/or Minimale duur (`{name?, minDurationSec?}`, null or 0 clears it) |
 | DELETE | /api/production/chapters/:chapterId | Delete an empty hoofdstuk (409 when it has items) |
 | PUT | /api/production/callsheets/:callSheetId/structure | Hoofdstuk order + this callsheet's items (`{chapters: [{id, itemIds}]}`) |
 | GET | /api/production/callsheets/:callSheetId/export-json | One production draaiboek as JSON in the template format (version 2, `kind: productie-draaiboek`): hoofdstukken (name, standard positions of the template hoofdstuk with that name), items with hoofdstuk, positions by name, cue, `parentId`, anchor, durations, `startOffsetSec` from the kickoff; `draaiboek-<date>-<home>-<away>.json` |
@@ -340,7 +341,7 @@ A hoofdstuk is `{id, productionId, name, orderIndex}`; every callsheet item has 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/production/:id/timing | Hoofdstukken with times from their items: `{id, name, orderIndex, durationMinutes, start, end}` (start/end null without timed items) |
+| GET | /api/production/:id/timing | Hoofdstukken with times from their items: `{id, name, orderIndex, durationMinutes, minDurationSec, overrunSec, start, end}` (end = max(items end, start + minimum); start/end null without timed items) |
 | GET | /api/production/:id/clocks | Production clocks |
 | GET | /api/production/next-date | Next production date |
 | GET | /api/production/dates | Production dates |
@@ -352,6 +353,7 @@ A hoofdstuk is `{id, productionId, name, orderIndex}`; every callsheet item has 
 | POST | /api/production/callsheet/set-active/:id | Set active callsheet item |
 | POST | /api/production/callsheet/next | Go to next callsheet item |
 | POST | /api/production/callsheet/previous | Go to previous callsheet item |
+| POST | /api/production/:id/venue-next | Zaal ›: move the hall lane on by hand (ends the running Zaal item, starts the next of its block); answers the live state snapshot; 404 foreign production, 409 not live |
 | POST | /api/production/callsheet/update-scoreboard-time | Update scoreboard time |
 
 #### Callsheets
@@ -397,11 +399,11 @@ A hoofdstuk is `{id, productionId, name, orderIndex}`; every callsheet item has 
 |--------|------|-------------|
 | GET | /api/callsheets/templates | List callsheet templates |
 | POST | /api/callsheets/templates | Create callsheet template |
-| GET | /api/callsheets/templates/:id | Get callsheet template |
+| GET | /api/callsheets/templates/:id | Get callsheet template, with times from the API (seconds from the kickoff): `items[].startOffsetSec`, `chapters[].startOffsetSec/endOffsetSec/overrunSec/minDurationSec` |
 | PUT | /api/callsheets/templates/:id | Update callsheet template |
 | DELETE | /api/callsheets/templates/:id | Delete callsheet template |
-| POST | /api/callsheets/templates/:id/chapters | New template hoofdstuk |
-| PUT | /api/callsheets/templates/chapters/:chapterId | Rename and/or standard positions (`{name?, positionIds?}`) |
+| POST | /api/callsheets/templates/:id/chapters | New template hoofdstuk (`{name, minDurationSec?}`) |
+| PUT | /api/callsheets/templates/chapters/:chapterId | Rename, standard positions and/or Minimale duur (`{name?, positionIds?, minDurationSec?}`) |
 | DELETE | /api/callsheets/templates/chapters/:chapterId | Delete an empty hoofdstuk (409) |
 | PUT | /api/callsheets/templates/:id/structure | Whole order (`{chapters: [{id, itemIds}]}`) |
 | POST | /api/callsheets/templates/from-callsheet/:callSheetId | A production's callsheet as a new template |

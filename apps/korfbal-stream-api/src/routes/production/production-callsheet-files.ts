@@ -7,7 +7,7 @@ import {LONG_TRANSACTION, prisma} from '../../services/prisma';
 import {positionResolver} from '../../services/positions';
 import {broadcastState} from '../../services/productionState';
 import {DraaiboekFileSchema} from '../../schemas/draaiboekFile';
-import {chapterKey, layOutTimes, planDraaiboekImport} from '../../services/draaiboekFile';
+import {chapterKey, chapterMinimums, layOutTimes, planDraaiboekImport} from '../../services/draaiboekFile';
 import {contentDisposition} from '../../utils/attachment';
 import {amsterdamDay, toAmsterdamInputValue} from '../../utils/time';
 
@@ -79,6 +79,7 @@ productionCallsheetFilesRouter.get('/callsheets/:callSheetId/export-json', async
       match: {date: production.matchSchedule.date, homeTeam: production.matchSchedule.homeTeamName, awayTeam: production.matchSchedule.awayTeamName},
       chapters: production.chapters.map((c) => ({
         name: c.name,
+        minDurationSec: c.minDurationSec,
         positions: templateChapters.find((t) => chapterKey(t.name) === chapterKey(c.name))?.positions.map((p) => p.position.name) ?? [],
       })),
       items: callSheet.items.map((item) => ({
@@ -192,17 +193,31 @@ productionCallsheetFilesRouter.post('/callsheets/:callSheetId/import-json', uplo
     const isAnchor = (index: number) => anchorIndexes.has(index);
     const kickoff = production.matchSchedule.date;
     const liveStart = production.liveTime ?? new Date(kickoff.getTime() - DEFAULT_LIVE_BEFORE_MATCH_MS);
-    const times = layOutTimes(plan.items.map(({index}) => {
+    // A hoofdstuk's minimum: the file's when it names one, else the production's own
+    const fileMinimum = new Map((file.chapters ?? []).filter((c) => c.minDurationSec !== undefined).map((c) => [chapterKey(c.name), c.minDurationSec ?? null]));
+    const minimumOf = (name: string) => (fileMinimum.has(chapterKey(name))
+      ? fileMinimum.get(chapterKey(name)) ?? null
+      : production.chapters.find((c) => chapterKey(c.name) === chapterKey(name))?.minDurationSec ?? null);
+    const chapterNames = [...production.chapters.map((c) => c.name), ...plan.newChapters];
+    const times = layOutTimes(plan.items.map(({index, chapterName}) => {
       const item = file.items[index];
-      return {durationSec: item.durationSec, isTimeAnchor: isAnchor(index), anchorType: item.anchorType ?? null, startOffsetSec: item.startOffsetSec ?? null};
-    }), {kickoff, liveStart});
+      return {
+        durationSec: item.durationSec, isTimeAnchor: isAnchor(index), anchorType: item.anchorType ?? null, startOffsetSec: item.startOffsetSec ?? null,
+        isInVenue: !!item.isInVenue, isInLivestream: item.isInLivestream !== false, chapterId: chapterKey(chapterName),
+      };
+    }), {kickoff, liveStart, chapterMinimums: chapterMinimums(chapterNames.map((name) => ({id: chapterKey(name), minDurationSec: minimumOf(name)})))});
 
     await prisma.$transaction(async (tx) => {
       // Hoofdstukken: the production's own stay (also when they end up empty), missing ones are added
       const chapterIds = new Map(production.chapters.map((c) => [chapterKey(c.name), c.id]));
+      for (const c of production.chapters) {
+        if (fileMinimum.has(chapterKey(c.name)) && minimumOf(c.name) !== c.minDurationSec) {
+          await tx.productionChapter.update({where: {id: c.id}, data: {minDurationSec: minimumOf(c.name)}});
+        }
+      }
       let orderIndex = Math.max(0, ...production.chapters.map((c) => c.orderIndex));
       for (const name of plan.newChapters) {
-        const chapter = await tx.productionChapter.create({data: {productionId: production.id, name, orderIndex: ++orderIndex}});
+        const chapter = await tx.productionChapter.create({data: {productionId: production.id, name, orderIndex: ++orderIndex, minDurationSec: minimumOf(name)}});
         chapterIds.set(chapterKey(name), chapter.id);
       }
 

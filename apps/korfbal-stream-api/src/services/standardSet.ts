@@ -107,7 +107,7 @@ async function addStandardSet(tx: Prisma.TransactionClient): Promise<StandardSet
     for (const [orderIndex, chapter] of template.chapters.entries()) {
       const row = await tx.callSheetTemplateChapter.create({
         data: {
-          templateId: created.id, name: chapter.name, orderIndex,
+          templateId: created.id, name: chapter.name, orderIndex, minDurationSec: chapter.minDurationSec ?? null,
           positions: {create: positionIdsOf(chapter.positions ?? []).map((positionId, i) => ({positionId, orderIndex: i}))},
         },
       });

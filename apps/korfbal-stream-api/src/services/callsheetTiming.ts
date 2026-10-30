@@ -93,14 +93,21 @@ export function isRelevant(event: TimingEvent, positions: string[]): boolean {
 
 /**
  * The current item is the active event when it's relevant for the positions; the next item is the first
- * relevant event after the active one (or the first waiting one when nothing is active).
+ * relevant event after the active one (or the first waiting one when nothing is active). The Zaal item running
+ * in the hall lane (parallel-lanes D4) is the current item for the positions that are on it by name, and
+ * for the others when the active stream item isn't theirs.
  */
-export function selectCurrentAndNext(events: TimingEvent[], activeEventId: string | null, positions: string[]) {
+export function selectCurrentAndNext(events: TimingEvent[], activeEventId: string | null, positions: string[], activeVenueEventId: string | null = null) {
   const sorted = [...events].sort((a, b) => a.order - b.order);
   const active = activeEventId ? sorted.find((e) => e.id === activeEventId) ?? null : null;
-  const current = active && isRelevant(active, positions) ? active : null;
-  const candidates = active
-    ? sorted.filter((e) => e.order > active.order)
+  const venue = activeVenueEventId ? sorted.find((e) => e.id === activeVenueEventId) ?? null : null;
+  const venueIsTheirs = venue != null && positions.length > 0 && venue.positions.length > 0 && isRelevant(venue, positions);
+  const current = venueIsTheirs ? venue
+    : active && isRelevant(active, positions) ? active
+      : venue && isRelevant(venue, positions) ? venue : null;
+  const from = Math.max(active?.order ?? -Infinity, current?.order ?? -Infinity);
+  const candidates = active || current
+    ? sorted.filter((e) => e.order > from && (venue == null || e.status === 'WAITING'))
     : sorted.filter((e) => e.status === 'WAITING');
   const next = candidates.find((e) => isRelevant(e, positions)) ?? null;
   return {current, next};
@@ -110,11 +117,12 @@ export function buildCallsheetTiming(input: {
   productionId: number | null;
   events: TimingEvent[];
   activeEventId: string | null;
+  activeVenueEventId?: string | null;
   positions: string[];
   warningSeconds: number;
   now: Date;
 }): CallsheetTiming {
-  const {current, next} = selectCurrentAndNext(input.events, input.activeEventId, input.positions);
+  const {current, next} = selectCurrentAndNext(input.events, input.activeEventId, input.positions, input.activeVenueEventId ?? null);
   const nowMs = input.now.getTime();
 
   const remaining = current?.durationSec != null && current.actualStartTime
@@ -176,5 +184,6 @@ export async function loadCallsheetTiming(positions: string[], warningSeconds: n
     ? state.activeEventId
     : events.find((e) => e.status === 'ACTIVE')?.id ?? null;
 
-  return buildCallsheetTiming({productionId, events, activeEventId, positions, warningSeconds, now});
+  const activeVenueEventId = state.productionId === productionId ? state.activeVenueEventId : null;
+  return buildCallsheetTiming({productionId, events, activeEventId, activeVenueEventId, positions, warningSeconds, now});
 }

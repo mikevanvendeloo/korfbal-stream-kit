@@ -7,7 +7,7 @@ import {findPositionByName, SHOWCALLER_POSITION} from '../../domain/positionSkil
 import {NotFoundError} from '../../middleware/error';
 import {contentDisposition} from '../../utils/attachment';
 import {callSheetTemplateChaptersRouter, importedChapterName, importedItemChapters, templateChaptersByName, templateItemChapter} from './callsheet-template-chapters';
-import {layOutTimes} from '../../services/draaiboekFile';
+import {chapterMinimums, layOutTimes, templateTimes} from '../../services/draaiboekFile';
 
 export const callSheetTemplateRouter: Router = Router();
 // Hoofdstukken (openspec/changes/chapters D4): /:id/chapters, /chapters/:chapterId, /:id/structure
@@ -87,7 +87,8 @@ callSheetTemplateRouter.get('/:id', async (req, res, next) => {
       }
     });
     if (!template) return res.status(404).json({ error: 'Template not found' });
-    return res.json(template);
+    // Times relative to the match start, from the one timing rule (lanes, anchors, minimums)
+    return res.json({...template, ...templateTimes(template.chapters, template.items)});
   } catch (err) {
     return next(err);
   }
@@ -356,8 +357,8 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
         for (const [i, chapter] of templateChapters.entries()) {
           const existing = existingByName.get(chapter.name);
           const productionChapter = existing && !kept.has(existing.id)
-            ? await tx.productionChapter.update({ where: { id: existing.id }, data: { orderIndex: i + 1 } })
-            : await tx.productionChapter.create({ data: { productionId, name: chapter.name, orderIndex: i + 1 } });
+            ? await tx.productionChapter.update({ where: { id: existing.id }, data: { orderIndex: i + 1, minDurationSec: chapter.minDurationSec } })
+            : await tx.productionChapter.create({ data: { productionId, name: chapter.name, orderIndex: i + 1, minDurationSec: chapter.minDurationSec } });
           kept.add(productionChapter.id);
           productionChapterOf.set(chapter.id, productionChapter.id);
         }
@@ -488,11 +489,14 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
 
     // Times: every anchor at its own time (livestream start, match start), the items in between end to end;
     // the events get the times of their callsheet item
-    const callSheet = await prisma.callSheet.findFirst({where: {productionId}, include: {items: {orderBy: {orderIndex: 'asc'}}}});
+    const [callSheet, productionChapters] = await Promise.all([
+      prisma.callSheet.findFirst({where: {productionId}, include: {items: {orderBy: {orderIndex: 'asc'}}}}),
+      prisma.productionChapter.findMany({where: {productionId}, select: {id: true, minDurationSec: true}}),
+    ]);
     if (callSheet && result.production.matchSchedule && callSheet.items.some((it) => it.isTimeAnchor)) {
       const kickoff = new Date(result.production.matchSchedule.date);
       const liveStart = result.production.liveTime ?? new Date(kickoff.getTime() - 30 * 60 * 1000);
-      const times = layOutTimes(callSheet.items, {kickoff, liveStart});
+      const times = layOutTimes(callSheet.items, {kickoff, liveStart, chapterMinimums: chapterMinimums(productionChapters)});
       await prisma.$transaction(callSheet.items.flatMap((item, i) => [
         prisma.callSheetItem.update({where: {id: item.id}, data: times[i]}),
         prisma.productionEvent.updateMany({
@@ -704,6 +708,7 @@ callSheetTemplateRouter.get('/:id/export-json', async (req, res, next) => {
       name: template.name,
       chapters: template.chapters.map(chapter => ({
         name: chapter.name,
+        minDurationSec: chapter.minDurationSec,
         positions: chapter.positions.map(p => p.position.name)
       })),
       items: template.items.map(item => ({
@@ -767,7 +772,7 @@ callSheetTemplateRouter.post('/import-json', uploadMem, async (req, res, next) =
     const idMapping: Record<string, string> = {};
 
     // The hoofdstukken (version 2): in the given order, then any further name an item mentions
-    const chapterList: Array<{ name?: unknown; positions?: unknown }> = Array.isArray(data.chapters) ? data.chapters : [];
+    const chapterList: Array<{ name?: unknown; positions?: unknown; minDurationSec?: unknown }> = Array.isArray(data.chapters) ? data.chapters : [];
     const chapterNames = [...chapterList.map((c) => importedChapterName(c?.name)), ...items.map((i: { chapter?: unknown }) => importedChapterName(i?.chapter))].filter(Boolean);
     const chapterIds = await templateChaptersByName(template.id, [...new Set(chapterNames)]);
     for (const chapter of chapterList) {
@@ -776,6 +781,10 @@ callSheetTemplateRouter.post('/import-json', uploadMem, async (req, res, next) =
       const positionIds = [...new Set(names.map((n) => findPositionByName(positions, String(n))?.id).filter((id): id is number => !!id))];
       if (chapterId && positionIds.length > 0) {
         await prisma.callSheetTemplateChapterPosition.createMany({ data: positionIds.map((positionId, orderIndex) => ({ chapterId, positionId, orderIndex })) });
+      }
+      const minimum = Number(chapter?.minDurationSec);
+      if (chapterId && Number.isInteger(minimum) && minimum > 0 && minimum <= 86400) {
+        await prisma.callSheetTemplateChapter.update({ where: { id: chapterId }, data: { minDurationSec: minimum } });
       }
     }
 

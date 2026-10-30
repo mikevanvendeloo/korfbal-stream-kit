@@ -1,11 +1,11 @@
 # Tasks: parallel-lanes
 
 ## Backend
-- [ ] `services/laneTimes.ts` + unit tests; `layOutTimes` delegates to it (D1, D2)
-- [ ] Migration `minDurationSec` (production + template hoofdstukken); hoofdstuk PUT/POST, apply template, backup, production export/import, draaiboek file carry it; standard set 35/10/35 (D3)
-- [ ] Template GET returns `startOffsetSec` per item and start/end/overrun per hoofdstuk; `/timing` and reports use the minimum (D2)
-- [ ] LIVE: Volgend/Vorig skip ZAAL events; hall lane auto start/advance; `POST /api/production/:id/venue-next`; `activeVenueEventId` in the snapshot; Volgend at a JOIN ends the hall item; `stopOrganization` clears the timer; `callsheetTiming` (D4)
-- [ ] Leak suite, security and integration tests (D6); PROJECT_STRUCTURE.md, CLAUDE.md (time anchoring → lanes)
+- [x] `services/laneTimes.ts` + unit tests; `layOutTimes` delegates to it (D1, D2)
+- [x] Migration `minDurationSec` (production + template hoofdstukken); hoofdstuk PUT/POST, apply template, backup, production export/import, draaiboek file carry it; standard set 35/10/35 (D3)
+- [x] Template GET returns `startOffsetSec` per item and start/end/overrun per hoofdstuk; `/timing` and reports use the minimum (D2)
+- [x] LIVE: Volgend/Vorig skip ZAAL events; hall lane auto start/advance; `POST /api/production/:id/venue-next`; `activeVenueEventId` in the snapshot; Volgend at a JOIN ends the hall item; `stopOrganization` clears the timer; `callsheetTiming` (D4)
+- [x] Leak suite, security and integration tests (D6); PROJECT_STRUCTURE.md, CLAUDE.md (time anchoring → lanes)
 
 ## Frontend
 - [ ] Editor: Minimale duur per hoofdstuk, overrun notice, lane edge on rows; times from the API (`relativeChapterTimes` removed) (D5)

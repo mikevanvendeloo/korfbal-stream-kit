@@ -33,7 +33,7 @@ export const DraaiboekFileItemSchema = z.object({
 export const DraaiboekFileSchema = z.object({
   version: z.coerce.number().int().min(1).max(2, 'Alleen versie 1 en 2 worden ondersteund').optional(),
   name: text(200).optional(),
-  chapters: z.array(z.object({name: text(100), positions: z.array(text(100)).max(100).optional()})).max(200).optional(),
+  chapters: z.array(z.object({name: text(100), positions: z.array(text(100)).max(100).optional(), minDurationSec: z.number().int().min(0).max(86400).nullable().optional()})).max(200).optional(),
   items: z.array(DraaiboekFileItemSchema).max(1000, 'Te veel items (maximaal 1000)'),
 });
 

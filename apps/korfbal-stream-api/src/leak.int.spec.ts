@@ -229,6 +229,7 @@ const ROUTES: Record<string, Probe> = {
   'POST /api/production/:id/report': {write: (a) => `/api/production/${a.productionId}/report`, body: () => ({remarks: 'Overgenomen'})},
   'POST /api/production/:id/titles': {write: (a) => `/api/production/${a.productionId}/titles`, body: () => ({name: 'Overgenomen', parts: [{sourceType: 'COMMENTARY'}]})},
   'POST /api/production/callsheet/next': LIVE,
+  'POST /api/production/:id/venue-next': {write: (a) => `/api/production/${a.productionId}/venue-next`},
   'POST /api/production/callsheet/previous': LIVE,
   'POST /api/production/callsheet/set-active/:id': {write: (a) => `/api/production/callsheet/set-active/${a.eventId}`, body: (a) => ({productionId: a.productionId})},
   'POST /api/production/callsheet/update-scoreboard-time': LIVE,
