@@ -20,6 +20,9 @@ interface Props {
   accentColor: 'blue' | 'emerald' | 'purple';
   activeEventRemainingTime?: { minutes: string; seconds: string; isNegative: boolean; rawSeconds: number } | null;
   isCompact?: boolean;
+  /** The hall item running next to the stream, with its countdown (openspec/changes/parallel-lanes D4) */
+  activeVenueEvent?: ProductionEvent | null;
+  activeVenueRemainingTime?: { minutes: string; seconds: string; isNegative: boolean; rawSeconds: number } | null;
   /** The hoofdstukken: `allTimes` holds a heading slot "chapter:<id>" before each one */
   chapters?: LiveChapter[];
 }
@@ -40,6 +43,8 @@ export const CallSheetColumn = ({
   activeEventRemainingTime = null,
   isCompact = false,
   chapters = [],
+  activeVenueEvent = null,
+  activeVenueRemainingTime = null,
 }: Props) => {
   const isBlue = accentColor === 'blue';
   const isEmerald = accentColor === 'emerald';
@@ -49,7 +54,9 @@ export const CallSheetColumn = ({
 
   // The show runs something that isn't for this position: a wait row where the active item would be (its
   // placeholder slot when other columns show it), else right before the position's next item, else at the end.
-  const wait = callsheetWait(items, activeEvent, positionId);
+  const wait = callsheetWait(items, activeEvent, positionId, Date.now(), activeVenueEvent);
+  const isActive = (id: string) => activeEvent?.id === id || activeVenueEvent?.id === id;
+  const remainingOf = (id: string) => activeEvent?.id === id ? activeEventRemainingTime : activeVenueEvent?.id === id ? activeVenueRemainingTime : null;
   const activeTime = wait && items.find(item => item.id === activeEvent?.id)?.calculatedTime?.toISOString();
   let waitPlaced = false;
   const waitRow = (): ReactNode => {
@@ -155,10 +162,10 @@ export const CallSheetColumn = ({
                 {wait?.kind === 'waiting' && wait.next.id === item.id && waitRow()}
                 <CallSheetItem
                   item={item}
-                  isActive={activeEvent?.id === item.id}
+                  isActive={isActive(item.id)}
                   isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
                   elapsedTime={elapsedTime}
-                  remainingTimeDisplay={activeEvent?.id === item.id ? activeEventRemainingTime : null}
+                  remainingTimeDisplay={remainingOf(item.id)}
                   isVenueItem={isEmerald}
                 />
               </Fragment>

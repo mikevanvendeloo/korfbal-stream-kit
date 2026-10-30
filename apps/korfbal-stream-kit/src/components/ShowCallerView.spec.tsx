@@ -4,7 +4,7 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {ShowCallerView} from './ShowCallerView';
 import {useMediaQuery} from '../hooks/useMediaQuery';
 import {useWakeLock} from '../hooks/useWakeLock';
-import {fakeControls, REGIE, remaining, showItem} from '../test/showCaller';
+import {fakeControls, REGIE, remaining, rustChapters, rustHallDone, rustItems, showItem} from '../test/showCaller';
 import {StaticInterviewNames} from './InterviewText';
 import {interviewNames} from '../test/interviews';
 
@@ -194,5 +194,46 @@ describe('ShowCallerView hoofdstukken', () => {
     renderView();
     expect(screen.getByLabelText('Hoofdstuk').textContent).toBe('Voorbeschouwingnog 0:50');
     expect(screen.getByLabelText('Hoofdstuk van volgende').textContent).toBe('Eerste helft');
+  });
+});
+
+describe('ShowCallerView: Zaal and Stream in parallel (wide)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useMediaQuery).mockReturnValue(false);
+    Element.prototype.scrollIntoView = vi.fn();
+    controls.error = null;
+    live = {
+      allItems: rustItems, allPositions: [regie], chapters: rustChapters, activeEvent: rustItems[2], activeEventElapsedTime: 30,
+      productionClock: {minutes: '05', seconds: '00', isNegative: false, rawSeconds: 300}, venueClock: '00:00', systemTime: '20:00:00',
+      activeEventRemainingTime: remaining(90), activeVenueEventId: 'r2', activeVenueRemainingTime: remaining(75),
+      isLoading: false, autoAdvanceEventId: null, isConnected: true, timeSinceLastSync: 1,
+    };
+  });
+
+  it('shows the running hall item in the Zaal lane and moves it on with Zaal ›', () => {
+    renderView();
+    const hall = screen.getByLabelText('Zaal');
+    expect(hall.textContent).toContain('Reclame LED');
+    expect(hall.textContent).toContain('nog 1:15');
+    fireEvent.click(screen.getByRole('button', {name: 'Zaal ›'}));
+    expect(controls.venueNext).toHaveBeenCalledOnce();
+    // Every item of the rust once, side by side
+    expect(screen.getAllByText('Statistieken')).toHaveLength(1);
+    expect(screen.getAllByText('Analyse eerste helft')).toHaveLength(1);
+  });
+
+  it('warns that Volgend ends the hall item at the samenkomstpunt', () => {
+    const items = rustItems.map((e) => (e.id === 'r2' || e.id === 'r3' ? {...e, status: 'COMPLETED'} : e.id === 'r5' ? {...e, status: 'ACTIVE'} : e));
+    live = {...live, allItems: items, activeEvent: items[4], activeVenueEventId: 'r4', activeVenueRemainingTime: remaining(42)};
+    renderView();
+    expect(screen.getByRole('note').textContent).toBe('Volgend: Zaal nog 0:42 bezig');
+  });
+
+  it('shows the wait row in the hall lane when it is done before the stream', () => {
+    live = {...live, allItems: rustHallDone, activeEvent: rustHallDone[4], activeVenueEventId: null, activeVenueRemainingTime: null};
+    renderView();
+    expect(screen.getByRole('status').textContent).toBe('Zaal klaar · volgende: Start tweede helft');
+    expect(screen.queryByRole('button', {name: 'Zaal ›'})).toBeNull();
   });
 });

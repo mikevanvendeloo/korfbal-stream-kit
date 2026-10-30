@@ -19,7 +19,7 @@ async function send(path: string, method: string, body?: unknown): Promise<Respo
 // Draaiboek templates
 export const addTemplateChapter = async (templateId: number, name: string) =>
   (await send(`/api/callsheets/templates/${templateId}/chapters`, 'POST', {name})).json() as Promise<{ id: string; name: string }>;
-export const updateTemplateChapter = (chapterId: string, change: { name?: string; positionIds?: number[] }) =>
+export const updateTemplateChapter = (chapterId: string, change: { name?: string; positionIds?: number[]; minDurationSec?: number | null }) =>
   send(`/api/callsheets/templates/chapters/${encodeURIComponent(chapterId)}`, 'PUT', change);
 export const deleteTemplateChapter = (chapterId: string) => send(`/api/callsheets/templates/chapters/${encodeURIComponent(chapterId)}`, 'DELETE');
 export const saveTemplateStructure = (templateId: number, chapters: Structure<string>) =>
@@ -28,7 +28,7 @@ export const saveTemplateStructure = (templateId: number, chapters: Structure<st
 // Productions (the hoofdstukken belong to the production; the order is saved per callsheet)
 export const addProductionChapter = async (productionId: number, name: string) =>
   (await send(`/api/production/${productionId}/chapters`, 'POST', {name})).json() as Promise<{ id: number; name: string }>;
-export const renameProductionChapter = (chapterId: number, name: string) => send(`/api/production/chapters/${chapterId}`, 'PUT', {name});
+export const renameProductionChapter = (chapterId: number, name: string) => updateProductionChapter(chapterId, {name});/** Name and/or Minimale duur (seconds; null clears it) */export const updateProductionChapter = (chapterId: number, change: { name?: string; minDurationSec?: number | null }) =>  send(`/api/production/chapters/${chapterId}`, 'PUT', change);
 export const deleteProductionChapter = (chapterId: number) => send(`/api/production/chapters/${chapterId}`, 'DELETE');
 export const saveCallSheetStructure = (callSheetId: number, chapters: Structure<number>) =>
   send(`/api/production/callsheets/${callSheetId}/structure`, 'PUT', {chapters});

@@ -31,7 +31,9 @@ export const CallSheetView = () => {
         activeEventElapsedTime,
         activeEventRemainingTime,
         isLoading,
-        autoAdvanceEventId
+        autoAdvanceEventId,
+        activeVenueEventId = null,
+        activeVenueRemainingTime = null,
     } = useLiveState();
 
     // Lokale staat voor de tweede en derde kolom
@@ -177,6 +179,8 @@ export const CallSheetView = () => {
     const timedItems = useMemo(() => {
         return calculateEventTimes(allItems);
     }, [allItems]);
+    // The hall item running next to the stream (openspec/changes/parallel-lanes D4)
+    const activeVenueEvent = timedItems.find(item => item.id === activeVenueEventId) ?? null;
 
     const allTimes = useMemo(() => {
         // Alleen de items voor de geselecteerde posities meenemen
@@ -582,6 +586,8 @@ export const CallSheetView = () => {
                     autoAdvanceEventId={autoAdvanceEventId}
                     elapsedTime={activeEventElapsedTime}
                     activeEventRemainingTime={activeEventRemainingTime}
+                    activeVenueEvent={activeVenueEvent}
+                    activeVenueRemainingTime={activeVenueRemainingTime}
                     allTimes={slots}
                     chapters={chapters}
                     allPositions={allPositions}
@@ -600,6 +606,8 @@ export const CallSheetView = () => {
                         autoAdvanceEventId={autoAdvanceEventId}
                         elapsedTime={activeEventElapsedTime}
                         activeEventRemainingTime={activeEventRemainingTime}
+                        activeVenueEvent={activeVenueEvent}
+                        activeVenueRemainingTime={activeVenueRemainingTime}
                         allTimes={slots}
                         chapters={chapters}
                         allPositions={allPositions}
@@ -619,6 +627,8 @@ export const CallSheetView = () => {
                         autoAdvanceEventId={autoAdvanceEventId}
                         elapsedTime={activeEventElapsedTime}
                         activeEventRemainingTime={activeEventRemainingTime}
+                        activeVenueEvent={activeVenueEvent}
+                        activeVenueRemainingTime={activeVenueRemainingTime}
                         allTimes={slots}
                         chapters={chapters}
                         allPositions={allPositions}

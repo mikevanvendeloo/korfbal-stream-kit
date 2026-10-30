@@ -30,6 +30,8 @@ export interface CallSheetTemplateItem {
   parentId: string | null;
   /** The item's hoofdstuk (openspec/changes/chapters) */
   chapterId: string | null;
+  /** Planned start in seconds from the kickoff (API, parallel-lanes D2); null without an anchor */
+  startOffsetSec?: number | null;
   positions: { positionId: number; position: { name: string } }[];
 }
 
@@ -39,6 +41,12 @@ export interface CallSheetTemplateChapter {
   name: string;
   orderIndex: number;
   positions: { positionId: number; orderIndex: number; position: { id: number; name: string } }[];
+  /** Minimale duur in seconds (null = as long as its items) */
+  minDurationSec?: number | null;
+  /** Start and end in seconds from the kickoff (null without timed items), and how far the items run past the minimum */
+  startOffsetSec?: number | null;
+  endOffsetSec?: number | null;
+  overrunSec?: number;
 }
 
 export interface FullCallSheetTemplate extends CallSheetTemplate {

@@ -1,6 +1,7 @@
 import {useParams} from 'react-router-dom';
 import {useCrewReport} from '../hooks/useCallsheet';
-import {useProduction} from '../hooks/useProductions';
+import {useProduction, useProductionEvents} from '../hooks/useProductions';
+import {hallLaneItems} from '../lib/lanes';
 import {MdDownload} from 'react-icons/md';
 import {formatDateTime, formatTime as formatAmsterdamTime} from '../lib/time';
 
@@ -9,6 +10,7 @@ export default function ProductionTimingReportPage() {
   const productionId = Number(params.id);
   const { data, isLoading, error } = useCrewReport(productionId);
   const production = useProduction(productionId);
+  const events = useProductionEvents(productionId);
 
   if (!productionId) return <div className="container py-6">Ongeldig productie ID</div>;
   if (isLoading || production.isLoading) return <div className="container py-6 text-gray-800 dark:text-gray-100">Laden…</div>;
@@ -34,10 +36,17 @@ export default function ProductionTimingReportPage() {
 
   const allItems = data.callsheets.flatMap(cs => cs.items).sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
 
+  // The hall lane runs next to the stream (openspec/changes/parallel-lanes): its items have their own actual
+  // end (metadata.actualEndTime) and don't cut short the stream item that runs at the same time
+  const showEvents = [...(events.data ?? [])].sort((a, b) => a.order - b.order);
+  const inHall = hallLaneItems(showEvents);
+  const hallItemIds = new Set(showEvents.filter((_, i) => inHall[i]).map((e) => e.callSheetItemId).filter((id): id is string => !!id));
+  const actualEnd = new Map(showEvents.filter((e) => e.callSheetItemId && e.metadata?.actualEndTime).map((e) => [e.callSheetItemId as string, e.metadata?.actualEndTime as string]));
+
   // Pre-calculate actual durations based on start time of next item
   const itemActualDurations: Record<string, number> = {};
   const sortedEvents = [...(data.productionEvents || [])]
-    .filter(e => e.actualStartTime)
+    .filter(e => e.actualStartTime && !(e.callSheetItemId && hallItemIds.has(e.callSheetItemId)))
     .sort((a, b) => new Date(a.actualStartTime!).getTime() - new Date(b.actualStartTime!).getTime());
 
   for (let i = 0; i < sortedEvents.length; i++) {
@@ -54,6 +63,16 @@ export default function ProductionTimingReportPage() {
       }
     }
   }
+  // A hall item: from its actual start to its actual end
+  for (const event of data.productionEvents ?? []) {
+    const end = event.callSheetItemId ? actualEnd.get(event.callSheetItemId) : undefined;
+    if (end && event.actualStartTime) {
+      itemActualDurations[event.callSheetItemId as string] = Math.round((new Date(end).getTime() - new Date(event.actualStartTime).getTime()) / 1000);
+    }
+  }
+  /** "19:40:05", or "19:40:05 – 19:42:10" for a hall item with its actual end */
+  const actualTimes = (itemId: string, start: string | null | undefined) =>
+    actualEnd.has(itemId) && start ? `${formatTime(start)} – ${formatTime(actualEnd.get(itemId))}` : formatTime(start);
 
   return (
     <div className="container py-6 max-w-6xl mx-auto px-4 text-gray-800 dark:text-gray-100">
@@ -77,7 +96,7 @@ export default function ProductionTimingReportPage() {
                   item.chapter?.name || '-',
                   item.title,
                   formatTime(item.timeStart),
-                  formatTime(event?.actualStartTime),
+                  actualTimes(item.id, event?.actualStartTime),
                   formatDuration(item.durationSec),
                   formatDuration(actualDuration),
                   event?.status || 'Niet gestart'
@@ -138,9 +157,12 @@ export default function ProductionTimingReportPage() {
                 return (
                   <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                     <td className="px-4 py-3 text-sm text-gray-500 truncate max-w-[120px]">{item.chapter?.name || '-'}</td>
-                    <td className="px-4 py-3 text-sm font-medium">{item.title}</td>
+                    <td className="px-4 py-3 text-sm font-medium">
+                      {hallItemIds.has(item.id) && <span title="Zaal: liep parallel aan de stream" className="mr-1.5 rounded bg-emerald-100 px-1 text-[10px] font-semibold uppercase text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">Zaal</span>}
+                      {item.title}
+                    </td>
                     <td className="px-4 py-3 text-sm font-mono text-gray-500">{formatTime(item.timeStart)}</td>
-                    <td className="px-4 py-3 text-sm font-mono">{formatTime(event?.actualStartTime)}</td>
+                    <td className="px-4 py-3 text-sm font-mono whitespace-nowrap">{actualTimes(item.id, event?.actualStartTime)}</td>
                     <td className={`px-4 py-3 text-sm font-mono ${isLate ? 'text-red-500 font-bold' : 'text-gray-500'}`}>
                       {diffText}
                     </td>

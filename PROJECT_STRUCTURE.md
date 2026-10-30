@@ -175,6 +175,7 @@ apps/korfbal-stream-kit/src/
 │   ├── adminPaths.ts          # All Beheer URLs
 │   ├── download.ts            # File downloads; downloadFromApi for exports (fetch, so the header goes along)
 │   ├── time.ts                # Show/enter times in Europe/Amsterdam on any device (formatTime, datetime-local values)
+│   ├── lanes.ts               # Zaal/Stream lanes (laneOf, blocks, hall lane during the show; in step with the API's laneTimes.ts)
 │   └── sponsorUtils.ts        # Sponsor helpers
 ├── config/
 │   └── scoreboardLabels.ts    # Scoreboard display labels

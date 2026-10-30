@@ -1,4 +1,5 @@
 import type {LiveChapter, ProductionEvent} from '../hooks/useLiveState';
+import {blockIndexes, hallLaneItems, laneOf} from './lanes';
 
 /**
  * Hoofdstukken in LIVE (openspec/changes/chapters D5): headings, not steps. Show control still goes per
@@ -11,20 +12,59 @@ export function chapterName(chapters: LiveChapter[], chapterId: number | null | 
   return chapters.find((c) => c.id === chapterId)?.name ?? null;
 }
 
+/** The hall item running next to the stream, with its remaining seconds (openspec/changes/parallel-lanes D4) */
+export type RunningVenue = { id: string; remainingSec: number | null } | null;
+
 /**
- * The hoofdstuk of the active item and how long it still takes: the rest of the active item plus the
- * durations of the items after it in the same hoofdstuk (linked items run alongside and don't add up).
+ * The hoofdstuk of the active item and how long it still takes (linked items run alongside and don't add
+ * up). Zaal and Stream are parallel lanes: the current block lasts as long as its longer lane (the rest of
+ * the active item and the hall item, plus what still waits in each lane), every later block as long as its
+ * longer lane. A hoofdstuk with a Minimale duur ends no earlier than its start + that minimum.
  */
 export function currentChapter(
   events: ProductionEvent[], activeEventId: string | null, remainingSec: number | null, chapters: LiveChapter[],
+  venue: RunningVenue = null, now: number = Date.now(),
 ): { name: string; remainingSec: number } | null {
   const active = events.find((e) => e.id === activeEventId);
-  const name = chapterName(chapters, active?.chapterId);
-  if (!active || !name) return null;
-  const later = events
-    .filter((e) => e.chapterId === active.chapterId && !e.parentId && e.order > active.order && e.status !== 'COMPLETED')
-    .reduce((sum, e) => sum + (e.durationSec ?? 0), 0);
-  return {name, remainingSec: Math.max(0, remainingSec ?? active.durationSec ?? 0) + later};
+  const chapter = chapters.find((c) => c.id === active?.chapterId);
+  if (!active || !chapter) return null;
+  const ordered = [...events].sort((a, b) => a.order - b.order);
+  const lanes = ordered.map(laneOf);
+  const blocks = blockIndexes(ordered);
+  const inHall = hallLaneItems(ordered);
+  const blockOf = (id: string) => blocks[ordered.findIndex((e) => e.id === id)];
+  const activeBlock = blockOf(active.id);
+  const duration = (e: ProductionEvent) => e.durationSec ?? 0;
+  const ownWaiting = (e: ProductionEvent) => e.chapterId === active.chapterId && !e.parentId && e.status !== 'COMPLETED' && e.id !== active.id && e.id !== venue?.id;
+
+  // The current block: each lane's rest
+  let stream = Math.max(0, remainingSec ?? active.durationSec ?? 0);
+  let hall = venue && blockOf(venue.id) === activeBlock ? Math.max(0, venue.remainingSec ?? 0) : 0;
+  // Later blocks: per block the length of each lane
+  const later = new Map<number, { zaal: number; stream: number }>();
+  ordered.forEach((e, i) => {
+    if (!ownWaiting(e)) return;
+    if (blocks[i] === activeBlock) {
+      if (inHall[i]) hall += duration(e);
+      else if (e.order > active.order) stream += duration(e);
+      return;
+    }
+    if (e.order < active.order) return;
+    const lengths = later.get(blocks[i]) ?? {zaal: 0, stream: 0};
+    if (lanes[i] === 'ZAAL') lengths.zaal += duration(e);
+    else lengths.stream += duration(e);
+    later.set(blocks[i], lengths);
+  });
+  let rest = Math.max(stream, hall) + [...later.values()].reduce((sum, l) => sum + Math.max(l.zaal, l.stream), 0);
+
+  // The Minimale duur counts from the hoofdstuk's actual start
+  if (chapter.minDurationSec) {
+    const starts = events
+      .filter((e) => e.chapterId === chapter.id && e.actualStartTime)
+      .map((e) => new Date(e.actualStartTime as Date | string).getTime());
+    if (starts.length > 0) rest = Math.max(rest, (Math.min(...starts) + chapter.minDurationSec * 1000 - now) / 1000);
+  }
+  return {name: chapter.name, remainingSec: Math.max(0, Math.round(rest))};
 }
 
 type ChapterTime = { start: Date | null; end: Date | null };
@@ -36,7 +76,9 @@ export function chapterTimes(events: TimedEvent[], chapters: LiveChapter[]): Map
     if (own.length === 0) return [c.id, {start: null, end: null}];
     const starts = own.map((e) => (e.calculatedTime as Date).getTime());
     const ends = own.map((e) => (e.calculatedTime as Date).getTime() + (e.durationSec ?? 0) * 1000);
-    return [c.id, {start: new Date(Math.min(...starts)), end: new Date(Math.max(...ends))}];
+    const start = Math.min(...starts);
+    // A hoofdstuk lasts at least its Minimale duur
+    return [c.id, {start: new Date(start), end: new Date(Math.max(...ends, start + (c.minDurationSec ?? 0) * 1000))}];
   }));
 }
 

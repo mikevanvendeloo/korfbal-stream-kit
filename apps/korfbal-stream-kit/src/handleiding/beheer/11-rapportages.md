@@ -45,7 +45,7 @@ De callsheet (Rapport → **Callsheet**, voorheen *Crewrapport*) toont het tijds
 
 ## Tijdsanalyse
 
-Na de uitzending zie je per item de geplande en de werkelijke begintijd, de afwijking (rood bij meer dan een minuut te laat) en de geplande en werkelijke duur. Met **Export naar Excel (CSV)** neem je het mee naar een spreadsheet.
+Na de uitzending zie je per item de geplande en de werkelijke begintijd, de afwijking (rood bij meer dan een minuut te laat) en de geplande en werkelijke duur. Een zaal-item dat naast de stream liep (label **Zaal**) toont bij **Werkelijk** ook zijn werkelijke eindtijd, en zijn werkelijke duur loopt van begin tot eind. Met **Export naar Excel (CSV)** neem je het mee naar een spreadsheet.
 
 > De tijdsanalyse gebruikt wat er in LIVE is gebeurd. Pas na de uitzending dus geen draaiboek-template meer toe en druk niet op *PAS TOE OP LIVE VIEW*: dan zijn de werkelijke tijden weg.
 

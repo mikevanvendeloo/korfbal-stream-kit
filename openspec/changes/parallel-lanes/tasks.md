@@ -8,7 +8,7 @@
 - [x] Leak suite, security and integration tests (D6); PROJECT_STRUCTURE.md, CLAUDE.md (time anchoring → lanes)
 
 ## Frontend
-- [ ] Editor: Minimale duur per hoofdstuk, overrun notice, lane edge on rows; times from the API (`relativeChapterTimes` removed) (D5)
-- [ ] Show Caller (wide + phone): hall lane runs by itself, **Zaal ›**, wait row, *Zaal nog m:ss bezig* on Volgend; callsheet per position with the active hall item (D4)
-- [ ] Component tests; one e2e (rust with two lanes)
-- [ ] Manual: Beheer 07 and 08 ("Zaal en Stream: parallel" with the rust example, Minimale duur), LIVE 03 and 04; GLOSSARY: *Baan*, *Samenkomstpunt*, *Minimale duur*
+- [x] Editor: Minimale duur per hoofdstuk, overrun notice, lane edge on rows; times from the API (`relativeChapterTimes` removed) (D5)
+- [x] Show Caller (wide + phone): hall lane runs by itself, **Zaal ›**, wait row, *Zaal nog m:ss bezig* on Volgend; callsheet per position with the active hall item (D4)
+- [x] Component tests; one e2e (rust with two lanes)
+- [x] Manual: Beheer 07 and 08 ("Zaal en Stream: parallel" with the rust example, Minimale duur), LIVE 03 and 04; GLOSSARY: *Baan*, *Samenkomstpunt*, *Minimale duur*

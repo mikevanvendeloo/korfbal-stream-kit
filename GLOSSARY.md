@@ -85,7 +85,16 @@ A named run-of-show document within a production. A production can have multiple
 A single cue entry in a callsheet. Has a title, optional cue code, timing fields (`timeStart`, `timeEnd`, `durationSec`), position assignments (which crew roles see this item), and visibility flags (`isInVenue`, `isInLivestream`). Can be promoted to a ProductionEvent via the sync operation.
 
 **Hoofdstuk** (chapter)
-A named part of a draaiboek (template or production) that groups its items in show order, e.g. "Voorbereiding" (a checklist: is everything connected), "Voorbeschouwing", "Oplopen", "Eerste helft", "Rust", "Tweede helft", "Nabeschouwing". Every item belongs to exactly one hoofdstuk. A hoofdstuk has no duration of its own: its start, end and duration follow from its items (at Korfbal League matches the rust is 10 minutes and each half about 35 minutes, as items in those hoofdstukken). It is a heading, not a step: the Show Caller advances per item. Carries the standard positions and the per-production bezetting that segments carried. Replaces Segment (OpenSpec change `chapters`).
+A named part of a draaiboek (template or production) that groups its items in show order, e.g. "Voorbereiding" (a checklist: is everything connected), "Voorbeschouwing", "Oplopen", "Eerste helft", "Rust", "Tweede helft", "Nabeschouwing". Every item belongs to exactly one hoofdstuk. Its start, end and duration follow from its items, laid out in **Banen**, and it lasts at least its **Minimale duur** when it has one. It is a heading, not a step: the Show Caller advances per item. Carries the standard positions and the per-production bezetting that segments carried. Replaces Segment (OpenSpec change `chapters`).
+
+**Minimale duur** (minimum duration)
+The optional shortest length of a **Hoofdstuk** (`minDurationSec`, entered as mm:ss; empty = as long as its items), e.g. Rust 10:00, Eerste/Tweede helft 35:00. The next hoofdstuk starts at the later of *start + minimale duur* and the end of its items; when the items run longer the editor says *loopt m:ss langer dan de minimale duur*. Replaces the made-up 10-minute item (OpenSpec change `parallel-lanes`).
+
+**Baan** (lane)
+One of the two parallel tracks of a draaiboek: the **zaalbaan** (items with only Zaal) and the **streambaan** (items with only Stream). Between two **Samenkomstpunten** both banen start together and each lays out its own items; the next samenkomstpunt starts when the longer baan ends. Banen never cross a **Hoofdstuk**. In LIVE, Volgend follows the streambaan while the zaalbaan runs by itself (**Zaal ›** moves it on by hand); a stretch without stream items is followed with Volgend through the zaal. Shown with a green (zaal) or blue (stream) edge. Not a position or a CallSheet: a property of an item derived from its Zaal/Stream flags (OpenSpec change `parallel-lanes`).
+
+**Samenkomstpunt** (join point)
+An item where the **Banen** meet: an item with both Zaal and Stream (or neither), every time anchor, and the first item of a **Hoofdstuk**. It starts when the longer baan before it is done; pressing Volgend onto it ends a zaal item that still runs (*Zaal nog m:ss bezig*). Example: *Start tweede helft* after the rust.
 
 ---
 

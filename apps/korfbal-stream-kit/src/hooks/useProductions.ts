@@ -59,6 +59,8 @@ export type ProductionChapter = {
   productionId: number;
   name: string;
   orderIndex: number;
+  /** Minimale duur in seconds (null = as long as its items; openspec/changes/parallel-lanes) */
+  minDurationSec?: number | null;
 };
 
 /** A hoofdstuk with its times, derived from its items (null without timed items). */
@@ -67,6 +69,9 @@ export type ProductionTiming = {
   name: string;
   orderIndex: number;
   durationMinutes: number;
+  minDurationSec?: number | null;
+  /** Seconds the items run past the Minimale duur (0 when they fit or without one) */
+  overrunSec?: number;
   start: string | null;
   end: string | null;
 }
@@ -561,6 +566,32 @@ export function useNextProductionDate() {
       const res = await fetch(createUrl('/api/reports/next-production-date'));
       if (!res.ok) throw new Error(await extractError(res));
       return res.json();
+    },
+  });
+}
+
+/** A show event as the time report needs it: its lane flags and the actual end of a hall item (`metadata.actualEndTime`) */
+export type ProductionEventTiming = {
+  id: string;
+  order: number;
+  callSheetItemId: string | null;
+  chapterId: number | null;
+  isInVenue: boolean;
+  isInLivestream: boolean;
+  isTimeAnchor: boolean;
+  actualStartTime: string | null;
+  metadata: { actualEndTime?: string } | null;
+};
+
+/** The production's show events (openspec/changes/parallel-lanes: the time report shows the hall lane's actual times) */
+export function useProductionEvents(productionId: number) {
+  return useQuery({
+    queryKey: ['production', productionId, 'events'],
+    enabled: !!productionId,
+    queryFn: async (): Promise<ProductionEventTiming[]> => {
+      const res = await fetch(createUrl(`/api/production/${productionId}/events`));
+      if (!res.ok) throw new Error(await extractError(res));
+      return (await res.json()).items;
     },
   });
 }

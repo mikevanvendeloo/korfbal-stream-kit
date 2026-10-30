@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {appendItem, buildStructure, formatRelative, keepLinkedTogether, linkedMoveNotice, moveChapter, moveItem, relativeChapterTimes, removeChapter} from './chapterStructure';
+import {appendItem, buildStructure, formatRelative, keepLinkedTogether, linkedMoveNotice, moveChapter, moveItem, removeChapter} from './chapterStructure';
 
 const structure = () => buildStructure(
   [{id: 'voor'}, {id: 'eerste'}, {id: 'rust'}],
@@ -41,25 +41,6 @@ describe('chapterStructure', () => {
   });
 });
 
-describe('relativeChapterTimes', () => {
-  it('times the hoofdstukken from the match start anchor', () => {
-    const s = buildStructure([{id: 'voor'}, {id: 'eerste'}], [
-      {id: 'kabels', chapterId: 'voor'}, {id: 'welkom', chapterId: 'voor'}, {id: 'aftrap', chapterId: 'eerste'}, {id: 'helft', chapterId: 'eerste'},
-    ]);
-    const items = [
-      {id: 'kabels', durationSec: 1200, isTimeAnchor: false, anchorType: null},
-      {id: 'welkom', durationSec: 600, isTimeAnchor: true, anchorType: 'LIVESTREAM_START'},
-      {id: 'aftrap', durationSec: 0, isTimeAnchor: true, anchorType: 'MATCH_START'},
-      {id: 'helft', durationSec: 2100, isTimeAnchor: false, anchorType: null},
-    ];
-    const times = relativeChapterTimes(s, items);
-    expect(times.get('voor')).toEqual({start: -1800, end: 0});
-    expect(times.get('eerste')).toEqual({start: 0, end: 2100});
-    expect(formatRelative(-1800)).toBe('−30:00');
-    expect(formatRelative(2100)).toBe('+35:00');
-  });
-});
-
 describe('linkedMoveNotice', () => {
   const items = [{id: 'aftrap', title: 'Aftrap'}, {id: 'camera', title: 'Camera op middenstip', parentId: 'aftrap'}, {id: 'helft', title: 'Eerste helft'}];
   const s = buildStructure([{id: 'voor'}, {id: 'eerste'}], [{id: 'aftrap', chapterId: 'eerste'}, {id: 'camera', chapterId: 'eerste'}, {id: 'helft', chapterId: 'eerste'}]);
@@ -72,5 +53,13 @@ describe('linkedMoveNotice', () => {
   it('says nothing for a move within the parent\'s hoofdstuk or for an item without parent', () => {
     expect(linkedMoveNotice(s, items, 'camera', 'eerste', (it) => it.title)).toBeNull();
     expect(linkedMoveNotice(s, items, 'helft', 'voor', (it) => it.title)).toBeNull();
+  });
+});
+
+describe('formatRelative', () => {
+  it('formats seconds relative to the match start', () => {
+    expect(formatRelative(-1800)).toBe('−30:00');
+    expect(formatRelative(2100)).toBe('+35:00');
+    expect(formatRelative(0)).toBe('0:00');
   });
 });

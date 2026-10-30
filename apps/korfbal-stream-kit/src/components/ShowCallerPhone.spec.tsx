@@ -3,7 +3,7 @@ import {MemoryRouter} from 'react-router-dom';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {ShowCallerPhone, ShowCallerPhoneProps} from './ShowCallerPhone';
 import {useShowControls} from '../hooks/useShowControls';
-import {fakeControls, isForRegie, remaining, showItem, showItems} from '../test/showCaller';
+import {fakeControls, isForRegie, remaining, rustChapters, rustHallDone, rustItems, showItem, showItems} from '../test/showCaller';
 import {StaticInterviewNames} from './InterviewText';
 import {interviewNames} from '../test/interviews';
 import {INTERVIEW_PHOTOS_STORAGE_KEY, resetInterviewPhotosForTests} from '../hooks/useInterviewPhotos';
@@ -199,5 +199,50 @@ describe('useShowControls', () => {
     await waitFor(() => expect(result.current.error).toBe('Dit is het laatste item.'));
     act(() => result.current.clearError());
     expect(result.current.error).toBeNull();
+  });
+});
+
+describe('ShowCallerPhone: Zaal and Stream in parallel', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('shows the hall item with its countdown next to the stream, and Zaal › moves it on', () => {
+    const props = renderPhone({items: rustItems, activeEventId: 'r3', activeVenueEventId: 'r2', venueRemaining: remaining(75), remaining: remaining(90), chapters: rustChapters});
+    const hall = screen.getByRole('region', {name: 'Zaal'});
+    expect(hall.textContent).toContain('Reclame LED');
+    expect(within(hall).getByLabelText('Zaal resterend').textContent).toBe('01:15');
+    fireEvent.click(within(hall).getByRole('button', {name: 'Zaal ›'}));
+    expect(props.controls.venueNext).toHaveBeenCalledOnce();
+    // Volgend follows the stream: the statistics run by themselves in the hall
+    expect(screen.getByRole('region', {name: 'Volgende'}).textContent).toContain('Analyse eerste helft');
+    expect(within(screen.getByRole('navigation', {name: 'Show bediening'})).queryByRole('note')).toBeNull();
+  });
+
+  it('warns on Volgend when the next step is a samenkomstpunt while the hall still runs', () => {
+    const items = rustItems.map((e) => (e.id === 'r2' || e.id === 'r3' ? {...e, status: 'COMPLETED'} : e.id === 'r5' ? {...e, status: 'ACTIVE'} : e));
+    renderPhone({items: items as never, activeEventId: 'r5', activeVenueEventId: 'r4', venueRemaining: remaining(42)});
+    expect(screen.getByRole('region', {name: 'Volgende'}).textContent).toContain('Start tweede helft');
+    const volgend = within(screen.getByRole('navigation', {name: 'Show bediening'})).getByRole('button', {name: 'Volgend item'});
+    expect(within(volgend).getByRole('note').textContent).toBe('Zaal nog 0:42 bezig');
+  });
+
+  it('shows a wait row when the hall lane is done before the stream', () => {
+    renderPhone({items: rustHallDone, activeEventId: 'r5', activeVenueEventId: null});
+    const hall = screen.getByRole('region', {name: 'Zaal'});
+    expect(hall.textContent).toContain('Zaal klaar · volgende: Start tweede helft');
+    expect(within(hall).queryByRole('button', {name: 'Zaal ›'})).toBeNull();
+  });
+
+  it('shows no hall lane where Zaal and Stream don\'t run in parallel', () => {
+    renderPhone();
+    expect(screen.queryByRole('region', {name: 'Zaal'})).toBeNull();
+  });
+
+  it('Zaal › posts to the production\'s venue-next', async () => {
+    const fetchMock = vi.fn(async () => new Response('{}'));
+    vi.stubGlobal('fetch', fetchMock);
+    const {result} = renderHook(() => useShowControls('47'));
+    await act(() => result.current.venueNext());
+    expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toContain('/api/production/47/venue-next');
+    vi.unstubAllGlobals();
   });
 });

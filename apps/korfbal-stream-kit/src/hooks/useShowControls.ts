@@ -20,13 +20,13 @@ export function useShowControls(productionId: string | undefined) {
   const [error, setError] = useState<string | null>(null);
   const busy = useRef(false);
 
-  const call = useCallback(async (endpoint: string, body?: unknown) => {
+  const call = useCallback(async (endpoint: string, body?: unknown, path = `/api/show/${endpoint}`) => {
     if (busy.current) return;
     busy.current = true;
     setIsProcessing(true);
     setError(null);
     try {
-      const response = await fetch(createUrl(`/api/show/${endpoint}`), {
+      const response = await fetch(createUrl(path), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: body === undefined ? undefined : JSON.stringify(body),
@@ -56,6 +56,8 @@ export function useShowControls(productionId: string | undefined) {
     stop: () => call(`stop/${productionId}`),
     /** Sets the remaining time of the current item to this many seconds from now. */
     setRemaining: (seconds: number) => call('remaining', {seconds}),
+    /** Zaal ›: moves the hall lane on by hand (openspec/changes/parallel-lanes D4). */
+    venueNext: () => call('venue-next', undefined, `/api/production/${productionId}/venue-next`),
   };
 }
 

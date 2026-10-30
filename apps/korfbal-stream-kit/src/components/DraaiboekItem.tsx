@@ -3,6 +3,7 @@ import {Anchor, CornerDownRight, FastForward, FilePenLine, GripVertical, Trash2}
 import type {DragHandle} from './ChapterBoard';
 import PositionPicker, {PickerPosition} from './PositionPicker';
 import {formatTime} from '../lib/time';
+import {formatRelative} from '../lib/chapterStructure';
 
 /** One item of a draaiboek (template or production), as the editor shows and changes it. */
 export type DraaiboekItemData = {
@@ -20,9 +21,11 @@ export type DraaiboekItemData = {
   positionIds: number[];
   /** A production's calculated start (templates have none) */
   timeStart?: string | null;
+  /** A template's planned start in seconds from the kickoff (from the API; null without an anchor) */
+  startOffsetSec?: number | null;
 };
 
-export type DraaiboekItemChange = Omit<DraaiboekItemData, 'id' | 'timeStart'>;
+export type DraaiboekItemChange = Omit<DraaiboekItemData, 'id' | 'timeStart' | 'startOffsetSec'>;
 
 const MAX_CHIPS = 3;
 const duration = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
@@ -33,7 +36,7 @@ const field = 'w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-s
  * A quiet line per item: time, cue, title, labels, its positions as chips and the duration. A click
  * opens it as a form; the order changes by dragging the handle (ChapterBoard).
  */
-export default function DraaiboekItem({item, handle, positions, fixedPositionIds = [], parentOptions, open, onOpen, onClose, onSave, onDelete}: {
+export default function DraaiboekItem({item, handle, positions, fixedPositionIds = [], parentOptions, open, onOpen, onClose, onSave, onDelete, lane}: {
   item: DraaiboekItemData;
   handle: DragHandle;
   positions: PickerPosition[];
@@ -46,6 +49,8 @@ export default function DraaiboekItem({item, handle, positions, fixedPositionIds
   onClose: () => void;
   onSave: (change: DraaiboekItemChange) => Promise<void>;
   onDelete: () => void;
+  /** In a block where Zaal and Stream run in parallel: the lane of this item (green / blue edge, as in the Show Caller) */
+  lane?: 'ZAAL' | 'STREAM';
 }) {
   const byId = new Map(positions.map((p) => [p.id, p]));
   const chips = item.positionIds.filter((id) => !fixedPositionIds.includes(id)).map((id) => byId.get(id)?.name).filter((n): n is string => !!n);
@@ -55,12 +60,15 @@ export default function DraaiboekItem({item, handle, positions, fixedPositionIds
   }
 
   return (
-    <div className={`group flex items-center gap-2 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-white/5 min-w-0 ${item.parentId ? 'ml-6' : ''}`}>
+    <div data-lane={lane} title={lane ? `Baan: ${lane === 'ZAAL' ? 'Zaal' : 'Stream'} (loopt parallel)` : undefined}
+         className={`group flex items-center gap-2 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-white/5 min-w-0 ${item.parentId ? 'ml-6' : ''} ${lane === 'ZAAL' ? 'border-l-4 border-l-emerald-500' : lane === 'STREAM' ? 'border-l-4 border-l-blue-500' : ''}`}>
+      {lane && <span className="sr-only">{lane === 'ZAAL' ? 'Baan Zaal' : 'Baan Stream'}</span>}
       <span {...handle} title="Slepen om te verplaatsen" aria-label={`${item.title} slepen`}
             className="cursor-grab text-gray-300 hover:text-gray-600 dark:text-white/20 dark:hover:text-white/60"><GripVertical className="w-4 h-4"/></span>
       <button type="button" onClick={onOpen} aria-label={`${item.title} openen`} className="flex min-w-0 flex-1 items-center gap-2 text-left">
         {item.parentId && <CornerDownRight className="w-3.5 h-3.5 shrink-0 text-gray-400" aria-label="gekoppeld"/>}
         {item.timeStart !== undefined && <span className="w-11 shrink-0 font-mono text-xs text-gray-500 dark:text-white/50">{formatTime(item.timeStart, {fallback: '--:--'})}</span>}
+        {item.startOffsetSec !== undefined && <span title="t.o.v. de aftrap" className="w-12 shrink-0 font-mono text-xs text-gray-500 dark:text-white/50">{item.startOffsetSec == null ? '--:--' : formatRelative(item.startOffsetSec)}</span>}
         {item.cue && <span title="Cue" className="shrink-0 rounded border border-gray-300 bg-gray-50 px-1 font-mono text-[10px] uppercase text-gray-600 dark:border-white/10 dark:bg-black/40 dark:text-white/60">{item.cue}</span>}
         <span className="truncate font-medium text-gray-900 dark:text-white">{item.title}</span>
         {item.isTimeAnchor && <Anchor className="w-3.5 h-3.5 shrink-0 text-amber-600" aria-label={item.anchorType === 'LIVESTREAM_START' ? 'Anker: livestream start' : 'Anker: wedstrijd start'}/>}

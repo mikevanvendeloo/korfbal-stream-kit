@@ -53,6 +53,12 @@ Loopt er in de show een item dat niet voor jouw positie is, dan staat er een **g
 
 De callsheet scrolt naar deze regel, net als naar een actief item. Met meer kolommen krijgt elke kolom zijn eigen regel.
 
+### Zaal en Stream tegelijk
+
+In de rust lopen de zaal en de stream naast elkaar: in de zaal bijvoorbeeld reclame op het LED-scherm, tegelijk in de stream de analyse. Er kunnen dan **twee items tegelijk** bezig zijn, één in de zaal en één in de stream. Allebei hebben ze een dikke rand en tellen ze hun eigen resterende tijd af. Een zaal-item gaat vanzelf door als zijn tijd om is (of als de Show Caller op **Zaal ›** drukt).
+
+Voor de gestippelde regel tellen beide: loopt er in de zaal of in de stream iets voor jou, dan staat er geen *Even niets voor jou*. Is jouw zaal-item klaar, dan wacht je op je volgende item, meestal het samenkomstpunt waar zaal en stream weer samenkomen (bijvoorbeeld *Start tweede helft*).
+
 ## Instellingen voor jouw scherm
 
 Via het **tandwiel** linksboven. Deze instellingen gelden alleen voor jouw scherm:

@@ -30,6 +30,10 @@ export type BoardChapter<C extends ChapterId> = {
   subtitle?: React.ReactNode;
   /** Below the header: e.g. the standard positions of a template hoofdstuk */
   extra?: React.ReactNode;
+  /** Minimale duur in seconds (null = as long as its items; openspec/changes/parallel-lanes D5) */
+  minDurationSec?: number | null;
+  /** Seconds the items run past the Minimale duur (from the API) */
+  overrunSec?: number;
 };
 
 type Props<C extends ChapterId, T extends { id: string; parentId?: string | null }> = {
@@ -45,6 +49,8 @@ type Props<C extends ChapterId, T extends { id: string; parentId?: string | null
   onRenameChapter: (chapterId: C, name: string) => Promise<void> | void;
   /** Deletes a hoofdstuk; a non-empty one only after its items moved (moveItemsTo) */
   onDeleteChapter: (chapterId: C, structureWithout: Structure<C>) => Promise<void> | void;
+  /** Saves the Minimale duur of a hoofdstuk (seconds; null = none); without it the field isn't shown */
+  onChangeMinimum?: (chapterId: C, minDurationSec: number | null) => Promise<void> | void;
 };
 
 const ITEM = 'item:';
@@ -52,7 +58,7 @@ const CHAPTER = 'chapter:';
 const DROP = 'drop:';
 
 export default function ChapterBoard<C extends ChapterId, T extends { id: string; parentId?: string | null }>(props: Props<C, T>) {
-  const {chapters, items, structure, onStructureChange, renderItem, itemLabel = (item) => item.id, onAddItem, onAddChapter, onRenameChapter, onDeleteChapter} = props;
+  const {chapters, items, structure, onStructureChange, renderItem, itemLabel = (item) => item.id, onAddItem, onAddChapter, onRenameChapter, onDeleteChapter, onChangeMinimum} = props;
   // Why a drop didn't do what it seemed to (a linked item stays with its parent)
   const [notice, setNotice] = React.useState<string | null>(null);
   // The structure while dragging (an item may move between hoofdstukken before it is dropped)
@@ -150,6 +156,7 @@ export default function ChapterBoard<C extends ChapterId, T extends { id: string
                 onToggle={() => setCollapsed((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; })}
                 onAddItem={onAddItem ? () => onAddItem(entry.id) : undefined}
                 onRename={(name) => onRenameChapter(entry.id, name)}
+                onChangeMinimum={onChangeMinimum ? (seconds) => onChangeMinimum(entry.id, seconds) : undefined}
                 onDelete={(moveTo) => onDeleteChapter(entry.id, removeChapter(structure, entry.id, moveTo))}
               >
                 {entry.itemIds.map((itemId) => {
@@ -174,7 +181,7 @@ export default function ChapterBoard<C extends ChapterId, T extends { id: string
   );
 }
 
-function ChapterBlock<C extends ChapterId>({chapterKey, chapter, itemIds, others, collapsed, onToggle, onAddItem, onRename, onDelete, children}: {
+function ChapterBlock<C extends ChapterId>({chapterKey, chapter, itemIds, others, collapsed, onToggle, onAddItem, onRename, onDelete, onChangeMinimum, children}: {
   chapterKey: string;
   chapter: BoardChapter<C>;
   itemIds: string[];
@@ -184,6 +191,7 @@ function ChapterBlock<C extends ChapterId>({chapterKey, chapter, itemIds, others
   onAddItem?: () => void;
   onRename: (name: string) => Promise<void> | void;
   onDelete: (moveItemsTo: C | null) => Promise<void> | void;
+  onChangeMinimum?: (minDurationSec: number | null) => Promise<void> | void;
   children: React.ReactNode;
 }) {
   const sortable = useSortable({id: CHAPTER + chapterKey});
@@ -227,6 +235,16 @@ function ChapterBlock<C extends ChapterId>({chapterKey, chapter, itemIds, others
             </h3>
           )}
           {chapter.subtitle && <div className="text-xs text-gray-500 dark:text-white/50 truncate">{chapter.subtitle}</div>}
+          {onChangeMinimum && (
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+              <MinimumField key={chapter.minDurationSec ?? 'none'} chapterName={chapter.name} seconds={chapter.minDurationSec ?? null} onSave={onChangeMinimum}/>
+              {(chapter.overrunSec ?? 0) > 0 && (
+                <span role="status" className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-900 dark:bg-amber-900/30 dark:text-amber-200">
+                  loopt {minutesSeconds(chapter.overrunSec ?? 0)} langer dan de minimale duur
+                </span>
+              )}
+            </div>
+          )}
         </div>
         {onAddItem && (
           <button type="button" onClick={onAddItem} title="Item toevoegen" aria-label={`Item toevoegen aan ${chapter.name}`}
@@ -273,4 +291,52 @@ function SortableItem({id, children}: { id: string; children: (handle: DragHandl
   const {attributes, listeners, setNodeRef, transform, transition, isDragging} = useSortable({id});
   const style = {transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, position: 'relative' as const, zIndex: isDragging ? 50 : undefined};
   return <div ref={setNodeRef} style={style}>{children({...attributes, ...listeners} as DragHandle)}</div>;
+}
+
+/** "10:00": seconds as minutes and seconds */
+export const minutesSeconds = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.round(seconds) % 60).padStart(2, '0')}`;
+
+/**
+ * "10:00" / "10" (minutes) / "" → seconds; "" and 0 mean no minimum (null); undefined when it isn't a
+ * duration (at most 24 hours, as the API takes).
+ */
+export function parseMinimum(text: string): number | null | undefined {
+  const value = text.trim();
+  if (value === '') return null;
+  const match = /^(\d{1,4})(?::([0-5]\d))?$/.exec(value);
+  if (!match) return undefined;
+  const seconds = Number(match[1]) * 60 + Number(match[2] ?? 0);
+  if (seconds > 86400) return undefined;
+  return seconds === 0 ? null : seconds;
+}
+
+/** The Minimale duur of a hoofdstuk (mm:ss, empty = as long as its items), saved on Enter or when leaving the field. */
+function MinimumField({chapterName, seconds, onSave}: { chapterName: string; seconds: number | null; onSave: (seconds: number | null) => Promise<void> | void }) {
+  const [text, setText] = React.useState(seconds ? minutesSeconds(seconds) : '');
+  const [invalid, setInvalid] = React.useState(false);
+  const id = React.useId();
+
+  async function save() {
+    const parsed = parseMinimum(text);
+    if (parsed === undefined) {
+      setInvalid(true);
+      return;
+    }
+    setInvalid(false);
+    if (parsed !== seconds) await onSave(parsed);
+  }
+
+  return (
+    <span className="flex items-center gap-1.5">
+      <label htmlFor={id} className="font-semibold uppercase tracking-wide text-gray-500 dark:text-white/40">Minimale duur</label>
+      <input id={id} value={text} inputMode="numeric" placeholder="mm:ss" aria-invalid={invalid}
+             aria-label={`Minimale duur van ${chapterName}`}
+             title="Minimaal zo lang duurt het hoofdstuk (mm:ss). Leeg: zo lang als de items."
+             onChange={(e) => { setText(e.target.value); setInvalid(false); }}
+             onBlur={() => void save()}
+             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void save(); } if (e.key === 'Escape') { setText(seconds ? minutesSeconds(seconds) : ''); setInvalid(false); } }}
+             className={`w-16 rounded border bg-white px-1.5 py-0.5 font-mono text-xs text-gray-900 dark:bg-black/40 dark:text-white ${invalid ? 'border-red-500' : 'border-gray-300 dark:border-white/10'}`}/>
+      {invalid && <span role="alert" className="text-red-600 dark:text-red-400">Gebruik mm:ss, bv. 10:00</span>}
+    </span>
+  );
 }

@@ -10,14 +10,15 @@ import {adminPaths} from '../lib/adminPaths';
 import ChapterBoard from '../components/ChapterBoard';
 import DraaiboekItem, {DraaiboekItemData} from '../components/DraaiboekItem';
 import PositionPicker, {PickerPosition} from '../components/PositionPicker';
-import {appendItem, buildStructure, formatRelative, relativeChapterTimes, Structure} from '../lib/chapterStructure';
+import {appendItem, buildStructure, formatRelative, Structure} from '../lib/chapterStructure';
+import {parallelLanes} from '../lib/lanes';
 import {addTemplateChapter, deleteTemplateChapter, saveTemplateStructure, updateTemplateChapter} from '../lib/chaptersApi';
 
 const asItem = (item: CallSheetTemplateItem): DraaiboekItemData => ({
   id: item.id, cue: item.cue ?? '', title: item.title, note: item.note, durationSec: item.durationSec,
   isInVenue: item.isInVenue, isInLivestream: item.isInLivestream, isTimeAnchor: item.isTimeAnchor,
   anchorType: item.anchorType, autoAdvance: item.autoAdvance, parentId: item.parentId,
-  positionIds: item.positions.map((p) => p.positionId),
+  positionIds: item.positions.map((p) => p.positionId), startOffsetSec: item.startOffsetSec ?? null,
 });
 
 /** A draaiboek template: its hoofdstukken with their items and standard positions (openspec/changes/chapters D4). */
@@ -45,8 +46,12 @@ export default function CallSheetTemplateDetailsPage() {
     () => template ? buildStructure(template.chapters, template.items) : [],
     [template],
   );
-  const times = useMemo(() => relativeChapterTimes(structure, template?.items ?? []), [structure, template]);
+  // The lane edge of items that run next to the other lane (parallel-lanes D5); the times come from the API
   const items = useMemo(() => (template?.items ?? []).map(asItem), [template]);
+  const lanes = useMemo(() => {
+    const byId = new Map((template?.items ?? []).map((it) => [it.id, it]));
+    return parallelLanes(structure.flatMap((c) => c.itemIds.map((id) => byId.get(id)).filter((it): it is CallSheetTemplateItem => !!it)));
+  }, [structure, template]);
   const parentOptions = items.map((it) => ({id: it.id, label: it.cue ? `${it.cue}: ${it.title}` : it.title}));
 
   /** Runs a change and reloads; a refusal (e.g. "Hoofdstuk is niet leeg") is shown above the board. */
@@ -143,11 +148,13 @@ export default function CallSheetTemplateDetailsPage() {
       {template && (
         <ChapterBoard
           chapters={template.chapters.map((chapter) => {
-            const time = times.get(chapter.id);
+            const timed = chapter.startOffsetSec != null && chapter.endOffsetSec != null;
             return {
               id: chapter.id,
               name: chapter.name,
-              subtitle: time ? `${formatRelative(time.start)} tot ${formatRelative(time.end)} t.o.v. de aftrap · ${formatRelative(time.end - time.start).replace(/^\+/, '')} min` : 'Geen items',
+              subtitle: timed ? `${formatRelative(chapter.startOffsetSec as number)} tot ${formatRelative(chapter.endOffsetSec as number)} t.o.v. de aftrap · ${formatRelative((chapter.endOffsetSec as number) - (chapter.startOffsetSec as number)).replace(/^\+/, '')} min` : 'Geen items',
+              minDurationSec: chapter.minDurationSec ?? null,
+              overrunSec: chapter.overrunSec ?? 0,
               extra: <ChapterPositions chapter={chapter} positions={positions} onSave={(positionIds) => run(() => updateTemplateChapter(chapter.id, {positionIds}))}/>,
             };
           })}
@@ -158,6 +165,7 @@ export default function CallSheetTemplateDetailsPage() {
           onAddItem={handleAddItem}
           onAddChapter={(name) => run(() => addTemplateChapter(template.id, name))}
           onRenameChapter={(chapterId, name) => run(() => updateTemplateChapter(chapterId, {name}))}
+          onChangeMinimum={(chapterId, minDurationSec) => run(() => updateTemplateChapter(chapterId, {minDurationSec}))}
           onDeleteChapter={(chapterId, without) => run(async () => {
             // Items first to their new hoofdstuk (the structure lists every hoofdstuk), then the empty one away
             await saveTemplateStructure(template.id, [...without, {id: chapterId, itemIds: []}]);
@@ -169,6 +177,7 @@ export default function CallSheetTemplateDetailsPage() {
               handle={handle}
               positions={positions}
               fixedPositionIds={showcallerId ? [showcallerId] : []}
+              lane={lanes.get(item.id)}
               parentOptions={parentOptions}
               open={openItem === item.id}
               onOpen={() => setOpenItem(item.id)}
