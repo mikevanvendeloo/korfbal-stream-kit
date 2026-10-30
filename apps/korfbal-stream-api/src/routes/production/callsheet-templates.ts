@@ -7,7 +7,8 @@ import {findPositionByName, SHOWCALLER_POSITION} from '../../domain/positionSkil
 import {NotFoundError} from '../../middleware/error';
 import {contentDisposition} from '../../utils/attachment';
 import {callSheetTemplateChaptersRouter, importedChapterName, importedItemChapters, templateChaptersByName, templateItemChapter} from './callsheet-template-chapters';
-import {chapterMinimums, layOutTimes, templateTimes} from '../../services/draaiboekFile';
+import {chapterMinimums, draaiboekFromProductionExport, layOutTimes, templateTimes} from '../../services/draaiboekFile';
+import {logger} from '../../utils/logger';
 
 export const callSheetTemplateRouter: Router = Router();
 // Hoofdstukken (openspec/changes/chapters D4): /:id/chapters, /chapters/:chapterId, /:id/structure
@@ -837,33 +838,40 @@ export async function createTemplateFromDraaiboek(name: string, data: any) {
 
 // Import template from JSON
 callSheetTemplateRouter.post('/import-json', uploadMem, async (req, res, next) => {
+  // The reason of a refusal also goes to the log: the request log only shows the status
+  const refuse = (error: string) => {
+    logger.warn(`Draaiboek-template import geweigerd: ${error}`);
+    return res.status(400).json({ error });
+  };
   try {
     let data: any;
 
     if (req.file) {
-      const content = req.file.buffer.toString('utf-8');
-      data = JSON.parse(content);
+      try {
+        data = JSON.parse(req.file.buffer.toString('utf-8'));
+      } catch {
+        return refuse('Het bestand is geen geldig JSON-bestand');
+      }
     } else if (req.body && req.body.items) {
       data = req.body;
     } else {
-      return res.status(400).json({ error: 'No JSON file or data provided' });
+      return refuse('Geen JSON-bestand ontvangen');
     }
 
-    const { name, items, version } = data;
+    // A whole production export (Producties → Exporteer) carries the draaiboek in callSheets
+    data = draaiboekFromProductionExport(data) ?? data;
+    const { name, items, version } = data ?? {};
     const finalName = req.body.name || name;
 
     // Version 1: without hoofdstukken (all in one hoofdstuk Draaiboek); version 2: with hoofdstukken
-    if (version && version > 2) {
-      return res.status(400).json({ error: `Unsupported template version: ${version}. Only versions 1 and 2 are supported.` });
-    }
-
-    if (!finalName) return res.status(400).json({ error: 'Template name is required' });
-    if (!items || !Array.isArray(items)) return res.status(400).json({ error: 'Invalid items format' });
+    if (version && version > 2) return refuse(`Versie ${version} wordt niet ondersteund, alleen versie 1 en 2`);
+    if (!finalName) return refuse('Geef het template een naam');
+    if (!items || !Array.isArray(items)) return refuse('Het bestand bevat geen draaiboek: geen lijst "items" en geen "callSheets" met items');
 
     const template = await createTemplateFromDraaiboek(finalName, data);
     return res.status(201).json(template);
   } catch (err: any) {
-    if (err?.code === 'P2002') return res.status(409).json({ error: 'Template name already exists' });
+    if (err?.code === 'P2002') return res.status(409).json({ error: 'Er bestaat al een template met deze naam' });
     return next(err);
   }
 });
