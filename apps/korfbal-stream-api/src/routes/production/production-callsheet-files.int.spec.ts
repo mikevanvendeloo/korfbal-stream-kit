@@ -157,4 +157,40 @@ describe.runIf(runDb)('productiedraaiboek export and import (integration)', () =
       .send({version: 2, items: [{title: 'Raar', durationSec: 0, isTimeAnchor: true, anchorType: 'HALFTIME'}]});
     expect(res.status).toBe(400);
   });
+
+  it('saves a production draaiboek as a template: hoofdstukken in order with minimum, items with lanes, anchor and link', async () => {
+    const [, , eerste, , interview] = source.callSheetItemIds;
+    await prisma.callSheetItem.update({where: {id: eerste}, data: {isInVenue: true, isInLivestream: false}});
+    await prisma.callSheetItem.update({where: {id: interview}, data: {isInVenue: false, isInLivestream: true}});
+    await prisma.productionChapter.updateMany({where: {productionId: source.productionId, name: 'Voorbeschouwing'}, data: {minDurationSec: 900}});
+
+    const name = `Opgeslagen sjabloon ${Date.now()}`;
+    const res = await request(app).post(`/api/production/callsheets/${sourceCallSheetId}/save-as-template`).send({name: `  ${name}  `});
+    expect(res.status, res.text).toBe(201);
+    expect(res.body).toEqual({id: expect.any(Number), name});
+    templateIds.push(res.body.id);
+
+    const template = await prisma.callSheetTemplate.findUniqueOrThrow({
+      where: {id: res.body.id},
+      include: {
+        chapters: {orderBy: {orderIndex: 'asc'}},
+        items: {orderBy: {orderIndex: 'asc'}, include: {chapter: true, parent: true}},
+      },
+    });
+    expect(template.chapters.map((c) => [c.name, c.minDurationSec])).toEqual([['Voorbeschouwing', 900], ['Eerste helft', null], ['Nabeschouwing', null]]);
+    expect(template.items.map((t) => t.title)).toEqual(['Opening', 'Aftrap', 'Eerste helft', 'Camera mee', 'Interview']);
+    const byTitle = (title: string) => template.items.find((t) => t.title === title) ?? expect.fail(`no item ${title}`);
+    expect(byTitle('Aftrap')).toMatchObject({isTimeAnchor: true, anchorType: 'MATCH_START', cue: 'AFTRAP'});
+    expect(byTitle('Camera mee').parent?.title).toBe('Aftrap');
+    expect(byTitle('Eerste helft')).toMatchObject({isInVenue: true, isInLivestream: false});
+    expect(byTitle('Interview')).toMatchObject({isInVenue: false, isInLivestream: true});
+    expect(byTitle('Interview').chapter.name).toBe('Nabeschouwing');
+
+    const again = await request(app).post(`/api/production/callsheets/${sourceCallSheetId}/save-as-template`).send({name});
+    expect(again.status).toBe(409);
+    const empty = await request(app).post(`/api/production/callsheets/${sourceCallSheetId}/save-as-template`).send({name: '   '});
+    expect(empty.status).toBe(400);
+    const unknown = await request(app).post('/api/production/callsheets/999999999/save-as-template').send({name: 'Onbekend'});
+    expect(unknown.status).toBe(404);
+  });
 });

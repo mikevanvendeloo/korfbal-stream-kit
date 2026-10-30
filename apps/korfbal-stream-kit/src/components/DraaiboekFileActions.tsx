@@ -1,7 +1,7 @@
 import React from 'react';
-import {MdDownload, MdUpload} from 'react-icons/md';
+import {MdDownload, MdSaveAlt, MdUpload} from 'react-icons/md';
 import {downloadExport} from '../lib/download';
-import {DraaiboekImportResult, useImportDraaiboek} from '../hooks/useCallsheet';
+import {DraaiboekImportResult, useImportDraaiboek, useSaveCallSheetAsTemplate} from '../hooks/useCallsheet';
 
 const BUTTON = 'px-3 py-1 border rounded flex items-center gap-1 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 
@@ -13,10 +13,12 @@ function importSummary({items, newChapters}: DraaiboekImportResult): string {
 
 /**
  * The production draaiboek as a file (Draaiboek tab): Exporteer JSON / Exporteer Excel download it,
- * Importeer draaiboek replaces its items by those of a JSON file (after a confirmation).
+ * Importeer draaiboek replaces its items by those of a JSON file (after a confirmation), Opslaan als template
+ * saves it as a new draaiboek template.
  */
 export default function DraaiboekFileActions({productionId, callSheetId}: { productionId: number; callSheetId?: number }) {
   const importDraaiboek = useImportDraaiboek(productionId);
+  const saveAsTemplate = useSaveCallSheetAsTemplate();
   const fileInput = React.useRef<HTMLInputElement>(null);
   const [result, setResult] = React.useState<{ ok: boolean; text: string } | null>(null);
   const disabled = !callSheetId;
@@ -36,6 +38,19 @@ export default function DraaiboekFileActions({productionId, callSheetId}: { prod
     }
   }
 
+  async function handleSaveAsTemplate() {
+    if (!callSheetId) return;
+    setResult(null);
+    const name = window.prompt('Naam van het nieuwe template')?.trim();
+    if (!name) return;
+    try {
+      const template = await saveAsTemplate.mutateAsync({callSheetId, name});
+      setResult({ok: true, text: `Template "${template.name}" opgeslagen.`});
+    } catch (e) {
+      setResult({ok: false, text: e instanceof Error ? e.message : 'Opslaan als template mislukt'});
+    }
+  }
+
   return (
     <div className="flex flex-col gap-2 min-w-0">
       <div className="flex flex-wrap items-center gap-2">
@@ -50,6 +65,10 @@ export default function DraaiboekFileActions({productionId, callSheetId}: { prod
         <button type="button" className={BUTTON} disabled={disabled || importDraaiboek.isPending} title={title}
                 onClick={() => fileInput.current?.click()}>
           <MdUpload/> {importDraaiboek.isPending ? 'Importeren…' : 'Importeer draaiboek'}
+        </button>
+        <button type="button" className={BUTTON} disabled={disabled || saveAsTemplate.isPending} title={title}
+                onClick={() => void handleSaveAsTemplate()}>
+          <MdSaveAlt/> {saveAsTemplate.isPending ? 'Opslaan…' : 'Opslaan als template'}
         </button>
         <input
           ref={fileInput}

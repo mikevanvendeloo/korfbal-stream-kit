@@ -208,3 +208,18 @@ export function useImportDraaiboek(productionId: number) {
     ]),
   });
 }
+
+/** Opslaan als template: the callsheet becomes a new draaiboek template (Beheer → Stamgegevens → Draaiboek templates) */
+export function useSaveCallSheetAsTemplate() {
+  return useMutation({
+    mutationFn: async ({callSheetId, name}: { callSheetId: number; name: string }): Promise<{ id: number; name: string }> => {
+      const res = await fetch(createUrl(`/api/production/callsheets/${callSheetId}/save-as-template`), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name}),
+      });
+      if (!res.ok) throw new Error(await extractError(res));
+      return res.json();
+    },
+  });
+}

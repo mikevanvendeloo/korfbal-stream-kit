@@ -61,6 +61,25 @@ describe('DraaiboekFileActions', () => {
     expect(invalidate).toHaveBeenCalledWith({queryKey: ['production', 3]});
   });
 
+  it('saves the draaiboek as a template under the asked name, and shows the server error', async () => {
+    const prompt = vi.spyOn(window, 'prompt').mockReturnValue('  Mijn template ');
+    answer = () => json(201, {id: 9, name: 'Mijn template'});
+    renderActions(5);
+    fireEvent.click(screen.getByRole('button', {name: /Opslaan als template/}));
+    expect(await screen.findByRole('status')).toHaveTextContent('Template "Mijn template" opgeslagen');
+    const post = calls.find((c) => c.method === 'POST');
+    expect(post?.path).toBe('/api/production/callsheets/5/save-as-template');
+    expect(JSON.parse(String(post?.body))).toEqual({name: 'Mijn template'});
+
+    answer = () => json(409, {error: 'Er bestaat al een template met deze naam'});
+    fireEvent.click(screen.getByRole('button', {name: /Opslaan als template/}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Er bestaat al een template met deze naam');
+    prompt.mockReturnValue(null);
+    const before = calls.length;
+    fireEvent.click(screen.getByRole('button', {name: /Opslaan als template/}));
+    expect(calls.length).toBe(before);
+  });
+
   it('leaves the draaiboek alone when the confirmation is cancelled', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
     renderActions(5);
@@ -79,7 +98,7 @@ describe('DraaiboekFileActions', () => {
 
   it('is disabled without a draaiboek', async () => {
     renderActions(undefined);
-    for (const name of ['Exporteer JSON', 'Exporteer Excel', 'Importeer draaiboek']) {
+    for (const name of ['Exporteer JSON', 'Exporteer Excel', 'Importeer draaiboek', 'Opslaan als template']) {
       expect(screen.getByRole('button', {name})).toBeDisabled();
     }
     await waitFor(() => expect(calls).toEqual([]));
