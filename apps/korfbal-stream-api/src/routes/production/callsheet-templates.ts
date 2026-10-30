@@ -384,10 +384,14 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
         idMapping[tItem.id] = itemId;
         eventMapping[tItem.id] = `ev-${itemId}`;
 
+        // Every template item is in one of the template's hoofdstukken, which were all mapped above
+        const chapterId = productionChapterOf.get(tItem.chapterId);
+        if (chapterId == null) throw new Error(`Template item ${tItem.id} without a mapped hoofdstuk`);
+
         itemsToCreate.push({
           id: itemId,
           callSheetId: callSheet.id,
-          chapterId: (tItem.chapterId && productionChapterOf.get(tItem.chapterId)) || null,
+          chapterId,
           cue: tItem.cue,
           title: tItem.title,
           note: tItem.note,
@@ -406,7 +410,7 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
           productionId: productionId,
           callSheetItemId: itemId,
           title: tItem.title,
-          chapterId: (tItem.chapterId && productionChapterOf.get(tItem.chapterId)) || null,
+          chapterId,
           order: tItem.orderIndex,
           status: 'WAITING' as const,
           durationSec: tItem.durationSec,

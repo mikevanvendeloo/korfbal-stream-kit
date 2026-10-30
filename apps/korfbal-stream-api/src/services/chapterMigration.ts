@@ -1,9 +1,5 @@
 import type {Prisma} from '@prisma/client';
-import {prisma} from './prisma';
-import {runWithOrganization} from './organizationContext';
-import {getSetting, setSetting} from './appSettings';
 import {placeItemsInChapters, segmentWindows, sequentialStarts, type ChapterWindow, type Placement} from './chapters';
-import {logger} from '../utils/logger';
 
 /**
  * Older backups and production exports (before hoofdstukken, openspec/changes/chapters D7) have segments
@@ -19,13 +15,6 @@ const MINUTE = 60_000;
 /** The default liveTime of a new production: 5 minutes before the match (routes/production.ts) */
 const DEFAULT_LIVE_BEFORE_MATCH = 5 * MINUTE;
 const VOORBEREIDING = 'Voorbereiding';
-/** Once per organization: other segment templates were kept as templates with hoofdstukken only */
-const SEGMENT_TEMPLATES_CONVERTED_KEY = 'chaptersSegmentTemplatesConverted';
-/**
- * Once per organization: its productions and templates were placed. From then on the API puts every new
- * item and event in a hoofdstuk, so later starts only tidy up strays and never flag or add hoofdstukken.
- */
-const CHAPTERS_MIGRATED_KEY = 'chaptersMigrated';
 /** The holding hoofdstuk of a restore; it stays when the file has no segments to place the items in */
 export const DRAAIBOEK = 'Draaiboek';
 
@@ -85,7 +74,7 @@ export async function placeLegacyItems(
   // Items, per callsheet in show order; items that came with a hoofdstuk keep it
   const itemChapter = new Map<string, number>();
   for (const cs of production.callSheets) {
-    for (const it of cs.items) if (it.chapterId != null) itemChapter.set(it.id, it.chapterId);
+    for (const it of cs.items) itemChapter.set(it.id, it.chapterId);
     // Laid out from the anchor (the kickoff, like the segments); without an anchor the stored times count
     const starts: Map<string, number | null> = cs.items.some((it) => it.isTimeAnchor)
       ? sequentialStarts(cs.items, anchorTimes)
@@ -118,187 +107,6 @@ export async function placeLegacyItems(
   }
   return result;
 }
-
-/**
- * Startup migration (D7), until the follow-up release: the items and events without a hoofdstuk of one
- * production, placed by the windows of its segments (old durations and anchor). A production with
- * items but without segments gets one hoofdstuk *Draaiboek*.
- */
-export async function placeProductionChapters(tx: Tx, productionId: number, {flag = false}: { flag?: boolean } = {}): Promise<PlacementResult> {
-  let chapters = await tx.productionChapter.findMany({where: {productionId}, orderBy: {orderIndex: 'asc'}});
-  if (chapters.length === 0) {
-    const loose = await tx.callSheetItem.count({where: {callSheet: {productionId}, chapterId: null}})
-      + await tx.productionEvent.count({where: {productionId, chapterId: null}});
-    if (loose === 0) return {items: 0, events: 0, created: []};
-    chapters = [await tx.productionChapter.create({data: {productionId, name: DRAAIBOEK, orderIndex: 1}})];
-  }
-  const segments = chapters.map((c) => ({chapterId: c.id, duurInMinuten: c.duurInMinuten, isTimeAnchor: c.isTimeAnchor}));
-  return placeLegacyItems(tx, productionId, {segments, holdingChapterId: null, flag});
-}
-
-type SegmentShape = { naam: string; volgorde: number; duurInMinuten: number; isTimeAnchor: boolean };
-
-/**
- * Gives a draaiboek template without hoofdstukken the hoofdstukken of the organization's default
- * segment template, with its items placed by time (relative to the match start) and the standard
- * positions by segment name. Items without a hoofdstuk in a template that has some take the hoofdstuk
- * of the item before them.
- */
-export async function placeTemplateChapters(
-  tx: Tx,
-  templateId: number,
-  segments: SegmentShape[],
-  defaultPositions: Array<{ segmentName: string; positionId: number; order: number }>,
-): Promise<{ items: number; created: string[] }> {
-  const template = await tx.callSheetTemplate.findUnique({
-    where: {id: templateId},
-    include: {chapters: {orderBy: {orderIndex: 'asc'}}, items: {orderBy: {orderIndex: 'asc'}}},
-  });
-  const result = {items: 0, created: [] as string[]};
-  if (!template) return result;
-  const loose = template.items.filter((it) => it.chapterId == null);
-  if (template.chapters.length > 0) {
-    // Already has hoofdstukken: a loose item joins the hoofdstuk of the item before it
-    let previous = template.chapters[0].id;
-    for (const it of template.items) {
-      if (it.chapterId) previous = it.chapterId;
-      else {
-        await tx.callSheetTemplateItem.update({where: {id: it.id}, data: {chapterId: previous}});
-        result.items++;
-      }
-    }
-    return result;
-  }
-
-  const ordered = [...segments].sort((a, b) => a.volgorde - b.volgorde);
-  const names = ordered.length > 0 ? ordered.map((s) => s.naam) : [DRAAIBOEK];
-  const windows: ChapterWindow<string>[] = ordered.length > 1
-    ? segmentWindows(ordered.map((s) => ({key: s.naam, duurInMinuten: s.duurInMinuten, isTimeAnchor: s.isTimeAnchor})), 0)
-    : [{key: names[0], start: -Infinity, end: Infinity}];
-  const starts = sequentialStarts(template.items, {MATCH_START: 0, LIVESTREAM_START: -DEFAULT_LIVE_BEFORE_MATCH});
-  const placement = placeItemsInChapters(windows, template.items.map((it) => ({id: it.id, start: starts.get(it.id) ?? null, parentId: it.parentId})));
-  const hasBefore = [...placement.values()].includes('BEFORE');
-
-  const chapterNames = [...(hasBefore ? [VOORBEREIDING] : []), ...names];
-  const chapterIds = new Map<string, string>();
-  for (const [orderIndex, name] of chapterNames.entries()) {
-    const positions = defaultPositions.filter((p) => p.segmentName === name).sort((a, b) => a.order - b.order);
-    const chapter = await tx.callSheetTemplateChapter.create({
-      data: {templateId, name, orderIndex, positions: {create: positions.map((p, i) => ({positionId: p.positionId, orderIndex: i}))}},
-    });
-    chapterIds.set(name, chapter.id);
-    result.created.push(name);
-  }
-  for (const it of loose) {
-    const place = placement.get(it.id) ?? names[0];
-    await tx.callSheetTemplateItem.update({where: {id: it.id}, data: {chapterId: chapterIds.get(place === 'BEFORE' ? VOORBEREIDING : place)}});
-    result.items++;
-  }
-  if (template.items.length > 0) await tx.callSheetTemplate.update({where: {id: templateId}, data: {chaptersAutoPlaced: true}});
-  return result;
-}
-
-/** The organization's default segment template (isDefault, else the first), with its items. */
-async function defaultSegmentTemplate() {
-  return prisma.segmentTemplate.findFirst({
-    orderBy: [{isDefault: 'desc'}, {id: 'asc'}],
-    include: {items: {orderBy: {volgorde: 'asc'}}},
-  });
-}
-
-/** Migrates the organization in the context: productions, draaiboek templates and, once, the other segment templates. */
-export async function migrateOrganizationChapters(): Promise<{ productions: number; templates: number; keptSegmentTemplates: number }> {
-  const summary = {productions: 0, templates: 0, keptSegmentTemplates: 0};
-  if (await getSetting<boolean>(CHAPTERS_MIGRATED_KEY)) {
-    summary.productions = await placeStrays();
-    return summary;
-  }
-
-  const productionIds = await prisma.production.findMany({
-    where: {OR: [{callSheets: {some: {items: {some: {chapterId: null}}}}}, {productionEvents: {some: {chapterId: null}}}]},
-    select: {id: true},
-  });
-  for (const {id} of productionIds) {
-    const placed = await prisma.$transaction((tx) => placeProductionChapters(tx, id, {flag: true}));
-    if (placed.items + placed.events > 0) summary.productions++;
-  }
-
-  const segmentTemplate = await defaultSegmentTemplate();
-  const defaultPositions = await prisma.segmentDefaultPosition.findMany({select: {segmentName: true, positionId: true, order: true}});
-  const templates = await prisma.callSheetTemplate.findMany({
-    where: {OR: [{chapters: {none: {}}}, {items: {some: {chapterId: null}}}]},
-    select: {id: true},
-  });
-  for (const {id} of templates) {
-    const placed = await prisma.$transaction((tx) => placeTemplateChapters(tx, id, segmentTemplate?.items ?? [], defaultPositions));
-    if (placed.items > 0 || placed.created.length > 0) summary.templates++;
-  }
-
-  // The other segment templates become draaiboek templates with only hoofdstukken, once, so nothing is lost
-  if (!(await getSetting<boolean>(SEGMENT_TEMPLATES_CONVERTED_KEY))) {
-    const others = await prisma.segmentTemplate.findMany({
-      where: segmentTemplate ? {id: {not: segmentTemplate.id}} : {},
-      include: {items: {orderBy: {volgorde: 'asc'}}},
-    });
-    for (const other of others) {
-      const name = `${other.name} (hoofdstukken)`;
-      if (await prisma.callSheetTemplate.findFirst({where: {name}})) continue;
-      await prisma.$transaction(async (tx) => {
-        const template = await tx.callSheetTemplate.create({data: {name}});
-        await placeTemplateChapters(tx, template.id, other.items, defaultPositions);
-      });
-      summary.keptSegmentTemplates++;
-    }
-    await setSetting(SEGMENT_TEMPLATES_CONVERTED_KEY, true);
-  }
-  await setSetting(CHAPTERS_MIGRATED_KEY, true);
-  return summary;
-}
-
-/**
- * After the migration: an item or event that still has no hoofdstuk (e.g. written by an older version
- * during an upgrade) goes to its callsheet item's hoofdstuk, else the production's last one. The
- * production's hoofdstukken and its check flag are left alone. Returns the number of productions touched.
- */
-async function placeStrays(): Promise<number> {
-  const productions = await prisma.production.findMany({
-    where: {OR: [{callSheets: {some: {items: {some: {chapterId: null}}}}}, {productionEvents: {some: {chapterId: null}}}]},
-    select: {id: true, chapters: {orderBy: {orderIndex: 'desc'}, take: 1, select: {id: true}}},
-  });
-  let touched = 0;
-  for (const production of productions) {
-    const last = production.chapters[0]?.id;
-    if (last == null) continue; // no hoofdstuk at all: nothing to place it in without adding one
-    await prisma.$transaction(async (tx) => {
-      await tx.callSheetItem.updateMany({where: {callSheet: {productionId: production.id}, chapterId: null}, data: {chapterId: last}});
-      const events = await tx.productionEvent.findMany({where: {productionId: production.id, chapterId: null}, select: {id: true, callSheetItemId: true}});
-      for (const event of events) {
-        const item = event.callSheetItemId
-          ? await tx.callSheetItem.findFirst({where: {id: event.callSheetItemId, callSheet: {productionId: production.id}}, select: {chapterId: true}})
-          : null;
-        await tx.productionEvent.update({where: {id: event.id}, data: {chapterId: item?.chapterId ?? last}});
-      }
-    });
-    touched++;
-  }
-  return touched;
-}
-
-/** At startup: every organization, each in its own context; a failing organization doesn't stop the others. */
-export async function migrateAllChapters(): Promise<void> {
-  const organizations = await prisma.organization.findMany({select: {id: true, slug: true}});
-  for (const organization of organizations) {
-    try {
-      const summary = await runWithOrganization(organization.id, () => migrateOrganizationChapters());
-      if (summary.productions || summary.templates || summary.keptSegmentTemplates) {
-        logger.info(`Hoofdstukken placed for organization ${organization.slug}`, summary);
-      }
-    } catch (err) {
-      logger.error(`Placing hoofdstukken failed for organization ${organization.slug}`, err as Error);
-    }
-  }
-}
-
 
 /** A hoofdstuk in a backup or production export: `chapters` now, `segments` (naam, volgorde, duration) in older files. */
 export type FileChapter = { name: string; orderIndex: number; minDurationSec?: number | null; legacy?: { duurInMinuten: number; isTimeAnchor: boolean }; assignments: FileAssignment[] };

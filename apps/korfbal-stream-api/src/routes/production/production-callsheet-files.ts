@@ -96,7 +96,7 @@ productionCallsheetFilesRouter.get('/callsheets/:callSheetId/export-json', async
         anchorType: item.anchorType,
         autoAdvance: item.autoAdvance,
         parentId: item.parentId,
-        chapter: item.chapterId != null ? chapterName.get(item.chapterId) ?? null : null,
+        chapter: chapterName.get(item.chapterId) ?? null,
         positions: item.positions.map((p) => p.position.name),
         startOffsetSec: item.timeStart ? Math.round((item.timeStart.getTime() - kickoff) / 1000) : null,
       })),
@@ -131,7 +131,7 @@ productionCallsheetFilesRouter.get('/callsheets/:callSheetId/export-excel', asyn
     ];
     for (const item of callSheet.items) {
       sheet.addRow({
-        chapter: item.chapterId != null ? chapterName.get(item.chapterId) ?? '' : '',
+        chapter: chapterName.get(item.chapterId) ?? '',
         cue: item.cue,
         title: item.title,
         note: item.note ?? '',

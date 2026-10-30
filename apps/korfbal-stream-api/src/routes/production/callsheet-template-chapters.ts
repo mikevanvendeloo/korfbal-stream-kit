@@ -119,8 +119,8 @@ export async function templateItemChapter(templateId: number, chapterId: unknown
     if (!chapter) throw new NotFoundError('Hoofdstuk niet gevonden');
     return chapter.id;
   }
-  const last = await prisma.callSheetTemplateItem.findFirst({where: {templateId, chapterId: {not: null}}, orderBy: {orderIndex: 'desc'}});
-  if (last?.chapterId) return last.chapterId;
+  const last = await prisma.callSheetTemplateItem.findFirst({where: {templateId}, orderBy: {orderIndex: 'desc'}});
+  if (last) return last.chapterId;
   const lastChapter = await prisma.callSheetTemplateChapter.findFirst({where: {templateId}, orderBy: {orderIndex: 'desc'}});
   if (lastChapter) return lastChapter.id;
   return (await prisma.callSheetTemplateChapter.create({data: {templateId, name: DRAAIBOEK, orderIndex: 0}})).id;
@@ -159,10 +159,13 @@ callSheetTemplateChaptersRouter.post('/from-callsheet/:callSheetId', async (req,
       }
       const itemOf = new Map<string, string>();
       for (const [i, item] of callSheet.items.entries()) {
+        // Every item is in one of the production's hoofdstukken, which were all copied above
+        const chapterId = chapterOf.get(item.chapterId);
+        if (chapterId == null) throw new Error(`Item ${item.id} outside the production's hoofdstukken`);
         const copy = await tx.callSheetTemplateItem.create({
           data: {
             templateId: created.id,
-            chapterId: (item.chapterId != null && chapterOf.get(item.chapterId)) || null,
+            chapterId,
             cue: item.cue,
             title: item.title, note: item.note, durationSec: item.durationSec, orderIndex: i + 1,
             isInVenue: item.isInVenue, isInLivestream: item.isInLivestream, isTimeAnchor: item.isTimeAnchor,

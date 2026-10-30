@@ -1,11 +1,5 @@
--- Hoofdstukken, release 2 (openspec/changes/chapters): run as a new Prisma migration only AFTER the
--- release with phase 5a ran in production (its startup migration migrateAllChapters has then placed every
--- item by time and converted the segment templates). Same release: schema.prisma drops the deprecated
--- SegmentTemplate/SegmentTemplateItem/SegmentDefaultPosition models and ProductionChapter.duurInMinuten/
--- isTimeAnchor, makes CallSheetItem.chapterId and CallSheetTemplateItem.chapterId required (template item
--- FK onDelete Cascade), and migrateAllChapters/placeProductionChapters/placeTemplateChapters go.
--- Every item has a hoofdstuk, segment templates and standard positions per segment name are gone, a
--- hoofdstuk has no duration or anchor of its own.
+-- Hoofdstukken, release 2 (openspec/changes/chapters): every item has a hoofdstuk, segment templates and
+-- standard positions per segment name are gone, a hoofdstuk has no duration or anchor of its own.
 
 -- 1. Items still without a hoofdstuk (the startup migration of phase 2 normally placed them all).
 --    A linked item first takes the hoofdstuk of its parent.
@@ -72,3 +66,6 @@ DROP COLUMN "isTimeAnchor";
 DROP TABLE "SegmentDefaultPosition";
 DROP TABLE "SegmentTemplateItem";
 DROP TABLE "SegmentTemplate";
+
+-- 5. The markers of the removed startup migration
+DELETE FROM "OrganizationSetting" WHERE "key" IN ('chaptersMigrated', 'chaptersSegmentTemplatesConverted');
