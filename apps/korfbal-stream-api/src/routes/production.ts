@@ -8,6 +8,7 @@ import {staffingSummaries} from '../services/productionStaffing';
 import {parseOptionalInstant} from '../utils/time';
 import {plannedTimesOf} from '../services/dayPlanning';
 import {liveEnds} from '../services/productionTiming';
+import {findClubByTeamName} from '../utils/clubs';
 import {DEFAULT_PRODUCTION_CHAPTERS} from '../services/chapters';
 
 // Import all production sub-routers
@@ -163,7 +164,17 @@ productionRouter.get('/active', async (_req, res, next) => {
     if (!item) return res.json({ item });
     // Opbouw and verzamelen for LIVE → Productie, and the end of the livestream (latest item end, openspec/changes/chapters D1)
     const liveEnd = (await liveEnds([item.id])).get(item.id) ?? null;
-    return res.json({ item: {...item, planned: await plannedTimesOf(item.id, item.matchSchedule.date), liveEnd} });
+    // The clubs' abbreviations (e.g. "FOR"), as the vMix match data source sends them; null without a known club
+    const [homeClub, awayClub] = await Promise.all([
+      findClubByTeamName(prisma, item.matchSchedule.homeTeamName),
+      findClubByTeamName(prisma, item.matchSchedule.awayTeamName),
+    ]);
+    const matchSchedule = {
+      ...item.matchSchedule,
+      homeAbbreviation: homeClub?.abbreviation ?? null,
+      awayAbbreviation: awayClub?.abbreviation ?? null,
+    };
+    return res.json({ item: {...item, matchSchedule, planned: await plannedTimesOf(item.id, item.matchSchedule.date), liveEnd} });
   } catch (err) {
     return next(err);
   }
