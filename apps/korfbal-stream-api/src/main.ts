@@ -6,6 +6,7 @@ import {logger} from './utils/logger';
 import {sponsorsRouter} from './routes/sponsors';
 import {matchRouter} from './routes/match';
 import {scoreboardRouter} from './routes/scoreboard';
+import {statsRouter} from './routes/stats';
 import {adminVmixRouter, vmixRouter} from './routes/vmix';
 import {settingsRouter} from './routes/settings';
 import {personsRouter} from './routes/persons';
@@ -166,6 +167,7 @@ app.use('/api/manual-matches', manualMatchesRouter);
 
 // Scoreboard endpoints
 app.use('/api/scoreboard', scoreboardRouter);
+app.use('/api/stats', statsRouter);
 
 // vMix endpoints
 app.use('/api/vmix', vmixRouter);

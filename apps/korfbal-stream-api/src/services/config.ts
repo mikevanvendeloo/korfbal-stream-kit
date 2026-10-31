@@ -22,6 +22,8 @@ const EnvSchema = z.object({
   // Root directory where binary assets (logos, player photos, uploads) are stored within the container/app.
   // Default: "storage". In tests, if not set, falls back to tmp/test-storage under cwd to avoid polluting real data.
   ASSETS_DIR: z.string().optional().default(''),
+  // Read-only root of the statistics PC's share (WEDSTRIJDEN.mdb); the organization setting holds the path inside it.
+  STATS_DIR: z.string().optional().default(''),
   // App version, typically injected at build time or via env var
   APP_VERSION: z.string().default('0.0.0-dev'),
 });
@@ -50,6 +52,7 @@ const env = parsed.success
     SCOREBOARD_BASE_URL: process.env.SCOREBOARD_BASE_URL || 'http://10.12.0.62/scoreboard',
     SHOTCLOCK_BASE_URL: process.env.SHOTCLOCK_BASE_URL || 'http://10.12.0.61/shotclock',
     ASSETS_DIR: process.env.ASSETS_DIR || '',
+    STATS_DIR: process.env.STATS_DIR || '',
     APP_VERSION: process.env.APP_VERSION || '0.0.0-test',
   } as any);
 
@@ -61,6 +64,7 @@ export const config = {
   scoreBoardBaseUrl: env.SCOREBOARD_BASE_URL as string,
   shotClockBaseUrl: env.SHOTCLOCK_BASE_URL as string,
   assetsDir: (env.ASSETS_DIR || '') as string,
+  statsDir: (env.STATS_DIR || '') as string,
   appVersion: (env.APP_VERSION || '0.0.0-dev') as string,
 };
 

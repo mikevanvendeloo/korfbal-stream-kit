@@ -148,10 +148,17 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/scoreboard': {device: 'scoreboard proxy'},
   'GET /api/scoreboard/clock': {device: 'scoreboard proxy'},
   'GET /api/scoreboard/shotclock': {device: 'shot clock proxy'},
+  'GET /api/stats/live': {device: 'statistics page of the statistics PC'},
+  'GET /api/stats/live/players': {device: 'statistics page of the statistics PC'},
+  'GET /api/stats/matches': {device: 'statistics database file on the share'},
+  'GET /api/stats/matches/:table/actions': {device: 'statistics database file on the share'},
+  'GET /api/stats/matches/:table/players': {device: 'statistics database file on the share'},
+  'GET /api/stats/players': {device: 'statistics database file on the share'},
   'GET /api/seasons': GLOBAL,
   'GET /api/seasons/active': GLOBAL,
   'GET /api/seasons/suggest-next': GLOBAL,
   'GET /api/settings/club-config': {read: () => '/api/settings/club-config'},
+  'GET /api/settings/match-stats': {read: () => '/api/settings/match-stats'},
   'GET /api/settings/scoreboard-config': {read: () => '/api/settings/scoreboard-config'},
   'GET /api/settings/sponsor-config': {read: () => '/api/settings/sponsor-config', control: false},
   'GET /api/settings/version': GLOBAL,
@@ -289,6 +296,7 @@ const ROUTES: Record<string, Probe> = {
   'PUT /api/seasons/:id': GLOBAL,
   'PUT /api/seasons/active': GLOBAL,
   'PUT /api/settings/club-config': OWN,
+  'PUT /api/settings/match-stats': OWN,
   'PUT /api/settings/scoreboard-config': OWN,
   'PUT /api/settings/sponsor-config': OWN,
   'PUT /api/settings/vmix-callsheet-push': OWN,
@@ -345,6 +353,7 @@ describe.runIf(runDb)('leak test suite: organization B never sees or changes org
       await setSetting('vmixInstances', {instances: [{id: 'a', name: `${MARKER} PC`, url: `http://${MARKER.toLowerCase()}.example:8088`}], targets: {}});
       await setSetting('vmixCallsheetPush', {enabled: false, input: MARKER});
       await setSetting('scoreboardUrl', `http://${MARKER.toLowerCase()}.example/scoreboard`);
+      await setSetting('matchStats', {pageUrl: `http://${MARKER.toLowerCase()}.example/stats`, mdbPath: `${MARKER.toLowerCase()}/WEDSTRIJDEN.mdb`});
     });
     // A's sponsor logo on disk, for the image download (sponsors/<slug>/<logoUrl>)
     fs.mkdirSync(path.join(getAssetsRoot(), 'sponsors', A), {recursive: true});

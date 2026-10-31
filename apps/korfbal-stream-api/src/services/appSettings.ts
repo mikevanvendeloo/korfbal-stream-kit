@@ -120,6 +120,18 @@ export async function setSponsorSlidesTypes(types: string[]): Promise<void> {
   await setSetting(SPONSOR_SLIDES_TYPES_KEY, types);
 }
 
+export const MATCH_STATS_KEY = 'matchStats';
+export type MatchStatsSetting = {pageUrl: string | null; mdbPath: string | null};
+
+export async function getMatchStats(): Promise<MatchStatsSetting> {
+  const v = await getSetting<Partial<MatchStatsSetting>>(MATCH_STATS_KEY);
+  return {pageUrl: v?.pageUrl || null, mdbPath: v?.mdbPath || null};
+}
+
+export async function setMatchStats(input: MatchStatsSetting): Promise<void> {
+  await setSetting(MATCH_STATS_KEY, input);
+}
+
 export async function getScoreboardUrl(): Promise<string | null> {
   return getSetting<string>(SCOREBOARD_URL_KEY);
 }

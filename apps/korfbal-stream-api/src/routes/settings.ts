@@ -1,5 +1,9 @@
 import {Router} from 'express';
+import {clearLiveStatsCache} from '../services/stats/liveStats';
+import {clearMdbCache} from '../services/stats/mdbFile';
 import {
+  getMatchStats,
+  setMatchStats,
   getScoreboardUrl,
   getSetting,
   getShotclockUrl,
@@ -165,6 +169,36 @@ settingsRouter.put('/scoreboard-config', async (req, res, next) => {
       setScoreboardUrl(parsed.scoreboardUrl || ''),
       setShotclockUrl(parsed.shotclockUrl || ''),
     ]);
+    return res.json(parsed);
+  } catch (err: any) {
+    if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid payload' });
+    return next(err);
+  }
+});
+
+// GET /api/settings/match-stats
+settingsRouter.get('/match-stats', async (_req, res, next) => {
+  try {
+    return res.json(await getMatchStats());
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// PUT /api/settings/match-stats: the statistics PC's page (http or https: LAN device) and the .mdb path inside STATS_DIR
+const MatchStatsSchema = z.object({
+  pageUrl: z.string().trim().max(500).nullable().optional().transform((v) => v || null)
+    .refine((v) => v === null || /^https?:\/\/[^\s/]+/i.test(v), 'De pagina-URL moet met http:// of https:// beginnen'),
+  mdbPath: z.string().trim().max(500).nullable().optional().transform((v) => v || null)
+    .refine((v) => v === null || (!/^([a-z]:|[\\/])/i.test(v) && !v.split(/[\\/]+/).includes('..') && /\.(mdb|accdb)$/i.test(v)), 'Het pad moet relatief zijn (zonder ..) en op .mdb of .accdb eindigen'),
+});
+
+settingsRouter.put('/match-stats', async (req, res, next) => {
+  try {
+    const parsed = MatchStatsSchema.parse(req.body);
+    await setMatchStats({pageUrl: parsed.pageUrl, mdbPath: parsed.mdbPath});
+    clearLiveStatsCache();
+    clearMdbCache();
     return res.json(parsed);
   } catch (err: any) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid payload' });

@@ -26,6 +26,8 @@ const FEED_API_PATHS: ReadonlyArray<string | RegExp> = [
   '/show/previous',
   '/show/remaining',
   /^\/scoreboard(\/.*)?$/,
+  // Match statistics from the statistics PC (vMix data sources)
+  /^\/stats(\/.*)?$/,
 ];
 
 export function isFeedApiPath(path: string): boolean {
