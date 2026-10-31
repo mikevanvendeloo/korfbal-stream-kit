@@ -12,6 +12,7 @@ const RULES: Array<[RegExp, HelpTopic]> = [
   [/^\/callsheet(\/|$)/, {part: 'live', chapter: 'callsheet'}],
   [/^\/show-caller(\/|$)/, {part: 'live', chapter: 'show-caller'}],
   [/^\/scoreboard(\/|$)/, {part: 'live', chapter: 'scorebord'}],
+  [/^\/statistieken(\/|$)/, {part: 'live', chapter: 'statistieken'}],
   [/^\/vmix(\/|$)/, {part: 'live', chapter: 'vmix'}],
   [/^\/interviews(\/|$)/, {part: 'live', chapter: 'interviews'}],
   [/^\/$/, {part: 'live', chapter: 'actieve-productie'}],

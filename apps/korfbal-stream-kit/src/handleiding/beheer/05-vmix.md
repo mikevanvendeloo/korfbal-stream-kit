@@ -89,6 +89,9 @@ Elk adres eindigt op `key=<jouw-sleutel>`: vMix moet een **API-sleutel** van je 
 | **Titel per rol (actieve productie)** | Eén naamtitel: zet aan het eind van het adres de rol, een van `presentatie`, `presentatie-analist`, `commentaar`, `coach-thuis`, `coach-uit`, `speler-thuis` of `speler-uit`. Heeft een titel-template een eigen interviewkeuze voor die rol, dan telt die. Is er geen actieve productie of nog niemand gekozen, dan krijg je een lege regel, zodat de titel leeg wordt. |
 | **Active Production Staff** | Een oudere bron met crewrollen |
 | **Callsheet Timing** | Het huidige en volgende callsheet-item met tijden en de kleuren van de toestand als HTML-kleurcode (`currentBackgroundColor`, `currentTextColor`, `nextBackgroundColor`, `nextTextColor`; normaal, bijna voorbij of over tijd, zoals ingesteld bij de callsheet-push), voor wie liever zelf ophaalt dan laat pushen |
+| **Statistieken live: spelers** | Eén regel per speler van de statistiekenpagina van de statistiek-pc: `/api/stats/live/players?team=home` of `team=away`, eventueel met `&vak=1` of `&vak=2` (zet `&key=<jouw-sleutel>` erachter). Velden: `name`, `vak`, `afstand` (bijvoorbeeld `3/7`), `afstandGoals`, `afstandAttempts`, idem voor `doorloop`, `kortSchot`, `vrijeBal`, `strafworp`, `totaal`, verder `percentage`, `rebound`, `reboundWon`, `reboundTotal` en `aangeef`. De app vraagt de statistiek-pc hoogstens elke 3 seconden, ook als vMix vaker ververst. |
+| **Statistieken live: alles** | `/api/stats/live`: stand, tijd en beide ploegen met alle vakken, totalen en percentages |
+| **Statistieken uit database** | `/api/stats/matches` (wedstrijden), `/api/stats/matches/<wedstrijd>/players` (totalen per speler, beide ploegen) en `/api/stats/players` (spelersoverzicht); de wedstrijdnaam staat in de adreslijst van `/api/stats/matches` |
 
 Welke **sponsortypes** in de ticker, carrousel en slides meedoen, stel je in bij **Instellingen → Sponsors**. Alleen ingeschakelde sponsors doen mee.
 

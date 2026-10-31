@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {Link} from 'react-router-dom';
 import {getScoreboardConfig, setScoreboardConfig} from '../../lib/api';
 import {adminPaths} from '../../lib/adminPaths';
+import MatchStatsSettings from '../../components/MatchStatsSettings';
 
 export default function ConnectionSettingsTab() {
   const [scoreboardUrl, setScoreboardUrl] = useState('');
@@ -85,6 +86,8 @@ export default function ConnectionSettingsTab() {
           </div>
         </div>
       </section>
+
+      <MatchStatsSettings/>
 
       <div className="flex justify-end">
         <button type="submit" disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
