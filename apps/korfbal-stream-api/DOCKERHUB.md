@@ -62,7 +62,6 @@ services:
 | `DATABASE_URL` | ja | PostgreSQL connection string |
 | `PORT` | nee | Poort van de API (standaard `3333`) |
 | `ASSETS_DIR` | nee | Map voor logo's, foto's en KNKV-downloads (koppel als volume) |
-| `STATS_DIR` | nee | Alleen-lezen map met de gedeelde schijf van de statistiek-pc (bevat `WEDSTRIJDEN.mdb`); het pad per organisatie stel je in bij Instellingen |
 | `SCOREBOARD_BASE_URL` / `SHOTCLOCK_BASE_URL` | nee | Adressen van het scorebord en de schotklok in de zaal |
 | `HOST_IP` | nee | IP van de host, zodat de vMix-endpoints het juiste adres tonen |
 | `LOG_LEVEL` | nee | `error`, `warn`, `info` (standaard) of `debug` |

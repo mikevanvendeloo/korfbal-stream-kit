@@ -94,6 +94,8 @@ Elk adres eindigt op `key=<jouw-sleutel>`: vMix moet een **API-sleutel** van je 
 | **Statistieken live: alles** | `/api/stats/live`: stand, tijd en beide ploegen met alle vakken, totalen en percentages |
 | **Statistieken uit database** | `/api/stats/matches` (wedstrijden), `/api/stats/matches/<wedstrijd>/players` (totalen per speler, beide ploegen) en `/api/stats/players` (spelersoverzicht); de wedstrijdnaam staat in de adreslijst van `/api/stats/matches` |
 
+De adressen van de statistieken zijn hetzelfde gebleven (`/api/stats/...` met je API-sleutel): vMix praat met Streamz, en Streamz vraagt de statistics bridge. Is de bridge offline, dan krijgt vMix de fout 503 (*De statistics bridge is offline*) en ververst de datasource niet tot hij weer online is.
+
 Welke **sponsortypes** in de ticker, carrousel en slides meedoen, stel je in bij **Instellingen → Sponsors**. Alleen ingeschakelde sponsors doen mee.
 
 ### Afbeeldingen

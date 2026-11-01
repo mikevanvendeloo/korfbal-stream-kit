@@ -73,6 +73,7 @@ See **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** for the full project tree a
 - **`apps/korfbal-stream-api`** — Express + Prisma + PostgreSQL backend, port 3333. Routes under `/api/`, Swagger UI at `/api/docs`.
 - **`apps/korfbal-stream-kit`** — React 19 + Vite + TanStack Query frontend, port 4200. LIVE at `/`, Beheer under `/admin/*` (URLs from `lib/adminPaths.ts`).
 - **`apps/korfbal-stream-kit-e2e`** — Playwright e2e tests.
+- **`apps/statistics-bridge`** — optional, temporary Express app (own Docker image, port 3340, env-configured, no database) that reads the statistics PC (share + page); the API forwards `/api/stats/*` to it, see docs/claude/live-and-devices.md.
 
 ## Core Rules
 
