@@ -125,6 +125,25 @@ describe.runIf(runDb)('statistics routes through the bridge (integration)', () =
     expect(bridge.seen.map((s) => s.url)).toEqual(['/team-stats?team=1', '/top-scorers?team=1']);
   });
 
+  it('forwards the match analysis with the team of the production and passes the database refusal on', async () => {
+    bridge.answer((_url, res) => {
+      res.setHeader('X-Stats-Source', 'share');
+      res.end(JSON.stringify({score: {own: 27, opponent: 14}, vakken: []}));
+    });
+    const ok = await asA(request(app).get('/api/stats/analysis'));
+    expect(ok.status, ok.text).toBe(200);
+    expect(ok.body.score).toEqual({own: 27, opponent: 14});
+    expect(bridge.seen[0].url).toBe('/analysis?team=1');
+    bridge.answer((_url, res) => {
+      res.statusCode = 503;
+      res.end(JSON.stringify({error: 'De analyse heeft het statistiekenbestand nodig'}));
+    });
+    clearStatsBridgeCache();
+    const off = await asA(request(app).get('/api/stats/analysis'));
+    expect(off.status).toBe(503);
+    expect(off.body).toEqual({error: 'De analyse heeft het statistiekenbestand nodig'});
+  });
+
   it('shares one request for polls within a moment', async () => {
     await asA(request(app).get('/api/stats/live'));
     await asA(request(app).get('/api/stats/live'));

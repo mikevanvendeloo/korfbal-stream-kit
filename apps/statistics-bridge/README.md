@@ -38,6 +38,7 @@ De bridge schrijft nooit naar `STATS_DIR` en logt geen tokens.
 | `/matches/:table/actions`, `/matches/:table/players` | Acties, en totalen per speler. `/matches/live/players`: de spelers van de pagina |
 | `/team-stats` | Twee vlakke rijen (thuis, uit): doelpunt-, rebound-, strafworp-, vrije bal-, afstand-, korte schot- en doorloop-percentages, doelpunten dames/heren, aanvalscijfers |
 | `/top-scorers` | Per ploeg de spelers met een doelpunt, de meeste eerst, met `rank` |
+| `/analysis` | Analyse van de wedstrijd met de laatste actie, voor de analist: verloop van de stand, runs (3+ doelpunten op rij), langste periode zonder doelpunt, aanvallen per vak (aanvallen, met doelpunt, schoten per aanval, balverlies, rebounds), duels (speler tegen directe tegenstander), schotkaart per zone en type, balverlies per soort; alles ook per helft. Alleen uit de database: zonder database 503 "De analyse heeft het statistiekenbestand nodig" |
 | `/players` | Spelersoverzicht (alleen database; anders 503 "Database niet beschikbaar") |
 | `/current/players` | De spelers van de wedstrijd met de laatste actie; zonder database die van de pagina (`source: page`) |
 

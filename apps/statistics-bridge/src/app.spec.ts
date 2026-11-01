@@ -132,6 +132,17 @@ describe('statistics bridge routes', () => {
       expect(res.body[0].goalPct).not.toBeNull();
     });
 
+    it('answers the analysis of the current match, the same answer for polls on one read of the file', async () => {
+      const res = await request(app).get('/analysis');
+      expect(res.status, res.text).toBe(200);
+      expect(res.headers['x-stats-source']).toBe('share');
+      expect(res.body).toMatchObject({teams: {own: 'Fortuna/Ruitenheer'}, score: {own: 27, opponent: 14}, source: 'share', clock: {half: 2}});
+      // the same possessions as the page's attack figures
+      expect(res.body.attacks.own.total).toMatchObject({attacks: 73, turnovers: 46});
+      expect(res.body.vakken).toHaveLength(2);
+      expect((await request(app).get('/analysis')).body).toEqual(res.body);
+    });
+
     it('only reads listed match tables', async () => {
       expect((await request(app).get('/matches/spelersover/actions')).status).toBe(404);
       expect((await request(app).get('/matches/..%2F..%2Fetc/actions')).status).toBe(404);
@@ -140,6 +151,7 @@ describe('statistics bridge routes', () => {
     it('refuses a path that leaves the share', async () => {
       setConfigForTests({mdbPath: '../secret.mdb'});
       expect((await request(app).get('/matches')).status).toBe(400);
+      expect((await request(app).get('/analysis')).status).toBe(400);
     });
 
     it('answers 404 for an unknown route', async () => {
@@ -200,6 +212,21 @@ describe('statistics bridge routes', () => {
       expect(top.body[0]).toMatchObject({source: 'page', team: 'home', rank: 1});
       setConfigForTests({mdbEnabled: false});
       expect((await request(app).get('/team-stats')).headers['x-stats-database']).toBe('disabled');
+    });
+
+    it('/analysis needs the database: 503 when it is switched off, even with the page reachable', async () => {
+      mockPage();
+      setConfigForTests({mdbEnabled: false});
+      const off = await request(app).get('/analysis');
+      expect(off.status).toBe(503);
+      expect(off.body).toEqual({error: 'De analyse heeft het statistiekenbestand nodig'});
+    });
+
+    it('/analysis answers 503 when the database cannot be read', async () => {
+      fs.rmSync(path.join(share, 'F1'), {recursive: true});
+      const res = await request(app).get('/analysis');
+      expect(res.status).toBe(503);
+      expect(res.body.error).toBe('De analyse heeft het statistiekenbestand nodig');
     });
 
     it('/players and /matches/:table/actions answer 503 "Database niet beschikbaar"', async () => {

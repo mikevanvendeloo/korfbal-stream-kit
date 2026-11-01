@@ -185,7 +185,7 @@ apps/korfbal-stream-kit/src/
 
 ## API Endpoints
 
-No login (internal LAN tool), but every `/api` request needs an organization: `X-Organization: <slug>` (401 "Kies een organisatie" without, 403 for an unknown or inactive one). Global routes work without: `/api/health`, `/api/organizations`, `/api/seasons`, `/api/clubs`, `/api/players`, docs. Feed routes (`/api/vmix` data sources and triggers, `/api/scoreboard/*`) take an API key of the organization instead (`?key=` or `X-Api-Key`). Swagger UI at `/api/docs`, OpenAPI JSON at `/api/openapi.json`.
+No login (internal LAN tool), but every `/api` request needs an organization: `X-Organization: <slug>` (401 "Kies een organisatie" without, 403 for an unknown or inactive one). Global routes work without: `/api/health`, `/api/organizations`, `/api/seasons`, `/api/clubs`, `/api/players`, docs. Feed routes (`/api/vmix` data sources and triggers, `/api/scoreboard/*`, `/api/stats/*`) take an API key of the organization instead (`?key=` or `X-Api-Key`). Swagger UI at `/api/docs`, OpenAPI JSON at `/api/openapi.json`.
 
 ### Core (`main.ts`)
 
@@ -436,6 +436,22 @@ A hoofdstuk is `{id, productionId, name, orderIndex, minDurationSec}` (Minimale 
 | GET | /api/scoreboard | Current score (venue scoreboard proxy) |
 | GET | /api/scoreboard/shotclock | Shotclock state |
 | GET | /api/scoreboard/clock | Match clock |
+
+### Statistieken (`/api/stats`, forwarded to the statistics bridge)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /api/stats/status | Bridge online + its connection test (always 200) |
+| GET | /api/stats/live | The live statistics page (score, teams, vakken) |
+| GET | /api/stats/live/players | Flat player rows of the page (`team=home\|away`, `vak`) |
+| GET | /api/stats/matches | Match tables of the database |
+| GET | /api/stats/matches/:table/actions | Action rows of one match |
+| GET | /api/stats/matches/:table/players | Derived player totals of one match |
+| GET | /api/stats/players | Player overview (`spelersover`) |
+| GET | /api/stats/current/players | Players of the match with the latest action |
+| GET | /api/stats/team-stats | Two flat rows (home, away) of team statistics |
+| GET | /api/stats/top-scorers | Top scorers per team with rank |
+| GET | /api/stats/analysis | Match analysis for the analist (database only) |
 
 ### Settings (`/api/settings`)
 

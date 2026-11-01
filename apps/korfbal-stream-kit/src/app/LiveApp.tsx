@@ -1,12 +1,13 @@
 import React from 'react';
 import {Link, Route, Routes, useLocation} from 'react-router-dom';
-import {MdClose, MdInfo, MdMenu, MdMic, MdPlayCircleFilled, MdBarChart, MdSettings, MdTableChart, MdVideocam, MdViewList} from 'react-icons/md';
+import {MdClose, MdInfo, MdInsights, MdMenu, MdMic, MdPlayCircleFilled, MdBarChart, MdSettings, MdTableChart, MdVideocam, MdViewList} from 'react-icons/md';
 import {NavDropdown, navMenuItemClass} from '../components/NavDropdown';
 import ActiveProductionPage from '../pages/ActiveProductionPage';
 import ScoreboardPage from '../pages/ScoreboardPage';
 import LiveVmixPage from '../pages/LiveVmixPage';
 import AboutPage from '../pages/AboutPage';
 import StatisticsPage from '../pages/StatisticsPage';
+import AnalysisPage from '../pages/AnalysisPage';
 import InterviewsPage from '../pages/InterviewsPage';
 import ManualView from '../handleiding/ManualView';
 import HelpButton from '../handleiding/HelpButton';
@@ -33,6 +34,7 @@ const links = [
   {to: '/callsheet', label: 'Callsheet', icon: MdViewList, also: '/show-caller'},
   {to: '/interviews', label: 'Interviews', icon: MdMic, also: null},
   {to: '/statistieken', label: 'Statistieken', icon: MdBarChart, also: null},
+  {to: '/analyse', label: 'Analyse', icon: MdInsights, also: null},
   {to: '/vmix', label: 'vMix', icon: MdVideocam, also: null},
 ];
 
@@ -178,6 +180,7 @@ export default function LiveApp() {
             <Route path="show-caller/:productionId/:positionSlug" element={<InterviewNamesProvider><ShowCallerView/></InterviewNamesProvider>}/>
             <Route path="interviews" element={<InterviewsPage/>}/>
             <Route path="statistieken" element={<StatisticsPage/>}/>
+            <Route path="analyse" element={<AnalysisPage/>}/>
             <Route path="vmix" element={<LiveVmixPage/>}/>
             <Route path="over" element={<AboutPage/>}/>
             <Route path="handleiding" element={<ManualView part="live"/>}/>

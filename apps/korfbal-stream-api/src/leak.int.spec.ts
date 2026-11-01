@@ -152,6 +152,7 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/stats/status': {device: 'the statistics bridge'},
   'GET /api/stats/team-stats': {device: 'the statistics bridge'},
   'GET /api/stats/top-scorers': {device: 'the statistics bridge'},
+  'GET /api/stats/analysis': {device: 'the statistics bridge'},
   'GET /api/stats/live': {device: 'the statistics bridge'},
   'GET /api/stats/live/players': {device: 'the statistics bridge'},
   'GET /api/stats/matches': {device: 'the statistics bridge'},

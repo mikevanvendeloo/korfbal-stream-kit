@@ -45,7 +45,38 @@ export type TopScorerRow = {
   source: 'share' | 'copy' | 'page'; readAt: string; database?: 'disabled' | 'unreachable';
 };
 
-export type MatchPlayers = {source: 'share' | 'copy' | 'page'; readAt: string; database?: StatsDatabaseState; team: StatsTeamChoice | null; teams: {own: string | null; opponent: string | null}; players: DerivedPlayerRow[]};
+/** The match analysis of the bridge (database only). Times are seconds of the statistics PC's own clock. */
+export type AnalysisSide = 'own' | 'opponent';
+export type Split<T> = {total: T; firstHalf: T; secondHalf: T};
+export type AnalysisRatio = {goals: number; attempts: number; pct: number | null};
+export type AttackFigures = {
+  attacks: number; withGoal: number; goalPct: number | null; attempts: number; attemptsPerAttack: number | null;
+  turnovers: number; reboundWon: number; reboundTotal: number; reboundPct: number | null;
+};
+export type ShotKind = 'afstand' | 'halveAfstand' | 'kort' | 'doorloop';
+export type ShotMap = {
+  byZone: Array<{kind: ShotKind; zone: string; goals: number; attempts: number; pct: number | null}>;
+  byType: Record<'afstand' | 'kort' | 'doorloop' | 'vrijeBal' | 'strafworp', AnalysisRatio>;
+};
+export type TurnoverKinds = {steal: number; balOver: number; schotklok: number; onnodigeFout: number; total: number};
+export type AnalysisScore = {own: number; opponent: number};
+export type MatchAnalysis = {
+  teams: {own: string | null; opponent: string | null};
+  source: 'share' | 'copy'; readAt: string;
+  clock: {lastActionAt: number; half: 1 | 2; halftimeAt: number | null};
+  score: AnalysisScore;
+  progression: Array<{t: number; side: AnalysisSide; own: number; opponent: number; player: string | null}>;
+  runs: Array<{side: AnalysisSide; goals: number; from: number; to: number; scoreBefore: AnalysisScore; scoreAfter: AnalysisScore}>;
+  droughts: Record<AnalysisSide, {seconds: number; from: number; to: number} | null>;
+  attacks: Record<AnalysisSide, Split<AttackFigures>>;
+  vakken: Array<{vak: 1 | 2; players: string[]; opponents: string[]; attack: Split<AttackFigures>; defence: Split<AttackFigures>}>;
+  attacksWithoutVak: number;
+  duels: Array<{vak: 1 | 2 | null; player: string; opponent: string; for: Split<AnalysisRatio>; against: Split<AnalysisRatio>}>;
+  shots: Record<AnalysisSide, ShotMap>;
+  turnovers: Record<AnalysisSide, Split<TurnoverKinds>>;
+};
+
+export type MatchPlayers ={source: 'share' | 'copy' | 'page'; readAt: string; database?: StatsDatabaseState; team: StatsTeamChoice | null; teams: {own: string | null; opponent: string | null}; players: DerivedPlayerRow[]};
 
 /** The statistics bridge (its own app next to the API); the token is never returned, only whether there is one */
 export type MatchStatsConfig = {bridgeUrl: string | null; hasBridgeToken: boolean};
@@ -75,7 +106,8 @@ export const fetchStatsMatches = () => getJson<StatsMatch[]>('/api/stats/matches
 export const fetchMatchPlayers = (table: string) => getJson<MatchPlayers>(`/api/stats/matches/${encodeURIComponent(table)}/players`);
 export const fetchTeamStats = () => getJson<TeamStatsRow[]>('/api/stats/team-stats');
 export const fetchTopScorers = () => getJson<TopScorerRow[]>('/api/stats/top-scorers');
-export const fetchStatsConnection = () => getJson<StatsConnection>('/api/stats/status');
+export const fetchMatchAnalysis = () => getJson<MatchAnalysis>('/api/stats/analysis');
+export const fetchStatsConnection = () =>getJson<StatsConnection>('/api/stats/status');
 export const getMatchStatsConfig = () => getJson<MatchStatsConfig>('/api/settings/match-stats');
 
 export async function setMatchStatsConfig(config: MatchStatsInput): Promise<MatchStatsConfig> {

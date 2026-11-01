@@ -7,7 +7,7 @@ import {derivePlayerStats, teamNamesOf} from './services/matchActions';
 import {getLiveStats} from './services/liveStats';
 import {DatabaseUnavailableError, listStatsMatches, readMatchActions, readStatsPlayers, type Sourced} from './services/mdbFile';
 import {derivedPlayerRows, livePlayerRows, pagePlayersAsDerived} from './services/flatRows';
-import {currentMatch, currentPlayers, type CurrentMatch} from './services/currentPlayers';
+import {currentAnalysis, currentMatch, currentPlayers, type CurrentMatch} from './services/currentPlayers';
 import {teamStatsFromPage, teamStatsFromPlayers, topScorersOf, attackStatsOf} from './services/teamStats';
 import {statsConnection} from './services/connectionTest';
 import {StatsError} from './services/statsErrors';
@@ -180,6 +180,14 @@ export function createApp(): Express {
   app.get('/top-scorers', wrap((req, res) => matchOrPage(req, res,
     (m) => topScorersOf(m.players, m.names, m.sexOf),
     (page) => topScorersOf(pagePlayersAsDerived(page), {own: page.home.name, opponent: page.away.name}, null))));
+
+  // The analysis of the current match for the analist (score progression, runs, vakken, duels, shot zones, turnovers).
+  // Database only: without it 503 "De analyse heeft het statistiekenbestand nodig".
+  app.get('/analysis', wrap(async (req, res) => {
+    const {source, readAt, team, analysis} = await currentAnalysis(teamOf(req));
+    setSourceHeaders(res, source, readAt, team);
+    return res.json({...analysis, source, readAt});
+  }));
 
   app.use((_req, res) => res.status(404).json({error: 'Niet gevonden'}));
 
