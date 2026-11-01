@@ -161,3 +161,26 @@ describe.runIf(runDb)('interview people order (integration)', () => {
     expect(at('Thuis Coach')).toBeLessThan(at('Thuis Speler'));
   });
 });
+
+describe.runIf(runDb)('interviews report order (integration)', () => {
+  let show: ProductionScenario;
+  beforeAll(async () => {
+    show = await createProductionScenario(prisma, {
+      interviews: [
+        {side: 'HOME', role: 'PLAYER', name: 'Rapport Thuis Speler'},
+        {side: 'HOME', role: 'COACH', name: 'Rapport Thuis Coach'},
+        {side: 'AWAY', role: 'PLAYER', name: 'Rapport Uit Speler'},
+        {side: 'AWAY', role: 'COACH', name: 'Rapport Uit Coach'},
+      ],
+    });
+  });
+  afterAll(async () => { await show?.cleanup(); });
+
+  it('gives per club the coach before the player (Dagbezetting and Interviews report)', async () => {
+    const res = await request(app).get('/api/reports/interviews');
+    expect(res.status).toBe(200);
+    const row = res.body.find((p: {id: number}) => p.id === show.productionId);
+    expect(row.awayInterviews.map((i: {name: string}) => i.name)).toEqual(['Rapport Uit Coach', 'Rapport Uit Speler']);
+    expect(row.homeInterviews.map((i: {name: string}) => i.name)).toEqual(['Rapport Thuis Coach', 'Rapport Thuis Speler']);
+  });
+});
