@@ -6,7 +6,9 @@ De callsheet laat per positie zien wat jij wanneer moet doen. Hij volgt de actie
 
 ## Je positie kiezen
 
-Open **Callsheet** in de menubalk. Je krijgt de tegels **Kies je positie**: eerst **Show Caller** (het hele draaiboek met de knoppen, zie [De Show Caller](/handleiding/show-caller)), dan één per positie die in het draaiboek van deze productie voorkomt. Kies de jouwe; het adres wordt bijvoorbeeld `/callsheet/12/camera-links`. Bewaar dat adres als bladwijzer op je eigen apparaat, dan kom je er de volgende keer direct.
+Open **Callsheet** in de menubalk. Je krijgt de tegels **Kies je positie**: eerst **Show Caller** (het hele draaiboek met de knoppen, zie [De Show Caller](/handleiding/show-caller)), dan één per positie die in het draaiboek van deze productie voorkomt. Kies de jouwe; het adres wordt bijvoorbeeld `/callsheet/camera-links`. Bewaar dat adres als bladwijzer op je eigen apparaat, dan kom je er de volgende keer direct.
+
+De callsheet toont altijd de **actieve productie**; het adres bevat geen productie. Zet de regie een andere productie actief, dan schakelt je callsheet vanzelf over, zonder herladen. Is er geen actieve productie, dan staat er **Geen actieve productie**. Een oude bladwijzer met een productienummer (zoals `/callsheet/12/camera-links`) werkt nog: hij wordt één keer omgezet naar het nieuwe adres.
 
 Staat er **Geen posities gevonden voor deze productie**, dan heeft het draaiboek nog geen items met posities. Dat wordt in Beheer ingericht.
 

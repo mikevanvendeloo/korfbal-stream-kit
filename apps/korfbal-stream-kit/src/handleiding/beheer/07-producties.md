@@ -71,7 +71,7 @@ Het overzicht toont meteen de nieuwe datum, tijd en ploegnamen. Ook over de wiss
 
 ## Binnen een productie
 
-Klik op de wedstrijd of op **Details**. Bovenaan staan de ploegen, de knop **Open in LIVE** en de tabbladen:
+Klik op de wedstrijd of op **Details**. Bovenaan staan de ploegen, de knop **Open in LIVE** en de tabbladen. **Open in LIVE** werkt alleen voor de actieve productie, want LIVE toont altijd die; bij een andere productie staat erbij dat je hem eerst moet activeren. De tabbladen:
 
 | Tabblad | Waarvoor |
 |---|---|

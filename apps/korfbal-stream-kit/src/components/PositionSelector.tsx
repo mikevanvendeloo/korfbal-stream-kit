@@ -1,5 +1,6 @@
 import {useEffect, useState} from 'react';
-import {Link, useParams} from 'react-router-dom';
+import {Link} from 'react-router-dom';
+import {useLiveProductionId} from './ActiveProductionRoute';
 import {MatchHeader} from "./MatchHeader";
 
 // Type dat overeenkomt met het Prisma 'Position' model
@@ -18,7 +19,7 @@ interface Props {
 }
 
 export const PositionSelector = ({ viewType }: Props) => {
-  const { productionId } = useParams<{ productionId: string }>();
+  const productionId = useLiveProductionId();
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +79,7 @@ export const PositionSelector = ({ viewType }: Props) => {
           {/* The Show Caller has no menu entry of its own: it is the first choice here */}
           {viewType === 'callsheet' && (
             <Link
-              to={`/show-caller/${productionId}/all`}
+              to="/show-caller"
               className="group relative overflow-hidden bg-red-600 hover:bg-red-700 p-8 rounded-2xl text-center transition-all border border-red-600 shadow-sm hover:shadow-xl hover:-translate-y-1"
             >
               <span className="relative z-10 block text-xl font-bold text-white">Show Caller</span>
@@ -88,7 +89,7 @@ export const PositionSelector = ({ viewType }: Props) => {
           {positions.map((pos) => (
             <Link
               key={pos.id}
-              to={`/${viewType}/${productionId}/${toSlug(pos.name)}`}
+              to={`/${viewType}/${toSlug(pos.name)}`}
               className="group relative overflow-hidden bg-white dark:bg-white/5 hover:bg-orange-500 dark:hover:bg-orange-600 p-8 rounded-2xl text-center transition-all border border-gray-200 dark:border-white/10 hover:border-orange-500 dark:hover:border-orange-600 shadow-sm hover:shadow-xl hover:-translate-y-1"
             >
               <span className="relative z-10 text-xl font-bold text-gray-900 dark:text-white group-hover:text-white transition-colors">
@@ -101,7 +102,7 @@ export const PositionSelector = ({ viewType }: Props) => {
           {/* All items: only the show caller has an all-positions view; the callsheet always shows one position */}
           {viewType === 'show-caller' && (
             <Link
-              to={`/${viewType}/${productionId}/all`}
+              to="/show-caller"
               className="group relative overflow-hidden bg-gray-100 dark:bg-white/5 hover:bg-blue-600 p-8 rounded-2xl text-center transition-all border border-gray-200 dark:border-white/10 hover:border-blue-600 shadow-sm hover:shadow-xl hover:-translate-y-1"
             >
               <span className="relative z-10 text-xl font-bold text-gray-600 dark:text-white group-hover:text-white transition-colors">

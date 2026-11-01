@@ -1,4 +1,5 @@
 import {useNavigate, useParams} from 'react-router-dom';
+import {SHOW_CALLER_CHOOSE, useLiveProductionId} from './ActiveProductionRoute';
 import {calculateEventTimes, ProductionEvent, useLiveState} from '../hooks/useLiveState';
 import {Fragment, useEffect, useMemo, useRef, useState} from "react";
 import {MatchHeader} from "./MatchHeader";
@@ -21,7 +22,8 @@ const toSlug = (name: string) => {
 };
 
 export const ShowCallerView = () => {
-  const {productionId, positionSlug} = useParams<{ productionId: string; positionSlug: string }>();
+  const productionId = useLiveProductionId();
+  const {positionSlug} = useParams<{ positionSlug: string }>();
   const navigate = useNavigate();
 
   const {
@@ -239,7 +241,6 @@ export const ShowCallerView = () => {
   if (isPhone) {
     return (
       <ShowCallerPhone
-        productionId={productionId ?? ''}
         positionSlug={positionSlug ?? 'all'}
         positionName={selectedPosition?.name ?? null}
         items={[...calculateEventTimes(allItems)].sort((a, b) => a.order - b.order)}
@@ -356,8 +357,8 @@ export const ShowCallerView = () => {
                             onClick={() => {
                               // The callsheet view always needs one position: without one ('all') let the crew pick it
                               navigate(positionSlug && positionSlug !== 'all'
-                                ? `/callsheet/${productionId}/${positionSlug}`
-                                : `/callsheet/${productionId}`);
+                                ? `/callsheet/${positionSlug}`
+                                : `/callsheet`);
                               setShowSettings(false);
                             }}
                             className="w-full px-4 py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-gray-200 dark:border-white/5 text-gray-600 dark:text-white/70"
@@ -365,7 +366,7 @@ export const ShowCallerView = () => {
                             Callsheet view
                           </button>
                           <button
-                            onClick={() => navigate(`/show-caller/${productionId}`)}
+                            onClick={() => navigate(`/show-caller/${SHOW_CALLER_CHOOSE}`)}
                             className="w-full px-4 py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-gray-200 dark:border-white/5 text-gray-600 dark:text-white/70"
                           >
                             Wissel Positie

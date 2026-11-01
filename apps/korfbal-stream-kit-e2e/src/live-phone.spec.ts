@@ -15,7 +15,7 @@ test('the LIVE bar fits the phone and opens the Show Caller from its menu', asyn
   expect(await pageWidth(page)).toBe(360);
 
   await new LiveNav(page).openShowCaller();
-  await expect(page).toHaveURL(new RegExp(`/show-caller/${liveShow.productionId}/all$`));
+  await expect(page).toHaveURL(/\/show-caller$/);
   const showCaller = new ShowCallerPhone(page);
   await showCaller.expectNotStarted();
   await expect(showCaller.next).toContainText(liveShow.titles[0]);
@@ -23,7 +23,7 @@ test('the LIVE bar fits the phone and opens the Show Caller from its menu', asyn
 
 test('runs the show with the buttons under the thumb', async ({page, liveShow}) => {
   const showCaller = new ShowCallerPhone(page);
-  await showCaller.open(liveShow.productionId, positionSlug(REGIE));
+  await showCaller.open(positionSlug(REGIE));
 
   await showCaller.start();
   await showCaller.expectNow(liveShow.titles[0]);
@@ -44,7 +44,7 @@ test('runs the show with the buttons under the thumb', async ({page, liveShow}) 
 
 test('Zet 30s sets the remaining time of the current item', async ({page, liveShow}) => {
   const showCaller = new ShowCallerPhone(page);
-  await showCaller.open(liveShow.productionId);
+  await showCaller.open();
   await showCaller.start();
   await showCaller.expectNow(liveShow.titles[0]);
 
@@ -58,7 +58,8 @@ test('Zet 30s sets the remaining time of the current item', async ({page, liveSh
 
 test('the buttons stay in view while scrolling, and the page never scrolls sideways', async ({page, liveShow}) => {
   const showCaller = new ShowCallerPhone(page);
-  await showCaller.open(liveShow.productionId);
+  await showCaller.open();
+  await expect(page.getByText(liveShow.titles[0]).first()).toBeVisible();
   await showCaller.start();
   await page.mouse.wheel(0, 2000);
   await expect(showCaller.controls.getByRole('button', {name: 'Volgend item'})).toBeInViewport();
@@ -67,7 +68,7 @@ test('the buttons stay in view while scrolling, and the page never scrolls sidew
 
 test('shows a failed action on screen', async ({page, liveShow}) => {
   const showCaller = new ShowCallerPhone(page);
-  await showCaller.open(liveShow.productionId);
+  await showCaller.open();
   await showCaller.start();
   await showCaller.expectNow(liveShow.titles[0]);
   await showCaller.previousItem();
@@ -75,18 +76,19 @@ test('shows a failed action on screen', async ({page, liveShow}) => {
 });
 
 test('the callsheet and the position choice fit the phone', async ({page, liveShow}) => {
-  await page.goto(`/callsheet/${liveShow.productionId}`);
+  await page.goto('/callsheet');
   await expect(page.getByText('Kies je positie')).toBeVisible();
   expect(await pageWidth(page)).toBe(360);
 
   await page.getByText(REGIE, {exact: true}).click();
-  await expect(page).toHaveURL(new RegExp(`/callsheet/${liveShow.productionId}/${positionSlug(REGIE)}$`));
+  await expect(page).toHaveURL(new RegExp(`/callsheet/${positionSlug(REGIE)}$`));
   await expect(page.getByText(liveShow.titles[0])).toBeVisible();
   expect(await pageWidth(page)).toBe(360);
 });
 
 test('the help button opens the manual at the Show Caller', async ({page, liveShow}) => {
-  await new ShowCallerPhone(page).open(liveShow.productionId);
+  await new ShowCallerPhone(page).open();
+  await expect(page.getByText(liveShow.titles[0]).first()).toBeVisible();
   await new LiveNav(page).help().click();
   await expect(page).toHaveURL(/\/handleiding\/show-caller$/);
   await expect(page.getByRole('heading', {level: 1, name: 'De Show Caller'})).toBeVisible();

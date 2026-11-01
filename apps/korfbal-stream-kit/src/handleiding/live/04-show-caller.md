@@ -8,7 +8,7 @@ De Show Caller ziet het hele draaiboek en zet de show door: hij bepaalt welk ite
 
 ## Openen
 
-Kies **Callsheet** in de menubalk en dan de eerste tegel, **Show Caller**. Je ziet direct alle items. Bewaar het adres (bijvoorbeeld `/show-caller/12/all`) als bladwijzer, dan kom je er de volgende keer direct. Wil je alleen de items van één positie benadrukken, kies dan via het tandwiel **Wissel Positie**.
+Kies **Callsheet** in de menubalk en dan de eerste tegel, **Show Caller**. Je ziet direct alle items. Bewaar het adres `/show-caller` als bladwijzer, dan kom je er de volgende keer direct. Net als de callsheet toont de Show Caller altijd de actieve productie en schakelt hij vanzelf over als een andere productie actief wordt. Wil je alleen de items van één positie benadrukken, kies dan via het tandwiel **Wissel Positie**.
 
 ## De knoppen
 

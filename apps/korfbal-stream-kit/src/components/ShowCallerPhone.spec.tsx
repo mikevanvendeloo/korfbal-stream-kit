@@ -12,7 +12,7 @@ const items = showItems;
 
 function renderPhone(overrides: Partial<ShowCallerPhoneProps> = {}) {
   const props: ShowCallerPhoneProps = {
-    productionId: '47', positionSlug: 'regie-livestream', positionName: 'Regie livestream', items,
+    positionSlug: 'regie-livestream', positionName: 'Regie livestream', items,
     activeEventId: 'b', remaining: remaining(8),
     autoAdvanceEventId: null, isConnected: true, systemTime: '19:52:10',
     isRelevant: isForRegie,
@@ -124,7 +124,7 @@ describe('ShowCallerPhone', () => {
     render(
       <StaticInterviewNames names={interviewNames}>
         <MemoryRouter>
-          <ShowCallerPhone productionId="47" positionSlug="all" positionName={null} items={withInterviews} activeEventId="n"
+          <ShowCallerPhone positionSlug="all" positionName={null} items={withInterviews} activeEventId="n"
                            remaining={remaining(30)} autoAdvanceEventId={null} isConnected systemTime="19:52:10"
                            isRelevant={() => true} controls={fakeControls()}/>
         </MemoryRouter>

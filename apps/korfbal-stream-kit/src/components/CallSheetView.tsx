@@ -1,4 +1,5 @@
 import {useNavigate, useParams} from 'react-router-dom';
+import {useLiveProductionId} from './ActiveProductionRoute';
 import {CALLSHEET_HEADER_VAR, CallSheetColumn} from './CallSheetColumn';
 import {TimeDisplay} from './TimeDisplay';
 import {calculateEventTimes, useLiveState} from '../hooks/useLiveState';
@@ -15,7 +16,8 @@ const toSlug = (name: string) => {
 };
 
 export const CallSheetView = () => {
-    const {productionId, positionSlug} = useParams<{ productionId: string; positionSlug: string }>();
+    const productionId = useLiveProductionId();
+    const {positionSlug} = useParams<{ positionSlug: string }>();
     const navigate = useNavigate();
 
     const {
@@ -142,7 +144,7 @@ export const CallSheetView = () => {
                 const other = allPositions.find(p => p.id !== posId && p.id !== primaryPositionId && p.id !== secondaryPositionId);
                 setTertiaryPositionId(other ? other.id : null);
             }
-            navigate(`/callsheet/${productionId}/${toSlug(pos.name)}`);
+            navigate(`/callsheet/${toSlug(pos.name)}`);
         }
     };
 
@@ -152,7 +154,7 @@ export const CallSheetView = () => {
         // dan moeten we de primaire naar de oude secundaire verplaatsen
         if (posId === primaryPositionId) {
             if (secondaryPosition) {
-                navigate(`/callsheet/${productionId}/${toSlug(secondaryPosition.name)}`);
+                navigate(`/callsheet/${toSlug(secondaryPosition.name)}`);
             }
         } else if (posId === tertiaryPositionId) {
             // Als deze al tertiair was, wissel ze om
@@ -167,7 +169,7 @@ export const CallSheetView = () => {
         // dan moeten we de primaire naar de oude tertiaire verplaatsen
         if (posId === primaryPositionId) {
             if (tertiaryPosition) {
-                navigate(`/callsheet/${productionId}/${toSlug(tertiaryPosition.name)}`);
+                navigate(`/callsheet/${toSlug(tertiaryPosition.name)}`);
             }
         } else if (posId === secondaryPositionId) {
             // Als deze al secundair was, wissel ze om
@@ -349,7 +351,7 @@ export const CallSheetView = () => {
                                                         className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-white/30">Positie</span>
                                                     <button
                                                         onClick={() => {
-                                                            navigate(`/callsheet/${productionId}`);
+                                                            navigate(`/callsheet`);
                                                             setShowSettings(false);
                                                         }}
                                                         className="px-3 py-1.5 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border border-gray-200 dark:border-white/10 text-gray-600 dark:text-white/60"
@@ -399,7 +401,7 @@ export const CallSheetView = () => {
 
                                                     <button
                                                         onClick={() => {
-                                                            const newPath = `/show-caller/${productionId}/${positionSlug}`;
+                                                            const newPath = `/show-caller/${positionSlug}`;
                                                             navigate(newPath);
                                                             setShowSettings(false);
                                                         }}
@@ -411,7 +413,7 @@ export const CallSheetView = () => {
 
                                                     <button
                                                         onClick={() => {
-                                                            navigate(`/callsheet/${productionId}`);
+                                                            navigate(`/callsheet`);
                                                             setShowSettings(false);
                                                         }}
                                                         className="w-full px-4 py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-gray-200 dark:border-white/5 text-gray-600 dark:text-white/70 text-center"

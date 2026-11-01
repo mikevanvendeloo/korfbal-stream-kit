@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'react';
-import {useParams} from 'react-router-dom';
+import {useLiveProductionId} from '../components/ActiveProductionRoute';
 import {EventStatus, TriggerSource} from '@prisma/client';
 import {createUrl} from "../lib/api";
 import {getSharedSocket, SocketListener} from "../lib/socket";
@@ -140,7 +140,7 @@ export function calculateEventTimes(allItems: ProductionEvent[]): (ProductionEve
 
 // --- De Hook ---
 export const useLiveState = () => {
-  const { productionId } = useParams<{ productionId: string }>();
+  const productionId = useLiveProductionId();
   const [allItems, setAllItems] = useState<ProductionEvent[]>([]);
   const [allPositions, setAllPositions] = useState<Position[]>([]); // Nieuwe state voor alle posities
   const [chapters, setChapters] = useState<LiveChapter[]>([]);

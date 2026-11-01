@@ -8,6 +8,7 @@ import {ensureSeasonForDate} from '../../services/season';
 import {amsterdamDay, parseInstant} from '../../utils/time';
 import {migrateLegacySeasonAssets} from '../../services/seasonAssetMigration';
 import {contentDisposition} from '../../utils/attachment';
+import {emitToOrganization} from '../../services/socket';
 import {titlePartsForCreate} from '../../services/backupFields';
 import {ChapterRestore, fileChapterOrder, fileChapters} from '../../services/chapterMigration';
 
@@ -601,6 +602,8 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
 
     // Interview players created by the import may carry pre-season `players/...` photoUrls.
     await migrateLegacySeasonAssets().catch((err) => logger.error('Season asset migration after production import failed', err as Error));
+    // An imported active production is now the one LIVE shows: open callsheets switch to it
+    if (data.production.isActive) emitToOrganization('active_production_changed', {productionId: result.id});
     return res.json({ ok: true, id: result.id });
   } catch (err) {
     logger.error('Import production failed', err);

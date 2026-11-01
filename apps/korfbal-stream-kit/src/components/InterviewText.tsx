@@ -1,5 +1,5 @@
 import React from 'react';
-import {useParams} from 'react-router-dom';
+import {useLiveProductionId} from './ActiveProductionRoute';
 import {useQuery} from '@tanstack/react-query';
 import {createUrl, extractError} from '../lib/api';
 import {InterviewNames, InterviewPerson, PlaceholderSegment, splitInterviewPlaceholders} from '../lib/interviewPlaceholders';
@@ -28,7 +28,7 @@ export function useInterviewNames(productionId: number | undefined) {
 
 /** Fills {coach-uit}-style placeholders in the callsheet with the interview selection of the production in the URL. */
 export function InterviewNamesProvider({children}: { children: React.ReactNode }) {
-  const {productionId} = useParams<{ productionId: string }>();
+  const productionId = useLiveProductionId();
   const names = useInterviewNames(productionId ? Number(productionId) : undefined);
   return <InterviewNamesContext.Provider value={names.data ?? null}>{children}</InterviewNamesContext.Provider>;
 }

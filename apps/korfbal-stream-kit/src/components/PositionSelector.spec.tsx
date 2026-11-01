@@ -22,21 +22,21 @@ describe('PositionSelector', () => {
     renderSelector('callsheet', [REGIE, CAMERA]);
     await screen.findByRole('link', {name: REGIE.name});
     const links = screen.getAllByRole('link');
-    expect(links[0]).toHaveAttribute('href', '/show-caller/7/all');
+    expect(links[0]).toHaveAttribute('href', '/show-caller');
     expect(links[0].textContent).toContain('Show Caller');
-    expect(screen.getByRole('link', {name: CAMERA.name})).toHaveAttribute('href', '/callsheet/7/camera-links');
+    expect(screen.getByRole('link', {name: CAMERA.name})).toHaveAttribute('href', '/callsheet/camera-links');
   });
 
   it('still offers the Show Caller when no item has a position yet', async () => {
     renderSelector('callsheet', []);
     expect(await screen.findByText(/Geen posities gevonden/)).toBeInTheDocument();
-    expect(screen.getByRole('link', {name: /Show Caller/})).toHaveAttribute('href', '/show-caller/7/all');
+    expect(screen.getByRole('link', {name: /Show Caller/})).toHaveAttribute('href', '/show-caller');
   });
 
   it('has no Show Caller tile in the Show Caller\'s own position choice', async () => {
     renderSelector('show-caller', [REGIE]);
     await screen.findByRole('link', {name: REGIE.name});
     expect(screen.queryByRole('link', {name: /Show Caller/})).not.toBeInTheDocument();
-    expect(screen.getByRole('link', {name: 'Alle Items'})).toHaveAttribute('href', '/show-caller/7/all');
+    expect(screen.getByRole('link', {name: 'Alle Items'})).toHaveAttribute('href', '/show-caller');
   });
 });

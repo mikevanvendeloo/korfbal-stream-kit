@@ -1113,6 +1113,15 @@ describe.runIf(runDb)('live state per organization (integration)', () => {
     expect(clientNone.events.map((e) => e.event).filter((e) => !GLOBAL_EVENTS.has(e))).toEqual([]);
   });
 
+  it('tells only the own organization that its active production changed', async () => {
+    for (const c of [clientA, clientB, clientNone]) c.events.length = 0;
+    expect((await asA(request(app).post(`/api/production/${a.productionId}/activate`))).status).toBe(200);
+    await waitFor(() => clientA.events.some((e) => e.event === 'active_production_changed'), 3000);
+    expect(JSON.parse(clientA.events.find((e) => e.event === 'active_production_changed')?.payload ?? '[]')[0]).toEqual({productionId: a.productionId});
+    expect(clientB.events.some((e) => e.event === 'active_production_changed')).toBe(false);
+    expect(clientNone.events.some((e) => e.event === 'active_production_changed')).toBe(false);
+  });
+
   it('keeps the production clock (time sync) per organization', async () => {
     expect(await runWithOrganization(orgA, async () => timeSyncService.getState())).toMatchObject({mode: 'counting_down', initialDuration: 90});
     expect(await runWithOrganization(orgB, async () => timeSyncService.getState())).toMatchObject({mode: 'stopped'});

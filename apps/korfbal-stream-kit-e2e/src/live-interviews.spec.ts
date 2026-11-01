@@ -35,12 +35,12 @@ test.describe('on a phone', () => {
 });
 
 test('a callsheet item with {speler-thuis} shows the photo, and the gear switch hides it', async ({page, makeShow}) => {
-  const show = await makeShow({
+  await makeShow({
     interviews,
     items: [{title: 'Interview {speler-thuis}', positions: [REGIE]}, {title: 'Afsluiting', positions: [REGIE]}],
   });
   const callsheet = new CallSheetScreen(page);
-  await callsheet.open(show.productionId, positionSlug(REGIE));
+  await callsheet.open(positionSlug(REGIE));
 
   const person = callsheet.interviewPeople().first();
   await expect(person).toContainText('Anna de Vries');

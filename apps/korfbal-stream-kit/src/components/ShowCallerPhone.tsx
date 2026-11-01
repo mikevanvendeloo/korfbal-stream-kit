@@ -1,5 +1,6 @@
 import React from 'react';
 import {useNavigate} from 'react-router-dom';
+import {SHOW_CALLER_CHOOSE} from './ActiveProductionRoute';
 import {ChevronLeft, ChevronRight, FastForward, MoreVertical, Play, Square} from 'lucide-react';
 import type {LiveChapter, ProductionEvent} from '../hooks/useLiveState';
 import {REMAINING_PRESETS, type ShowControls} from '../hooks/useShowControls';
@@ -13,7 +14,6 @@ type TimedEvent = ProductionEvent & { calculatedTime: Date | null };
 type Remaining = { minutes: string; seconds: string; isNegative: boolean; rawSeconds: number } | null;
 
 export type ShowCallerPhoneProps = {
-  productionId: string;
   positionSlug: string;
   /** Name of the chosen position, or null for all items */
   positionName: string | null;
@@ -62,7 +62,7 @@ function Tags({event, autoTimer}: { event: ProductionEvent; autoTimer: boolean }
  * buttons at the bottom under your thumb. Same data and actions as the wide Show Caller.
  */
 export function ShowCallerPhone(props: ShowCallerPhoneProps) {
-  const {productionId, positionSlug, positionName, items, activeEventId, remaining, autoAdvanceEventId, isConnected, systemTime, isRelevant, controls, chapters = [], activeVenueEventId = null, venueRemaining = null} = props;
+  const {positionSlug, positionName, items, activeEventId, remaining, autoAdvanceEventId, isConnected, systemTime, isRelevant, controls, chapters = [], activeVenueEventId = null, venueRemaining = null} = props;
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [onlyMine, setOnlyMine] = React.useState(true);
@@ -114,9 +114,9 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
           <button role="menuitemcheckbox" aria-checked={photosOn} className="w-full text-left px-4 py-3" onClick={() => { setPhotosOn(!photosOn); setMenuOpen(false); }}>
             Interviewfoto's: {photosOn ? 'aan' : 'uit'} <span className="text-gray-500">(wissel)</span>
           </button>
-          <button role="menuitem" className="w-full text-left px-4 py-3" onClick={() => navigate(`/show-caller/${productionId}`)}>Wissel positie</button>
+          <button role="menuitem" className="w-full text-left px-4 py-3" onClick={() => navigate(`/show-caller/${SHOW_CALLER_CHOOSE}`)}>Wissel positie</button>
           <button role="menuitem" className="w-full text-left px-4 py-3"
-                  onClick={() => navigate(positionSlug !== 'all' ? `/callsheet/${productionId}/${positionSlug}` : `/callsheet/${productionId}`)}>
+                  onClick={() => navigate(positionSlug !== 'all' ? `/callsheet/${positionSlug}` : `/callsheet`)}>
             Callsheet view
           </button>
           <button role="menuitem" className="w-full text-left px-4 py-3 text-amber-700 dark:text-amber-400" onClick={() => { setMenuOpen(false); controls.recalculate(); }}>

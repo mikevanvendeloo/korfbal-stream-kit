@@ -10,6 +10,7 @@ import {plannedTimesOf} from '../services/dayPlanning';
 import {liveEnds} from '../services/productionTiming';
 import {findClubByTeamName} from '../utils/clubs';
 import {DEFAULT_PRODUCTION_CHAPTERS} from '../services/chapters';
+import {emitToOrganization} from '../services/socket';
 
 // Import all production sub-routers
 import {productionPersonsRouter} from './production/production-persons';
@@ -76,6 +77,8 @@ productionRouter.post('/:id/activate', async (req, res, next) => {
     ]);
 
     const updated = await prisma.production.findUnique({ where: { id } });
+    // LIVE always shows the active production: open callsheets and show callers switch to it
+    emitToOrganization('active_production_changed', {productionId: id});
     return res.json(updated);
   } catch (err) {
     return next(err);

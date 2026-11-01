@@ -11,7 +11,7 @@ test.use({viewport: {width: 360, height: 780}, isMobile: true, hasTouch: true, d
 const LONG = 600;
 
 test('the rust with two lanes: the hall runs next to the stream', async ({page, makeShow}) => {
-  const show = await makeShow({
+  await makeShow({
     chapters: ['Rust', 'Tweede helft'],
     chapterMinimums: {Rust: 10 * 60},
     items: [
@@ -24,7 +24,7 @@ test('the rust with two lanes: the hall runs next to the stream', async ({page, 
     ],
   });
   const showCaller = new ShowCallerPhone(page);
-  await showCaller.open(show.productionId);
+  await showCaller.open();
   await showCaller.start();
   await showCaller.expectNow('Speaker kondigt rust aan');
   // Volgend follows the stream: the LED commercial is not a step of its own

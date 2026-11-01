@@ -11,7 +11,7 @@ import AnalysisPage from '../pages/AnalysisPage';
 import InterviewsPage from '../pages/InterviewsPage';
 import ManualView from '../handleiding/ManualView';
 import HelpButton from '../handleiding/HelpButton';
-import LiveCallsheetEntry from '../pages/LiveCallsheetEntry';
+import {ActiveProductionRoute, LegacyLiveAddress, LivePositionRoute, SHOW_CALLER_CHOOSE} from '../components/ActiveProductionRoute';
 import {PositionSelector} from '../components/PositionSelector';
 import {CallSheetView} from '../components/CallSheetView';
 import {ShowCallerView} from '../components/ShowCallerView';
@@ -172,12 +172,17 @@ export default function LiveApp() {
           <Routes>
             <Route index element={<ActiveProductionPage/>}/>
             <Route path="scoreboard" element={<ScoreboardPage/>}/>
-            <Route path="callsheet" element={<LiveCallsheetEntry viewType="standard"/>}/>
-            <Route path="callsheet/:productionId" element={<PositionSelector viewType="callsheet"/>}/>
-            <Route path="callsheet/:productionId/:positionSlug" element={<InterviewNamesProvider><CallSheetView/></InterviewNamesProvider>}/>
-            <Route path="show-caller" element={<LiveCallsheetEntry viewType="show-caller"/>}/>
-            <Route path="show-caller/:productionId" element={<PositionSelector viewType="show-caller"/>}/>
-            <Route path="show-caller/:productionId/:positionSlug" element={<InterviewNamesProvider><ShowCallerView/></InterviewNamesProvider>}/>
+            {/* Always the active production: no production id in the address (openspec/changes/callsheet-active-production) */}
+            <Route element={<ActiveProductionRoute/>}>
+              <Route path="callsheet" element={<PositionSelector viewType="callsheet"/>}/>
+              <Route path="callsheet/:positionSlug" element={<LivePositionRoute base="callsheet"><InterviewNamesProvider><CallSheetView/></InterviewNamesProvider></LivePositionRoute>}/>
+              <Route path="show-caller" element={<InterviewNamesProvider><ShowCallerView/></InterviewNamesProvider>}/>
+              <Route path={`show-caller/${SHOW_CALLER_CHOOSE}`} element={<PositionSelector viewType="show-caller"/>}/>
+              <Route path="show-caller/:positionSlug" element={<LivePositionRoute base="show-caller"><InterviewNamesProvider><ShowCallerView/></InterviewNamesProvider></LivePositionRoute>}/>
+            </Route>
+            {/* Old bookmarks with a production id */}
+            <Route path="callsheet/:legacyId/:positionSlug" element={<LegacyLiveAddress base="callsheet"/>}/>
+            <Route path="show-caller/:legacyId/:positionSlug" element={<LegacyLiveAddress base="show-caller"/>}/>
             <Route path="interviews" element={<InterviewsPage/>}/>
             <Route path="statistieken" element={<StatisticsPage/>}/>
             <Route path="analyse" element={<AnalysisPage/>}/>
