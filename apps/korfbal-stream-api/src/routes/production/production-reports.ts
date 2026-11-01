@@ -10,6 +10,7 @@ import {findSponsorByName, pdfImage, pdfImageData} from "../../services/reportSp
 import {currentOrganizationRef, sponsorLogoRelPath} from "../../services/sponsorLogos";
 import {assertProductionExists} from '../../services/production';
 import {amsterdamDay, formatTime} from '../../utils/time';
+import {interviewMomentLine, loadInterviewMoments} from '../../services/interviewMoments';
 import {contentDisposition} from '../../utils/attachment';
 
 export const productionReportsRouter: Router = Router();
@@ -74,7 +75,7 @@ productionReportsRouter.get('/:id/report', async (req, res, next) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
     const reportData = await getProductionReportData(id);
-    const { production, attendees, crewByCategory, interviews, sponsors } = reportData;
+    const { production, attendees, crewByCategory, interviews, interviewMoments, sponsors } = reportData;
 
     return res.json({
       production: {
@@ -90,6 +91,7 @@ productionReportsRouter.get('/:id/report', async (req, res, next) => {
         attendees,
         crewByCategory,
         interviews,
+        interviewMoments,
       },
       sponsors,
     });
@@ -148,7 +150,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid production id' });
 
-    const { production, attendees, crewByCategory, interviews, sponsors } = await getProductionReportData(id);
+    const { production, attendees, crewByCategory, interviews, interviewMoments, sponsors } = await getProductionReportData(id);
     const organization = await currentOrganizationRef();
     const { matchSchedule, productionReport } = production;
 
@@ -368,7 +370,7 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
       doc.font('Helvetica').fontSize(10).text(productionReport.remarks);
     }
 
-    if (interviews.home.players.length || interviews.home.coaches.length || interviews.away.players.length || interviews.away.coaches.length) {
+    if (interviews.home.players.length || interviews.home.coaches.length || interviews.away.players.length || interviews.away.coaches.length || interviewMoments.length) {
       // Page break voor interviews sectie
       doc.addPage();
 
@@ -377,6 +379,13 @@ productionReportsRouter.get('/:id/report/pdf', async (req, res, next) => {
       const leftColumnX = doc.page.margins.left;
       const rightColumnX = doc.page.margins.left + columnWidth + 20;
       doc.x = leftColumnX;
+      if (interviewMoments.length) {
+        // The order of the draaiboek, with the hoofdstuk: the same person can come twice
+        doc.fontSize(13).font('Helvetica-Bold').text('Volgorde van de interviews:', { underline: true });
+        doc.moveDown(0.3);
+        for (const moment of interviewMoments) doc.fontSize(10).font('Helvetica').text(interviewMomentLine(moment));
+        doc.moveDown(1);
+      }
       doc.fontSize(13).font('Helvetica-Bold').text('Spelers voor interviews:', { underline: true });
       doc.moveDown(0.5);
       // Helper functie om persoon te renderen
@@ -680,6 +689,14 @@ productionReportsRouter.get('/:id/report/markdown', async (req, res, next) => {
       markdown += `\n`;
     }
 
+    // The interviews in draaiboek order, with their hoofdstuk
+    const interviewMoments = await loadInterviewMoments(id);
+    if (interviewMoments.length) {
+      markdown += `## Volgorde van de interviews\n\n`;
+      for (const moment of interviewMoments) markdown += `${interviewMomentLine(moment)}\n`;
+      markdown += `\n`;
+    }
+
     // Interview sectie
     const allInterviewees = [...interviews.home.players, ...interviews.home.coaches, ...interviews.away.players, ...interviews.away.coaches];
     if (allInterviewees.length > 0) {
@@ -926,6 +943,14 @@ productionReportsRouter.get('/:id/report/whatsapp', async (req, res, next) => {
       });
     }
     text += `\n`;
+
+    // The interviews in draaiboek order, with their hoofdstuk
+    const interviewMoments = await loadInterviewMoments(id);
+    if (interviewMoments.length) {
+      text += `*🎤 Volgorde van de interviews*\n\n`;
+      for (const moment of interviewMoments) text += `${interviewMomentLine(moment)}\n`;
+      text += `\n`;
+    }
 
     // Interview sectie
     const allInterviewees = [...interviews.home.players, ...interviews.home.coaches, ...interviews.away.players, ...interviews.away.coaches];

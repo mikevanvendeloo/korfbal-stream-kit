@@ -295,6 +295,23 @@ export default function ProductionReportPage() {
           </div>
         </div>
 
+        {(data.enriched.interviewMoments?.length ?? 0) > 0 && (
+          <div className="border rounded p-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            <h2 className="text-lg font-semibold mb-2">Volgorde van de interviews</h2>
+            <ol aria-label="Volgorde van de interviews" className="space-y-1 text-sm">
+              {data.enriched.interviewMoments?.map((m) => (
+                <li key={m.itemId} className="flex gap-2 min-w-0">
+                  <span className="font-bold tabular-nums w-5 shrink-0 text-right">{m.position}.</span>
+                  <span className="min-w-0">
+                    <span className="text-gray-500 dark:text-gray-400">{[m.chapter, m.plannedStartTime ? formatTime(m.plannedStartTime) : null].filter(Boolean).join(' · ')}{(m.chapter || m.plannedStartTime) ? ' — ' : ''}</span>
+                    {m.title}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
         <div className="border rounded p-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
           <h2 className="text-lg font-semibold mb-2">Spelers voor interviews</h2>
           {(data.enriched.interviews.away.players.length > 0 || data.enriched.interviews.away.coaches.length > 0) && (

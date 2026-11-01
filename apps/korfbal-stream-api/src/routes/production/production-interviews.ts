@@ -4,6 +4,7 @@ import {prisma} from '../../services/prisma';
 import {findClubByTeamName} from '../../utils/clubs';
 import {logger} from '../../utils/logger';
 import {loadInterviewNames} from '../../services/interviewPlaceholders';
+import {loadInterviewMoments} from '../../services/interviewMoments';
 import {emitToOrganization} from '../../services/socket';
 
 /** Socket event after the interview choice of a production changed; payload {productionId}. */
@@ -77,6 +78,8 @@ productionInterviewsRouter.get('/:id/interview-cards', async (req, res, next) =>
       },
     });
     const sorted = await sortByTitleOrder(id, subjects);
+    // The interviews in draaiboek order (the same person can come twice: before and after the match)
+    const moments = await loadInterviewMoments(id);
     const teamName = (s: (typeof subjects)[number]) =>
       s.side === 'HOME' ? prod.matchSchedule.homeTeamName
         : s.side === 'AWAY' ? prod.matchSchedule.awayTeamName
@@ -92,6 +95,7 @@ productionInterviewsRouter.get('/:id/interview-cards', async (req, res, next) =>
         photoUrl: s.player.photoUrl ?? null,
         teamName: teamName(s),
       })),
+      moments,
     });
   } catch (err) {
     return next(err);

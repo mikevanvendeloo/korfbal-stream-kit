@@ -46,13 +46,15 @@ describe.runIf(runDb)('interview cards and people (integration)', () => {
         // Without a side the player's club names the team
         {id: expect.any(Number), side: 'NONE', role: 'PLAYER', title: null, name: 'Gast Speler', shirtNo: 12, photoUrl: null, teamName: 'Scenario'},
       ],
+      // The default items have no interview placeholder
+      moments: [],
     });
   });
 
   it('gives an empty list without a choice', async () => {
     const res = await request(app).get(`/api/production/${empty.productionId}/interview-cards`);
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({items: []});
+    expect(res.body).toEqual({items: [], moments: []});
   });
 
   it('adds shirt number and photo to the interview names for the placeholders', async () => {
@@ -82,5 +84,51 @@ describe.runIf(runDb)('interview cards and people (integration)', () => {
 
   it('refuses an invalid id', async () => {
     expect((await request(app).get('/api/production/abc/interview-cards')).status).toBe(400);
+  });
+});
+
+describe.runIf(runDb)('interview order (integration)', () => {
+  let show: ProductionScenario;
+
+  beforeAll(async () => {
+    show = await createProductionScenario(prisma, {
+      match: {homeTeamName: 'Volgorde Thuis 1', awayTeamName: 'Volgorde Uit 2'},
+      chapters: ['Voorbeschouwing', 'Rust', 'Nabeschouwing'],
+      items: [
+        {title: 'Livestream starten', chapter: 'Voorbeschouwing'},
+        {title: 'Interview {coach-uit}'},
+        {title: 'Interview {coach-thuis}'},
+        {title: 'Analyse', chapter: 'Rust'},
+        {title: 'Interview {coach-uit} en {speler-uit}', chapter: 'Nabeschouwing'},
+        {title: 'Interview {coach-thuis} en {speler-thuis}'},
+      ],
+      interviews: [
+        {side: 'AWAY', role: 'COACH', name: 'Kees Uit'},
+        {side: 'HOME', role: 'PLAYER', name: 'Anna Thuis', shirtNo: 7},
+      ],
+    });
+  });
+  afterAll(async () => { await show?.cleanup(); });
+
+  it('lists the interviews in draaiboek order with their hoofdstuk, the same person twice', async () => {
+    const res = await request(app).get(`/api/production/${show.productionId}/interview-cards`);
+    expect(res.status).toBe(200);
+    expect(res.body.moments.map((m: {position: number; chapter: string; title: string}) => [m.position, m.chapter, m.title])).toEqual([
+      [1, 'Voorbeschouwing', 'Interview Kees Uit'],
+      [2, 'Voorbeschouwing', 'Interview coach thuis'],
+      [3, 'Nabeschouwing', 'Interview Kees Uit en speler uit'],
+      [4, 'Nabeschouwing', 'Interview coach thuis en Anna Thuis'],
+    ]);
+  });
+
+  it('puts the order in the report, its Markdown and its WhatsApp text', async () => {
+    const report = await request(app).get(`/api/production/${show.productionId}/report`);
+    expect(report.status).toBe(200);
+    expect(report.body.enriched.interviewMoments).toHaveLength(4);
+    const markdown = await request(app).get(`/api/production/${show.productionId}/report/markdown`);
+    expect(markdown.text).toContain('## Volgorde van de interviews');
+    expect(markdown.text).toContain('3. Nabeschouwing');
+    const whatsapp = await request(app).get(`/api/production/${show.productionId}/report/whatsapp`);
+    expect(whatsapp.text).toContain('Volgorde van de interviews');
   });
 });

@@ -98,15 +98,26 @@ export type InterviewCard = {
   teamName: string | null;
 };
 
+/** An interview in draaiboek order (the same person can come twice: before and after the match) */
+export type InterviewMoment = {
+  position: number;
+  itemId: string;
+  title: string;
+  chapter: string | null;
+  plannedStartTime: string | null;
+  people: Array<{side: Exclude<InterviewSide, 'NONE'>; role: InterviewRole; name: string | null}>;
+};
+export type InterviewCards = {items: InterviewCard[]; moments?: InterviewMoment[]};
+
 export function useInterviewCards(productionId: number | undefined) {
   useInterviewsUpdatedRefresh(productionId);
   return useQuery({
     queryKey: ['production', productionId, 'interviews', 'cards'],
     enabled: !!productionId,
-    queryFn: async (): Promise<InterviewCard[]> => {
+    queryFn: async (): Promise<InterviewCards> => {
       const res = await fetch(createUrl(`/api/production/${productionId}/interview-cards`));
       if (!res.ok) throw new Error(await extractError(res));
-      return (await res.json()).items;
+      return (await res.json()) as InterviewCards;
     },
     // Like the callsheet's names: the choice can change on another device during the show
     refetchInterval: 10_000,

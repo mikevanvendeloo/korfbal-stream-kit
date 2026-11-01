@@ -2,6 +2,7 @@ import {prisma} from './prisma';
 import {currentOrganizationRef, withLogoSrc} from './sponsorLogos';
 import {PositionCategory, Prisma} from '@prisma/client';
 import {NotFoundError} from '../middleware/error';
+import {loadInterviewMoments} from './interviewMoments';
 
 const productionInclude = Prisma.validator<Prisma.ProductionInclude>()({
   matchSchedule: true,
@@ -119,6 +120,8 @@ export async function getProductionReportData(productionId: number) {
     attendees,
     crewByCategory,
     interviews,
+    // The interviews in draaiboek order, with their hoofdstuk
+    interviewMoments: await loadInterviewMoments(productionId),
     sponsors,
   };
 }
