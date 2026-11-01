@@ -69,3 +69,15 @@ describe('CallSheetItem auto and positions', () => {
     expect(screen.queryByText('Regie livestream')).toBeNull();
   });
 });
+
+describe('CallSheetItem alignment', () => {
+  it('keeps time, title and duration at the top; a long title wraps below its first line', () => {
+    const item = showItem('t', 6, 'Een hele lange titel die op een telefoon over meer regels loopt', {durationSec: 90});
+    const compact = render(<CallSheetItem item={item} compact/>).container.querySelector('#event-t') as HTMLElement;
+    expect(compact.className).toContain('items-baseline');
+    expect(compact.className).not.toContain('items-center');
+    const full = render(<CallSheetItem item={{...item, id: 'u'}}/>).container.querySelector('#event-u') as HTMLElement;
+    expect((full.firstElementChild as HTMLElement).className).toContain('items-start');
+    expect(screen.getByRole('heading').parentElement?.className).toContain('items-baseline');
+  });
+});

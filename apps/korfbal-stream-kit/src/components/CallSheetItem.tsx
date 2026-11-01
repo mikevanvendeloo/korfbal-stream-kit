@@ -107,11 +107,11 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
       const tag = `rounded px-1 font-semibold uppercase ${getFontSizeClass('text-[8px]', 'text-[10px]', 'text-sm', 'text-base')}`;
       return (
         <div id={item?.id ? `event-${item.id}` : undefined} data-compact=""
-             className={`flex items-center gap-3 px-3 py-1 rounded-lg border ${compactColor} ${textColor}`}>
+             className={`flex items-baseline gap-3 px-3 py-1 rounded-lg border ${compactColor} ${textColor}`}>
           <span className={`font-mono tabular-nums shrink-0 text-gray-600 dark:text-gray-300 ${getFontSizeClass('text-xs', 'text-sm', 'text-xl', 'text-2xl')} ${isActuallyPlaceholder ? 'invisible' : ''}`}>
             {displayTime.slice(0, 5)}
           </span>
-          {/* Wraps on a small screen, one line on a large one */}
+          {/* Top-aligned with the time and the duration: a long title wraps below its first line (one line on a large screen) */}
           <span className={`flex-1 min-w-0 leading-snug font-semibold lg:truncate ${getFontSizeClass('text-sm', 'text-base', 'text-2xl', 'text-3xl')} ${isActuallyPlaceholder ? 'invisible' : ''}`}>
             {item?.title ? <InterviewText text={item.title} photos={showInterviewPhotos}/> : ' '}
           </span>
@@ -136,7 +136,7 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
       className={`${getPaddingClass()} rounded-lg border-2 shadow-sm ${statusColor} ${borderColor} ${textColor} transition-all`}
     >
       {/* Time (and countdown) left of the title on every screen: no stacked block on a phone */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <div className="flex flex-col gap-1 shrink-0">
           <div className={`px-2 py-1 rounded font-mono font-bold ${getFontSizeClass('text-sm', 'text-base', 'text-2xl', 'text-4xl')} tracking-tighter whitespace-nowrap text-center ${timeLabelColor} ${isActuallyPlaceholder ? 'invisible' : 'text-gray-900 dark:text-white'}`}>
             {displayTime}
@@ -155,9 +155,10 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
           )}
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            {/* Wraps on a small screen, one line on a large one */}
+        {/* pt-1: the first line of the title on the height of the time inside its padded block */}
+        <div className="flex-1 min-w-0 pt-1">
+          <div className="flex items-baseline justify-between gap-2">
+            {/* Top-aligned with the time and the duration: a long title wraps below its first line (one line on a large screen) */}
             <h3 className={`min-w-0 font-bold ${getFontSizeClass('text-base', 'text-lg', 'text-3xl', 'text-5xl')} leading-tight lg:truncate ${isActuallyPlaceholder ? 'invisible' : ''}`}>
               {item?.title ? <InterviewText text={item.title} photos={showInterviewPhotos}/> : ' '}
             </h3>
