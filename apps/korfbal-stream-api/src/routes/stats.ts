@@ -2,6 +2,7 @@ import {NextFunction, Request, Response, Router} from 'express';
 import {z} from 'zod';
 import {derivePlayerStats, teamNamesOf} from '../services/stats/matchActions';
 import {getLiveStats} from '../services/stats/liveStats';
+import type {Sourced} from '../services/stats/mdbFile';
 import {listStatsMatches, readMatchActions, readStatsPlayers} from '../services/stats/mdbFile';
 import {derivedPlayerRows, livePlayerRows} from '../services/stats/flatRows';
 import {StatsError} from '../services/stats/statsErrors';
@@ -19,6 +20,13 @@ const wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => async (r
   }
 };
 
+/** Arrays stay plain arrays (vMix data sources); where the data came from goes in headers. */
+function sendSourced<T>(res: Response, result: Sourced<T>, body: unknown = result.data) {
+  res.setHeader('X-Stats-Source', result.source);
+  res.setHeader('X-Stats-Read-At', result.readAt);
+  return res.json(body);
+}
+
 const LiveQuery = z.object({
   team: z.enum(['home', 'away']),
   vak: z.coerce.number().int().min(1).max(4).optional(),
@@ -34,28 +42,56 @@ statsRouter.get('/live/players', wrap(async (req, res) => {
 }));
 
 // GET /api/stats/matches
-statsRouter.get('/matches', wrap(async (_req, res) => res.json(await listStatsMatches())));
+statsRouter.get('/matches', wrap(async (_req, res) => sendSourced(res, await listStatsMatches())));
 
 const TableParam = z.string().min(1).max(200);
 
 // GET /api/stats/matches/:table/actions
 statsRouter.get('/matches/:table/actions', wrap(async (req, res) => {
   const table = TableParam.parse(req.params.table);
-  return res.json((await readMatchActions(table)).filter((r) => r.optelveld !== 0));
+  const result = await readMatchActions(table);
+  return sendSourced(res, result, result.data.filter((r) => r.optelveld !== 0));
 }));
 
 // GET /api/stats/matches/:table/players
 statsRouter.get('/matches/:table/players', wrap(async (req, res) => {
   const table = TableParam.parse(req.params.table);
-  const rows = await readMatchActions(table);
+  const {source, readAt, data: rows} = await readMatchActions(table);
   const teams = teamNamesOf(rows);
-  return res.json({teams, players: derivedPlayerRows(derivePlayerStats(rows)).map((p) => ({...p, teamName: p.team === 'home' ? teams.own : teams.opponent}))});
+  return res.json({source, readAt, teams, players: derivedPlayerRows(derivePlayerStats(rows), teams)});
 }));
 
 const PLAYER_COLUMNS = ['SPELERSNAAM', 'NUMMER', 'vereniging', 'SEX', 'afstandschotgoal', 'afstandschottotaal', 'doorloopgoal', 'doorlooptotaal', 'kortschotgoal', 'kortschottotaal', 'vrijebalgoal', 'vrijebaltotaal', 'strafworpgoal', 'strafworptotaal', 'totaalgoals', 'totaalpogingen', 'reboundgewonnen', 'reboundtotaal', 'aangeef'];
 
 // GET /api/stats/players
 statsRouter.get('/players', wrap(async (_req, res) => {
-  const rows = await readStatsPlayers();
-  return res.json(rows.map((r) => Object.fromEntries(PLAYER_COLUMNS.filter((c) => c in r).map((c) => [c, r[c] instanceof Date ? (r[c] as Date).toISOString() : r[c]]))));
+  const result = await readStatsPlayers();
+  return sendSourced(res, result, result.data.map((r) => Object.fromEntries(PLAYER_COLUMNS.filter((c) => c in r).map((c) => [c, r[c] instanceof Date ? (r[c] as Date).toISOString() : r[c]]))));
+}));
+
+// GET /api/stats/current/players: the newest match of the database (share or local copy); when neither is
+// readable, the player rows of the live page. Same flat rows either way, with `source` and `readAt`.
+statsRouter.get('/current/players', wrap(async (_req, res) => {
+  try {
+    const list = await listStatsMatches();
+    const newest = list.data[0];
+    if (!newest) throw new StatsError(404, 'Geen wedstrijden in het statistiekenbestand');
+    const {source, readAt, data: rows} = await readMatchActions(newest.table);
+    const teams = teamNamesOf(rows);
+    const out = derivedPlayerRows(derivePlayerStats(rows), teams).map((p) => ({...p, source, readAt}));
+    return sendSourced(res, {source, readAt, data: out}, out);
+  } catch (err) {
+    if (!(err instanceof StatsError)) throw err;
+    let page;
+    try {
+      page = await getLiveStats();
+    } catch {
+      throw new StatsError(503, 'Geen statistieken beschikbaar: het bestand en de statistiekenpagina zijn niet bereikbaar');
+    }
+    const readAt = new Date().toISOString();
+    const out = [...livePlayerRows(page, 'home'), ...livePlayerRows(page, 'away')].map((p) => ({...p, source: 'page' as const, readAt}));
+    res.setHeader('X-Stats-Source', 'page');
+    res.setHeader('X-Stats-Read-At', readAt);
+    return res.json(out);
+  }
 }));

@@ -5,7 +5,7 @@ import request from 'supertest';
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi} from 'vitest';
 import axios from 'axios';
 import app from '../main';
-import {config} from '../services/config';
+import {config, getAssetsRoot} from '../services/config';
 import {ensureOrganization, testDb as prisma} from '../../test-helpers';
 import {runWithOrganization} from '../services/organizationContext';
 import {clearSettingsCache, setSetting} from '../services/appSettings';
@@ -47,6 +47,7 @@ describe.runIf(runDb)('statistics routes (integration)', () => {
     (config as {statsDir: string}).statsDir = originalStatsDir;
     setMdbOpener(null);
     fs.rmSync(dir, {recursive: true, force: true});
+    fs.rmSync(path.join(getAssetsRoot(), 'stats', ORG), {recursive: true, force: true});
     await prisma.organization.deleteMany({where: {slug: {in: [ORG, OTHER]}}});
   });
 
@@ -127,6 +128,61 @@ describe.runIf(runDb)('statistics routes (integration)', () => {
       clearMdbCache();
       const res = await asA(request(app).get('/api/stats/matches'));
       expect(res.status, mdbPath).toBe(400);
+    }
+  });
+
+  it('says where the data came from and falls back to the copy when the share is gone', async () => {
+    const first = await asA(request(app).get('/api/stats/matches'));
+    expect(first.headers['x-stats-source']).toBe('share');
+    const copy = path.join(getAssetsRoot(), 'stats', ORG, 'WEDSTRIJDEN.mdb');
+    expect(fs.existsSync(copy)).toBe(true);
+    fs.renameSync(path.join(dir, 'F1'), path.join(dir, 'F1-weg'));
+    try {
+      clearMdbCache();
+      const res = await asA(request(app).get('/api/stats/matches'));
+      expect(res.status, res.text).toBe(200);
+      expect(res.headers['x-stats-source']).toBe('copy');
+      expect(res.headers['x-stats-read-at']).toBe(fs.statSync(copy).mtime.toISOString());
+      const players = await asA(request(app).get(`/api/stats/matches/${encodeURIComponent(TABLE)}/players`));
+      expect(players.body.source).toBe('copy');
+    } finally {
+      fs.renameSync(path.join(dir, 'F1-weg'), path.join(dir, 'F1'));
+    }
+  });
+
+  it('current/players: newest match from the database, else the live page', async () => {
+    const db = await asA(request(app).get('/api/stats/current/players'));
+    expect(db.status, db.text).toBe(200);
+    expect(db.body[0]).toMatchObject({source: 'share', vak: null});
+    // No share and no copy: the page
+    fs.rmSync(path.join(getAssetsRoot(), 'stats', ORG), {recursive: true, force: true});
+    fs.renameSync(path.join(dir, 'F1'), path.join(dir, 'F1-weg'));
+    try {
+      clearMdbCache();
+      mockPage();
+      const page = await asA(request(app).get('/api/stats/current/players'));
+      expect(page.status, page.text).toBe(200);
+      expect(page.body[0]).toMatchObject({source: 'page', vak: 1, afstand: expect.stringMatching(/^\d+\/\d+$/)});
+      expect(page.headers['x-stats-source']).toBe('page');
+      vi.spyOn(axios, 'get').mockRejectedValue(new Error('down'));
+      clearLiveStatsCache();
+      expect((await asA(request(app).get('/api/stats/current/players'))).status).toBe(503);
+    } finally {
+      fs.renameSync(path.join(dir, 'F1-weg'), path.join(dir, 'F1'));
+    }
+  });
+
+  it('reads the page from a local .html file inside STATS_DIR', async () => {
+    fs.copyFileSync(path.join(fixtures, 'tweede-scherm.html'), path.join(dir, 'F1', 'tweede.html'));
+    const get = vi.spyOn(axios, 'get');
+    const ok = await asA(request(app).put('/api/settings/match-stats')).send({pageUrl: 'F1/tweede.html', mdbPath: null});
+    expect(ok.status, ok.text).toBe(200);
+    const res = await asA(request(app).get('/api/stats/live'));
+    expect(res.status, res.text).toBe(200);
+    expect(res.body.home.score).toBe(27);
+    expect(get).not.toHaveBeenCalled();
+    for (const pageUrl of ['../tweede.html', '/etc/x.html', 'F1/tweede.txt']) {
+      expect((await asA(request(app).put('/api/settings/match-stats')).send({pageUrl, mdbPath: null})).status, pageUrl).toBe(400);
     }
   });
 

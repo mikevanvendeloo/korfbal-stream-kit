@@ -21,7 +21,7 @@ export type DerivedPlayerRow = {
   afstand: string; doorloop: string; kortSchot: string; vrijeBal: string; strafworp: string; totaal: string; percentage: number;
   rebound: string; aangeef: number;
 };
-export type MatchPlayers = {teams: {own: string | null; opponent: string | null}; players: DerivedPlayerRow[]};
+export type MatchPlayers = {source: 'share' | 'copy'; readAt: string; teams: {own: string | null; opponent: string | null}; players: DerivedPlayerRow[]};
 
 export type MatchStatsConfig = {pageUrl: string | null; mdbPath: string | null};
 

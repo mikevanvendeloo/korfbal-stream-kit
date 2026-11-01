@@ -28,6 +28,12 @@ export function livePlayerRows(page: TweedeScherm, team: 'home' | 'away', vak?: 
   );
 }
 
-export function derivedPlayerRows(players: DerivedPlayer[]) {
-  return players.map((p) => ({team: p.side === 'own' ? 'home' : 'away', name: p.name, ...columns(p)}));
+export function derivedPlayerRows(players: DerivedPlayer[], names?: {own: string | null; opponent: string | null}) {
+  return players.map((p) => ({
+    team: p.side === 'own' ? 'home' : 'away',
+    teamName: (p.side === 'own' ? names?.own : names?.opponent) ?? null,
+    vak: null as number | null,
+    name: p.name,
+    ...columns(p),
+  }));
 }

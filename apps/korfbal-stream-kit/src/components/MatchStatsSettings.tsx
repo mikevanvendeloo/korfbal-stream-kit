@@ -37,6 +37,7 @@ export default function MatchStatsSettings() {
         <div>
           <label htmlFor="statsPageUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Statistiekenpagina (Tweede Scherm)</label>
           <input id="statsPageUrl" type="text" className={input} placeholder="http://10.12.0.63/..." value={pageUrl} onChange={(e) => setPageUrl(e.target.value)}/>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Een http(s)-adres, of een relatief pad naar een .html-bestand in de statistiekenmap op de server (voor testen).</p>
         </div>
         <div>
           <label htmlFor="statsMdbPath" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pad naar WEDSTRIJDEN.mdb</label>

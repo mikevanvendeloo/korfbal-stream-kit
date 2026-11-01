@@ -1,5 +1,6 @@
 import {useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
+import {formatTime} from '../lib/time';
 import {fetchLiveStats, fetchMatchPlayers, fetchStatsMatches, type PercentageRow, type PlayerStats, type StatsTeam} from '../lib/statsApi';
 
 const POLL_MS = 5000;
@@ -7,6 +8,9 @@ const HEAD = ['Speler', 'Afstand', 'Door', 'Kort', 'Vrije bal', 'Straf', 'Totaal
 const th = 'px-2 py-1 text-left font-medium whitespace-nowrap';
 const td = 'px-2 py-1 whitespace-nowrap';
 const ratio = (r: {goals: number; attempts: number}) => `${r.goals}/${r.attempts}`;
+/** Where the match data came from: the share, or the last local copy with the time it was read. */
+export const sourceLabel = (source: 'share' | 'copy', readAt: string) =>
+  source === 'share' ? 'Bron: share' : `Bron: lokale kopie van ${formatTime(readAt)}`;
 const pct = (v: number | null) => (v === null ? '' : `${String(v).replace('.', ',')}%`);
 
 function statCells(p: PlayerStats) {
@@ -72,6 +76,7 @@ function LiveTab() {
   return (
     <div className="min-w-0">
       {error && <p role="alert" className="mb-2 text-sm text-orange-700 dark:text-orange-300">Verversen mislukt, laatste stand getoond: {(error as Error).message}</p>}
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Bron: live pagina</p>
       <p className="text-lg font-semibold mb-3 flex flex-wrap gap-x-4">
         <span>Stand: {data.home.score ?? '-'} - {data.away.score ?? '-'}</span>
         <span>Tijd: {data.clock ?? '-'}</span>
@@ -96,8 +101,9 @@ function MatchTab() {
         <option value="">Kies een wedstrijd</option>
         {matches.data?.map((m) => <option key={m.table} value={m.table}>{m.date} · {m.home} - {m.away}</option>)}
       </select>
-      {matches.error && <p role="alert" className="mt-2 text-red-700 dark:text-red-300">{(matches.error as Error).message}</p>}
+      {matches.error && <p role="alert" className="mt-2 text-red-700 dark:text-red-300">Geen statistieken beschikbaar: {(matches.error as Error).message}</p>}
       {players.error && <p role="alert" className="mt-2 text-red-700 dark:text-red-300">{(players.error as Error).message}</p>}
+      {players.data && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{sourceLabel(players.data.source, players.data.readAt)}</p>}
       {players.data && (['home', 'away'] as const).map((side) => {
         const rows = players.data.players.filter((p) => p.team === side);
         const name = side === 'home' ? players.data.teams.own : players.data.teams.opponent;

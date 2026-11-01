@@ -22,6 +22,7 @@ describe('StatisticsPage', () => {
       : {});
     renderPage(<StatisticsPage/>);
     expect(await screen.findByText('Stand: 27 - 14')).toBeTruthy();
+    expect(screen.getByText('Bron: live pagina')).toBeTruthy();
     expect(screen.getByText('Tijd: 00:55:11')).toBeTruthy();
     const home = screen.getByRole('region', {name: 'Fortuna/Ruitenheer'});
     expect(within(home).getByText('Roos van Groen')).toBeTruthy();
@@ -43,7 +44,7 @@ describe('StatisticsPage', () => {
     mockApi(({path}) => {
       if (path === '/api/stats/live') return {home: team('A', 1, 'x'), away: team('B', 2, 'y'), clock: null};
       if (path === '/api/stats/matches') return [{table: 'Fortuna Koog Zaandijk_31_10_2026', home: 'Fortuna', away: 'Koog Zaandijk', date: '2026-10-31'}];
-      return {teams: {own: 'Fortuna/Ruitenheer', opponent: 'KZ/Keukensale.com'}, players: [
+      return {source: 'copy', readAt: '2026-10-31T20:03:00.000Z', teams: {own: 'Fortuna/Ruitenheer', opponent: 'KZ/Keukensale.com'}, players: [
         {team: 'home', teamName: 'Fortuna/Ruitenheer', name: 'Roos van Groen', afstand: '3/7', doorloop: '0/1', kortSchot: '0/0', vrijeBal: '0/0', strafworp: '0/0', totaal: '3/8', percentage: 37.5, rebound: '1/1', aangeef: 0},
         {team: 'away', teamName: 'KZ/Keukensale.com', name: 'Zoë Engel', afstand: '1/13', doorloop: '0/0', kortSchot: '0/0', vrijeBal: '0/0', strafworp: '1/1', totaal: '2/14', percentage: 14.3, rebound: '0/1', aangeef: 1},
       ]};
@@ -56,5 +57,6 @@ describe('StatisticsPage', () => {
     expect(await screen.findByText('Zoë Engel')).toBeTruthy();
     expect(screen.getByText('1/13')).toBeTruthy();
     expect(screen.getByText('37,5%')).toBeTruthy();
+    expect(screen.getByText(/Bron: lokale kopie van 21:03/)).toBeTruthy();
   });
 });

@@ -188,7 +188,7 @@ settingsRouter.get('/match-stats', async (_req, res, next) => {
 // PUT /api/settings/match-stats: the statistics PC's page (http or https: LAN device) and the .mdb path inside STATS_DIR
 const MatchStatsSchema = z.object({
   pageUrl: z.string().trim().max(500).nullable().optional().transform((v) => v || null)
-    .refine((v) => v === null || /^https?:\/\/[^\s/]+/i.test(v), 'De pagina-URL moet met http:// of https:// beginnen'),
+    .refine((v) => v === null || /^https?:\/\/[^\s/]+/i.test(v) || (!/^([a-z]:|[\\/])/i.test(v) && !v.split(/[\\/]+/).includes('..') && /\.html?$/i.test(v)), 'De pagina-URL moet met http:// of https:// beginnen, of een relatief pad naar een .html-bestand zijn'),
   mdbPath: z.string().trim().max(500).nullable().optional().transform((v) => v || null)
     .refine((v) => v === null || (!/^([a-z]:|[\\/])/i.test(v) && !v.split(/[\\/]+/).includes('..') && /\.(mdb|accdb)$/i.test(v)), 'Het pad moet relatief zijn (zonder ..) en op .mdb of .accdb eindigen'),
 });

@@ -2,6 +2,7 @@ import axios from 'axios';
 import {getMatchStats} from '../appSettings';
 import {requireOrganizationId} from '../organizationContext';
 import {logger} from '../../utils/logger';
+import {HTML_EXTENSIONS, MAX_HTML_BYTES, readSharedFile} from './mdbFile';
 import {NOT_CONFIGURED_PAGE, StatsError} from './statsErrors';
 import {decodeStatsPage, parseTweedeScherm, type TweedeScherm} from './tweedeScherm';
 
@@ -16,7 +17,18 @@ export function clearLiveStatsCache(): void {
   entries.clear();
 }
 
+export const isHttpUrl = (v: string) => /^https?:\/\//i.test(v);
+
 async function fetchPage(url: string): Promise<TweedeScherm> {
+  if (!isHttpUrl(url)) {
+    // A relative .html file inside STATS_DIR (development, testing): same safe resolution, size limit and decoding
+    const buffer = await readSharedFile(url, HTML_EXTENSIONS, MAX_HTML_BYTES);
+    try {
+      return parseTweedeScherm(decodeStatsPage(new Uint8Array(buffer)));
+    } catch {
+      throw new StatsError(502, 'Het statistiekenbestand is geen statistiekenpagina');
+    }
+  }
   try {
     // Wall-clock deadline (axios' timeout is an idle timeout, a dripping server would hold on)
     const res = await axios.get<ArrayBuffer>(url, {
