@@ -1,6 +1,6 @@
 import React from 'react';
 import {Link, Route, Routes, useLocation} from 'react-router-dom';
-import {MdClose, MdInfo, MdInsights, MdMenu, MdMic, MdPlayCircleFilled, MdBarChart, MdSettings, MdSpaceDashboard, MdTableChart, MdVideocam, MdViewList} from 'react-icons/md';
+import {MdClose, MdExpandMore, MdInfo, MdInsights, MdMenu, MdMic, MdPlayCircleFilled, MdBarChart, MdSettings, MdSpaceDashboard, MdTableChart, MdVideocam, MdViewList} from 'react-icons/md';
 import {NavDropdown, navMenuItemClass} from '../components/NavDropdown';
 import ActiveProductionPage from '../pages/ActiveProductionPage';
 import ScoreboardPage from '../pages/ScoreboardPage';
@@ -33,6 +33,10 @@ const links = [
   {to: '/scoreboard', label: 'Scoreboard', icon: MdTableChart, also: null},
   {to: '/callsheet', label: 'Callsheet', icon: MdViewList, also: '/show-caller'},
   {to: '/interviews', label: 'Interviews', icon: MdMic, also: null},
+];
+
+/** Less used during a show: together under "Overig" */
+const moreLinks: typeof links = [
   {to: '/statistieken', label: 'Statistieken', icon: MdBarChart, also: null},
   {to: '/analyse', label: 'Analyse', icon: MdInsights, also: null},
   {to: '/vmix', label: 'vMix', icon: MdVideocam, also: null},
@@ -46,7 +50,7 @@ function currentLabel(pathname: string): string {
   if (pathname.startsWith('/handleiding')) return 'Handleiding';
   if (pathname.startsWith('/over')) return 'Over';
   if (pathname.startsWith('/show-caller')) return 'Show Caller';
-  return links.find((link) => isCurrent(pathname, link))?.label ?? '';
+  return [...links, ...moreLinks].find((link) => isCurrent(pathname, link))?.label ?? '';
 }
 
 /** In the phone menu: the chosen organization with its two choices, as in OrganizationMenu. */
@@ -70,8 +74,8 @@ function LiveNav() {
   const {pathname} = useLocation();
   const [menuOpen, setMenuOpen] = React.useState(false);
   // The organization and gear menus on wide screens: one open at a time
-  const [openMenu, setOpenMenu] = React.useState<'organization' | 'gear' | null>(null);
-  const toggleMenu = (menu: 'organization' | 'gear') => (open: boolean) =>
+  const [openMenu, setOpenMenu] = React.useState<'organization' | 'gear' | 'more' | null>(null);
+  const toggleMenu = (menu: 'organization' | 'gear' | 'more') => (open: boolean) =>
     setOpenMenu((current) => open ? menu : (current === menu ? null : current));
   React.useEffect(() => {
     setMenuOpen(false);
@@ -98,6 +102,21 @@ function LiveNav() {
               </Link>
             );
           })}
+          <NavDropdown open={openMenu === 'more'} onToggle={toggleMenu('more')} label="Overig" align="left"
+                       summaryClassName={`list-none cursor-pointer inline-flex items-center gap-1 whitespace-nowrap py-1 border-b-2 ${moreLinks.some((link) => isCurrent(pathname, link)) ? 'border-red-600 font-semibold text-gray-900 dark:text-white' : 'border-transparent text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'}`}
+                       summary={<><span>Overig</span><MdExpandMore/></>}>
+            {moreLinks.map((link) => {
+              const {to, label, icon: Icon} = link;
+              const current = isCurrent(pathname, link);
+              return (
+                <li key={to}>
+                  <Link to={to} aria-current={current ? 'page' : undefined} className={`${navMenuItemClass} ${current ? 'font-semibold' : ''}`}>
+                    <Icon/><span>{label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </NavDropdown>
         </nav>
         <div className="flex items-center gap-3 shrink-0">
           <OrganizationMenu open={openMenu === 'organization'} onToggle={toggleMenu('organization')}/>
@@ -135,6 +154,21 @@ function LiveNav() {
         <nav id="live-menu" aria-label="LIVE" className="lg:hidden border-t border-gray-200 dark:border-gray-800 px-3 py-2">
           <ul className="flex flex-col">
             {links.map((link) => {
+              const {to, label, icon: Icon} = link;
+              const current = isCurrent(pathname, link);
+              return (
+                <li key={to}>
+                  <Link to={to} aria-current={current ? 'page' : undefined}
+                        className={`flex items-center gap-3 px-2 py-3 rounded-md text-base ${current ? 'font-semibold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800' : 'text-gray-700 dark:text-gray-300'}`}>
+                    <Icon className="w-5 h-5"/>{label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">Overig</p>
+          <ul aria-label="Overig" className="flex flex-col">
+            {moreLinks.map((link) => {
               const {to, label, icon: Icon} = link;
               const current = isCurrent(pathname, link);
               return (

@@ -23,9 +23,9 @@ Bovenin staat altijd dezelfde balk:
 | **Scoreboard** | Score, wedstrijdklok en schotklok op een zwart scherm |
 | **Callsheet** | Kies je positie voor jouw items met de tijden, of kies de tegel **Show Caller** voor het hele draaiboek met de knoppen om de show door te zetten |
 | **Interviews** | Wie er geïnterviewd wordt: foto, naam, rugnummer en ploeg |
-| **vMix** | Countdown-timer en de callsheet naar vMix voor presentator en analist |
+| **Overig** | Een menu met **Statistieken** (de cijfers van de statistiek-pc), **Analyse** (wat er in de wedstrijd gebeurt, voor de analist) en **vMix** (countdown-timer en de callsheet naar vMix voor presentator en analist) |
 
-Op een telefoon of tablet staat in de balk alleen het logo, **LIVE** en de naam van het scherm waar je bent. Met de **menuknop** (drie streepjes) open je de onderdelen, je organisatie (met **Organisatie-instellingen** en **Wissel organisatie**), **Beheer**, **Over deze app** en **Donkere modus** / **Lichte modus**.
+Op een telefoon of tablet staat in de balk alleen het logo, **LIVE** en de naam van het scherm waar je bent. Met de **menuknop** (drie streepjes) open je de onderdelen (Statistieken, Analyse en vMix onder de kop **Overig**), je organisatie (met **Organisatie-instellingen** en **Wissel organisatie**), **Beheer**, **Over deze app** en **Donkere modus** / **Lichte modus**.
 
 Rechts in de balk:
 
