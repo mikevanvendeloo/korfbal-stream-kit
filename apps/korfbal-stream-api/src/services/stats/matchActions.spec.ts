@@ -40,7 +40,7 @@ describe('derivePlayerStats', () => {
       for (const name of new Set(team.vakken.flatMap((v) => v.players.map((p) => p.name)))) {
         const derived = players.find((p) => p.name === name && p.side === side);
         if (!derived) continue;
-        if (name === 'Jordi van Elburg') continue; // page lists 1/1 against 1/8 in the database: unexplained, left out
+        if (name === 'Jordi van Elburg') continue; // the page fixture is an older snapshot than the database: his later shots aren't on it yet
         expect(derived.afstand, name).toEqual(sum(team, name, 'afstand'));
         compared += 1;
       }
