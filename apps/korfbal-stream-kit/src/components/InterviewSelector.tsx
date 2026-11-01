@@ -10,7 +10,7 @@ import {
 type SelKey = `${InterviewSide}-${InterviewRole}`;
 type Selection = Record<SelKey, { playerId: number | null }>;
 
-const keys: SelKey[] = ['HOME-PLAYER', 'AWAY-PLAYER', 'HOME-COACH', 'AWAY-COACH'];
+const keys: SelKey[] = ['AWAY-COACH', 'AWAY-PLAYER', 'HOME-COACH', 'HOME-PLAYER'];
 
 function emptySelection(): Selection {
   return {
@@ -108,10 +108,11 @@ export default function InterviewSelector({ productionId, className }: { product
       {interviews.isError && <div role="alert" className="mb-2 text-sm text-red-600">{(interviews.error as any)?.message || 'Interview selectie laden mislukt'}</div>}
       {saveInterviews.isError && <div role="alert" className="mb-2 text-sm text-red-600">{(saveInterviews.error as any)?.message || 'Interview opslaan mislukt'}</div>}
       <div className="space-y-2">
-        <OptionSelect label="Thuis – speler/speelster" options={optHomePlayer.data?.items || []} loading={optHomePlayer.isLoading} {...select('HOME-PLAYER')} />
+        {/* Away club first, then the home club; per club the coach before the player */}
+        <OptionSelect label="Uit – coach" options={optAwayCoach.data?.items || []} loading={optAwayCoach.isLoading} {...select('AWAY-COACH')} />
         <OptionSelect label="Uit – speler/speelster" options={optAwayPlayer.data?.items || []} loading={optAwayPlayer.isLoading} {...select('AWAY-PLAYER')} />
         <OptionSelect label="Thuis – coach" options={optHomeCoach.data?.items || []} loading={optHomeCoach.isLoading} {...select('HOME-COACH')} />
-        <OptionSelect label="Uit – coach" options={optAwayCoach.data?.items || []} loading={optAwayCoach.isLoading} {...select('AWAY-COACH')} />
+        <OptionSelect label="Thuis – speler/speelster" options={optHomePlayer.data?.items || []} loading={optHomePlayer.isLoading} {...select('HOME-PLAYER')} />
       </div>
       <div className="text-xs text-gray-500 mt-2">Kies per team een speler/speelster en coach. De selectie geldt automatisch voor alle relevante titels.</div>
     </div>

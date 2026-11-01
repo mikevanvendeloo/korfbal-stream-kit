@@ -702,37 +702,19 @@ productionReportsRouter.get('/:id/report/markdown', async (req, res, next) => {
     if (allInterviewees.length > 0) {
       markdown += `## Spelers voor interviews\n\n`;
 
-      // Home team
-      if (interviews.home.players.length > 0 || interviews.home.coaches.length > 0) {
-        markdown += `### ${match.homeTeamName}\n\n`;
+      // Away club first, then the home club; per club the coach before the players (as in the other reports)
+      for (const [club, teamName] of [[interviews.away, match.awayTeamName], [interviews.home, match.homeTeamName]] as const) {
+        if (club.players.length === 0 && club.coaches.length === 0) continue;
+        markdown += `### ${teamName}\n\n`;
 
-        if (interviews.home.coaches.length > 0) {
-          const coach = interviews.home.coaches[0];
+        if (club.coaches.length > 0) {
+          const coach = club.coaches[0];
           markdown += `**${coach.name}**`;
           if (coach.function) markdown += ` - ${coach.function}`;
           markdown += `\n\n`;
         }
 
-        interviews.home.players.forEach((player) => {
-          markdown += `**${player.name}**`;
-          if (player.shirtNo != null && player.shirtNo > 0) markdown += ` (#${player.shirtNo})`;
-          if (player.function) markdown += ` - ${player.function}`;
-          markdown += `\n\n`;
-        });
-      }
-
-      // Away team
-      if (interviews.away.players.length > 0 || interviews.away.coaches.length > 0) {
-        markdown += `### ${match.awayTeamName}\n\n`;
-
-        if (interviews.away.coaches.length > 0) {
-          const coach = interviews.away.coaches[0];
-          markdown += `**${coach.name}**`;
-          if (coach.function) markdown += ` - ${coach.function}`;
-          markdown += `\n\n`;
-        }
-
-        interviews.away.players.forEach((player) => {
+        club.players.forEach((player) => {
           markdown += `**${player.name}**`;
           if (player.shirtNo != null && player.shirtNo > 0) markdown += ` (#${player.shirtNo})`;
           if (player.function) markdown += ` - ${player.function}`;

@@ -102,8 +102,15 @@ productionInterviewsRouter.get('/:id/interview-cards', async (req, res, next) =>
   }
 });
 
-/** Interview subjects in the order of their title definitions (the production's, else the templates), then by id. */
-async function sortByTitleOrder<T extends { id: number; titleDefinitionId: number | null }>(productionId: number, items: T[]): Promise<T[]> {
+/** Away before home (then without a side), and per club the coach before the player */
+const SIDE_RANK: Record<string, number> = {AWAY: 0, HOME: 1, NONE: 2};
+const ROLE_RANK: Record<string, number> = {COACH: 0, PLAYER: 1};
+
+/**
+ * Interview subjects in the fixed order: the away club first, then the home club, per club the coach before
+ * the player; then by the order of their title definitions (the production's, else the templates), then by id.
+ */
+async function sortByTitleOrder<T extends { id: number; titleDefinitionId: number | null; side: string; role: string }>(productionId: number, items: T[]): Promise<T[]> {
   let titleDefs: Array<{ id: number }> = await prisma.titleDefinition.findMany({
     where: { productionId, enabled: true },
     orderBy: { order: 'asc' },
@@ -121,6 +128,10 @@ async function sortByTitleOrder<T extends { id: number; titleDefinitionId: numbe
   titleDefs.forEach((def, index) => orderMap.set(def.id, index));
 
   return [...items].sort((a, b) => {
+    const bySide = (SIDE_RANK[a.side] ?? 3) - (SIDE_RANK[b.side] ?? 3);
+    if (bySide !== 0) return bySide;
+    const byRole = (ROLE_RANK[a.role] ?? 2) - (ROLE_RANK[b.role] ?? 2);
+    if (byRole !== 0) return byRole;
     // If both have titleDefinitionId, sort by the order of that definition
     if (a.titleDefinitionId && b.titleDefinitionId) {
       const orderA = orderMap.get(a.titleDefinitionId) ?? Number.MAX_SAFE_INTEGER;

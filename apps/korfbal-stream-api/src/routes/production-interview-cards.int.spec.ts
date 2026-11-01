@@ -41,8 +41,9 @@ describe.runIf(runDb)('interview cards and people (integration)', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       items: [
-        {id: expect.any(Number), side: 'HOME', role: 'PLAYER', title: null, name: 'Anna de Vries', shirtNo: 7, photoUrl: 'players/anna.png', teamName: 'Cards Thuis 1'},
+        // Away club first, then home; per club the coach before the player
         {id: expect.any(Number), side: 'AWAY', role: 'COACH', title: null, name: 'Kees Coach', shirtNo: null, photoUrl: null, teamName: 'Cards Uit 2'},
+        {id: expect.any(Number), side: 'HOME', role: 'PLAYER', title: null, name: 'Anna de Vries', shirtNo: 7, photoUrl: 'players/anna.png', teamName: 'Cards Thuis 1'},
         // Without a side the player's club names the team
         {id: expect.any(Number), side: 'NONE', role: 'PLAYER', title: null, name: 'Gast Speler', shirtNo: 12, photoUrl: null, teamName: 'Scenario'},
       ],
@@ -130,5 +131,33 @@ describe.runIf(runDb)('interview order (integration)', () => {
     expect(markdown.text).toContain('3. Nabeschouwing');
     const whatsapp = await request(app).get(`/api/production/${show.productionId}/report/whatsapp`);
     expect(whatsapp.text).toContain('Volgorde van de interviews');
+  });
+});
+
+describe.runIf(runDb)('interview people order (integration)', () => {
+  let show: ProductionScenario;
+  beforeAll(async () => {
+    show = await createProductionScenario(prisma, {
+      interviews: [
+        {side: 'HOME', role: 'PLAYER', name: 'Thuis Speler'},
+        {side: 'HOME', role: 'COACH', name: 'Thuis Coach'},
+        {side: 'AWAY', role: 'PLAYER', name: 'Uit Speler'},
+        {side: 'AWAY', role: 'COACH', name: 'Uit Coach'},
+      ],
+    });
+  });
+  afterAll(async () => { await show?.cleanup(); });
+
+  it('always gives the away club first, then the home club, per club the coach before the player', async () => {
+    const expected = ['Uit Coach', 'Uit Speler', 'Thuis Coach', 'Thuis Speler'];
+    const cards = await request(app).get(`/api/production/${show.productionId}/interview-cards`);
+    expect(cards.body.items.map((i: {name: string}) => i.name)).toEqual(expected);
+    const chosen = await request(app).get(`/api/production/${show.productionId}/interviews`);
+    expect(chosen.body.map((i: {player: {name: string}}) => i.player.name)).toEqual(expected);
+    const markdown = await request(app).get(`/api/production/${show.productionId}/report/markdown`);
+    const at = (name: string) => markdown.text.indexOf(name);
+    expect(at('Uit Coach')).toBeLessThan(at('Uit Speler'));
+    expect(at('Uit Speler')).toBeLessThan(at('Thuis Coach'));
+    expect(at('Thuis Coach')).toBeLessThan(at('Thuis Speler'));
   });
 });
