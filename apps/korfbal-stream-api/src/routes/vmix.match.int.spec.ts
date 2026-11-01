@@ -58,6 +58,12 @@ describe.runIf(runDb)('vMix match info data source (integration)', () => {
   it('is listed among the vMix data sources, with the API key to fill in', async () => {
     const res = await request(app).get('/api/vmix/endpoints');
     expect(res.body.endpoints.map((e: { url: string }) => e.url)).toContainEqual(expect.stringMatching(/\/api\/vmix\/active-production\/match\?key=<jouw-sleutel>$/));
+    // The statistics feeds are listed too, with the key (the live players one after its own query)
+    const urls = res.body.endpoints.map((e: { url: string }) => e.url);
+    for (const path of ['team-stats', 'top-scorers', 'current/players']) {
+      expect(urls).toContainEqual(expect.stringMatching(new RegExp(`/api/stats/${path}\\?key=<jouw-sleutel>$`)));
+    }
+    expect(urls).toContainEqual(expect.stringMatching(/\/api\/stats\/live\/players\?team=home&key=<jouw-sleutel>$/));
   });
 
   it('clears all fields when no production is active', async () => {
