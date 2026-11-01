@@ -78,3 +78,6 @@ secrets.*.env
 
 # Statistics bridge: local copy of the statistics database (see apps/statistics-bridge/README.md)
 /data/statistics-bridge
+/test-results/
+/streamz-test/
+/stats-test/
