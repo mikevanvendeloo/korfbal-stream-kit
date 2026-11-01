@@ -16,5 +16,5 @@ volumes:
     driver: local
     driver_opts:
       type: cifs
-      device: //10.12.0.63/KL2627
-      o: "username=guest,password=,vers=2.1,uid=1000,gid=1000,ro,file_mode=0444,dir_mode=0555,soft,echo_interval=5"
+      device: ${STATS_CIFS_DEVICE:-//10.12.0.63/KL2627}
+      o: "${STATS_CIFS_OPTIONS:-username=guest,password=,vers=2.1,uid=1000,gid=1000,ro,file_mode=0444,dir_mode=0555,soft,echo_interval=5}"

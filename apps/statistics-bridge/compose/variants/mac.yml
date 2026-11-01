@@ -8,4 +8,4 @@ services:
       STATS_DIR: /stats
       MDB_ENABLED: "true"
     volumes:
-      - /Volumes/KL2627:/stats:ro
+      - ${STATS_SOURCE_DIR:-/Volumes/KL2627}:/stats:ro

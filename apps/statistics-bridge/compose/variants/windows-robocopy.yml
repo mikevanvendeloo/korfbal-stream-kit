@@ -1,3 +1,4 @@
+# De map met F1/ en F2/ is instelbaar: STATS_SOURCE_DIR=D:/mijn/share (een gewone lokale map of een map die je zelf deelt; een netwerkstation zoals Z: ziet Docker meestal niet).
 # PAGE_URL: zonder eigen waarde geldt de opgeslagen pagina uit compose/local-html, die niet op de share staat. Zet PAGE_URL=http://10.12.0.63/... voor de echte pagina.
 # Windows: een map die door robocopy wordt gevuld met de bestanden van de share (scripts/statistics-bridge/sync-stats.ps1,
 # bijvoorbeeld elke 5 seconden naar C:\streamz\stats). De container leest alleen die lokale map, dus een pc die uit staat
@@ -8,4 +9,4 @@ services:
       STATS_DIR: /stats
       MDB_ENABLED: "true"
     volumes:
-      - C:/streamz/stats:/stats:ro
+      - ${STATS_SOURCE_DIR:-C:/streamz/stats}:/stats:ro
