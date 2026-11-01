@@ -47,7 +47,7 @@ export default function MatchStatsSettings() {
         <div>
           <label htmlFor="statsMdbPath" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pad naar WEDSTRIJDEN.mdb</label>
           <input id="statsMdbPath" type="text" className={input} placeholder="F1/WEDSTRIJDEN.mdb" value={mdbPath} onChange={(e) => setMdbPath(e.target.value)}/>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Relatief aan de gedeelde map van de statistiek-pc op de server.</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Relatief aan de gedeelde map van de statistiek-pc op de server. Gebruik {'{team}'} voor het teamnummer van de actieve productie, bijvoorbeeld F{'{team}'}/WEDSTRIJDEN.mdb.</p>
         </div>
         <div>
           <label htmlFor="statsShareHost" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Statistiek-pc op het netwerk</label>

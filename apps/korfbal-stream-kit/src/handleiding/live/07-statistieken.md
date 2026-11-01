@@ -31,7 +31,7 @@ Een groen bolletje is bereikbaar, een rood niet. Is **Netwerk** rood, dan staat 
 
 ## Bron van de gegevens
 
-Boven de gegevens staat de **Bron**. Bij **Live** is dat de *live pagina*. Bij **Wedstrijd uit database** is het de *share* (het bestand op de statistiek-pc is net gelezen) of een *lokale kopie van* een tijdstip. De app leest het bestand alleen opnieuw als het veranderd is (hooguit eens per 10 seconden) en werkt de kopie hooguit eens per 5 minuten bij; de cijfers in de kopie kunnen dus tot 5 minuten oud zijn. Is de share niet bereikbaar of antwoordt hij niet, dan gebruikt de app die kopie en zie je de tijd waarop ze is gemaakt. Staat er een oude tijd, dan zijn de cijfers niet actueel.
+Boven de gegevens staat de **Bron**. Bij **Live** is dat de *live pagina*. Bij **Wedstrijd uit database** is het de *share* (het bestand op de statistiek-pc is net gelezen) of een *lokale kopie van* een tijdstip. De app leest het bestand alleen opnieuw als het veranderd is (hooguit eens per 10 seconden) en werkt de kopie hooguit eens per 5 minuten bij; de cijfers in de kopie kunnen dus tot 5 minuten oud zijn. Is de share niet bereikbaar, antwoordt hij niet, staat de statistiekenmap niet op de server of ontbreekt het bestand, dan gebruikt de app die kopie en zie je de tijd waarop ze is gemaakt. Staat er een oude tijd, dan zijn de cijfers niet actueel.
 
 ## Als er niets verschijnt
 

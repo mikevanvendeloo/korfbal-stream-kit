@@ -1,6 +1,7 @@
 import {Router} from 'express';
 import {clearLiveStatsCache} from '../services/stats/liveStats';
 import {clearMdbCache} from '../services/stats/mdbFile';
+import {clearStatsTeamCache} from '../services/stats/statsTeam';
 import {
   getMatchStats,
   setMatchStats,
@@ -190,7 +191,7 @@ const MatchStatsSchema = z.object({
   pageUrl: z.string().trim().max(500).nullable().optional().transform((v) => v || null)
     .refine((v) => v === null || /^https?:\/\/[^\s/]+/i.test(v) || (!/^([a-z]:|[\\/])/i.test(v) && !v.split(/[\\/]+/).includes('..') && /\.html?$/i.test(v)), 'De pagina-URL moet met http:// of https:// beginnen, of een relatief pad naar een .html-bestand zijn'),
   mdbPath: z.string().trim().max(500).nullable().optional().transform((v) => v || null)
-    .refine((v) => v === null || (!/^([a-z]:|[\\/])/i.test(v) && !v.split(/[\\/]+/).includes('..') && /\.(mdb|accdb)$/i.test(v)), 'Het pad moet relatief zijn (zonder ..) en op .mdb of .accdb eindigen'),
+    .refine((v) => v === null || (!/^([a-z]:|[\\/])/i.test(v) && !v.split(/[\\/]+/).includes('..') && /\.(mdb|accdb)$/i.test(v)), 'Het pad moet relatief zijn (zonder ..) en op .mdb of .accdb eindigen; {team} is toegestaan'),
   keepCopy: z.boolean().optional().default(true),
   shareHost: z.string().trim().max(253).nullable().optional().transform((v) => v || null)
     .refine((v) => v === null || /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i.test(v), 'Vul een IP-adres of computernaam in, zoals 10.12.0.63'),
@@ -202,6 +203,7 @@ settingsRouter.put('/match-stats', async (req, res, next) => {
     await setMatchStats({pageUrl: parsed.pageUrl, mdbPath: parsed.mdbPath, keepCopy: parsed.keepCopy, shareHost: parsed.shareHost});
     clearLiveStatsCache();
     clearMdbCache();
+    clearStatsTeamCache();
     return res.json(parsed);
   } catch (err: any) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid payload' });

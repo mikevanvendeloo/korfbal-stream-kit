@@ -9,6 +9,8 @@ import {config, getAssetsRoot} from '../services/config';
 import {ensureOrganization, testDb as prisma} from '../../test-helpers';
 import {runWithOrganization} from '../services/organizationContext';
 import {clearSettingsCache, setSetting} from '../services/appSettings';
+import {createProductionScenario} from '../../test-scenarios';
+import {clearStatsTeamCache} from '../services/stats/statsTeam';
 import {createApiKey} from '../services/apiKeys';
 import {clearLiveStatsCache} from '../services/stats/liveStats';
 import {clearMdbCache, copyFileName, setMdbOpener, setSmbProbe} from '../services/stats/mdbFile';
@@ -57,6 +59,7 @@ describe.runIf(runDb)('statistics routes (integration)', () => {
   beforeEach(async () => {
     clearLiveStatsCache();
     clearMdbCache();
+    clearStatsTeamCache();
     await runWithOrganization(orgA, () => setSetting('matchStats', {pageUrl: 'http://10.12.0.63/tweede.html', mdbPath: 'F1/WEDSTRIJDEN.mdb'}));
     await runWithOrganization(orgB, () => setSetting('matchStats', {pageUrl: null, mdbPath: null}));
     clearSettingsCache();
@@ -186,6 +189,34 @@ describe.runIf(runDb)('statistics routes (integration)', () => {
     expect(get).not.toHaveBeenCalled();
     for (const pageUrl of ['../tweede.html', '/etc/x.html', 'F1/tweede.txt']) {
       expect((await asA(request(app).put('/api/settings/match-stats')).send({pageUrl, mdbPath: null})).status, pageUrl).toBe(400);
+    }
+  });
+
+  it('{team} in the path follows the team of the active production (1 by default)', async () => {
+    fs.mkdirSync(path.join(dir, 'F2'), {recursive: true});
+    fs.copyFileSync(path.join(fixtures, 'WEDSTRIJDEN.mdb'), path.join(dir, 'F2', 'WEDSTRIJDEN.mdb'));
+    await runWithOrganization(orgA, () => setSetting('productionTeamNames', ['Stats Team 2']));
+    await runWithOrganization(orgA, () => setSetting('matchStats', {pageUrl: null, mdbPath: 'F{team}/WEDSTRIJDEN.mdb', keepCopy: false, shareHost: null}));
+    clearSettingsCache();
+    // No active production: team 1, said so
+    const none = await asA(request(app).get('/api/stats/matches'));
+    expect(none.status, none.text).toBe(200);
+    expect(none.headers['x-stats-team']).toBe('1; from=default');
+    const show = await createProductionScenario(prisma, {active: true, organizationId: orgA, match: {homeTeamName: 'Stats Team 2', awayTeamName: 'Tegenstander 1'}});
+    try {
+      clearStatsTeamCache();
+      clearMdbCache();
+      const res = await asA(request(app).get('/api/stats/matches'));
+      expect(res.status, res.text).toBe(200);
+      expect(res.headers['x-stats-team']).toBe('2; from=production');
+      const players = await asA(request(app).get(`/api/stats/matches/${encodeURIComponent(TABLE)}/players`));
+      expect(players.body.team).toEqual({value: '2', from: 'production'});
+      // The team is one of the folders: with F2 gone the read fails instead of using F1
+      fs.rmSync(path.join(dir, 'F2'), {recursive: true});
+      clearMdbCache();
+      expect((await asA(request(app).get('/api/stats/matches'))).status).toBeGreaterThanOrEqual(404);
+    } finally {
+      await show.cleanup();
     }
   });
 

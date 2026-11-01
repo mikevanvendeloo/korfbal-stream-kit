@@ -26,6 +26,7 @@ const wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => async (r
 function sendSourced<T>(res: Response, result: Sourced<T>, body: unknown = result.data) {
   res.setHeader('X-Stats-Source', result.source);
   res.setHeader('X-Stats-Read-At', result.readAt);
+  if (result.team) res.setHeader('X-Stats-Team', `${result.team.value}; from=${result.team.from}`);
   return res.json(body);
 }
 
@@ -61,9 +62,9 @@ statsRouter.get('/matches/:table/actions', wrap(async (req, res) => {
 // GET /api/stats/matches/:table/players
 statsRouter.get('/matches/:table/players', wrap(async (req, res) => {
   const table = TableParam.parse(req.params.table);
-  const {source, readAt, data: rows} = await readMatchActions(table);
+  const {source, readAt, team, data: rows} = await readMatchActions(table);
   const teams = teamNamesOf(rows);
-  return res.json({source, readAt, teams, players: derivedPlayerRows(derivePlayerStats(rows), teams)});
+  return res.json({source, readAt, team, teams, players: derivedPlayerRows(derivePlayerStats(rows), teams)});
 }));
 
 const PLAYER_COLUMNS = ['SPELERSNAAM', 'NUMMER', 'vereniging', 'SEX', 'afstandschotgoal', 'afstandschottotaal', 'doorloopgoal', 'doorlooptotaal', 'kortschotgoal', 'kortschottotaal', 'vrijebalgoal', 'vrijebaltotaal', 'strafworpgoal', 'strafworptotaal', 'totaalgoals', 'totaalpogingen', 'reboundgewonnen', 'reboundtotaal', 'aangeef'];
@@ -79,7 +80,7 @@ statsRouter.get('/players', wrap(async (_req, res) => {
 statsRouter.get('/current/players', wrap(async (_req, res) => {
   try {
     const current = await currentPlayers();
-    return sendSourced(res, {source: current.source, readAt: current.readAt, data: current.rows}, current.rows);
+    return sendSourced(res, {source: current.source, readAt: current.readAt, team: current.team, data: current.rows}, current.rows);
   } catch (err) {
     if (!(err instanceof StatsError)) throw err;
     let page;

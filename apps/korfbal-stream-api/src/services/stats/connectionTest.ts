@@ -5,9 +5,10 @@ import {getLiveStats} from './liveStats';
 import {requireOrganizationId} from '../organizationContext';
 import {shareHostOf, smbReachable} from './smbReach';
 import {sharedFileStamp} from './mdbFile';
+import {resolveStatsTeam, usesTeam, withTeam, type StatsTeam} from './statsTeam';
 
 export type Check = {ok: boolean; ms: number | null} | null;
-export type StatsConnection = {host: string | null; network: Check; file: Check; page: Check};
+export type StatsConnection = {team: StatsTeam | null; host: string | null; network: Check; file: Check; page: Check};
 
 async function timed(work: () => Promise<unknown>): Promise<{ok: boolean; ms: number | null}> {
   const started = Date.now();
@@ -22,14 +23,16 @@ async function timed(work: () => Promise<unknown>): Promise<{ok: boolean; ms: nu
 async function checkConnection(): Promise<StatsConnection> {
   const setting = await getMatchStats();
   const host = shareHostOf(setting);
+  const team = setting.mdbPath && usesTeam(setting.mdbPath) ? await resolveStatsTeam() : null;
+  const mdbPath = setting.mdbPath && team ? withTeam(setting.mdbPath, team) : setting.mdbPath;
   const network = host ? await smbReachable(host) : null;
   // With a known host the file is only tried when the PC answered; without a host the share's own guards apply
   const fileAllowed = host ? network?.ok === true : true;
   const [file, page] = await Promise.all([
-    setting.mdbPath && config.statsDir && fileAllowed ? timed(() => sharedFileStamp(setting.mdbPath as string, host)) : null,
+    mdbPath && config.statsDir && fileAllowed ? timed(() => sharedFileStamp(mdbPath, host)) : null,
     setting.pageUrl ? timed(() => getLiveStats()) : null,
   ]);
-  return {host, network, file, page};
+  return {team, host, network, file, page};
 }
 
 const STATUS_CACHE_MS = 3000;

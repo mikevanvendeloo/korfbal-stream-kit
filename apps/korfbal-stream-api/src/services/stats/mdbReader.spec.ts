@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import MDBReader from 'mdb-reader';
 import {describe, expect, it} from 'vitest';
+import {openMdbInWorker} from './mdbReader';
 import {derivePlayerStats, lastActionAt, listMatchTables, normalizeActionRow} from './matchActions';
 
 const fixture = path.join(__dirname, '../../test-fixtures/stats/WEDSTRIJDEN.mdb');
@@ -26,5 +27,25 @@ describe('mdb-reader on the statistics database', () => {
       .filter((m) => m.at !== null)
       .sort((a, b) => (b.at as number) - (a.at as number))[0];
     expect(latest.table).toBe('Fortuna Koog Zaandijk_31_10_2026');
+  });
+
+  it('parses the real fixture in a worker thread with the same rows', async () => {
+    const viaWorker = await openMdbInWorker(fs.readFileSync(fixture));
+    expect(viaWorker.getTableNames()).toEqual(db.getTableNames());
+    const table = 'Fortuna Koog Zaandijk_31_10_2026';
+    expect(viaWorker.getTable(table).getData()).toHaveLength(db.getTable(table).getData().length);
+    const roos = derivePlayerStats(viaWorker.getTable(table).getData().map(normalizeActionRow)).find((p) => p.name === 'Roos van Groen');
+    expect(roos?.afstand).toEqual({goals: 3, attempts: 7});
+    expect(viaWorker.getTable('spelersover').getData().length).toBeGreaterThan(0);
+  });
+
+  it('terminates a parse that never returns and answers 502', async () => {
+    const started = Date.now();
+    await expect(openMdbInWorker(Buffer.from('x'), {timeoutMs: 200, source: 'setInterval(() => undefined, 1000);'})).rejects.toMatchObject({status: 502});
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+
+  it('answers 502 for a file that is no database', async () => {
+    await expect(openMdbInWorker(Buffer.from('geen access'))).rejects.toMatchObject({status: 502});
   });
 });

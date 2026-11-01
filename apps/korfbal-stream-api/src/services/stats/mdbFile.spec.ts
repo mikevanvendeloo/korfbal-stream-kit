@@ -196,6 +196,49 @@ describe('statistics file access', () => {
     expect((await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', false, '10.12.0.63'))).source).toBe('share');
   });
 
+  describe('the local copy as a fallback', () => {
+    beforeEach(async () => {
+      await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
+      resetShareForTests();
+    });
+
+    it('is used when STATS_DIR is not set', async () => {
+      mutable.statsDir = '';
+      const read = await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
+      expect(read.source).toBe('copy');
+      expect(read.buffer.toString()).toBe('first');
+    });
+
+    it('is used when the statistics PC does not answer', async () => {
+      setSmbProbe(async () => ({ok: false, ms: null}));
+      expect((await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', true, '10.12.0.63'))).source).toBe('copy');
+    });
+
+    it('is used when the file is missing on the share', async () => {
+      fs.rmSync(path.join(share, 'F1', 'WEDSTRIJDEN.mdb'));
+      expect((await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'))).source).toBe('copy');
+    });
+
+    it('is not used without "Lokale kopie bewaren"', async () => {
+      mutable.statsDir = '';
+      await expect(inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', false))).rejects.toMatchObject({status: 409});
+    });
+
+    it('never answers a refused path', async () => {
+      await expect(inOrg(() => readStatsFile('../WEDSTRIJDEN.mdb'))).rejects.toMatchObject({status: 400});
+    });
+
+    it('is only the copy of that path', async () => {
+      mutable.statsDir = '';
+      await expect(inOrg(() => readStatsFile('F2/WEDSTRIJDEN.mdb'))).rejects.toMatchObject({status: 409});
+    });
+  });
+
+  it('keeps the 409 when STATS_DIR is not set and there is no copy', async () => {
+    mutable.statsDir = '';
+    await expect(inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'))).rejects.toMatchObject({status: 409});
+  });
+
   it('reads a local html page through the same resolution', async () => {
     const buffer = await inOrg(() => readSharedFile('F1/tweede.html', HTML_EXTENSIONS));
     expect(buffer.toString()).toBe('<html></html>');

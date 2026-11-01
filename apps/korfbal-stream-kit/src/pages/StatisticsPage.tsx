@@ -12,6 +12,9 @@ const ratio = (r: {goals: number; attempts: number}) => `${r.goals}/${r.attempts
 /** Where the match data came from: the share, or the last local copy with the time it was read. */
 export const sourceLabel = (source: 'share' | 'copy', readAt: string) =>
   source === 'share' ? 'Bron: share' : `Bron: lokale kopie van ${formatTime(readAt)}`;
+/** The team folder of the database: from the active production, or the default 1. */
+export const teamLabel = (team: {value: string; from: 'production' | 'default'}) =>
+  `Team ${team.value} (${team.from === 'production' ? 'actieve productie' : 'standaard'})`;
 const pct = (v: number | null) => (v === null ? '' : `${String(v).replace('.', ',')}%`);
 
 function statCells(p: PlayerStats) {
@@ -104,7 +107,7 @@ function MatchTab() {
       </select>
       {matches.error && <p role="alert" className="mt-2 text-red-700 dark:text-red-300">Geen statistieken beschikbaar: {(matches.error as Error).message}</p>}
       {players.error && <p role="alert" className="mt-2 text-red-700 dark:text-red-300">{(players.error as Error).message}</p>}
-      {players.data && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{sourceLabel(players.data.source, players.data.readAt)}</p>}
+      {players.data && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{sourceLabel(players.data.source, players.data.readAt)}{players.data.team && <> · {teamLabel(players.data.team)}</>}</p>}
       {players.data && (['home', 'away'] as const).map((side) => {
         const rows = players.data.players.filter((p) => p.team === side);
         const name = side === 'home' ? players.data.teams.own : players.data.teams.opponent;

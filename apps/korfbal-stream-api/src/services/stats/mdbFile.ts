@@ -6,6 +6,7 @@ import {getOrganizationSlug, requireOrganizationId} from '../organizationContext
 import {getMatchStats} from '../appSettings';
 import {logger} from '../../utils/logger';
 import {StatsError} from './statsErrors';
+import {resolveStatsTeam, usesTeam, withTeam, type StatsTeam} from './statsTeam';
 import {shareHostOf, smbReachable, type Reach} from './smbReach';
 import {listMatchTables, normalizeActionRow, type ActionRow, type MatchTableName} from './matchActions';
 
@@ -54,9 +55,16 @@ export function setMdbOpener(fn: MdbOpener | null): void {
 }
 
 export type StatsSource = 'share' | 'copy';
-export type Sourced<T> = {source: StatsSource; readAt: string; data: T};
+export type Sourced<T> = {source: StatsSource; readAt: string; team: StatsTeam | null; data: T};
 
 const bad = (message: string) => new StatsError(400, message);
+
+/** STATS_DIR is not set: there is no share at all (a local copy can still answer). */
+class ShareNotConfiguredError extends StatsError {
+  constructor() {
+    super(409, 'De statistiekenmap (STATS_DIR) is niet ingesteld op de server');
+  }
+}
 
 /** The share is busy with an earlier operation that has not settled (a hung mount cannot be aborted). */
 class ShareBusyError extends StatsError {
@@ -89,7 +97,7 @@ function withDeadline<T>(work: (signal: AbortSignal) => Promise<T>, onSettled: (
  * Async, so a slow share never blocks the event loop.
  */
 export async function resolveStatsFile(root: string, relative: string, extensions: Set<string> = MDB_EXTENSIONS, maxBytes = MAX_MDB_BYTES): Promise<string> {
-  if (!root) throw new StatsError(409, 'De statistiekenmap (STATS_DIR) is niet ingesteld op de server');
+  if (!root) throw new ShareNotConfiguredError();
   if (!relative || path.isAbsolute(relative) || relative.includes('\0') || /^[a-z]:/i.test(relative)) throw bad('Ongeldig pad naar het statistiekenbestand');
   if (relative.split(/[\\/]+/).some((part) => part === '..')) throw bad('Ongeldig pad naar het statistiekenbestand');
   if (!extensions.has(path.extname(relative).toLowerCase())) throw bad(`Alleen ${[...extensions].join(' of ')}-bestanden zijn toegestaan`);
@@ -201,13 +209,16 @@ async function writeCopy(relative: string, buffer: Buffer): Promise<void> {
 
 /** The file from the share (keeping a local copy), else the last local copy; without keepCopy only the share. */
 export async function readStatsFile(relative: string, keepCopy = true, host: string | null = null): Promise<{buffer: Buffer; source: StatsSource; readAt: string; stamp?: string}> {
+  let notConfigured: StatsError | null = null;
   try {
     const stamp = await sharedFileStamp(relative, host);
     const buffer = await readSharedFile(relative, MDB_EXTENSIONS, MAX_MDB_BYTES, host);
     if (keepCopy) await writeCopy(relative, buffer);
     return {buffer, source: 'share', readAt: new Date().toISOString(), stamp};
   } catch (err) {
-    if (err instanceof StatsError && (err.status === 400 || err.status === 409)) throw err;
+    // A refused path never falls back; no STATS_DIR, an unreachable host or a missing file may use the copy
+    if (err instanceof ShareNotConfiguredError) notConfigured = err;
+    else if (err instanceof StatsError && (err.status === 400 || err.status === 409)) throw err;
     if (!keepCopy) throw err instanceof StatsError ? err : new StatsError(502, 'De gedeelde map kon niet worden gelezen');
     logger.warn('Statistics share not readable, trying the local copy', {error: err instanceof Error ? err.message : String(err)});
   }
@@ -217,20 +228,24 @@ export async function readStatsFile(relative: string, keepCopy = true, host: str
     const [buffer, stat] = await Promise.all([fs.promises.readFile(file), fs.promises.stat(file)]);
     return {buffer, source: 'copy', readAt: stat.mtime.toISOString()};
   } catch {
+    if (notConfigured) throw notConfigured;
     throw new StatsError(503, 'Het statistiekenbestand op de gedeelde map is niet bereikbaar en er is geen lokale kopie');
   }
 }
 
-type OpenedValue = {db: MdbDatabase; source: StatsSource; readAt: string; memo: Map<string, unknown>};
+type OpenedValue = {db: MdbDatabase; source: StatsSource; readAt: string; team: StatsTeam | null; memo: Map<string, unknown>};
 type Opened = {at: number; path: string; stamp?: string; readAtMs?: number; value?: OpenedValue; pending?: Promise<OpenedValue>};
 const cache = new Map<number, Opened>();
 
 async function openDatabase(): Promise<OpenedValue> {
   const setting = await getMatchStats();
-  const {mdbPath, keepCopy} = setting;
+  const {keepCopy} = setting;
   const host = shareHostOf(setting);
-  if (!mdbPath) throw new StatsError(409, 'Het statistiekenbestand is niet ingesteld: vul het pad in bij Instellingen');
+  if (!setting.mdbPath) throw new StatsError(409, 'Het statistiekenbestand is niet ingesteld: vul het pad in bij Instellingen');
   const orgId = requireOrganizationId('statistics database');
+  // {team}: the team number of the active production (1 by default); the resolved path is what is read, cached and copied
+  const team = usesTeam(setting.mdbPath) ? await resolveStatsTeam() : null;
+  const mdbPath = team ? withTeam(setting.mdbPath, team) : setting.mdbPath;
   const hit = cache.get(orgId);
   if (hit && hit.path === mdbPath) {
     if (hit.pending) return hit.pending;
@@ -257,7 +272,7 @@ async function openDatabase(): Promise<OpenedValue> {
       entry.stamp = file.stamp;
       entry.readAtMs = Date.now();
       // mdb-reader parses synchronously: the file comes from the organization's own statistics PC (trusted source)
-      return {db: await open(file.buffer), source: file.source, readAt: file.readAt, memo: new Map<string, unknown>()};
+      return {db: await open(file.buffer), source: file.source, readAt: file.readAt, team, memo: new Map<string, unknown>()};
     } catch {
       throw new StatsError(502, 'Het statistiekenbestand kon niet worden gelezen');
     }
@@ -278,24 +293,24 @@ async function openDatabase(): Promise<OpenedValue> {
 }
 
 /** A derived result kept as long as this read of the file lives (a new read of the file starts empty). */
-export async function memoizedOnDatabase<T>(key: string, compute: (db: MdbDatabase) => T | Promise<T>): Promise<{source: StatsSource; readAt: string; value: T}> {
+export async function memoizedOnDatabase<T>(key: string, compute: (db: MdbDatabase) => T | Promise<T>): Promise<{source: StatsSource; readAt: string; team: StatsTeam | null; value: T}> {
   const opened = await openDatabase();
   let value = opened.memo.get(key) as T | undefined;
   if (value === undefined) {
     value = await compute(opened.db);
     opened.memo.set(key, value);
   }
-  return {source: opened.source, readAt: opened.readAt, value};
+  return {source: opened.source, readAt: opened.readAt, team: opened.team, value};
 }
 
 export async function listStatsMatches(): Promise<Sourced<MatchTableName[]>> {
-  const {db, source, readAt} = await openDatabase();
-  return {source, readAt, data: listMatchTables(db.getTableNames())};
+  const {db, source, readAt, team} = await openDatabase();
+  return {source, readAt, team, data: listMatchTables(db.getTableNames())};
 }
 
 /** The normalized rows of one match table, kept per read of the file. */
 export async function readMatchActions(table: string): Promise<Sourced<ActionRow[]>> {
-  const {db, source, readAt, memo} = await openDatabase();
+  const {db, source, readAt, team, memo} = await openDatabase();
   const key = `actions:${table}`;
   let rows = memo.get(key) as ActionRow[] | undefined;
   if (!rows) {
@@ -304,13 +319,13 @@ export async function readMatchActions(table: string): Promise<Sourced<ActionRow
     rows = db.getTable(table).getData().map(normalizeActionRow);
     memo.set(key, rows);
   }
-  return {source, readAt, data: rows};
+  return {source, readAt, team, data: rows};
 }
 
 export async function readStatsPlayers(): Promise<Sourced<Record<string, unknown>[]>> {
-  const {db, source, readAt} = await openDatabase();
+  const {db, source, readAt, team} = await openDatabase();
   if (!db.getTableNames().includes('spelersover')) throw new StatsError(404, 'Spelerstabel niet gevonden');
-  return {source, readAt, data: db.getTable('spelersover').getData()};
+  return {source, readAt, team, data: db.getTable('spelersover').getData()};
 }
 
 export function clearMdbCache(): void {
