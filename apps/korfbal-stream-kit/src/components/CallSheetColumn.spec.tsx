@@ -1,5 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {render, screen, within} from '@testing-library/react';
+import {fireEvent, render, screen, within} from '@testing-library/react';
 import {CallSheetColumn} from './CallSheetColumn';
 import {CAMERA, LED, REGIE, remaining, rustHallDone, rustItems, showItems} from '../test/showCaller';
 
@@ -102,5 +102,42 @@ describe('CallSheetColumn: the hall item next to the stream', () => {
                        onPositionChange={() => undefined} secondaryPositionId={null} accentColor="blue" isCompact/>
     );
     expect(within(screen.getByRole('status')).getByText(/Volgende:/).textContent).toContain('Start tweede helft');
+  });
+});
+
+describe('CallSheetColumn header', () => {
+  const header = (props: {onPositionChange?: (id: number) => void; isCompact?: boolean; secondaryPositionId?: number | null}) => render(
+    <CallSheetColumn title="REGIE" positionId={REGIE.id} items={showItems} activeEvent={null}
+                     autoAdvanceEventId={null} elapsedTime={0} allTimes={[]} allPositions={[REGIE, CAMERA, LED]}
+                     onPositionChange={props.onPositionChange ?? (() => undefined)} secondaryPositionId={props.secondaryPositionId ?? null}
+                     accentColor="blue" isCompact={props.isCompact ?? false}/>
+  );
+
+  it('chooses the position in one dropdown instead of a bar with every position', () => {
+    const onPositionChange = vi.fn();
+    header({onPositionChange});
+    const select = screen.getByRole('combobox', {name: 'Positie van deze kolom'}) as HTMLSelectElement;
+    expect(select.value).toBe(String(REGIE.id));
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual([REGIE.name, CAMERA.name, LED.name]);
+    fireEvent.change(select, {target: {value: String(CAMERA.id)}});
+    expect(onPositionChange).toHaveBeenCalledWith(CAMERA.id);
+    expect(screen.queryAllByRole('button', {name: CAMERA.name})).toHaveLength(0);
+  });
+
+  it('disables the positions another column shows', () => {
+    header({secondaryPositionId: CAMERA.id});
+    const options = within(screen.getByRole('combobox', {name: 'Positie van deze kolom'})).getAllByRole('option') as HTMLOptionElement[];
+    expect(options.find((o) => o.textContent === CAMERA.name)?.disabled).toBe(true);
+    expect(options.find((o) => o.textContent === LED.name)?.disabled).toBe(false);
+  });
+
+  it('sticks right under the measured page header, also when compact', () => {
+    for (const isCompact of [false, true]) {
+      const {container, unmount} = header({isCompact});
+      const sticky = container.querySelector('header') as HTMLElement;
+      expect(sticky.className).toContain('sticky top-[var(--callsheet-header-h,0px)]');
+      expect(sticky.className).not.toMatch(/top-\[\d/);
+      unmount();
+    }
   });
 });

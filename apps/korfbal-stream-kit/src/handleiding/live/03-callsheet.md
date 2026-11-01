@@ -21,6 +21,8 @@ Bovenaan staan de ploegen en de **aanvangstijd**, en een klokbalk:
 | **Resterend** | Hoe lang het actieve item nog duurt |
 | **Productie** | Hoe lang de productie al loopt (als er geen item actief is) |
 
+Boven je items staat de naam van je positie met een keuzelijst ernaast: daarmee wissel je snel naar een andere positie. Die kopregel blijft bij het scrollen direct onder de klokbalk staan.
+
 Daaronder staan jouw items onder elkaar, op tijd, verdeeld over de **hoofdstukken** van het draaiboek (bijvoorbeeld *Voorbereiding*, *Voorbeschouwing*, *Eerste helft*, *Rust*). Elk hoofdstuk begint met een kopregel; staat er in een hoofdstuk niets voor jou, dan is het één dunne regel met **— niets voor jou**. Met meer kolommen staan de kopregels op dezelfde hoogte. Per item zie je:
 
 - de **begintijd** (wordt automatisch bijgesteld als de show uitloopt of voorloopt);

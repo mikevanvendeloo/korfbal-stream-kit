@@ -1,8 +1,8 @@
 import {useNavigate, useParams} from 'react-router-dom';
-import {CallSheetColumn} from './CallSheetColumn';
+import {CALLSHEET_HEADER_VAR, CallSheetColumn} from './CallSheetColumn';
 import {TimeDisplay} from './TimeDisplay';
 import {calculateEventTimes, useLiveState} from '../hooks/useLiveState';
-import {useEffect, useMemo, useRef, useState} from "react";
+import {useEffect, useMemo, useRef, useState, type CSSProperties} from "react";
 import {MatchHeader} from "./MatchHeader";
 import {MdSettings} from "react-icons/md";
 import {useFontSize} from "../hooks/useFontSize";
@@ -257,6 +257,19 @@ export const CallSheetView = () => {
     const slots = useMemo(() => withChapterHeadings(allTimes, timedItems, chapters), [allTimes, timedItems, chapters]);
 
 
+    // The sticky page header's real height: the column headers stick right under it on every resolution
+    const [pageHeader, setPageHeader] = useState<HTMLElement | null>(null);
+    const [pageHeaderHeight, setPageHeaderHeight] = useState(0);
+    useEffect(() => {
+        if (!pageHeader) return;
+        const measure = () => setPageHeaderHeight(pageHeader.getBoundingClientRect().height);
+        measure();
+        if (typeof ResizeObserver === 'undefined') return;
+        const observer = new ResizeObserver(measure);
+        observer.observe(pageHeader);
+        return () => observer.disconnect();
+    }, [pageHeader]);
+
     const lastScrolledEventId = useRef<string | null>(null);
 
     useEffect(() => {
@@ -302,8 +315,9 @@ export const CallSheetView = () => {
     }
 
     return (
-        <div className="bg-white dark:bg-gray-950 min-h-screen text-gray-900 dark:text-white p-2 md:p-4 transition-colors">
-            <header
+        <div className="bg-white dark:bg-gray-950 min-h-screen text-gray-900 dark:text-white p-2 md:p-4 transition-colors"
+             style={{[CALLSHEET_HEADER_VAR]: `${pageHeaderHeight}px`} as CSSProperties}>
+            <header ref={setPageHeader}
                 className="mb-1 sticky top-0 z-40 bg-white dark:bg-gray-950 transition-colors">
                 <div className="flex flex-col gap-2 p-2 md:p-3 bg-gray-100/80 dark:bg-black/80 rounded-b-lg backdrop-blur-md border-b border-gray-200 dark:border-white/10 shadow-2xl relative min-h-[72px] box-content">
                     {/* Background accent */}
