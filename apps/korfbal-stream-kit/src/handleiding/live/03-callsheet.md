@@ -27,7 +27,7 @@ Boven je items staat de naam van je positie met een keuzelijst ernaast: daarmee 
 
 Daaronder staan jouw items onder elkaar, op tijd, verdeeld over de **hoofdstukken** van het draaiboek (bijvoorbeeld *Voorbereiding*, *Voorbeschouwing*, *Eerste helft*, *Rust*). Elk hoofdstuk begint met een kopregel; staat er in een hoofdstuk niets voor jou, dan is het één dunne regel met **— niets voor jou**. Met meer kolommen staan de kopregels op dezelfde hoogte.
 
-Alleen het item dat **nu** loopt en je **volgende** item staan volledig in beeld. De andere items (wat al geweest is en wat later komt) zijn één compacte regel met tijd, titel, **Stream**/**Zaal** en duur, zodat je meer van de show overziet. Met meer kolommen krijgt elke kolom zijn eigen volgende item volledig, en blijven de regels naast elkaar op dezelfde hoogte.
+Alleen het item dat **nu** loopt en je **volgende** item staan volledig in beeld. De andere items (wat al geweest is en wat later komt) zijn één compacte regel met tijd, titel, het teken voor **Auto** (gaat vanzelf door), **Stream**/**Zaal** en duur, zodat je meer van de show overziet. Met meer kolommen krijgt elke kolom zijn eigen volgende item volledig, en blijven de regels naast elkaar op dezelfde hoogte.
 
 Bij een volledig item zie je:
 

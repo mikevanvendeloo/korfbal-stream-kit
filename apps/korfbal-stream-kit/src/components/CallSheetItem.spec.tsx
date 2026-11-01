@@ -55,3 +55,17 @@ describe('CallSheetItem compact', () => {
     expect(line.textContent).toBe(`${formatSystemTime(item.calculatedTime).slice(0, 5)}Opkomst spelersStreamZaal1:30`);
   });
 });
+
+describe('CallSheetItem auto and positions', () => {
+  it('shows on a compact line that the item goes on by itself', () => {
+    const item = showItem('q', 6, 'Reclame', {autoAdvance: true});
+    render(<CallSheetItem item={item} compact/>);
+    expect(screen.getByLabelText('Gaat automatisch door')).toBeTruthy();
+  });
+
+  it('shows no positions, also in the show caller (they belong to the editor)', () => {
+    const item = showItem('p', 6, 'Shots zaal');
+    render(<CallSheetItem item={item} hideStreamVenueLabels/>);
+    expect(screen.queryByText('Regie livestream')).toBeNull();
+  });
+});

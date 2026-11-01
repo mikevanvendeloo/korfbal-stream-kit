@@ -92,13 +92,13 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
     };
 
     const getPaddingClass = () => {
-        if (fontSize === 's') return 'p-2';
-        if (fontSize === 'l') return 'p-5';
-        if (fontSize === 'xl') return 'p-7';
-        return 'p-3';
+        if (fontSize === 's') return 'p-1.5';
+        if (fontSize === 'l') return 'p-3';
+        if (fontSize === 'xl') return 'p-4';
+        return 'p-2';
     };
 
-    // Compact: one line with time, title, lanes and duration (items after the current and the next one)
+    // Compact: one line with time, title, auto, lanes and duration (items after the current and the next one)
     if (compact) {
       const compactColor = isActuallyPlaceholder ? 'border-dashed border-gray-300 dark:border-white/5 opacity-40'
         : isAnchor ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-500/40'
@@ -107,17 +107,19 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
       const tag = `rounded px-1 font-semibold uppercase ${getFontSizeClass('text-[8px]', 'text-[10px]', 'text-sm', 'text-base')}`;
       return (
         <div id={item?.id ? `event-${item.id}` : undefined} data-compact=""
-             className={`flex items-baseline gap-3 px-3 py-1.5 rounded-lg border ${compactColor} ${textColor}`}>
+             className={`flex items-center gap-3 px-3 py-1 rounded-lg border ${compactColor} ${textColor}`}>
           <span className={`font-mono tabular-nums shrink-0 text-gray-600 dark:text-gray-300 ${getFontSizeClass('text-xs', 'text-sm', 'text-xl', 'text-2xl')} ${isActuallyPlaceholder ? 'invisible' : ''}`}>
             {displayTime.slice(0, 5)}
           </span>
-          <span className={`flex-1 min-w-0 leading-snug font-semibold ${getFontSizeClass('text-sm', 'text-base', 'text-2xl', 'text-3xl')} ${isActuallyPlaceholder ? 'invisible' : ''}`}>
+          {/* Wraps on a small screen, one line on a large one */}
+          <span className={`flex-1 min-w-0 leading-snug font-semibold lg:truncate ${getFontSizeClass('text-sm', 'text-base', 'text-2xl', 'text-3xl')} ${isActuallyPlaceholder ? 'invisible' : ''}`}>
             {item?.title ? <InterviewText text={item.title} photos={showInterviewPhotos}/> : ' '}
           </span>
-          {!isActuallyPlaceholder && !hideStreamVenueLabels && (
-            <span className="flex shrink-0 gap-1 self-center">
-              {isInLivestream && <span className={`${tag} bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300`}>Stream</span>}
-              {isInVenue && <span className={`${tag} bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300`}>Zaal</span>}
+          {!isActuallyPlaceholder && (autoAdvance || !hideStreamVenueLabels) && (
+            <span className="flex shrink-0 items-center gap-1">
+              {autoAdvance && <AutoMark scheduled={isAutoAdvanceScheduled} className={getFontSizeClass('w-3.5 h-3.5', 'w-4 h-4', 'w-6 h-6', 'w-7 h-7')}/>}
+              {!hideStreamVenueLabels && isInLivestream && <span className={`${tag} bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300`}>Stream</span>}
+              {!hideStreamVenueLabels && isInVenue && <span className={`${tag} bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300`}>Zaal</span>}
             </span>
           )}
           <span className={`font-mono tabular-nums shrink-0 text-gray-500 ${getFontSizeClass('text-[10px]', 'text-xs', 'text-lg', 'text-xl')} ${isActuallyPlaceholder ? 'invisible' : ''}`}>
@@ -127,22 +129,20 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
       );
     }
 
+    const badge = `px-2 py-0.5 rounded-full font-bold ${getFontSizeClass('text-[8px]', 'text-[9px]', 'text-base', 'text-lg')}`;
     return (
     <div
       id={item?.id ? `event-${item.id}` : undefined}
       className={`${getPaddingClass()} rounded-lg border-2 shadow-sm ${statusColor} ${borderColor} ${textColor} transition-all`}
     >
-      <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
-        {/* Linker kolom: Tijdstip en Countdown */}
-        <div className="flex flex-col gap-2 w-full sm:w-auto flex-shrink-0">
-          {/* Tijd Label */}
-          <div className={`px-4 py-2.5 rounded font-mono font-bold ${getFontSizeClass('text-base', 'text-lg', 'text-2xl', 'text-4xl')} tracking-tighter whitespace-nowrap shadow-inner text-center sm:text-left ${timeLabelColor} ${isActuallyPlaceholder ? 'invisible' : 'text-gray-900 dark:text-white'}`}>
+      {/* Time (and countdown) left of the title on every screen: no stacked block on a phone */}
+      <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-1 shrink-0">
+          <div className={`px-2 py-1 rounded font-mono font-bold ${getFontSizeClass('text-sm', 'text-base', 'text-2xl', 'text-4xl')} tracking-tighter whitespace-nowrap text-center ${timeLabelColor} ${isActuallyPlaceholder ? 'invisible' : 'text-gray-900 dark:text-white'}`}>
             {displayTime}
           </div>
-
-          {/* Countdown / Resterende tijd */}
           {isActive && !isActuallyPlaceholder && (
-            <div className={`px-4 py-3 rounded-md font-mono font-black ${getFontSizeClass('text-lg', 'text-xl', 'text-4xl', 'text-6xl')} text-center shadow-lg border border-white/10 ${
+            <div className={`px-2 py-1 rounded-md font-mono font-black ${getFontSizeClass('text-base', 'text-xl', 'text-4xl', 'text-6xl')} text-center shadow ${
               remainingTime < 0 ? 'bg-red-800 dark:bg-red-900/80 text-white' :
               remainingTime <= 10 ? 'bg-orange-700 dark:bg-orange-800/80 text-white' :
               'bg-green-700 dark:bg-green-800/80 text-white'
@@ -155,59 +155,49 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
           )}
         </div>
 
-        {/* Rechter kolom: Inhoud */}
-        <div className="flex-grow min-w-0 w-full">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className={`font-bold ${getFontSizeClass('text-base', 'text-lg', 'text-3xl', 'text-5xl')} leading-tight pt-0.5 ${isActuallyPlaceholder ? 'invisible bg-gray-200 dark:bg-white/5 rounded h-6 w-1/3' : ''}`}>
-              {item?.title ? <InterviewText text={item.title} photos={showInterviewPhotos}/> : '\u00A0'}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            {/* Wraps on a small screen, one line on a large one */}
+            <h3 className={`min-w-0 font-bold ${getFontSizeClass('text-base', 'text-lg', 'text-3xl', 'text-5xl')} leading-tight lg:truncate ${isActuallyPlaceholder ? 'invisible' : ''}`}>
+              {item?.title ? <InterviewText text={item.title} photos={showInterviewPhotos}/> : ' '}
             </h3>
-            {((duration >= 0) || isActuallyPlaceholder) && (
-              <div
-                title={`${duration} seconden`}
-                className={`px-3 py-1 rounded ${getFontSizeClass('text-base', 'text-lg', 'text-2xl', 'text-4xl')} font-mono font-bold ${durationBadgeColor} border border-gray-300 dark:border-white/10 whitespace-nowrap flex-shrink-0 mt-1 ${isActuallyPlaceholder ? 'invisible bg-gray-200 dark:bg-white/5 h-5 w-10' : isActive ? 'text-white' : ''}`}
-              >
-                {formatDuration(duration)}
-              </div>
-            )}
+            <div
+              title={`${duration} seconden`}
+              className={`px-2 py-0.5 rounded ${getFontSizeClass('text-sm', 'text-base', 'text-2xl', 'text-4xl')} font-mono font-bold ${durationBadgeColor} border border-gray-300 dark:border-white/10 whitespace-nowrap shrink-0 ${isActuallyPlaceholder ? 'invisible' : isActive ? 'text-white' : ''}`}
+            >
+              {formatDuration(duration)}
+            </div>
           </div>
 
-          {/* No toelichting (note) on the callsheet: hardly used, and it made every item taller */}
-          <div className={`flex flex-wrap items-center justify-between mt-2 pt-1 border-t border-gray-200 dark:border-white/10 ${getFontSizeClass('text-[8px]', 'text-[10px]', 'text-lg', 'text-xl')} font-medium uppercase tracking-wider opacity-80 min-h-[1.25rem] ${isActuallyPlaceholder ? 'invisible' : ''}`}>
-            <div className="flex flex-wrap gap-2">
-              {!hideStreamVenueLabels && isInLivestream && (
-                <span className={`px-2 py-0.5 rounded-full border border-blue-400/30 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-bold ${getFontSizeClass('text-[8px]', 'text-[9px]', 'text-base', 'text-lg')}`}>Stream</span>
-              )}
-              {!hideStreamVenueLabels && isInVenue && (
-                <span className={`px-2 py-0.5 rounded-full border border-emerald-400/30 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 font-bold ${getFontSizeClass('text-[8px]', 'text-[9px]', 'text-base', 'text-lg')}`}>Zaal</span>
-              )}
-
-              {/* Posities als badges voor de ShowCaller view (wanneer stream/venue labels verborgen zijn) */}
-              {hideStreamVenueLabels && item?.positions && item.positions.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-1 sm:mb-0">
-                  {item.positions.map((p, idx) => (
-                    <span
-                      key={`${item.id}-pos-${p.position.id || idx}`}
-                      className={`px-2 py-0.5 rounded-full border border-gray-300 dark:border-white/10 bg-gray-200 dark:bg-white/5 text-gray-700 dark:text-gray-300 font-bold ${getFontSizeClass('text-[8px]', 'text-[9px]', 'text-base', 'text-lg')}`}
-                    >
-                      {p.position.name}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {autoAdvance && (
-                <span className={`flex items-center gap-2 ${isAutoAdvanceScheduled ? 'text-purple-800 dark:text-purple-300' : 'text-purple-800 dark:text-purple-400 opacity-100'}`}>
-                  <FastForward className={`${getFontSizeClass('w-4 h-4', 'w-5 h-5', 'w-7 h-7', 'w-8 h-8')} ${isAutoAdvanceScheduled ? 'animate-pulse scale-125' : ''}`} />
-                  Auto {isAutoAdvanceScheduled && <span className="text-[1em] font-black italic ml-1">TIMER</span>}
-                </span>
-              )}
-              {!hideStreamVenueLabels && isLinked && (
-                <span className={`px-2 py-0.5 rounded-full border border-blue-400/30 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-bold ${getFontSizeClass('text-[8px]', 'text-[9px]', 'text-base', 'text-lg')}`}>Link</span>
-              )}
-            </div>
+          {/* Lanes, auto and link; no toelichting and no positions (those belong to the editor). Always one row, so
+              placeholders in other columns keep the same height */}
+          <div className={`flex flex-wrap items-center gap-1.5 mt-1 min-h-[1.25rem] uppercase tracking-wider ${isActuallyPlaceholder ? 'invisible' : ''}`}>
+            {!hideStreamVenueLabels && isInLivestream && (
+              <span className={`${badge} border border-blue-400/30 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400`}>Stream</span>
+            )}
+            {!hideStreamVenueLabels && isInVenue && (
+              <span className={`${badge} border border-emerald-400/30 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400`}>Zaal</span>
+            )}
+            {autoAdvance && (
+              <span className={`flex items-center gap-1 font-bold ${getFontSizeClass('text-[8px]', 'text-[10px]', 'text-lg', 'text-xl')} text-purple-800 dark:text-purple-300`}>
+                <AutoMark scheduled={isAutoAdvanceScheduled} className={getFontSizeClass('w-4 h-4', 'w-5 h-5', 'w-7 h-7', 'w-8 h-8')}/>
+                Auto {isAutoAdvanceScheduled && <span className="font-black italic ml-1">TIMER</span>}
+              </span>
+            )}
+            {!hideStreamVenueLabels && isLinked && (
+              <span className={`${badge} border border-blue-400/30 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400`}>Link</span>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 };
+
+/** The item goes on by itself (auto-advance); pulses while its timer runs */
+function AutoMark({scheduled, className}: {scheduled: boolean; className: string}) {
+  return (
+    <FastForward aria-label={scheduled ? 'Gaat automatisch door, timer loopt' : 'Gaat automatisch door'}
+                 className={`text-purple-700 dark:text-purple-300 ${className} ${scheduled ? 'animate-pulse scale-125' : ''}`}/>
+  );
+}
