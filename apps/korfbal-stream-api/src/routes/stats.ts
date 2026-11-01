@@ -1,98 +1,116 @@
 import {NextFunction, Request, Response, Router} from 'express';
 import {z} from 'zod';
-import {derivePlayerStats, teamNamesOf} from '../services/stats/matchActions';
-import {getLiveStats} from '../services/stats/liveStats';
-import type {Sourced} from '../services/stats/mdbFile';
-import {listStatsMatches, readMatchActions, readStatsPlayers} from '../services/stats/mdbFile';
-import {derivedPlayerRows, livePlayerRows} from '../services/stats/flatRows';
-import {StatsError} from '../services/stats/statsErrors';
-import {currentPlayers} from '../services/stats/currentPlayers';
-import {statsConnection} from '../services/stats/connectionTest';
+import {sendApiError} from '../services/apiErrorCodes';
+import {BridgeNotConfiguredError, BridgeOfflineError, bridgeGet, statsTeam, withTeamSource, type BridgeAnswer} from '../services/stats/statsBridge';
+import {requireOrganizationId} from '../services/organizationContext';
 
-/** Match statistics from the statistics PC: the live page and the Access database. Feed routes (API key). */
+/**
+ * Match statistics from the statistics PC, through the statistics bridge (its own app: a failing PC or
+ * share takes down the bridge, not this API). Same URLs as ever, feed routes (API key): this only forwards.
+ */
 export const statsRouter: Router = Router();
 
 const wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => async (req: Request, res: Response, next: NextFunction) => {
   try {
     await fn(req, res);
   } catch (err) {
-    if (err instanceof StatsError) return res.status(err.status).json({error: err.message});
+    if (err instanceof BridgeOfflineError) return sendApiError(res, 'STATS_BRIDGE_OFFLINE');
+    if (err instanceof BridgeNotConfiguredError) return res.status(409).json({error: err.message});
     if (err instanceof z.ZodError) return res.status(400).json({error: err.issues[0]?.message || 'Ongeldige invoer'});
     return next(err);
   }
 };
 
-/** Arrays stay plain arrays (vMix data sources); where the data came from goes in headers. */
-function sendSourced<T>(res: Response, result: Sourced<T>, body: unknown = result.data) {
-  res.setHeader('X-Stats-Source', result.source);
-  res.setHeader('X-Stats-Read-At', result.readAt);
-  if (result.team) res.setHeader('X-Stats-Team', `${result.team.value}; from=${result.team.from}`);
-  return res.json(body);
-}
-
 const LiveQuery = z.object({
   team: z.enum(['home', 'away']),
   vak: z.coerce.number().int().min(1).max(4).optional(),
 });
+const TableParam = z.string().min(1).max(200);
+
+/** What the bridge says about its token is a setup problem here, not an offline bridge. */
+function mapBridgeAnswer(answer: BridgeAnswer): BridgeAnswer {
+  if (answer.status === 401 || answer.status === 403) {
+    return {...answer, status: 502, body: {error: 'De statistics bridge weigert het bridge-token: controleer het token bij Instellingen → Statistieken'}};
+  }
+  return answer;
+}
+
+/** Forward `path` to the bridge (with the production's team unless `withTeam` is false) and pass its answer on. */
+async function forward(res: Response, path: string, query: Record<string, string | number | undefined> = {}, withTeam = true) {
+  const team = withTeam ? await statsTeam() : null;
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(query)) if (v !== undefined) params.set(k, String(v));
+  if (team) params.set('team', team.value);
+  const qs = params.toString();
+  const answer = mapBridgeAnswer(await bridgeGet(`${path}${qs ? `?${qs}` : ''}`));
+  const {headers, body} = team ? withTeamSource(answer, team) : {headers: answer.headers, body: answer.body};
+  for (const [k, v] of Object.entries(headers)) res.setHeader(k, v);
+  return res.status(answer.status).json(body);
+}
+
+// GET /api/stats/status: {bridge: {ok, ms}} plus the bridge's own connection test when it is online. Never an error
+// for an offline bridge: the kit shows it as "offline". Cached 3 s per organization, one running check shared.
+const STATUS_CACHE_MS = 3000;
+type StatusEntry = {at: number; value?: unknown; pending?: Promise<unknown>};
+const statusEntries = new Map<string, StatusEntry>();
+
+export function clearStatsStatusCache(): void {
+  statusEntries.clear();
+}
+
+async function bridgeStatus(): Promise<unknown> {
+  const team = await statsTeam();
+  try {
+    const answer = mapBridgeAnswer(await bridgeGet(`/status?team=${team.value}`));
+    if (answer.status !== 200) return {bridge: {ok: false, ms: null}, team};
+    const {body} = withTeamSource(answer, team);
+    return {bridge: {ok: true, ms: answer.ms}, ...(body as object), ...((body as {team?: unknown}).team ? {team} : {})};
+  } catch (err) {
+    if (err instanceof BridgeOfflineError) return {bridge: {ok: false, ms: null}, team};
+    throw err;
+  }
+}
+
+statsRouter.get('/status', wrap(async (_req, res) => {
+  const key = String(requireOrganizationId('statistics status'));
+  const hit = statusEntries.get(key);
+  if (hit?.pending) return res.json(await hit.pending);
+  if (hit?.value && Date.now() - hit.at < STATUS_CACHE_MS) return res.json(hit.value);
+  const entry: StatusEntry = {at: 0};
+  entry.pending = bridgeStatus().then(
+    (value) => {
+      entry.value = value;
+      entry.at = Date.now();
+      entry.pending = undefined;
+      return value;
+    },
+    (err) => {
+      statusEntries.delete(key);
+      throw err;
+    },
+  );
+  statusEntries.set(key, entry);
+  return res.json(await entry.pending);
+}));
 
 // GET /api/stats/live
-// Connection test: the statistics PC on the network (SMB port), the database file and the page; ok/failed only
-statsRouter.get('/status', wrap(async (_req, res) => res.json(await statsConnection())));
-
-statsRouter.get('/live', wrap(async (_req, res) => res.json(await getLiveStats())));
+statsRouter.get('/live', wrap(async (_req, res) => forward(res, '/live', {}, false)));
 
 // GET /api/stats/live/players?team=home|away&vak=1
 statsRouter.get('/live/players', wrap(async (req, res) => {
   const q = LiveQuery.parse({team: req.query.team, vak: req.query.vak});
-  return res.json(livePlayerRows(await getLiveStats(), q.team, q.vak));
+  return forward(res, '/live/players', {team: q.team, vak: q.vak}, false);
 }));
 
 // GET /api/stats/matches
-statsRouter.get('/matches', wrap(async (_req, res) => sendSourced(res, await listStatsMatches())));
+statsRouter.get('/matches', wrap(async (_req, res) => forward(res, '/matches')));
 
-const TableParam = z.string().min(1).max(200);
-
-// GET /api/stats/matches/:table/actions
-statsRouter.get('/matches/:table/actions', wrap(async (req, res) => {
-  const table = TableParam.parse(req.params.table);
-  const result = await readMatchActions(table);
-  return sendSourced(res, result, result.data.filter((r) => r.optelveld !== 0));
-}));
-
-// GET /api/stats/matches/:table/players
-statsRouter.get('/matches/:table/players', wrap(async (req, res) => {
-  const table = TableParam.parse(req.params.table);
-  const {source, readAt, team, data: rows} = await readMatchActions(table);
-  const teams = teamNamesOf(rows);
-  return res.json({source, readAt, team, teams, players: derivedPlayerRows(derivePlayerStats(rows), teams)});
-}));
-
-const PLAYER_COLUMNS = ['SPELERSNAAM', 'NUMMER', 'vereniging', 'SEX', 'afstandschotgoal', 'afstandschottotaal', 'doorloopgoal', 'doorlooptotaal', 'kortschotgoal', 'kortschottotaal', 'vrijebalgoal', 'vrijebaltotaal', 'strafworpgoal', 'strafworptotaal', 'totaalgoals', 'totaalpogingen', 'reboundgewonnen', 'reboundtotaal', 'aangeef'];
+// GET /api/stats/matches/:table/actions and /players
+statsRouter.get('/matches/:table/actions', wrap(async (req, res) => forward(res, `/matches/${encodeURIComponent(TableParam.parse(req.params.table))}/actions`)));
+statsRouter.get('/matches/:table/players', wrap(async (req, res) => forward(res, `/matches/${encodeURIComponent(TableParam.parse(req.params.table))}/players`)));
 
 // GET /api/stats/players
-statsRouter.get('/players', wrap(async (_req, res) => {
-  const result = await readStatsPlayers();
-  return sendSourced(res, result, result.data.map((r) => Object.fromEntries(PLAYER_COLUMNS.filter((c) => c in r).map((c) => [c, r[c] instanceof Date ? (r[c] as Date).toISOString() : r[c]]))));
-}));
+statsRouter.get('/players', wrap(async (_req, res) => forward(res, '/players')));
 
-// GET /api/stats/current/players: the newest match of the database (share or local copy); when neither is
-// readable, the player rows of the live page. Same flat rows either way, with `source` and `readAt`.
-statsRouter.get('/current/players', wrap(async (_req, res) => {
-  try {
-    const current = await currentPlayers();
-    return sendSourced(res, {source: current.source, readAt: current.readAt, team: current.team, data: current.rows}, current.rows);
-  } catch (err) {
-    if (!(err instanceof StatsError)) throw err;
-    let page;
-    try {
-      page = await getLiveStats();
-    } catch {
-      throw new StatsError(503, 'Geen statistieken beschikbaar: het bestand en de statistiekenpagina zijn niet bereikbaar');
-    }
-    const readAt = new Date().toISOString();
-    const out = [...livePlayerRows(page, 'home'), ...livePlayerRows(page, 'away')].map((p) => ({...p, source: 'page' as const, readAt}));
-    res.setHeader('X-Stats-Source', 'page');
-    res.setHeader('X-Stats-Read-At', readAt);
-    return res.json(out);
-  }
-}));
+// GET /api/stats/current/players: the bridge answers from the database, else the page
+statsRouter.get('/current/players', wrap(async (_req, res) => forward(res, '/current/players')));

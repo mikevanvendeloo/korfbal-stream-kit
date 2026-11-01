@@ -121,17 +121,27 @@ export async function setSponsorSlidesTypes(types: string[]): Promise<void> {
 }
 
 export const MATCH_STATS_KEY = 'matchStats';
-/** keepCopy: keep a local copy of the .mdb as a fallback (default on; off saves writes and never reads an old copy) */
-/** shareHost: the statistics PC on the network (IP or name) for the connection test; else the page URL's host */
-export type MatchStatsSetting = {pageUrl: string | null; mdbPath: string | null; keepCopy: boolean; shareHost: string | null};
+/** The bridge's shared secret lives under its own key so it can be kept out of the settings backup. */
+export const MATCH_STATS_BRIDGE_TOKEN_KEY = 'matchStatsBridgeToken';
+/** bridgeUrl: the statistics bridge (its own app, one per venue) that reads the statistics PC; older values (pageUrl, mdbPath, ...) are ignored */
+export type MatchStatsSetting = {bridgeUrl: string | null};
 
 export async function getMatchStats(): Promise<MatchStatsSetting> {
   const v = await getSetting<Partial<MatchStatsSetting>>(MATCH_STATS_KEY);
-  return {pageUrl: v?.pageUrl || null, mdbPath: v?.mdbPath || null, keepCopy: v?.keepCopy !== false, shareHost: v?.shareHost || null};
+  return {bridgeUrl: v?.bridgeUrl || null};
 }
 
 export async function setMatchStats(input: MatchStatsSetting): Promise<void> {
   await setSetting(MATCH_STATS_KEY, input);
+}
+
+/** The bridge token: never returned by an API route, only sent to the bridge. */
+export async function getBridgeToken(): Promise<string | null> {
+  return (await getSetting<string>(MATCH_STATS_BRIDGE_TOKEN_KEY)) || null;
+}
+
+export async function setBridgeToken(token: string | null): Promise<void> {
+  await setSetting(MATCH_STATS_BRIDGE_TOKEN_KEY, token ?? '');
 }
 
 export async function getScoreboardUrl(): Promise<string | null> {

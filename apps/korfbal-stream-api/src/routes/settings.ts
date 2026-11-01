@@ -1,9 +1,10 @@
 import {Router} from 'express';
-import {clearLiveStatsCache} from '../services/stats/liveStats';
-import {clearMdbCache} from '../services/stats/mdbFile';
+import {clearStatsBridgeCache} from '../services/stats/statsBridge';
 import {clearStatsTeamCache} from '../services/stats/statsTeam';
 import {
+  getBridgeToken,
   getMatchStats,
+  setBridgeToken,
   setMatchStats,
   getScoreboardUrl,
   getSetting,
@@ -177,34 +178,51 @@ settingsRouter.put('/scoreboard-config', async (req, res, next) => {
   }
 });
 
-// GET /api/settings/match-stats
+// GET /api/settings/match-stats: the bridge's address; the token is never returned (hasBridgeToken only)
 settingsRouter.get('/match-stats', async (_req, res, next) => {
   try {
-    return res.json(await getMatchStats());
+    const [{bridgeUrl}, token] = await Promise.all([getMatchStats(), getBridgeToken()]);
+    return res.json({bridgeUrl, hasBridgeToken: !!token});
   } catch (err) {
     return next(err);
   }
 });
 
-// PUT /api/settings/match-stats: the statistics PC's page (http or https: LAN device) and the .mdb path inside STATS_DIR
+function originOf(url: string | null): string | null {
+  try {
+    return url ? new URL(url).origin : null;
+  } catch {
+    return null;
+  }
+}
+
+// PUT /api/settings/match-stats {bridgeUrl, bridgeToken?}: the statistics bridge (http or https: LAN device).
+// bridgeToken absent keeps it, null or '' removes it; it is also removed when the bridge's origin changes
+// without a new token, so a token never travels to another server.
 const MatchStatsSchema = z.object({
-  pageUrl: z.string().trim().max(500).nullable().optional().transform((v) => v || null)
-    .refine((v) => v === null || /^https?:\/\/[^\s/]+/i.test(v) || (!/^([a-z]:|[\\/])/i.test(v) && !v.split(/[\\/]+/).includes('..') && /\.html?$/i.test(v)), 'De pagina-URL moet met http:// of https:// beginnen, of een relatief pad naar een .html-bestand zijn'),
-  mdbPath: z.string().trim().max(500).nullable().optional().transform((v) => v || null)
-    .refine((v) => v === null || (!/^([a-z]:|[\\/])/i.test(v) && !v.split(/[\\/]+/).includes('..') && /\.(mdb|accdb)$/i.test(v)), 'Het pad moet relatief zijn (zonder ..) en op .mdb of .accdb eindigen; {team} is toegestaan'),
-  keepCopy: z.boolean().optional().default(true),
-  shareHost: z.string().trim().max(253).nullable().optional().transform((v) => v || null)
-    .refine((v) => v === null || /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i.test(v), 'Vul een IP-adres of computernaam in, zoals 10.12.0.63'),
+  bridgeUrl: z.string().trim().max(500).nullable().optional().transform((v) => (v || null)?.replace(/\/+$/, '') ?? null)
+    .refine((v) => {
+      if (v === null) return true;
+      try {
+        const u = new URL(v);
+        return /^https?:$/.test(u.protocol) && !u.username && !u.password && !u.search && !u.hash;
+      } catch {
+        return false;
+      }
+    }, 'Het adres van de statistics bridge moet met http:// of https:// beginnen, zoals http://statistics-bridge:3340'),
+  bridgeToken: z.string().max(500).nullable().optional(),
 });
 
 settingsRouter.put('/match-stats', async (req, res, next) => {
   try {
     const parsed = MatchStatsSchema.parse(req.body);
-    await setMatchStats({pageUrl: parsed.pageUrl, mdbPath: parsed.mdbPath, keepCopy: parsed.keepCopy, shareHost: parsed.shareHost});
-    clearLiveStatsCache();
-    clearMdbCache();
+    const before = await getMatchStats();
+    await setMatchStats({bridgeUrl: parsed.bridgeUrl});
+    if (parsed.bridgeToken !== undefined) await setBridgeToken(parsed.bridgeToken || null);
+    else if (originOf(before.bridgeUrl) !== originOf(parsed.bridgeUrl)) await setBridgeToken(null);
+    clearStatsBridgeCache();
     clearStatsTeamCache();
-    return res.json(parsed);
+    return res.json({bridgeUrl: parsed.bridgeUrl, hasBridgeToken: !!(await getBridgeToken())});
   } catch (err: any) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid payload' });
     return next(err);

@@ -37,12 +37,10 @@ import {organizationsRouter} from './routes/organizations';
 import {matchSourceRouter} from './routes/matchSource';
 import {applyStandardSetWhereMissing} from './services/standardSet';
 import {migrateLogoStorage} from './services/logoStorage';
-import {installMdbReader} from './services/stats/mdbReader';
 
 const app: Express = express();
 
 // Match statistics: read the statistics PC's Access file
-installMdbReader();
 
 /** The HTTP server with Socket.io; tests listen on it to connect socket clients. */
 export const httpServer = createServer(app);

@@ -68,6 +68,13 @@ export const API_ERRORS = {
     status: 502, error: 'De wedstrijdbron gaf een onverwacht antwoord',
     hint: 'Controleer het Adres (URL): het moet naar de API van de bron wijzen (eindigt meestal op /v1), niet naar de website.',
   },
+
+  // Statistics bridge (its own app next to the API): unreachable, not answering in time or not a bridge
+  /** The statistics bridge is offline (the PC or share may be fine: only the bridge is down) */
+  STATS_BRIDGE_OFFLINE: {
+    status: 503, error: 'De statistics bridge is offline',
+    hint: 'Controleer of de statistics bridge draait en of het adres bij Instellingen → Statistieken klopt.',
+  },
 } as const;
 
 export type ApiErrorCode = keyof typeof API_ERRORS;

@@ -1,236 +1,257 @@
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+import http from 'node:http';
+import type {AddressInfo} from 'node:net';
 import request from 'supertest';
-import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi} from 'vitest';
-import axios from 'axios';
+import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest';
 import app from '../main';
-import {config, getAssetsRoot} from '../services/config';
 import {ensureOrganization, testDb as prisma} from '../../test-helpers';
-import {runWithOrganization} from '../services/organizationContext';
-import {clearSettingsCache, setSetting} from '../services/appSettings';
 import {createProductionScenario} from '../../test-scenarios';
-import {clearStatsTeamCache} from '../services/stats/statsTeam';
+import {runWithOrganization} from '../services/organizationContext';
+import {clearSettingsCache, getSetting, setSetting} from '../services/appSettings';
 import {createApiKey} from '../services/apiKeys';
-import {clearLiveStatsCache} from '../services/stats/liveStats';
-import {clearMdbCache, copyFileName, setMdbOpener, setSmbProbe} from '../services/stats/mdbFile';
-import {readCsv} from '../services/stats/testCsv';
+import {clearStatsBridgeCache} from '../services/stats/statsBridge';
+import {clearStatsTeamCache} from '../services/stats/statsTeam';
+import {clearStatsStatusCache} from './stats';
 
 const runDb = process.env.REQUIRE_DB === 'true';
-const fixtures = path.join(__dirname, '../test-fixtures/stats');
 const ORG = 'stats-a';
 const OTHER = 'stats-b';
-const TABLE = 'Fortuna Koog Zaandijk_31_10_2026';
 const asA = (r: request.Test) => r.set('X-Organization', ORG);
 const asB = (r: request.Test) => r.set('X-Organization', OTHER);
 
-describe.runIf(runDb)('statistics routes (integration)', () => {
+type Seen = {url: string; token: string | undefined};
+
+/** A stand-in for the statistics bridge: answers what the test sets and remembers what it was asked. */
+function fakeBridge() {
+  const seen: Seen[] = [];
+  let respond: (url: URL, res: http.ServerResponse) => void = (_url, res) => res.end('{}');
+  const server = http.createServer((req, res) => {
+    seen.push({url: req.url ?? '', token: req.headers['x-bridge-token'] as string | undefined});
+    res.setHeader('Content-Type', 'application/json');
+    respond(new URL(req.url ?? '/', 'http://bridge'), res);
+  });
+  return {
+    seen,
+    answer: (fn: typeof respond) => { respond = fn; },
+    start: () => new Promise<string>((resolve) => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`))),
+    stop: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  };
+}
+
+describe.runIf(runDb)('statistics routes through the bridge (integration)', () => {
   let orgA: number;
   let orgB: number;
-  let dir: string;
-  const originalStatsDir = config.statsDir;
+  let bridgeUrl: string;
+  const bridge = fakeBridge();
+
+  const configure = async (url: string | null, token: string | null = null, org = orgA) => {
+    await runWithOrganization(org, () => setSetting('matchStats', {bridgeUrl: url}));
+    await runWithOrganization(org, () => setSetting('matchStatsBridgeToken', token ?? ''));
+    clearSettingsCache();
+    clearStatsBridgeCache();
+    clearStatsStatusCache();
+    clearStatsTeamCache();
+  };
 
   beforeAll(async () => {
     orgA = await ensureOrganization(prisma, ORG, 'Stats A');
     orgB = await ensureOrganization(prisma, OTHER, 'Stats B');
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stats-'));
-    fs.mkdirSync(path.join(dir, 'F1'));
-    fs.copyFileSync(path.join(fixtures, 'WEDSTRIJDEN.mdb'), path.join(dir, 'F1', 'WEDSTRIJDEN.mdb'));
-    (config as {statsDir: string}).statsDir = dir;
-    const csv = readCsv(`${TABLE}.csv`);
-    const players = readCsv('spelersover.csv');
-    // The page URL's host is probed first: the test PC (10.12.0.63) does not exist here
-    setSmbProbe(async () => ({ok: true, ms: 1}));
-    setMdbOpener(() => ({
-      getTableNames: () => [TABLE, 'DVO DOS46_01_11_2026', 'spelersover'],
-      getTable: (name) => ({getData: () => (name === TABLE ? csv : name === 'spelersover' ? players : [])}),
-    }));
+    bridgeUrl = await bridge.start();
   });
 
   afterAll(async () => {
-    (config as {statsDir: string}).statsDir = originalStatsDir;
-    setMdbOpener(null);
-    setSmbProbe(null);
-    fs.rmSync(dir, {recursive: true, force: true});
-    fs.rmSync(path.join(getAssetsRoot(), 'stats', ORG), {recursive: true, force: true});
+    await bridge.stop();
     await prisma.organization.deleteMany({where: {slug: {in: [ORG, OTHER]}}});
   });
 
   beforeEach(async () => {
-    clearLiveStatsCache();
-    clearMdbCache();
-    clearStatsTeamCache();
-    await runWithOrganization(orgA, () => setSetting('matchStats', {pageUrl: 'http://10.12.0.63/tweede.html', mdbPath: 'F1/WEDSTRIJDEN.mdb'}));
-    await runWithOrganization(orgB, () => setSetting('matchStats', {pageUrl: null, mdbPath: null}));
-    clearSettingsCache();
+    bridge.seen.length = 0;
+    bridge.answer((_url, res) => res.end(JSON.stringify({ok: true})));
+    await configure(bridgeUrl, 'bridge-secret');
+    await configure(null, null, orgB);
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => clearStatsBridgeCache());
 
-  const mockPage = () =>
-    vi.spyOn(axios, 'get').mockResolvedValue({data: new Uint8Array(fs.readFileSync(path.join(fixtures, 'tweede-scherm.html')))});
-
-  it('answers the parsed page and fetches the stats PC once for several polls', async () => {
-    const get = mockPage();
-    const first = await asA(request(app).get('/api/stats/live'));
-    expect(first.status, first.text).toBe(200);
-    expect(first.body.home.score).toBe(27);
-    expect(first.body.clock).toBe('00:55:11');
-    await asA(request(app).get('/api/stats/live'));
-    await asA(request(app).get('/api/stats/live/players?team=home'));
-    expect(get).toHaveBeenCalledTimes(1);
-    const url = get.mock.calls[0][0] as string;
-    expect(url).toBe('http://10.12.0.63/tweede.html');
-    expect(get.mock.calls[0][1]).toMatchObject({maxContentLength: expect.any(Number), signal: expect.anything()});
-  });
-
-  it('gives flat player rows for vMix', async () => {
-    mockPage();
-    const res = await asA(request(app).get('/api/stats/live/players?team=away&vak=1'));
-    expect(res.status).toBe(200);
-    const zoe = res.body.find((p: {name: string}) => p.name === 'Zoë Engel');
-    expect(zoe).toMatchObject({team: 'away', vak: 1, afstandGoals: expect.any(Number), afstand: expect.stringMatching(/^\d+\/\d+$/)});
-    expect((await asA(request(app).get('/api/stats/live/players?team=sideways'))).status).toBe(400);
-  });
-
-  it('answers 409 when not configured and 502 when the stats PC is unreachable', async () => {
-    const none = await asB(request(app).get('/api/stats/live'));
-    expect(none.status).toBe(409);
-    expect(none.body.error).toMatch(/niet ingesteld/);
-    vi.spyOn(axios, 'get').mockRejectedValue(new Error('connect ECONNREFUSED 10.12.0.63:80'));
-    const down = await asA(request(app).get('/api/stats/live'));
-    expect(down.status).toBe(502);
-    expect(down.text).not.toContain('ECONNREFUSED');
-  });
-
-  it('lists the match tables and derives per-player stats', async () => {
-    const list = await asA(request(app).get('/api/stats/matches'));
-    expect(list.status, list.text).toBe(200);
-    expect(list.body.map((m: {table: string}) => m.table)).toEqual(['DVO DOS46_01_11_2026', TABLE]);
-    const res = await asA(request(app).get(`/api/stats/matches/${encodeURIComponent(TABLE)}/players`));
-    expect(res.status).toBe(200);
-    const roos = res.body.players.find((p: {name: string}) => p.name === 'Roos van Groen');
-    expect(roos).toMatchObject({team: 'home', afstand: '3/7', rebound: '1/1'});
-    const actions = await asA(request(app).get(`/api/stats/matches/${encodeURIComponent(TABLE)}/actions`));
-    expect(actions.status).toBe(200);
-    expect(actions.body.length).toBeGreaterThan(100);
-    const players = await asA(request(app).get('/api/stats/players'));
-    expect(players.status).toBe(200);
-    expect(players.body[0]).toHaveProperty('SPELERSNAAM');
-  });
-
-  it('only reads listed match tables', async () => {
-    expect((await asA(request(app).get('/api/stats/matches/spelersover/actions'))).status).toBe(404);
-    expect((await asA(request(app).get('/api/stats/matches/..%2F..%2Fetc/actions'))).status).toBe(404);
-  });
-
-  it('keeps organizations apart and answers 409 for an organization without a file', async () => {
-    expect((await asB(request(app).get('/api/stats/matches'))).status).toBe(409);
-  });
-
-  it('refuses a path that leaves the share or is no Access file', async () => {
-    for (const mdbPath of ['../secret.mdb', '/etc/passwd', 'F1/notes.txt']) {
-      await runWithOrganization(orgA, () => setSetting('matchStats', {pageUrl: null, mdbPath}));
-      clearSettingsCache();
-      clearMdbCache();
-      const res = await asA(request(app).get('/api/stats/matches'));
-      expect(res.status, mdbPath).toBe(400);
-    }
-  });
-
-  it('says where the data came from and falls back to the copy when the share is gone', async () => {
-    const first = await asA(request(app).get('/api/stats/matches'));
-    expect(first.headers['x-stats-source']).toBe('share');
-    const copy = path.join(getAssetsRoot(), 'stats', ORG, copyFileName('F1/WEDSTRIJDEN.mdb'));
-    expect(fs.existsSync(copy)).toBe(true);
-    fs.renameSync(path.join(dir, 'F1'), path.join(dir, 'F1-weg'));
-    try {
-      clearMdbCache();
-      const res = await asA(request(app).get('/api/stats/matches'));
-      expect(res.status, res.text).toBe(200);
-      expect(res.headers['x-stats-source']).toBe('copy');
-      expect(res.headers['x-stats-read-at']).toBe(fs.statSync(copy).mtime.toISOString());
-      const players = await asA(request(app).get(`/api/stats/matches/${encodeURIComponent(TABLE)}/players`));
-      expect(players.body.source).toBe('copy');
-    } finally {
-      fs.renameSync(path.join(dir, 'F1-weg'), path.join(dir, 'F1'));
-    }
-  });
-
-  it('current/players: newest match from the database, else the live page', async () => {
-    const db = await asA(request(app).get('/api/stats/current/players'));
-    expect(db.status, db.text).toBe(200);
-    expect(db.body[0]).toMatchObject({source: 'share', vak: null});
-    // No share and no copy: the page
-    fs.rmSync(path.join(getAssetsRoot(), 'stats', ORG), {recursive: true, force: true});
-    fs.renameSync(path.join(dir, 'F1'), path.join(dir, 'F1-weg'));
-    try {
-      clearMdbCache();
-      mockPage();
-      const page = await asA(request(app).get('/api/stats/current/players'));
-      expect(page.status, page.text).toBe(200);
-      expect(page.body[0]).toMatchObject({source: 'page', vak: 1, afstand: expect.stringMatching(/^\d+\/\d+$/)});
-      expect(page.headers['x-stats-source']).toBe('page');
-      vi.spyOn(axios, 'get').mockRejectedValue(new Error('down'));
-      clearLiveStatsCache();
-      expect((await asA(request(app).get('/api/stats/current/players'))).status).toBe(503);
-    } finally {
-      fs.renameSync(path.join(dir, 'F1-weg'), path.join(dir, 'F1'));
-    }
-  });
-
-  it('reads the page from a local .html file inside STATS_DIR', async () => {
-    fs.copyFileSync(path.join(fixtures, 'tweede-scherm.html'), path.join(dir, 'F1', 'tweede.html'));
-    const get = vi.spyOn(axios, 'get');
-    const ok = await asA(request(app).put('/api/settings/match-stats')).send({pageUrl: 'F1/tweede.html', mdbPath: null});
-    expect(ok.status, ok.text).toBe(200);
-    const res = await asA(request(app).get('/api/stats/live'));
+  it('forwards to the bridge with the token and the production team, and passes the X-Stats headers on', async () => {
+    bridge.answer((_url, res) => {
+      res.setHeader('X-Stats-Source', 'share');
+      res.setHeader('X-Stats-Read-At', '2026-10-31T20:00:00.000Z');
+      res.setHeader('X-Stats-Team', '1');
+      res.end(JSON.stringify([{table: 'Fortuna Koog Zaandijk_31_10_2026', home: 'Fortuna', away: 'Koog Zaandijk', date: '2026-10-31'}]));
+    });
+    const res = await asA(request(app).get('/api/stats/matches'));
     expect(res.status, res.text).toBe(200);
-    expect(res.body.home.score).toBe(27);
-    expect(get).not.toHaveBeenCalled();
-    for (const pageUrl of ['../tweede.html', '/etc/x.html', 'F1/tweede.txt']) {
-      expect((await asA(request(app).put('/api/settings/match-stats')).send({pageUrl, mdbPath: null})).status, pageUrl).toBe(400);
-    }
+    expect(res.body[0].table).toBe('Fortuna Koog Zaandijk_31_10_2026');
+    expect(res.headers['x-stats-source']).toBe('share');
+    expect(res.headers['x-stats-read-at']).toBe('2026-10-31T20:00:00.000Z');
+    expect(res.headers['x-stats-team']).toBe('1; from=default');
+    expect(bridge.seen[0]).toEqual({url: '/matches?team=1', token: 'bridge-secret'});
   });
 
-  it('{team} in the path follows the team of the active production (1 by default)', async () => {
-    fs.mkdirSync(path.join(dir, 'F2'), {recursive: true});
-    fs.copyFileSync(path.join(fixtures, 'WEDSTRIJDEN.mdb'), path.join(dir, 'F2', 'WEDSTRIJDEN.mdb'));
+  it('asks for the team of the active production and says so', async () => {
     await runWithOrganization(orgA, () => setSetting('productionTeamNames', ['Stats Team 2']));
-    await runWithOrganization(orgA, () => setSetting('matchStats', {pageUrl: null, mdbPath: 'F{team}/WEDSTRIJDEN.mdb', keepCopy: false, shareHost: null}));
-    clearSettingsCache();
-    // No active production: team 1, said so
-    const none = await asA(request(app).get('/api/stats/matches'));
-    expect(none.status, none.text).toBe(200);
-    expect(none.headers['x-stats-team']).toBe('1; from=default');
     const show = await createProductionScenario(prisma, {active: true, organizationId: orgA, match: {homeTeamName: 'Stats Team 2', awayTeamName: 'Tegenstander 1'}});
     try {
       clearStatsTeamCache();
-      clearMdbCache();
-      const res = await asA(request(app).get('/api/stats/matches'));
+      bridge.answer((_url, res) => {
+        res.setHeader('X-Stats-Team', '2');
+        res.end(JSON.stringify({source: 'share', readAt: '2026-10-31T20:00:00.000Z', team: {value: '2'}, teams: {own: 'A', opponent: 'B'}, players: []}));
+      });
+      const res = await asA(request(app).get('/api/stats/matches/Some%20Match_31_10_2026/players'));
       expect(res.status, res.text).toBe(200);
+      expect(bridge.seen[0].url).toBe('/matches/Some%20Match_31_10_2026/players?team=2');
+      expect(res.body.team).toEqual({value: '2', from: 'production'});
       expect(res.headers['x-stats-team']).toBe('2; from=production');
-      const players = await asA(request(app).get(`/api/stats/matches/${encodeURIComponent(TABLE)}/players`));
-      expect(players.body.team).toEqual({value: '2', from: 'production'});
-      // The team is one of the folders: with F2 gone the read fails instead of using F1
-      fs.rmSync(path.join(dir, 'F2'), {recursive: true});
-      clearMdbCache();
-      expect((await asA(request(app).get('/api/stats/matches'))).status).toBeGreaterThanOrEqual(404);
     } finally {
       await show.cleanup();
     }
   });
 
-  it('validates the settings and lets a feed use the API key', async () => {
-    const bad = await asA(request(app).put('/api/settings/match-stats')).send({pageUrl: 'ftp://x', mdbPath: null});
-    expect(bad.status).toBe(400);
-    const bad2 = await asA(request(app).put('/api/settings/match-stats')).send({pageUrl: null, mdbPath: '../x.mdb'});
-    expect(bad2.status).toBe(400);
-    const ok = await asA(request(app).put('/api/settings/match-stats')).send({pageUrl: 'http://10.12.0.63/tweede.html', mdbPath: 'F1/WEDSTRIJDEN.mdb'});
-    expect(ok.status, ok.text).toBe(200);
-    mockPage();
+  it('lets live/players keep its own team parameter (home or away) and vak', async () => {
+    const res = await asA(request(app).get('/api/stats/live/players?team=away&vak=1'));
+    expect(res.status).toBe(200);
+    expect(bridge.seen[0].url).toBe('/live/players?team=away&vak=1');
+    expect((await asA(request(app).get('/api/stats/live/players?team=sideways'))).status).toBe(400);
+  });
+
+  it('shares one request for polls within a moment', async () => {
+    await asA(request(app).get('/api/stats/live'));
+    await asA(request(app).get('/api/stats/live'));
+    await asA(request(app).get('/api/stats/live'));
+    expect(bridge.seen).toHaveLength(1);
+  });
+
+  it('passes the bridge\'s own refusals on (not set up PC, database off) with their message', async () => {
+    bridge.answer((_url, res) => {
+      res.statusCode = 503;
+      res.end(JSON.stringify({error: 'Database niet beschikbaar'}));
+    });
+    const res = await asA(request(app).get('/api/stats/players'));
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({error: 'Database niet beschikbaar'});
+  });
+
+  describe('bridge offline', () => {
+    it('answers 503 STATS_BRIDGE_OFFLINE when nothing listens', async () => {
+      const dead = fakeBridge();
+      const deadUrl = await dead.start();
+      await dead.stop();
+      await configure(deadUrl);
+      const res = await asA(request(app).get('/api/stats/live'));
+      expect(res.status).toBe(503);
+      expect(res.body).toMatchObject({code: 'STATS_BRIDGE_OFFLINE', error: 'De statistics bridge is offline'});
+    });
+
+    it('treats a redirect as offline and never follows it', async () => {
+      const target = fakeBridge();
+      const targetUrl = await target.start();
+      bridge.answer((_url, res) => {
+        res.statusCode = 302;
+        res.setHeader('Location', `${targetUrl}/intern`);
+        res.end('{}');
+      });
+      const res = await asA(request(app).get('/api/stats/live'));
+      expect(res.status).toBe(503);
+      expect(res.body.code).toBe('STATS_BRIDGE_OFFLINE');
+      expect(target.seen).toHaveLength(0);
+      await target.stop();
+    });
+
+    it('treats a page that is not the bridge\'s JSON (a proxy error) as offline', async () => {
+      bridge.answer((_url, res) => {
+        res.statusCode = 502;
+        res.end('<html>Bad gateway</html>');
+      });
+      expect((await asA(request(app).get('/api/stats/matches'))).body.code).toBe('STATS_BRIDGE_OFFLINE');
+    });
+
+    it('answers 409 when the organization has no bridge', async () => {
+      const res = await asB(request(app).get('/api/stats/live'));
+      expect(res.status).toBe(409);
+      expect(res.body.error).toMatch(/niet ingesteld/);
+    });
+
+    it('shows a refused token as a setup problem without echoing it', async () => {
+      bridge.answer((_url, res) => {
+        res.statusCode = 401;
+        res.end(JSON.stringify({error: 'Bridge-token ontbreekt of is ongeldig'}));
+      });
+      const res = await asA(request(app).get('/api/stats/live'));
+      expect(res.status).toBe(502);
+      expect(res.text).not.toContain('bridge-secret');
+    });
+  });
+
+  describe('status', () => {
+    it('answers {bridge: {ok, ms}} plus the bridge\'s own test, cached for a few seconds', async () => {
+      bridge.answer((_url, res) => res.end(JSON.stringify({team: {value: '1'}, host: '10.12.0.63', network: {ok: true, ms: 3}, database: {ok: true, ms: 5}, page: {ok: true, ms: 40}})));
+      const res = await asA(request(app).get('/api/stats/status'));
+      expect(res.status, res.text).toBe(200);
+      expect(res.body.bridge).toMatchObject({ok: true});
+      expect(res.body).toMatchObject({network: {ok: true}, database: {ok: true}, page: {ok: true}, team: {value: '1', from: 'default'}});
+      await asA(request(app).get('/api/stats/status'));
+      expect(bridge.seen).toHaveLength(1);
+    });
+
+    it('is 200 with bridge.ok false when the bridge is offline', async () => {
+      const dead = fakeBridge();
+      const deadUrl = await dead.start();
+      await dead.stop();
+      await configure(deadUrl);
+      const res = await asA(request(app).get('/api/stats/status'));
+      expect(res.status).toBe(200);
+      expect(res.body.bridge).toEqual({ok: false, ms: null});
+    });
+  });
+
+  describe('settings', () => {
+    it('never returns the token and keeps, replaces or clears it', async () => {
+      const get = await asA(request(app).get('/api/settings/match-stats'));
+      expect(get.body).toEqual({bridgeUrl, hasBridgeToken: true});
+      expect(get.text).not.toContain('bridge-secret');
+      // Absent: kept
+      let put = await asA(request(app).put('/api/settings/match-stats')).send({bridgeUrl: `${bridgeUrl}/`});
+      expect(put.body).toEqual({bridgeUrl, hasBridgeToken: true});
+      expect(put.text).not.toContain('bridge-secret');
+      // New: replaced and used
+      put = await asA(request(app).put('/api/settings/match-stats')).send({bridgeUrl, bridgeToken: 'second'});
+      expect(put.body.hasBridgeToken).toBe(true);
+      await asA(request(app).get('/api/stats/live'));
+      expect(bridge.seen.at(-1)?.token).toBe('second');
+      // Null: removed
+      put = await asA(request(app).put('/api/settings/match-stats')).send({bridgeUrl, bridgeToken: null});
+      expect(put.body.hasBridgeToken).toBe(false);
+    });
+
+    it('drops the token when the bridge moves to another origin without a new token', async () => {
+      const put = await asA(request(app).put('/api/settings/match-stats')).send({bridgeUrl: 'http://other-bridge:3340'});
+      expect(put.status, put.text).toBe(200);
+      expect(put.body.hasBridgeToken).toBe(false);
+      const withNew = await asA(request(app).put('/api/settings/match-stats')).send({bridgeUrl: 'http://third-bridge:3340', bridgeToken: 'new'});
+      expect(withNew.body.hasBridgeToken).toBe(true);
+    });
+
+    it('validates the address', async () => {
+      for (const bridgeUrl of ['ftp://x', 'statistics-bridge:3340', 'http://user:pw@bridge:3340', 'http://bridge:3340/?key=1']) {
+        expect((await asA(request(app).put('/api/settings/match-stats')).send({bridgeUrl})).status, bridgeUrl).toBe(400);
+      }
+      expect((await asA(request(app).put('/api/settings/match-stats')).send({bridgeUrl: null})).status).toBe(200);
+    });
+
+    it('keeps the token out of the settings backup', async () => {
+      const res = await asA(request(app).get('/api/backup/settings/export'));
+      expect(res.status).toBe(200);
+      expect(res.text).not.toContain('bridge-secret');
+      expect(res.body.some((s: {key: string}) => s.key === 'matchStatsBridgeToken')).toBe(false);
+      await asA(request(app).post('/api/backup/settings/import')).send([{key: 'matchStatsBridgeToken', value: 'from-backup'}]);
+      expect(await runWithOrganization(orgA, () => getSetting('matchStatsBridgeToken'))).toBe('bridge-secret');
+    });
+  });
+
+  it('lets a feed use the API key', async () => {
     const key = await runWithOrganization(orgA, () => createApiKey('stats vMix'));
     const res = await request(app).get(`/api/stats/live?key=${key.key}`);
     expect(res.status, res.text).toBe(200);
-    expect(res.body.away.name).toBe('KZ/Keukensale.com');
+    expect(bridge.seen[0].url).toBe('/live');
+    expect(bridge.seen[0].url).not.toContain('key=');
   });
 });
