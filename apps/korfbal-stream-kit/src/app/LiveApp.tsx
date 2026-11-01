@@ -1,6 +1,6 @@
 import React from 'react';
 import {Link, Route, Routes, useLocation} from 'react-router-dom';
-import {MdClose, MdInfo, MdInsights, MdMenu, MdMic, MdPlayCircleFilled, MdBarChart, MdSettings, MdTableChart, MdVideocam, MdViewList} from 'react-icons/md';
+import {MdClose, MdInfo, MdInsights, MdMenu, MdMic, MdPlayCircleFilled, MdBarChart, MdSettings, MdSpaceDashboard, MdTableChart, MdVideocam, MdViewList} from 'react-icons/md';
 import {NavDropdown, navMenuItemClass} from '../components/NavDropdown';
 import ActiveProductionPage from '../pages/ActiveProductionPage';
 import ScoreboardPage from '../pages/ScoreboardPage';
@@ -103,7 +103,7 @@ function LiveNav() {
           <OrganizationMenu open={openMenu === 'organization'} onToggle={toggleMenu('organization')}/>
           <HelpButton/>
           <NavDropdown open={openMenu === 'gear'} onToggle={toggleMenu('gear')} label="Beheer en instellingen" summary={<MdSettings className="w-5 h-5"/>}>
-            <li><Link to="/admin" className={navMenuItemClass}><MdSettings/><span>Beheer</span></Link></li>
+            <li><Link to="/admin" className={navMenuItemClass}><MdSpaceDashboard/><span>Beheer</span></Link></li>
             <li><ThemeToggle className={`${navMenuItemClass} w-full text-left`}/></li>
             <li><Link to="/over" className={navMenuItemClass}><MdInfo/><span>Over deze app</span></Link></li>
           </NavDropdown>
@@ -146,7 +146,7 @@ function LiveNav() {
           <PhoneOrganizationSection/>
           <div className="flex flex-wrap items-center gap-2 border-t border-gray-200 dark:border-gray-800 mt-2 pt-3 pb-1">
             <Link to="/admin" className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">
-              <MdSettings/> Beheer
+              <MdSpaceDashboard/> Beheer
             </Link>
             <Link to="/over" className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">
               <MdInfo/> Over deze app
