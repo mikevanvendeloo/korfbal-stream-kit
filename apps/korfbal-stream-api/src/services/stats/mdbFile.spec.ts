@@ -4,7 +4,9 @@ import path from 'node:path';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {config} from '../config';
 import {runWithOrganization} from '../organizationContext';
-import {clearMdbCache, readSharedFile, readStatsFile, resolveStatsFile, setShareTimings, HTML_EXTENSIONS} from './mdbFile';
+import {clearMdbCache, listStatsMatches, readSharedFile, readStatsFile, resolveStatsFile, setMdbOpener, setShareTimings, HTML_EXTENSIONS} from './mdbFile';
+
+vi.mock('../appSettings', () => ({getMatchStats: async () => ({pageUrl: null, mdbPath: 'F1/WEDSTRIJDEN.mdb'})}));
 
 const mutable = config as {statsDir: string; assetsDir: string};
 const inOrg = <T>(fn: () => Promise<T>) => runWithOrganization(7, fn, 'stats-unit');
@@ -47,6 +49,49 @@ describe('statistics file access', () => {
     expect(read.source).toBe('share');
     expect(fs.readFileSync(path.join(assets, 'stats', 'stats-unit', 'WEDSTRIJDEN.mdb'), 'utf8')).toBe('first');
     expect(fs.readdirSync(path.join(assets, 'stats', 'stats-unit'))).toEqual(['WEDSTRIJDEN.mdb']);
+  });
+
+  it('updates the local copy at most every 5 minutes', async () => {
+    vi.useFakeTimers({toFake: ['Date']});
+    try {
+      await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
+      fs.writeFileSync(path.join(share, 'F1', 'WEDSTRIJDEN.mdb'), 'second');
+      await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
+      const copy = path.join(assets, 'stats', 'stats-unit', 'WEDSTRIJDEN.mdb');
+      expect(fs.readFileSync(copy, 'utf8')).toBe('first');
+      vi.setSystemTime(Date.now() + 5 * 60_000 + 1);
+      await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
+      expect(fs.readFileSync(copy, 'utf8')).toBe('second');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('reads the file on the share again only when it changed, and then at most every 10 seconds', async () => {
+    const opened: string[] = [];
+    setMdbOpener((buffer) => {
+      opened.push(buffer.toString());
+      return {getTableNames: () => [], getTable: () => ({getData: () => []})};
+    });
+    vi.useFakeTimers({toFake: ['Date']});
+    try {
+      const file = path.join(share, 'F1', 'WEDSTRIJDEN.mdb');
+      await inOrg(() => listStatsMatches());
+      vi.setSystemTime(Date.now() + 4000);
+      await inOrg(() => listStatsMatches());
+      expect(opened).toEqual(['first']);
+      fs.writeFileSync(file, 'second');
+      fs.utimesSync(file, new Date(), new Date(Date.now() + 1000));
+      vi.setSystemTime(Date.now() + 4000);
+      await inOrg(() => listStatsMatches());
+      expect(opened).toEqual(['first']);
+      vi.setSystemTime(Date.now() + 4000);
+      await inOrg(() => listStatsMatches());
+      expect(opened).toEqual(['first', 'second']);
+    } finally {
+      vi.useRealTimers();
+      setMdbOpener(null);
+    }
   });
 
   it('reads the copy when the share is gone, with the copy\'s mtime as readAt', async () => {

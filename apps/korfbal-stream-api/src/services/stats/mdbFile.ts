@@ -10,6 +10,9 @@ import {listMatchTables, normalizeActionRow, type ActionRow, type MatchTableName
 export const MAX_MDB_BYTES = 100 * 1024 * 1024;
 export const MAX_HTML_BYTES = 2_000_000;
 const CACHE_MS = 3000;
+/** Network load on the share: a changed file is read again at most this often, the local copy written at most this often */
+const MIN_READ_MS = 10_000;
+const COPY_EVERY_MS = 5 * 60_000;
 const MDB_EXTENSIONS = new Set(['.mdb', '.accdb']);
 export const HTML_EXTENSIONS = new Set(['.html', '.htm']);
 const ORGANIZATION_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -78,18 +81,31 @@ export async function resolveStatsFile(root: string, relative: string, extension
 
 const shareDownUntil = new Map<number, number>();
 
-/** One read of a file on the share, with a wall-clock deadline over resolve, stat and read together. */
-export async function readSharedFile(relative: string, extensions: Set<string> = MDB_EXTENSIONS, maxBytes = MAX_MDB_BYTES): Promise<Buffer> {
+/** Work on the share with a wall-clock deadline; a failing share is skipped for a while. */
+async function onShare<T>(work: (signal: AbortSignal) => Promise<T>): Promise<T> {
   const orgId = requireOrganizationId('statistics share');
   if ((shareDownUntil.get(orgId) ?? 0) > Date.now()) throw new StatsError(504, 'De gedeelde map is tijdelijk niet bereikbaar');
   try {
-    return await withDeadline(async (signal) => fs.promises.readFile(await resolveStatsFile(config.statsDir, relative, extensions, maxBytes), {signal}));
+    return await withDeadline(work);
   } catch (err) {
     // A refused path or an unset share is a configuration problem, not a failing share
     if (err instanceof StatsError && (err.status === 400 || err.status === 409)) throw err;
     shareDownUntil.set(orgId, Date.now() + shareDownMs);
     throw err instanceof StatsError ? err : new StatsError(502, 'De gedeelde map kon niet worden gelezen');
   }
+}
+
+/** One read of a file on the share, with a wall-clock deadline over resolve, stat and read together. */
+export function readSharedFile(relative: string, extensions: Set<string> = MDB_EXTENSIONS, maxBytes = MAX_MDB_BYTES): Promise<Buffer> {
+  return onShare(async (signal) => fs.promises.readFile(await resolveStatsFile(config.statsDir, relative, extensions, maxBytes), {signal}));
+}
+
+/** Modification time and size of the file on the share: a cheap check before reading it again. */
+export function sharedFileStamp(relative: string): Promise<string> {
+  return onShare(async () => {
+    const stat = await fs.promises.stat(await resolveStatsFile(config.statsDir, relative));
+    return `${stat.mtimeMs}:${stat.size}`;
+  });
 }
 
 /** `<ASSETS_DIR>/stats/<organization slug>`: the slug comes from the organization, never from input. */
@@ -99,11 +115,18 @@ function copyDir(): string {
   return path.join(getAssetsRoot(), 'stats', slug);
 }
 
+const copiedAt = new Map<number, number>();
+
+/** The local copy, at most every COPY_EVERY_MS (at once when there is none yet). */
 async function writeCopy(relative: string, buffer: Buffer): Promise<void> {
   try {
+    const orgId = requireOrganizationId('statistics copy');
     const dir = copyDir();
-    await fs.promises.mkdir(dir, {recursive: true});
     const target = path.join(dir, path.basename(relative));
+    const exists = await fs.promises.access(target).then(() => true, () => false);
+    if (exists && Date.now() - (copiedAt.get(orgId) ?? 0) < COPY_EVERY_MS) return;
+    copiedAt.set(orgId, Date.now());
+    await fs.promises.mkdir(dir, {recursive: true});
     const tmp = `${target}.${process.pid}.tmp`;
     await fs.promises.writeFile(tmp, buffer);
     await fs.promises.rename(tmp, target);
@@ -113,11 +136,12 @@ async function writeCopy(relative: string, buffer: Buffer): Promise<void> {
 }
 
 /** The file from the share (keeping a local copy), else the last local copy. */
-export async function readStatsFile(relative: string): Promise<{buffer: Buffer; source: StatsSource; readAt: string}> {
+export async function readStatsFile(relative: string): Promise<{buffer: Buffer; source: StatsSource; readAt: string; stamp?: string}> {
   try {
+    const stamp = await sharedFileStamp(relative);
     const buffer = await readSharedFile(relative);
     await writeCopy(relative, buffer);
-    return {buffer, source: 'share', readAt: new Date().toISOString()};
+    return {buffer, source: 'share', readAt: new Date().toISOString(), stamp};
   } catch (err) {
     if (err instanceof StatsError && (err.status === 400 || err.status === 409)) throw err;
     logger.warn('Statistics share not readable, trying the local copy', {error: err instanceof Error ? err.message : String(err)});
@@ -132,7 +156,7 @@ export async function readStatsFile(relative: string): Promise<{buffer: Buffer; 
   }
 }
 
-type Opened = {at: number; path: string; value?: {db: MdbDatabase; source: StatsSource; readAt: string}; pending?: Promise<{db: MdbDatabase; source: StatsSource; readAt: string}>};
+type Opened = {at: number; path: string; stamp?: string; readAtMs?: number; value?: {db: MdbDatabase; source: StatsSource; readAt: string}; pending?: Promise<{db: MdbDatabase; source: StatsSource; readAt: string}>};
 const cache = new Map<number, Opened>();
 
 async function openDatabase() {
@@ -143,6 +167,12 @@ async function openDatabase() {
   if (hit && hit.path === mdbPath) {
     if (hit.pending) return hit.pending;
     if (hit.value && Date.now() - hit.at < CACHE_MS) return hit.value;
+    // Over the network only the stamp while the file is unchanged; a changed file is read again at most every MIN_READ_MS
+    if (hit.value?.source === 'share') {
+      hit.at = Date.now();
+      const stamp = await sharedFileStamp(mdbPath).catch(() => null);
+      if (stamp && (stamp === hit.stamp || Date.now() - (hit.readAtMs ?? 0) < MIN_READ_MS)) return hit.value;
+    }
   }
   if (!opener) throw new StatsError(503, 'Het lezen van het statistiekenbestand is op deze server niet beschikbaar');
   const open = opener;
@@ -150,6 +180,8 @@ async function openDatabase() {
   entry.pending = (async () => {
     const file = await readStatsFile(mdbPath);
     try {
+      entry.stamp = file.stamp;
+      entry.readAtMs = Date.now();
       return {db: await open(file.buffer), source: file.source, readAt: file.readAt};
     } catch {
       throw new StatsError(502, 'Het statistiekenbestand kon niet worden gelezen');
@@ -191,4 +223,5 @@ export async function readStatsPlayers(): Promise<Sourced<Record<string, unknown
 export function clearMdbCache(): void {
   cache.clear();
   shareDownUntil.clear();
+  copiedAt.clear();
 }
