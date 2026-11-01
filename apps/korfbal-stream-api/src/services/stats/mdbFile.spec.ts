@@ -51,6 +51,18 @@ describe('statistics file access', () => {
     expect(fs.readdirSync(path.join(assets, 'stats', 'stats-unit'))).toEqual(['WEDSTRIJDEN.mdb']);
   });
 
+  it('without keepCopy writes no copy and never falls back to an old one', async () => {
+    await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
+    const copy = path.join(assets, 'stats', 'stats-unit', 'WEDSTRIJDEN.mdb');
+    fs.rmSync(copy);
+    await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', false));
+    expect(fs.existsSync(copy)).toBe(false);
+    fs.writeFileSync(copy, 'old');
+    fs.rmSync(path.join(share, 'F1'), {recursive: true});
+    clearMdbCache();
+    await expect(inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', false))).rejects.toMatchObject({status: expect.any(Number)});
+  });
+
   it('updates the local copy at most every 5 minutes', async () => {
     vi.useFakeTimers({toFake: ['Date']});
     try {

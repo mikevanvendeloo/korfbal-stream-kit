@@ -7,6 +7,7 @@ const input = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 roun
 export default function MatchStatsSettings() {
   const [pageUrl, setPageUrl] = useState('');
   const [mdbPath, setMdbPath] = useState('');
+  const [keepCopy, setKeepCopy] = useState(true);
   const [message, setMessage] = useState<{ok: boolean; text: string} | null>(null);
 
   useEffect(() => {
@@ -14,6 +15,7 @@ export default function MatchStatsSettings() {
       .then((c) => {
         setPageUrl(c.pageUrl ?? '');
         setMdbPath(c.mdbPath ?? '');
+        setKeepCopy(c.keepCopy !== false);
       })
       .catch(() => undefined);
   }, []);
@@ -22,7 +24,7 @@ export default function MatchStatsSettings() {
     e.preventDefault();
     setMessage(null);
     try {
-      await setMatchStatsConfig({pageUrl: pageUrl.trim() || null, mdbPath: mdbPath.trim() || null});
+      await setMatchStatsConfig({pageUrl: pageUrl.trim() || null, mdbPath: mdbPath.trim() || null, keepCopy});
       setMessage({ok: true, text: 'Statistiekeninstellingen opgeslagen'});
     } catch (err) {
       setMessage({ok: false, text: (err as Error).message || 'Opslaan mislukt'});
@@ -43,6 +45,13 @@ export default function MatchStatsSettings() {
           <label htmlFor="statsMdbPath" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pad naar WEDSTRIJDEN.mdb</label>
           <input id="statsMdbPath" type="text" className={input} placeholder="F1/WEDSTRIJDEN.mdb" value={mdbPath} onChange={(e) => setMdbPath(e.target.value)}/>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Relatief aan de gedeelde map van de statistiek-pc op de server.</p>
+        </div>
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <input type="checkbox" checked={keepCopy} onChange={(e) => setKeepCopy(e.target.checked)}/>
+            Lokale kopie bewaren
+          </label>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hooguit eens per 5 minuten een kopie van de database op de server, voor als de gedeelde map wegvalt. Uit: geen kopie, en zonder gedeelde map komen de spelerscijfers van de statistiekenpagina.</p>
         </div>
       </div>
       <div className="flex justify-end mt-4">

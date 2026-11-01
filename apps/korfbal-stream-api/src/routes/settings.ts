@@ -191,12 +191,13 @@ const MatchStatsSchema = z.object({
     .refine((v) => v === null || /^https?:\/\/[^\s/]+/i.test(v) || (!/^([a-z]:|[\\/])/i.test(v) && !v.split(/[\\/]+/).includes('..') && /\.html?$/i.test(v)), 'De pagina-URL moet met http:// of https:// beginnen, of een relatief pad naar een .html-bestand zijn'),
   mdbPath: z.string().trim().max(500).nullable().optional().transform((v) => v || null)
     .refine((v) => v === null || (!/^([a-z]:|[\\/])/i.test(v) && !v.split(/[\\/]+/).includes('..') && /\.(mdb|accdb)$/i.test(v)), 'Het pad moet relatief zijn (zonder ..) en op .mdb of .accdb eindigen'),
+  keepCopy: z.boolean().optional().default(true),
 });
 
 settingsRouter.put('/match-stats', async (req, res, next) => {
   try {
     const parsed = MatchStatsSchema.parse(req.body);
-    await setMatchStats({pageUrl: parsed.pageUrl, mdbPath: parsed.mdbPath});
+    await setMatchStats({pageUrl: parsed.pageUrl, mdbPath: parsed.mdbPath, keepCopy: parsed.keepCopy});
     clearLiveStatsCache();
     clearMdbCache();
     return res.json(parsed);

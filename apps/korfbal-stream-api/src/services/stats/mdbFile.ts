@@ -135,15 +135,16 @@ async function writeCopy(relative: string, buffer: Buffer): Promise<void> {
   }
 }
 
-/** The file from the share (keeping a local copy), else the last local copy. */
-export async function readStatsFile(relative: string): Promise<{buffer: Buffer; source: StatsSource; readAt: string; stamp?: string}> {
+/** The file from the share (keeping a local copy), else the last local copy; without keepCopy only the share. */
+export async function readStatsFile(relative: string, keepCopy = true): Promise<{buffer: Buffer; source: StatsSource; readAt: string; stamp?: string}> {
   try {
     const stamp = await sharedFileStamp(relative);
     const buffer = await readSharedFile(relative);
-    await writeCopy(relative, buffer);
+    if (keepCopy) await writeCopy(relative, buffer);
     return {buffer, source: 'share', readAt: new Date().toISOString(), stamp};
   } catch (err) {
     if (err instanceof StatsError && (err.status === 400 || err.status === 409)) throw err;
+    if (!keepCopy) throw err instanceof StatsError ? err : new StatsError(502, 'De gedeelde map kon niet worden gelezen');
     logger.warn('Statistics share not readable, trying the local copy', {error: err instanceof Error ? err.message : String(err)});
   }
   try {
@@ -160,7 +161,7 @@ type Opened = {at: number; path: string; stamp?: string; readAtMs?: number; valu
 const cache = new Map<number, Opened>();
 
 async function openDatabase() {
-  const {mdbPath} = await getMatchStats();
+  const {mdbPath, keepCopy} = await getMatchStats();
   if (!mdbPath) throw new StatsError(409, 'Het statistiekenbestand is niet ingesteld: vul het pad in bij Instellingen');
   const orgId = requireOrganizationId('statistics database');
   const hit = cache.get(orgId);
@@ -178,7 +179,7 @@ async function openDatabase() {
   const open = opener;
   const entry: Opened = {at: 0, path: mdbPath};
   entry.pending = (async () => {
-    const file = await readStatsFile(mdbPath);
+    const file = await readStatsFile(mdbPath, keepCopy);
     try {
       entry.stamp = file.stamp;
       entry.readAtMs = Date.now();

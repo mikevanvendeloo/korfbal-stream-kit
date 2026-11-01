@@ -23,7 +23,7 @@ export type DerivedPlayerRow = {
 };
 export type MatchPlayers = {source: 'share' | 'copy'; readAt: string; teams: {own: string | null; opponent: string | null}; players: DerivedPlayerRow[]};
 
-export type MatchStatsConfig = {pageUrl: string | null; mdbPath: string | null};
+export type MatchStatsConfig = {pageUrl: string | null; mdbPath: string | null; keepCopy: boolean};
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(createUrl(path));
