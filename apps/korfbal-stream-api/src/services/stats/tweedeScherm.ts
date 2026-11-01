@@ -76,23 +76,50 @@ function decodeEntities(s: string): string {
   });
 }
 
+const MAX_ROWS = 2000;
+const MAX_CELLS_PER_ROW = 60;
+const MAX_CELL_TEXT = 300;
+const MAX_ATTRS = 500;
+const CLOSING = ['</td', '</tr', '</table'];
+
+/** Text of an HTML fragment without its tags, in one linear pass (no regex that can backtrack). */
+function stripTags(html: string): string {
+  const lastGt = html.lastIndexOf('>');
+  let out = '';
+  let i = 0;
+  while (i < html.length && out.length < MAX_CELL_TEXT * 4) {
+    const lt = html.indexOf('<', i);
+    if (lt === -1 || lt > lastGt) {
+      // No tag can close any more: the rest is text
+      out += html.slice(i);
+      break;
+    }
+    out += html.slice(i, lt);
+    i = html.indexOf('>', lt) + 1;
+  }
+  return out;
+}
+
+function parseCell(raw: string): Cell {
+  const open = raw.indexOf('>');
+  const attrs = (open === -1 ? raw : raw.slice(0, open)).slice(0, MAX_ATTRS);
+  let body = open === -1 ? '' : raw.slice(open + 1);
+  const lower = body.toLowerCase();
+  const end = Math.min(...CLOSING.map((t) => {
+    const at = lower.indexOf(t);
+    return at === -1 ? body.length : at;
+  }));
+  body = body.slice(0, end);
+  const text = decodeEntities(stripTags(body)).replace(/\s+/g, ' ').trim().slice(0, MAX_CELL_TEXT);
+  const color = (attrs.match(/BGCOLOR\s*=\s*"?#?([0-9a-f]{6})/i) || [])[1]?.toUpperCase() ?? null;
+  return {color, text};
+}
+
 function parseRows(html: string): Cell[][] {
   return html
     .split(/<TR\b/i)
-    .slice(1)
-    .map((row) =>
-      row
-        .split(/<TD\b/i)
-        .slice(1)
-        .map((raw) => {
-          const open = raw.indexOf('>');
-          const attrs = raw.slice(0, open);
-          const body = raw.slice(open + 1).replace(/<\/?(?:TD|TR|TABLE)[^>]*>[\s\S]*$/i, '');
-          const text = decodeEntities(body.replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim();
-          const color = (attrs.match(/BGCOLOR\s*=\s*"?#?([0-9a-f]{6})/i) || [])[1]?.toUpperCase() ?? null;
-          return {color, text};
-        }),
-    );
+    .slice(1, MAX_ROWS + 1)
+    .map((row) => row.split(/<TD\b/i).slice(1, MAX_CELLS_PER_ROW + 1).map(parseCell));
 }
 
 function int(s: string | undefined): number | null {

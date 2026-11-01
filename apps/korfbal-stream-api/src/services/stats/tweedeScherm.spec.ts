@@ -52,3 +52,18 @@ describe('parseTweedeScherm', () => {
     expect(() => parseTweedeScherm('<html><body>Oeps</body></html>')).toThrow();
   });
 });
+
+describe('parseTweedeScherm on hostile input', () => {
+  it('parses a 500 KB cell of "<" without a closing ">" in linear time', () => {
+    const hostile = `<TABLE><TR><TD>${'<'.repeat(500_000)}`;
+    const started = Date.now();
+    expect(() => parseTweedeScherm(hostile)).toThrow();
+    expect(Date.now() - started).toBeLessThan(200);
+  });
+
+  it('survives many tags and many cells', () => {
+    const started = Date.now();
+    expect(() => parseTweedeScherm(`<TR>${'<TD><B></B>'.repeat(40_000)}`)).toThrow();
+    expect(Date.now() - started).toBeLessThan(200);
+  });
+});

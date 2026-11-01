@@ -4,7 +4,7 @@ import path from 'node:path';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {config} from '../config';
 import {runWithOrganization} from '../organizationContext';
-import {clearMdbCache, listStatsMatches, readSharedFile, readStatsFile, resolveStatsFile, setMdbOpener, setShareTimings, HTML_EXTENSIONS} from './mdbFile';
+import {clearMdbCache, copyFileName, resetShareForTests, setSmbProbe, listStatsMatches, readSharedFile, readStatsFile, resolveStatsFile, setMdbOpener, setShareTimings, HTML_EXTENSIONS} from './mdbFile';
 
 vi.mock('../appSettings', () => ({getMatchStats: async () => ({pageUrl: null, mdbPath: 'F1/WEDSTRIJDEN.mdb'})}));
 
@@ -25,9 +25,11 @@ describe('statistics file access', () => {
     mutable.statsDir = share;
     mutable.assetsDir = assets;
     setShareTimings(3000, 5000);
-    clearMdbCache();
+    resetShareForTests();
+    setSmbProbe(null);
   });
   afterEach(() => {
+    resetShareForTests();
     Object.assign(mutable, original);
     fs.rmSync(share, {recursive: true, force: true});
     fs.rmSync(assets, {recursive: true, force: true});
@@ -47,13 +49,13 @@ describe('statistics file access', () => {
   it('keeps a local copy at <assets>/stats/<slug>/<file> after a read of the share', async () => {
     const read = await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
     expect(read.source).toBe('share');
-    expect(fs.readFileSync(path.join(assets, 'stats', 'stats-unit', 'WEDSTRIJDEN.mdb'), 'utf8')).toBe('first');
-    expect(fs.readdirSync(path.join(assets, 'stats', 'stats-unit'))).toEqual(['WEDSTRIJDEN.mdb']);
+    expect(fs.readFileSync(path.join(assets, 'stats', 'stats-unit', copyFileName('F1/WEDSTRIJDEN.mdb')), 'utf8')).toBe('first');
+    expect(fs.readdirSync(path.join(assets, 'stats', 'stats-unit'))).toEqual([copyFileName('F1/WEDSTRIJDEN.mdb')]);
   });
 
   it('without keepCopy writes no copy and never falls back to an old one', async () => {
     await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
-    const copy = path.join(assets, 'stats', 'stats-unit', 'WEDSTRIJDEN.mdb');
+    const copy = path.join(assets, 'stats', 'stats-unit', copyFileName('F1/WEDSTRIJDEN.mdb'));
     fs.rmSync(copy);
     await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', false));
     expect(fs.existsSync(copy)).toBe(false);
@@ -69,7 +71,7 @@ describe('statistics file access', () => {
       await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
       fs.writeFileSync(path.join(share, 'F1', 'WEDSTRIJDEN.mdb'), 'second');
       await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
-      const copy = path.join(assets, 'stats', 'stats-unit', 'WEDSTRIJDEN.mdb');
+      const copy = path.join(assets, 'stats', 'stats-unit', copyFileName('F1/WEDSTRIJDEN.mdb'));
       expect(fs.readFileSync(copy, 'utf8')).toBe('first');
       vi.setSystemTime(Date.now() + 5 * 60_000 + 1);
       await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
@@ -113,7 +115,7 @@ describe('statistics file access', () => {
     const read = await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
     expect(read.source).toBe('copy');
     expect(read.buffer.toString()).toBe('first');
-    const mtime = fs.statSync(path.join(assets, 'stats', 'stats-unit', 'WEDSTRIJDEN.mdb')).mtime.toISOString();
+    const mtime = fs.statSync(path.join(assets, 'stats', 'stats-unit', copyFileName('F1/WEDSTRIJDEN.mdb'))).mtime.toISOString();
     expect(read.readAt).toBe(mtime);
   });
 
@@ -139,6 +141,59 @@ describe('statistics file access', () => {
     // The failing share is remembered: the next read does not touch it
     expect((await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'))).source).toBe('copy');
     expect(shareCalls()).toBe(calls);
+  });
+
+  it('starts no second fs operation while a hung one has not settled', async () => {
+    await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
+    resetShareForTests();
+    // No down window: only the in-flight rule can stop the second call
+    setShareTimings(50, 0);
+    const realRealpath = fs.promises.realpath.bind(fs.promises);
+    const hung = vi.spyOn(fs.promises, 'realpath').mockImplementation(((p: fs.PathLike) =>
+      String(p).includes('stats-assets-') ? realRealpath(p) : new Promise(() => undefined)) as typeof fs.promises.realpath);
+    const shareCalls = () => hung.mock.calls.filter(([p]) => !String(p).includes('stats-assets-')).length;
+    expect((await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'))).source).toBe('copy');
+    const first = shareCalls();
+    expect(first).toBeGreaterThan(0);
+    expect((await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'))).source).toBe('copy');
+    expect((await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'))).source).toBe('copy');
+    expect(shareCalls()).toBe(first);
+  });
+
+  it('skips the share for a doubling window after repeated failures', async () => {
+    fs.rmSync(path.join(share, 'F1'), {recursive: true});
+    setShareTimings(50, 40);
+    const stat = vi.spyOn(fs.promises, 'realpath');
+    await expect(inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', false))).rejects.toBeDefined();
+    const afterFirst = stat.mock.calls.length;
+    // Inside the first window (40 ms): no fs call
+    await expect(inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', false))).rejects.toBeDefined();
+    expect(stat.mock.calls.length).toBe(afterFirst);
+    await new Promise((r) => setTimeout(r, 60));
+    await expect(inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', false))).rejects.toBeDefined();
+    expect(stat.mock.calls.length).toBeGreaterThan(afterFirst);
+    // The second failure doubles the window to 80 ms: still closed after 60 ms
+    const afterSecond = stat.mock.calls.length;
+    await new Promise((r) => setTimeout(r, 60));
+    await expect(inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', false))).rejects.toBeDefined();
+    expect(stat.mock.calls.length).toBe(afterSecond);
+  });
+
+  it('does not touch the mount when the statistics PC does not answer, and caches the probe', async () => {
+    let probes = 0;
+    setSmbProbe(async () => {
+      probes += 1;
+      return {ok: false, ms: null};
+    });
+    const realpath = vi.spyOn(fs.promises, 'realpath');
+    await expect(inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', false, '10.12.0.63'))).rejects.toMatchObject({status: 504});
+    expect(realpath).not.toHaveBeenCalled();
+    expect(probes).toBe(1);
+  });
+
+  it('reads the share when the statistics PC answers', async () => {
+    setSmbProbe(async () => ({ok: true, ms: 1}));
+    expect((await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', false, '10.12.0.63'))).source).toBe('share');
   });
 
   it('reads a local html page through the same resolution', async () => {

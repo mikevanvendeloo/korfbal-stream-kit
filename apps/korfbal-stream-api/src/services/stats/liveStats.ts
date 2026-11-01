@@ -3,11 +3,13 @@ import {getMatchStats} from '../appSettings';
 import {requireOrganizationId} from '../organizationContext';
 import {logger} from '../../utils/logger';
 import {HTML_EXTENSIONS, MAX_HTML_BYTES, readSharedFile} from './mdbFile';
+import {isHttpUrl} from './smbReach';
+import {shareHostOf} from './smbReach';
 import {NOT_CONFIGURED_PAGE, StatsError} from './statsErrors';
 import {decodeStatsPage, parseTweedeScherm, type TweedeScherm} from './tweedeScherm';
 
 const REQUEST_DEADLINE_MS = 4000;
-const MAX_PAGE_BYTES = 2_000_000;
+export const MAX_PAGE_BYTES = 512 * 1024;
 export const LIVE_CACHE_MS = 3000;
 
 type Entry = {url: string; at: number; value?: TweedeScherm; pending?: Promise<TweedeScherm>};
@@ -17,12 +19,12 @@ export function clearLiveStatsCache(): void {
   entries.clear();
 }
 
-export const isHttpUrl = (v: string) => /^https?:\/\//i.test(v);
+export {isHttpUrl};
 
-async function fetchPage(url: string): Promise<TweedeScherm> {
+export async function fetchPage(url: string, host: string | null = null): Promise<TweedeScherm> {
   if (!isHttpUrl(url)) {
     // A relative .html file inside STATS_DIR (development, testing): same safe resolution, size limit and decoding
-    const buffer = await readSharedFile(url, HTML_EXTENSIONS, MAX_HTML_BYTES);
+    const buffer = await readSharedFile(url, HTML_EXTENSIONS, MAX_HTML_BYTES, host);
     try {
       return parseTweedeScherm(decodeStatsPage(new Uint8Array(buffer)));
     } catch {
@@ -35,6 +37,8 @@ async function fetchPage(url: string): Promise<TweedeScherm> {
       signal: AbortSignal.timeout(REQUEST_DEADLINE_MS),
       maxContentLength: MAX_PAGE_BYTES,
       responseType: 'arraybuffer',
+      // A redirect is an unreachable page (no following to another host)
+      maxRedirects: 0,
     });
     return parseTweedeScherm(decodeStatsPage(new Uint8Array(res.data)));
   } catch (err) {
@@ -48,7 +52,8 @@ async function fetchPage(url: string): Promise<TweedeScherm> {
  * LIVE_CACHE_MS: a fresh answer is reused and a running request is shared.
  */
 export async function getLiveStats(): Promise<TweedeScherm> {
-  const {pageUrl} = await getMatchStats();
+  const setting = await getMatchStats();
+  const {pageUrl} = setting;
   if (!pageUrl) throw NOT_CONFIGURED_PAGE;
   const orgId = requireOrganizationId('live statistics');
   const entry = entries.get(orgId);
@@ -57,7 +62,7 @@ export async function getLiveStats(): Promise<TweedeScherm> {
     if (entry.value && Date.now() - entry.at < LIVE_CACHE_MS) return entry.value;
   }
   const next: Entry = {url: pageUrl, at: 0};
-  next.pending = fetchPage(pageUrl).then(
+  next.pending = fetchPage(pageUrl, shareHostOf(setting)).then(
     (value) => {
       next.value = value;
       next.at = Date.now();

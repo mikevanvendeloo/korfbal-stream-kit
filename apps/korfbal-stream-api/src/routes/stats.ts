@@ -1,11 +1,12 @@
 import {NextFunction, Request, Response, Router} from 'express';
 import {z} from 'zod';
-import {derivePlayerStats, lastActionAt, teamNamesOf} from '../services/stats/matchActions';
+import {derivePlayerStats, teamNamesOf} from '../services/stats/matchActions';
 import {getLiveStats} from '../services/stats/liveStats';
 import type {Sourced} from '../services/stats/mdbFile';
 import {listStatsMatches, readMatchActions, readStatsPlayers} from '../services/stats/mdbFile';
 import {derivedPlayerRows, livePlayerRows} from '../services/stats/flatRows';
 import {StatsError} from '../services/stats/statsErrors';
+import {currentPlayers} from '../services/stats/currentPlayers';
 import {statsConnection} from '../services/stats/connectionTest';
 
 /** Match statistics from the statistics PC: the live page and the Access database. Feed routes (API key). */
@@ -77,24 +78,8 @@ statsRouter.get('/players', wrap(async (_req, res) => {
 // readable, the player rows of the live page. Same flat rows either way, with `source` and `readAt`.
 statsRouter.get('/current/players', wrap(async (_req, res) => {
   try {
-    // The match with the latest entered action: the database also holds tables of coming matches (only
-    // definition rows) and older test input, so the newest date is not the current match
-    const list = await listStatsMatches();
-    let current: Awaited<ReturnType<typeof readMatchActions>> | null = null;
-    let currentAt = -Infinity;
-    for (const match of list.data) {
-      const read = await readMatchActions(match.table);
-      const at = lastActionAt(read.data);
-      if (at !== null && at > currentAt) {
-        current = read;
-        currentAt = at;
-      }
-    }
-    if (!current) throw new StatsError(404, 'Geen gespeelde wedstrijd in het statistiekenbestand');
-    const {source, readAt, data: rows} = current;
-    const teams = teamNamesOf(rows);
-    const out = derivedPlayerRows(derivePlayerStats(rows), teams).map((p) => ({...p, source, readAt}));
-    return sendSourced(res, {source, readAt, data: out}, out);
+    const current = await currentPlayers();
+    return sendSourced(res, {source: current.source, readAt: current.readAt, data: current.rows}, current.rows);
   } catch (err) {
     if (!(err instanceof StatsError)) throw err;
     let page;

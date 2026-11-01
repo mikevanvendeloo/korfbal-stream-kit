@@ -11,7 +11,7 @@ import {runWithOrganization} from '../services/organizationContext';
 import {clearSettingsCache, setSetting} from '../services/appSettings';
 import {createApiKey} from '../services/apiKeys';
 import {clearLiveStatsCache} from '../services/stats/liveStats';
-import {clearMdbCache, setMdbOpener} from '../services/stats/mdbFile';
+import {clearMdbCache, copyFileName, setMdbOpener, setSmbProbe} from '../services/stats/mdbFile';
 import {readCsv} from '../services/stats/testCsv';
 
 const runDb = process.env.REQUIRE_DB === 'true';
@@ -37,6 +37,8 @@ describe.runIf(runDb)('statistics routes (integration)', () => {
     (config as {statsDir: string}).statsDir = dir;
     const csv = readCsv(`${TABLE}.csv`);
     const players = readCsv('spelersover.csv');
+    // The page URL's host is probed first: the test PC (10.12.0.63) does not exist here
+    setSmbProbe(async () => ({ok: true, ms: 1}));
     setMdbOpener(() => ({
       getTableNames: () => [TABLE, 'DVO DOS46_01_11_2026', 'spelersover'],
       getTable: (name) => ({getData: () => (name === TABLE ? csv : name === 'spelersover' ? players : [])}),
@@ -46,6 +48,7 @@ describe.runIf(runDb)('statistics routes (integration)', () => {
   afterAll(async () => {
     (config as {statsDir: string}).statsDir = originalStatsDir;
     setMdbOpener(null);
+    setSmbProbe(null);
     fs.rmSync(dir, {recursive: true, force: true});
     fs.rmSync(path.join(getAssetsRoot(), 'stats', ORG), {recursive: true, force: true});
     await prisma.organization.deleteMany({where: {slug: {in: [ORG, OTHER]}}});
@@ -134,7 +137,7 @@ describe.runIf(runDb)('statistics routes (integration)', () => {
   it('says where the data came from and falls back to the copy when the share is gone', async () => {
     const first = await asA(request(app).get('/api/stats/matches'));
     expect(first.headers['x-stats-source']).toBe('share');
-    const copy = path.join(getAssetsRoot(), 'stats', ORG, 'WEDSTRIJDEN.mdb');
+    const copy = path.join(getAssetsRoot(), 'stats', ORG, copyFileName('F1/WEDSTRIJDEN.mdb'));
     expect(fs.existsSync(copy)).toBe(true);
     fs.renameSync(path.join(dir, 'F1'), path.join(dir, 'F1-weg'));
     try {
