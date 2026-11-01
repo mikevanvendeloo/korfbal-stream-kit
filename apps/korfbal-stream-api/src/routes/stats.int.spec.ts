@@ -113,6 +113,18 @@ describe.runIf(runDb)('statistics routes through the bridge (integration)', () =
     expect((await asA(request(app).get('/api/stats/live/players?team=sideways'))).status).toBe(400);
   });
 
+  it('forwards team statistics and top scorers with the team of the production', async () => {
+    bridge.answer((_url, res) => {
+      res.setHeader('X-Stats-Source', 'share');
+      res.end(JSON.stringify([{team: 'home', rank: 1, name: 'Nik van der Steen', goals: 6}]));
+    });
+    const stats = await asA(request(app).get('/api/stats/team-stats'));
+    expect(stats.status, stats.text).toBe(200);
+    const top = await asA(request(app).get('/api/stats/top-scorers'));
+    expect(top.body[0].name).toBe('Nik van der Steen');
+    expect(bridge.seen.map((s) => s.url)).toEqual(['/team-stats?team=1', '/top-scorers?team=1']);
+  });
+
   it('shares one request for polls within a moment', async () => {
     await asA(request(app).get('/api/stats/live'));
     await asA(request(app).get('/api/stats/live'));

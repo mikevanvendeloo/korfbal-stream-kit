@@ -150,6 +150,8 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/scoreboard/shotclock': {device: 'shot clock proxy'},
   'GET /api/stats/current/players': {device: 'the statistics bridge'},
   'GET /api/stats/status': {device: 'the statistics bridge'},
+  'GET /api/stats/team-stats': {device: 'the statistics bridge'},
+  'GET /api/stats/top-scorers': {device: 'the statistics bridge'},
   'GET /api/stats/live': {device: 'the statistics bridge'},
   'GET /api/stats/live/players': {device: 'the statistics bridge'},
   'GET /api/stats/matches': {device: 'the statistics bridge'},

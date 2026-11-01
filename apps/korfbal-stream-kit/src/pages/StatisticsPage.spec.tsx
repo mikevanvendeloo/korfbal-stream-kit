@@ -114,4 +114,49 @@ describe('StatisticsPage', () => {
     expect(await screen.findByText(label)).toBeTruthy();
     expect(screen.getByText('Roos van Groen')).toBeTruthy();
   });
+
+  const teamRow = (team: 'home' | 'away', extra: object) => ({
+    team, teamName: team === 'home' ? 'Fortuna/Ruitenheer' : 'KZ/Keukensale.com', goals: 27, attempts: 75, goalPct: 36,
+    reboundWon: 12, reboundTotal: 16, reboundPct: 75, strafworpGoals: 1, strafworpAttempts: 2, strafworpPct: 50,
+    vrijeBalGoals: 0, vrijeBalAttempts: 0, vrijeBalPct: null, afstandGoals: 19, afstandAttempts: 101, afstandPct: 18.8,
+    kortSchotGoals: 2, kortSchotAttempts: 6, kortSchotPct: 33.3, doorloopGoals: 2, doorloopAttempts: 9, doorloopPct: 22.2,
+    goalsDames: 7, goalsHeren: 20, goalsDamesPct: 25.9, goalsRatio: '7:20',
+    attacks: 73, attackGoals: 27, turnovers: 46, turnoversWithoutAttempt: 7, avgAttemptsPerAttack: 1.66, attackGoalPct: 37,
+    source: 'share', readAt: '2026-10-31T20:03:00.000Z', ...extra,
+  });
+
+  it('shows the team statistics of both teams side by side', async () => {
+    api(({path}) => path === '/api/stats/team-stats' ? [teamRow('home', {}), teamRow('away', {goalsRatio: null, goalsDames: null, goalsDamesPct: null, attacks: null, vrijeBalPct: null})] : LIVE);
+    renderPage(<StatisticsPage/>);
+    fireEvent.click(screen.getByRole('tab', {name: 'Teamstatistieken'}));
+    const table = await screen.findByRole('table', {name: 'Statistieken per team'});
+    expect(within(table).getByText('Doelpunten / pogingen')).toBeTruthy();
+    expect(within(table).getAllByText('27/75 (36%)')).toHaveLength(2);
+    expect(within(table).getAllByText('12/16 (75%)').length).toBe(2);
+    expect(within(table).getAllByText('19/101 (18,8%)').length).toBe(2);
+    expect(within(table).getByText('7:20 (25,9% dames)')).toBeTruthy();
+    expect(within(table).getAllByText('Vrije ballen').length).toBe(1);
+    expect(within(table).getAllByText('–').length).toBeGreaterThan(2);
+    expect(within(table).getAllByText('1,66').length).toBeGreaterThan(0);
+    expect(table.closest('.overflow-x-auto')).not.toBeNull();
+    expect(screen.getByText('Bron: share')).toBeTruthy();
+  });
+
+  it('shows the top scorers of both teams next to each other, most goals first', async () => {
+    const scorer = (team: 'home' | 'away', rank: number, name: string, goals: number, attempts: number) =>
+      ({team, teamName: team === 'home' ? 'Fortuna/Ruitenheer' : 'KZ/Keukensale.com', rank, name, sex: null, goals, attempts, goalPct: Math.round((goals / attempts) * 1000) / 10, source: 'page', database: 'disabled', readAt: '2026-10-31T20:03:00.000Z'});
+    api(({path}) => path === '/api/stats/top-scorers'
+      ? [scorer('home', 1, 'Nik van der Steen', 6, 32), scorer('home', 2, 'Renée van Ginkel', 2, 5), scorer('away', 1, 'Isa Dik', 2, 18)]
+      : LIVE);
+    renderPage(<StatisticsPage/>);
+    fireEvent.click(screen.getByRole('tab', {name: 'Topscorers'}));
+    const home = await screen.findByRole('region', {name: 'Fortuna/Ruitenheer'});
+    const away = screen.getByRole('region', {name: 'KZ/Keukensale.com'});
+    const names = within(home).getAllByRole('listitem').map((li) => li.textContent);
+    expect(names[0]).toContain('Nik van der Steen');
+    expect(names[0]).toContain('6/32 (18,8%)');
+    expect(names[1]).toContain('Renée van Ginkel');
+    expect(within(away).getByText('Isa Dik')).toBeTruthy();
+    expect(screen.getByText('Bron: live pagina (database uit)')).toBeTruthy();
+  });
 });

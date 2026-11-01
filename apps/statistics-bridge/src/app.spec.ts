@@ -107,6 +107,31 @@ describe('statistics bridge routes', () => {
       expect(current.body[0]).toMatchObject({source: 'share', vak: null});
     });
 
+    it('answers team statistics (one flat row per team, with the attack figures of the page) and top scorers', async () => {
+      mockPage();
+      const res = await request(app).get('/team-stats');
+      expect(res.status, res.text).toBe(200);
+      expect(res.body.map((r: {team: string}) => r.team)).toEqual(['home', 'away']);
+      const home = res.body[0];
+      expect(home).toMatchObject({teamName: 'Fortuna/Ruitenheer', source: 'share'});
+      expect(home.afstandAttempts).toBeGreaterThan(0);
+      expect(home.goalsDames).toBeGreaterThan(0);
+      expect(home.attacks).toBe(73);
+      expect(home.turnovers).toBe(46);
+      const top = await request(app).get('/top-scorers');
+      expect(top.status).toBe(200);
+      expect(top.body[0]).toMatchObject({team: 'home', rank: 1, source: 'share'});
+      expect(top.body.filter((r: {team: string}) => r.team === 'away').length).toBeGreaterThan(0);
+    });
+
+    it('leaves the attack figures empty when the page is not reachable', async () => {
+      vi.spyOn(axios, 'get').mockRejectedValue(new Error('down'));
+      const res = await request(app).get('/team-stats');
+      expect(res.status).toBe(200);
+      expect(res.body[0].attacks).toBeNull();
+      expect(res.body[0].goalPct).not.toBeNull();
+    });
+
     it('only reads listed match tables', async () => {
       expect((await request(app).get('/matches/spelersover/actions')).status).toBe(404);
       expect((await request(app).get('/matches/..%2F..%2Fetc/actions')).status).toBe(404);
@@ -162,6 +187,19 @@ describe('statistics bridge routes', () => {
       expect(players.body.players.find((p: {name: string}) => p.name === 'Roos van Groen')).toMatchObject({team: 'home', afstand: '3/7'});
       // whole match: Roos Hom plays in vak 2 only, Nik van der Steen's vak 1 is the whole match
       expect(players.body.players.find((p: {name: string}) => p.name === 'Nik van der Steen')).toMatchObject({afstand: '6/32'});
+    });
+
+    it('/team-stats and /top-scorers fall back to the page totals and players', async () => {
+      fs.rmSync(path.join(share, 'F1'), {recursive: true});
+      mockPage();
+      const stats = await request(app).get('/team-stats');
+      expect(stats.status, stats.text).toBe(200);
+      expect(stats.body[0]).toMatchObject({source: 'page', database: 'unreachable', afstandGoals: 19, afstandAttempts: 101, goalsDames: null});
+      expect(stats.headers['x-stats-database']).toBe('unreachable');
+      const top = await request(app).get('/top-scorers');
+      expect(top.body[0]).toMatchObject({source: 'page', team: 'home', rank: 1});
+      setConfigForTests({mdbEnabled: false});
+      expect((await request(app).get('/team-stats')).headers['x-stats-database']).toBe('disabled');
     });
 
     it('/players and /matches/:table/actions answer 503 "Database niet beschikbaar"', async () => {

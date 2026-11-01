@@ -24,6 +24,27 @@ export type DerivedPlayerRow = {
 export type StatsTeamChoice = {value: string; from: 'production' | 'default'};
 /** database: why the page stands in for the database ('disabled': switched off on the bridge, 'unreachable') */
 export type StatsDatabaseState = 'disabled' | 'unreachable';
+/** One row per team of the current match (flat, as a vMix data source reads it); percentages are null without attempts */
+export type TeamStatsRow = {
+  team: 'home' | 'away'; teamName: string | null;
+  goals: number; attempts: number; goalPct: number | null;
+  reboundWon: number; reboundTotal: number; reboundPct: number | null;
+  strafworpGoals: number; strafworpAttempts: number; strafworpPct: number | null;
+  vrijeBalGoals: number; vrijeBalAttempts: number; vrijeBalPct: number | null;
+  afstandGoals: number; afstandAttempts: number; afstandPct: number | null;
+  kortSchotGoals: number; kortSchotAttempts: number; kortSchotPct: number | null;
+  doorloopGoals: number; doorloopAttempts: number; doorloopPct: number | null;
+  goalsDames: number | null; goalsHeren: number | null; goalsDamesPct: number | null; goalsRatio: string | null;
+  attacks: number | null; attackGoals: number | null; turnovers: number | null; turnoversWithoutAttempt: number | null;
+  avgAttemptsPerAttack: number | null; attackGoalPct: number | null;
+  source: 'share' | 'copy' | 'page'; readAt: string; database?: 'disabled' | 'unreachable';
+};
+export type TopScorerRow = {
+  team: 'home' | 'away'; teamName: string | null; rank: number; name: string; sex: 'dame' | 'heer' | null;
+  goals: number; attempts: number; goalPct: number | null;
+  source: 'share' | 'copy' | 'page'; readAt: string; database?: 'disabled' | 'unreachable';
+};
+
 export type MatchPlayers = {source: 'share' | 'copy' | 'page'; readAt: string; database?: StatsDatabaseState; team: StatsTeamChoice | null; teams: {own: string | null; opponent: string | null}; players: DerivedPlayerRow[]};
 
 /** The statistics bridge (its own app next to the API); the token is never returned, only whether there is one */
@@ -52,6 +73,8 @@ async function getJson<T>(path: string): Promise<T> {
 export const fetchLiveStats = () => getJson<LiveStats>('/api/stats/live');
 export const fetchStatsMatches = () => getJson<StatsMatch[]>('/api/stats/matches');
 export const fetchMatchPlayers = (table: string) => getJson<MatchPlayers>(`/api/stats/matches/${encodeURIComponent(table)}/players`);
+export const fetchTeamStats = () => getJson<TeamStatsRow[]>('/api/stats/team-stats');
+export const fetchTopScorers = () => getJson<TopScorerRow[]>('/api/stats/top-scorers');
 export const fetchStatsConnection = () => getJson<StatsConnection>('/api/stats/status');
 export const getMatchStatsConfig = () => getJson<MatchStatsConfig>('/api/settings/match-stats');
 

@@ -7,7 +7,8 @@ import {derivePlayerStats, teamNamesOf} from './services/matchActions';
 import {getLiveStats} from './services/liveStats';
 import {DatabaseUnavailableError, listStatsMatches, readMatchActions, readStatsPlayers, type Sourced} from './services/mdbFile';
 import {derivedPlayerRows, livePlayerRows, pagePlayersAsDerived} from './services/flatRows';
-import {currentPlayers} from './services/currentPlayers';
+import {currentMatch, currentPlayers, type CurrentMatch} from './services/currentPlayers';
+import {teamStatsFromPage, teamStatsFromPlayers, topScorersOf, attackStatsOf} from './services/teamStats';
 import {statsConnection} from './services/connectionTest';
 import {StatsError} from './services/statsErrors';
 import type {TweedeScherm} from './services/tweedeScherm';
@@ -72,6 +73,23 @@ async function pageOrOffline(): Promise<TweedeScherm> {
 }
 
 const databaseReason = (err: DatabaseUnavailableError) => err.reason;
+
+/** Rows of the current match from the database, else from the page; a refused path (400) is a configuration error, not a reason for the page. */
+async function matchOrPage<T extends object>(req: Request, res: Response, fromMatch: (m: CurrentMatch) => T[] | Promise<T[]>, fromPage: (page: TweedeScherm) => T[]) {
+  try {
+    const m = await currentMatch(teamOf(req));
+    const rows = await fromMatch(m);
+    setSourceHeaders(res, m.source, m.readAt, m.team);
+    return res.json(rows.map((r) => ({...r, source: m.source, readAt: m.readAt})));
+  } catch (err) {
+    if (!(err instanceof StatsError) || err.status === 400) throw err;
+    const page = await pageOrOffline();
+    const readAt = new Date().toISOString();
+    const database = err instanceof DatabaseUnavailableError ? databaseReason(err) : 'unreachable';
+    setSourceHeaders(res, 'page', readAt, null, database);
+    return res.json(fromPage(page).map((r) => ({...r, source: 'page' as const, readAt, database})));
+  }
+}
 
 export function createApp(): Express {
   const app = express();
@@ -149,6 +167,19 @@ export function createApp(): Express {
       return res.json(out);
     }
   }));
+
+  // Per team: goal %, rebound %, strafworp %, vrije bal %, afstand %, kort %, doorloop %, goals by women and men and
+  // the attack figures (from the page). One flat row per team. Without a usable database: from the page's totals.
+  app.get('/team-stats', wrap((req, res) => matchOrPage(req, res, async (m) => {
+    // The attack figures only exist on the page: without the page they stay empty
+    const page = await getLiveStats().catch(() => null);
+    return teamStatsFromPlayers(m.players, m.names, m.sexOf, {home: page ? attackStatsOf(page.home) : null, away: page ? attackStatsOf(page.away) : null});
+  }, (page) => teamStatsFromPage(page.home, page.away))));
+
+  // Top scorers per team, most goals first, one flat row per player with a rank
+  app.get('/top-scorers', wrap((req, res) => matchOrPage(req, res,
+    (m) => topScorersOf(m.players, m.names, m.sexOf),
+    (page) => topScorersOf(pagePlayersAsDerived(page), {own: page.home.name, opponent: page.away.name}, null))));
 
   app.use((_req, res) => res.status(404).json({error: 'Niet gevonden'}));
 

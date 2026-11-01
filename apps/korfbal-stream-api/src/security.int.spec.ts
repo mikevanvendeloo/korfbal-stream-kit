@@ -1454,7 +1454,7 @@ describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
   });
 
   it('answers 401 "API-sleutel ontbreekt" on a feed without key or organization', async () => {
-    for (const path of ['/api/vmix/sponsor-names', '/api/vmix/active-production/staff', '/api/scoreboard', '/api/scoreboard/clock', '/api/stats/live', '/api/stats/live/players?team=home', '/api/stats/matches', '/api/stats/players', '/api/stats/current/players', '/api/stats/status', '/api/vmix/production/1/titles', '/api/vmix/production/active/titles/presentatie']) {
+    for (const path of ['/api/vmix/sponsor-names', '/api/vmix/active-production/staff', '/api/scoreboard', '/api/scoreboard/clock', '/api/stats/live', '/api/stats/live/players?team=home', '/api/stats/matches', '/api/stats/players', '/api/stats/current/players', '/api/stats/team-stats', '/api/stats/top-scorers', '/api/stats/status', '/api/vmix/production/1/titles', '/api/vmix/production/active/titles/presentatie']) {
       const res = await feed(path);
       expect(res.status, path).toBe(401);
       expect(res.body, path).toEqual({error: 'API-sleutel ontbreekt', code: 'API_KEY_MISSING'});

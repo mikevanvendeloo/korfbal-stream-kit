@@ -36,6 +36,8 @@ De bridge schrijft nooit naar `STATS_DIR` en logt geen tokens.
 | `/live`, `/live/players?team=home\|away&vak=1` | De pagina, en vlakke spelersrijen voor vMix |
 | `/matches` | Wedstrijden uit de database (nieuwste eerst). Zonder database: één regel `live` (`source: page`) |
 | `/matches/:table/actions`, `/matches/:table/players` | Acties, en totalen per speler. `/matches/live/players`: de spelers van de pagina |
+| `/team-stats` | Twee vlakke rijen (thuis, uit): doelpunt-, rebound-, strafworp-, vrije bal-, afstand-, korte schot- en doorloop-percentages, doelpunten dames/heren, aanvalscijfers |
+| `/top-scorers` | Per ploeg de spelers met een doelpunt, de meeste eerst, met `rank` |
 | `/players` | Spelersoverzicht (alleen database; anders 503 "Database niet beschikbaar") |
 | `/current/players` | De spelers van de wedstrijd met de laatste actie; zonder database die van de pagina (`source: page`) |
 

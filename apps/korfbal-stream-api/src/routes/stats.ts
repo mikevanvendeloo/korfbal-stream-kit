@@ -114,3 +114,7 @@ statsRouter.get('/players', wrap(async (_req, res) => forward(res, '/players')))
 
 // GET /api/stats/current/players: the bridge answers from the database, else the page
 statsRouter.get('/current/players', wrap(async (_req, res) => forward(res, '/current/players')));
+
+// GET /api/stats/team-stats and /top-scorers: flat rows per team / per player of the current match
+statsRouter.get('/team-stats', wrap(async (_req, res) => forward(res, '/team-stats')));
+statsRouter.get('/top-scorers', wrap(async (_req, res) => forward(res, '/top-scorers')));
