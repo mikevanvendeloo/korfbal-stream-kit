@@ -2,16 +2,19 @@ import {useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {formatTime} from '../lib/time';
 import StatsConnectionStatus from '../components/StatsConnectionStatus';
-import {fetchLiveStats, fetchMatchPlayers, fetchStatsMatches, type PercentageRow, type PlayerStats, type StatsTeam} from '../lib/statsApi';
+import {useStatsConnection} from '../hooks/useStatsConnection';
+import {fetchLiveStats, fetchMatchPlayers, fetchStatsMatches, type PercentageRow, type StatsDatabaseState, type PlayerStats, type StatsTeam} from '../lib/statsApi';
 
 const POLL_MS = 5000;
 const HEAD = ['Speler', 'Afstand', 'Door', 'Kort', 'Vrije bal', 'Straf', 'Totaal', 'Rebound', 'Aangeef'];
 const th = 'px-2 py-1 text-left font-medium whitespace-nowrap';
 const td = 'px-2 py-1 whitespace-nowrap';
 const ratio = (r: {goals: number; attempts: number}) => `${r.goals}/${r.attempts}`;
-/** Where the match data came from: the share, or the last local copy with the time it was read. */
-export const sourceLabel = (source: 'share' | 'copy', readAt: string) =>
-  source === 'share' ? 'Bron: share' : `Bron: lokale kopie van ${formatTime(readAt)}`;
+/** Where the match data came from: the share, the last local copy (with the time it was read) or, without a database, the live page. */
+export const sourceLabel = (source: 'share' | 'copy' | 'page', readAt: string, database?: StatsDatabaseState) =>
+  source === 'share' ? 'Bron: share'
+    : source === 'page' ? `Bron: live pagina (database ${database === 'disabled' ? 'uit' : 'niet bereikbaar'})`
+      : `Bron: lokale kopie van ${formatTime(readAt)}`;
 /** The team folder of the database: from the active production, or the default 1. */
 export const teamLabel = (team: {value: string; from: 'production' | 'default'}) =>
   `Team ${team.value} (${team.from === 'production' ? 'actieve productie' : 'standaard'})`;
@@ -107,7 +110,7 @@ function MatchTab() {
       </select>
       {matches.error && <p role="alert" className="mt-2 text-red-700 dark:text-red-300">Geen statistieken beschikbaar: {(matches.error as Error).message}</p>}
       {players.error && <p role="alert" className="mt-2 text-red-700 dark:text-red-300">{(players.error as Error).message}</p>}
-      {players.data && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{sourceLabel(players.data.source, players.data.readAt)}{players.data.team && <> · {teamLabel(players.data.team)}</>}</p>}
+      {players.data && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{sourceLabel(players.data.source, players.data.readAt, players.data.database)}{players.data.team && <> · {teamLabel(players.data.team)}</>}</p>}
       {players.data && (['home', 'away'] as const).map((side) => {
         const rows = players.data.players.filter((p) => p.team === side);
         const name = side === 'home' ? players.data.teams.own : players.data.teams.opponent;
@@ -131,6 +134,9 @@ function MatchTab() {
 
 export default function StatisticsPage() {
   const [tab, setTab] = useState<'live' | 'match'>('live');
+  const connection = useStatsConnection(true);
+  // The bridge is its own app: when it is offline there is nothing to show, and the tables would only fail
+  const bridgeOffline = connection.data?.bridge.ok === false;
   const tabClass = (active: boolean) => `px-3 py-2 border-b-2 ${active ? 'border-red-600 font-semibold' : 'border-transparent text-gray-600 dark:text-gray-300'}`;
   return (
     <div className="container py-4 min-w-0">
@@ -138,11 +144,14 @@ export default function StatisticsPage() {
       <div className="mb-4">
         <StatsConnectionStatus auto/>
       </div>
+      {bridgeOffline && <p role="alert" className="p-4 rounded-md border border-red-200 bg-red-50 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">De statistics bridge is offline</p>}
+      {!bridgeOffline && <>
       <div role="tablist" className="flex gap-2 mb-4 border-b border-gray-200 dark:border-gray-800">
         <button type="button" role="tab" aria-selected={tab === 'live'} className={tabClass(tab === 'live')} onClick={() => setTab('live')}>Live</button>
         <button type="button" role="tab" aria-selected={tab === 'match'} className={tabClass(tab === 'match')} onClick={() => setTab('match')}>Wedstrijd uit database</button>
       </div>
       {tab === 'live' ? <LiveTab/> : <MatchTab/>}
+      </>}
     </div>
   );
 }

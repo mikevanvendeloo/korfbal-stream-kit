@@ -153,6 +153,8 @@ export function createApp() {
   app.use((_req, res) => res.status(404).json({error: 'Niet gevonden'}));
 
   // Errors without internals: details go to the log, never into the answer
+  // Express recognizes an error handler by its four parameters
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     logger.error('Request failed', {error: err instanceof Error ? err.message : String(err)});
     res.status(500).json({error: 'Interne serverfout'});
