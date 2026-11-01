@@ -44,6 +44,8 @@ export interface StandardCallSheetTemplateItem {
   /** Name of the item's hoofdstuk in `StandardCallSheetTemplate.chapters` */
   chapter: string;
   isInVenue: boolean;
+  isMatchPart?: boolean;
+  showVenueClock?: boolean;
   isInLivestream: boolean;
   isTimeAnchor?: boolean;
   anchorType?: string;

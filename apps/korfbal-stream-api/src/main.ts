@@ -333,7 +333,7 @@ const openapi = {
                 id: { type: 'string', description: 'Only to link items (parentId) within the file' },
                 cue: { type: 'string' }, title: { type: 'string' }, note: { type: 'string', nullable: true }, color: { type: 'string', nullable: true },
                 durationSec: { type: 'integer' }, orderIndex: { type: 'integer' },
-                isInVenue: { type: 'boolean' }, isInLivestream: { type: 'boolean' }, isTimeAnchor: { type: 'boolean' },
+                isInVenue: { type: 'boolean' }, isMatchPart: { type: 'boolean' }, showVenueClock: { type: 'boolean' }, isInLivestream: { type: 'boolean' }, isTimeAnchor: { type: 'boolean' },
                 anchorType: { type: 'string', nullable: true, enum: ['MATCH_START', 'LIVESTREAM_START', null] }, autoAdvance: { type: 'boolean' },
                 parentId: { type: 'string', nullable: true }, chapter: { type: 'string', nullable: true, description: 'Hoofdstuk name' },
                 positions: { type: 'array', items: { type: 'string' } },

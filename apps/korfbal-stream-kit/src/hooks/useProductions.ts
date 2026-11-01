@@ -577,6 +577,8 @@ export type ProductionEventTiming = {
   callSheetItemId: string | null;
   chapterId: number | null;
   isInVenue: boolean;
+  isMatchPart: boolean;
+  showVenueClock: boolean;
   isInLivestream: boolean;
   isTimeAnchor: boolean;
   actualStartTime: string | null;

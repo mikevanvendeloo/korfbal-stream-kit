@@ -3,9 +3,10 @@ import {findClubByTeamName} from '../utils/clubs';
 import {findSponsorByName} from './reportSponsors';
 import {currentOrganizationRef, sponsorLogoRelPath} from './sponsorLogos';
 import {formatDate, formatTime} from '../utils/time';
+import {matchPartState, type MatchPartItem} from './matchParts';
 
 
-/** One flat row for a vMix data source: every field is a string, empty when unknown. */
+/** One flat row for a vMix data source: every field is a string, empty when unknown (except the match part: a number and a boolean). */
 export type VmixMatchInfo = {
   productionId: string;
   home: string;
@@ -41,6 +42,9 @@ export type VmixMatchInfo = {
   matchSponsorLogo: string;
   ballSponsor: string;
   ballSponsorLogo: string;
+  /** The match part that has started (0 before the first) and whether it is running */
+  matchPart: number;
+  matchPartRunning: boolean;
 };
 
 const EMPTY: VmixMatchInfo = {
@@ -49,6 +53,7 @@ const EMPTY: VmixMatchInfo = {
   date: '', dateShort: '', kickoff: '', attendanceTime: '', liveStart: '', accommodation: '', field: '',
   referee: '', reserveReferee: '', referees: '', description: '', season: '', homeScore: '', awayScore: '', score: '',
   matchSponsor: '', matchSponsorLogo: '', ballSponsor: '', ballSponsorLogo: '',
+  matchPart: 0, matchPartRunning: false,
 };
 
 // Amsterdam time: vMix shows the text as is
@@ -70,6 +75,8 @@ type MatchInput = {
   awayClub?: MatchClub | null;
   matchSponsor?: { name: string; logoPath: string | null } | null;
   ballSponsor?: { name: string; logoPath: string | null } | null;
+  /** The live items, for the match part */
+  items?: MatchPartItem[];
 };
 
 /**
@@ -122,6 +129,7 @@ export function buildVmixMatchInfo(input: MatchInput | null, assetBaseUrl: strin
     matchSponsorLogo: asset(input.matchSponsor?.logoPath),
     ballSponsor: input.ballSponsor?.name ?? '',
     ballSponsorLogo: asset(input.ballSponsor?.logoPath),
+    ...matchPartState(input.items ?? []),
   };
 }
 
@@ -130,7 +138,7 @@ export async function loadActiveMatchInput(): Promise<MatchInput | null> {
   const production = await prisma.production.findFirst({
     where: {isActive: true},
     orderBy: {createdAt: 'desc'},
-    include: {matchSchedule: {include: {season: true}}, productionReport: true},
+    include: {matchSchedule: {include: {season: true}}, productionReport: true, productionEvents: {select: {status: true, isMatchPart: true, order: true}, orderBy: {order: 'asc'}}},
   });
   if (!production) return null;
   const match = production.matchSchedule;
@@ -153,5 +161,6 @@ export async function loadActiveMatchInput(): Promise<MatchInput | null> {
     awayClub,
     matchSponsor: sponsor(report?.matchSponsor),
     ballSponsor: sponsor(report?.ballSponsor),
+    items: production.productionEvents,
   };
 }

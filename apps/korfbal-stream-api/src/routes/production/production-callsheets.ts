@@ -187,6 +187,8 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/sync-to-events', async
             autoAdvance: item.autoAdvance,
             isInLivestream: item.isInLivestream,
             isInVenue: item.isInVenue,
+            isMatchPart: item.isMatchPart,
+            showVenueClock: item.showVenueClock,
             isTimeAnchor: item.isTimeAnchor,
             anchorType: item.anchorType,
             chapterId: item.chapterId,
@@ -309,6 +311,8 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
       ? Number(req.body.orderIndex)
       : ((await prisma.callSheetItem.aggregate({ where: { callSheetId }, _max: { orderIndex: true } }))._max.orderIndex ?? 0) + 1;
     const isInVenue = req.body?.isInVenue === true;
+    const isMatchPart = req.body?.isMatchPart === true;
+    const showVenueClock = req.body?.showVenueClock === true;
     const isInLivestream = req.body?.isInLivestream !== false; // Default true
     const isTimeAnchor = req.body?.isTimeAnchor === true;
     const autoAdvance = req.body?.autoAdvance === true;
@@ -336,6 +340,8 @@ productionCallsheetsRouter.post('/callsheets/:callSheetId/items', async (req, re
           durationSec,
           orderIndex,
           isInVenue,
+          isMatchPart,
+          showVenueClock,
           isInLivestream,
           isTimeAnchor,
           autoAdvance,
@@ -387,6 +393,8 @@ productionCallsheetsRouter.put('/callsheet-items/:itemId', async (req, res, next
     if (req.body?.durationSec != null) data.durationSec = Number(req.body.durationSec);
     if (req.body?.orderIndex != null) data.orderIndex = Number(req.body.orderIndex);
     if (req.body?.isInVenue != null) data.isInVenue = req.body.isInVenue === true;
+    if (req.body?.isMatchPart != null) data.isMatchPart = req.body.isMatchPart === true;
+    if (req.body?.showVenueClock != null) data.showVenueClock = req.body.showVenueClock === true;
     if (req.body?.isInLivestream != null) data.isInLivestream = req.body.isInLivestream === true;
     if (req.body?.isTimeAnchor != null) data.isTimeAnchor = req.body.isTimeAnchor === true;
     if (req.body?.autoAdvance != null) data.autoAdvance = req.body.autoAdvance === true;

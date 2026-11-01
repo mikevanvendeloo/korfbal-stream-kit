@@ -4,6 +4,7 @@ import {calculateEventTimes, ProductionEvent, useLiveState} from '../hooks/useLi
 import {Fragment, useEffect, useMemo, useRef, useState} from "react";
 import {MatchHeader} from "./MatchHeader";
 import {TimeDisplay} from "./TimeDisplay";
+import {showsVenueClock} from "../lib/venueClock";
 import {CallSheetItem} from "./CallSheetItem";
 import {LucideTvMinimalPlay, Play, Settings, SkipBack, SkipForward, Spotlight, Square} from 'lucide-react';
 import {useFontSize} from "../hooks/useFontSize";
@@ -485,6 +486,7 @@ export const ShowCallerView = () => {
               productionClock={productionClock}
               activeEventRemainingTime={activeEventRemainingTime}
               venueClock={venueClock}
+              showVenueClock={showsVenueClock(activeEvent, venueEvent)}
               systemTime={systemTime}
               variant="large"
             />

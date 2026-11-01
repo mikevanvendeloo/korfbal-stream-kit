@@ -12,6 +12,8 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         orderIndex: 0,
         chapter: "Eerste helft",
         isInVenue: true,
+        isMatchPart: true,
+        showVenueClock: true,
         isInLivestream: true,
         positions: [
           "Regie livestream",
@@ -40,6 +42,8 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         orderIndex: 2,
         chapter: "Tweede helft",
         isInVenue: true,
+        isMatchPart: true,
+        showVenueClock: true,
         isInLivestream: true,
         positions: [
           "Regie livestream",
@@ -600,6 +604,8 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         chapter: "Eerste helft",
         note: "Eerste helft zuivere speeltijd. Bij timeout's statistieken tonen en bij dode spelmomenten eventueel de wedstrijd sponsor.",
         isInVenue: false,
+        isMatchPart: true,
+        showVenueClock: true,
         isInLivestream: true,
         positions: [
           "Showcaller"
@@ -761,6 +767,8 @@ export const standardCallSheetTemplates: StandardCallSheetTemplate[] = [
         orderIndex: 48,
         chapter: "Tweede helft",
         isInVenue: false,
+        isMatchPart: true,
+        showVenueClock: true,
         isInLivestream: true,
         positions: [
           "Commentaar",

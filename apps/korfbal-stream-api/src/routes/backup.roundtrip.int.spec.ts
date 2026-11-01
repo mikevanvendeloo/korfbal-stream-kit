@@ -63,7 +63,7 @@ describe.runIf(runDb)('backup round trip into an organization with another slug 
     // A production with planned times, a callsheet, report sponsors, crew with skills, on a manual match
     await createProductionScenario(prisma, {
       organizationId: a, liveTime, startsAt, callSheet: true,
-      items: [{title: 'RT Opening', durationSec: 300}, {title: 'RT Wedstrijd', durationSec: 3600}],
+      items: [{title: 'RT Opening', durationSec: 300}, {title: 'RT Wedstrijd', durationSec: 3600, isMatchPart: true, showVenueClock: true}],
       match: {homeTeamName: 'RT Thuis', awayTeamName: 'RT Uit', isManual: true, date: new Date('2026-11-14T19:30:00.000Z')},
       report: {matchSponsor: 'RT Sponsor', ballSponsor: 'RT Balsponsor', remarks: 'RT opmerking'},
       crew: [{name: 'RT Persoon', skills: ['RT_CAMERA'], present: true}],
@@ -147,6 +147,9 @@ describe.runIf(runDb)('backup round trip into an organization with another slug 
     ];
     expect(times(production!.callSheets[0].items)).toEqual(expected);
     expect(times(production!.productionEvents)).toEqual(expected);
+    // Wedstrijddeel and Zaalklok tonen travel with the items
+    expect(production!.callSheets[0].items.map((i) => [i.isMatchPart, i.showVenueClock])).toEqual([[false, false], [true, true]]);
+    expect(production!.productionEvents.map((e) => [e.isMatchPart, e.showVenueClock])).toEqual([[false, false], [true, true]]);
   });
 
   it('gives an image download that, unpacked into B\'s directory, makes B\'s logos resolve', async () => {

@@ -46,6 +46,8 @@ export interface ProductionEvent {
   metadata: any;
   createdAt: Date;
   isInVenue: boolean;
+  isMatchPart: boolean;
+  showVenueClock: boolean;
   isInLivestream: boolean;
   autoAdvance: boolean;
   isTimeAnchor: boolean;

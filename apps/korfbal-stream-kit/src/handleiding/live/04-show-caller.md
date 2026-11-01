@@ -38,7 +38,7 @@ Volgend en vorig gaan door de items van **alle** posities. Lopen Zaal en Stream 
 
 ## Wat je ziet
 
-- Een grote klokbalk met **Zaal**, **Tijd** en **Resterend** (of **Productie** als er geen item actief is).
+- Een grote klokbalk met **Zaal**, **Tijd** en **Resterend** (of **Productie** als er geen item actief is). **Zaal** staat alleen in beeld zolang het lopende item (stream of zaal) **Zaalklok tonen** heeft; anders blijft die plek leeg.
 - Twee banen: **Zaal draaiboek** (groen, links) en **Stream draaiboek** (blauw, rechts). Een item dat voor beide geldt, staat over de hele breedte.
 - Een kopregel per **hoofdstuk** van het draaiboek, met de geplande begin- en eindtijd. Een hoofdstuk is een kop, geen stap: **Volgend** en **Vorig** gaan per item. Met een positie gekozen zijn hoofdstukken zonder items voor die positie lichter.
 - Bovenin **Hoofdstuk: …** met **nog …**: hoe lang het lopende hoofdstuk nog duurt: de rest van het huidige item plus de items erna in dat hoofdstuk (bij Zaal en Stream naast elkaar telt de langste baan), en niet korter dan de **minimale duur** van het hoofdstuk.

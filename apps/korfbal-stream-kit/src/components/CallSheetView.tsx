@@ -2,6 +2,7 @@ import {useNavigate, useParams} from 'react-router-dom';
 import {useLiveProductionId} from './ActiveProductionRoute';
 import {CALLSHEET_HEADER_VAR, CallSheetColumn} from './CallSheetColumn';
 import {TimeDisplay} from './TimeDisplay';
+import {showsVenueClock} from '../lib/venueClock';
 import {calculateEventTimes, useLiveState} from '../hooks/useLiveState';
 import {useEffect, useMemo, useRef, useState, type CSSProperties} from "react";
 import {MatchHeader} from "./MatchHeader";
@@ -587,6 +588,7 @@ export const CallSheetView = () => {
                                 productionClock={productionClock}
                                 activeEventRemainingTime={activeEventRemainingTime}
                                 venueClock={venueClock}
+                                showVenueClock={showsVenueClock(activeEvent, activeVenueEvent)}
                                 systemTime={systemTime}
                             />
                         </div>

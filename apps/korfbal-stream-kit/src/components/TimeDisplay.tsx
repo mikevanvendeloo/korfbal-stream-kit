@@ -11,6 +11,8 @@ interface Props {
   productionClock: DisplayTime;
   activeEventRemainingTime: DisplayTime | null;
   venueClock: string;
+  /** The running item (stream or hall) wants the venue clock (Zaalklok tonen); otherwise it is left out */
+  showVenueClock: boolean;
   systemTime: string;
   variant?: 'compact' | 'large';
 }
@@ -21,6 +23,7 @@ export const TimeDisplay = ({
   productionClock,
   activeEventRemainingTime,
   venueClock,
+  showVenueClock,
   systemTime,
   variant = 'compact'
 }: Props) => {
@@ -69,6 +72,7 @@ export const TimeDisplay = ({
       <div className="w-full max-w-xl mx-auto">
         <div className="grid grid-cols-3 gap-4 sm:gap-8">
           {/* Zaal Klok */}
+          {showVenueClock ? (
           <div className="text-center">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-500/60 block mb-1">
               Zaal
@@ -77,6 +81,7 @@ export const TimeDisplay = ({
               {venueClock}
             </span>
           </div>
+          ) : <div aria-hidden="true"/>}
 
           {/* Systeem Tijd */}
           <div className="text-center">
@@ -109,10 +114,12 @@ export const TimeDisplay = ({
       <div className="text-xs self-center">{getStatusIndicator()}</div>
 
       {/* Zaal Klok */}
+      {showVenueClock && (
       <div className={`flex flex-col items-center px-2 py-1 sm:p-2 rounded-lg transition-colors ${getVenueClockStyle(false)}`}>
         <span className="text-[10px] sm:text-xs uppercase opacity-80">Zaal</span>
         <span className="font-bold">{venueClock}</span>
       </div>
+      )}
 
       {/* Systeem Tijd */}
       <div className={`flex flex-col items-center px-2 py-1 sm:p-2 rounded-lg transition-colors ${getSystemTimeStyle(false)}`}>

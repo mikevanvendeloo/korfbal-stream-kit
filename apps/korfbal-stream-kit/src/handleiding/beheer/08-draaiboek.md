@@ -22,7 +22,7 @@ Kies bij **Draaiboek (CallSheet Template)** een draaiboek-template en klik op **
 
 ## Hoofdstukken
 
-Onder **Hoofdstukken** zie je de hoofdstukken van het draaiboek met hun begin, einde en duur. Die tijden volgen uit de items in elk hoofdstuk, met Zaal en Stream naast elkaar en de minimale duur (zie [Draaiboek-templates](/admin/handleiding/draaiboek-templates#hoofdstukken)). Hoofdstukken en items wijzig je via **Bewerk Draaiboek**. Toepassen van een template neemt de **Minimale duur** van de hoofdstukken mee.
+Onder **Hoofdstukken** zie je de hoofdstukken van het draaiboek met hun begin, einde en duur. Die tijden volgen uit de items in elk hoofdstuk, met Zaal en Stream naast elkaar en de minimale duur (zie [Draaiboek-templates](/admin/handleiding/draaiboek-templates#hoofdstukken)). Hoofdstukken en items wijzig je via **Bewerk Draaiboek**. Een item opent met een klik op de regel; daar vink je ook **Wedstrijddeel** en **Zaalklok tonen** aan (zie [Draaiboek-templates](/admin/handleiding/draaiboek-templates#items)). Een template uit de standaardset heeft ze al bij de helften; bij een bestaande productie die je niet opnieuw uit een template maakt, vink je ze zelf aan, anders blijft de zaalklok in LIVE weg en blijft `matchPart` 0. Toepassen van een template neemt de **Minimale duur** van de hoofdstukken mee.
 
 Met het **diskette-icoon** bewaar je het draaiboek van deze productie als nieuwe draaiboek-template, met de hoofdstukken, items en de standaardbezetting per hoofdstuk (de naam moet uniek zijn).
 

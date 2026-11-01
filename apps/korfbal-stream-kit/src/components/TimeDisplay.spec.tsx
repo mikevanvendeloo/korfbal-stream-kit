@@ -7,7 +7,7 @@ const clock = (minutes: string, seconds: string, rawSeconds: number, isNegative 
 function renderClocks(overrides: Partial<Parameters<typeof TimeDisplay>[0]> = {}) {
   return render(
     <TimeDisplay isConnected timeSinceLastSync={1} productionClock={clock('12', '30', 750)} activeEventRemainingTime={null}
-                 venueClock="08:15" systemTime="19:45:10" {...overrides}/>
+                 venueClock="08:15" showVenueClock systemTime="19:45:10" {...overrides}/>
   );
 }
 
@@ -24,7 +24,7 @@ describe('TimeDisplay', () => {
     expect(screen.getByText('Resterend').parentElement?.className).not.toContain('bg-red-600');
 
     rerender(<TimeDisplay isConnected timeSinceLastSync={1} productionClock={clock('12', '30', 750)} activeEventRemainingTime={clock('00', '12', -12, true)}
-                          venueClock="08:15" systemTime="19:45:10"/>);
+                          venueClock="08:15" showVenueClock systemTime="19:45:10"/>);
     const box = screen.getByText('Resterend').parentElement;
     expect(box?.className).toContain('bg-red-600');
     expect(box?.textContent).toContain('-00:12');
@@ -34,20 +34,37 @@ describe('TimeDisplay', () => {
     const {rerender} = renderClocks();
     expect(screen.getByLabelText('Verbonden')).toBeTruthy();
 
-    rerender(<TimeDisplay isConnected timeSinceLastSync={null} productionClock={clock('0', '0', 0)} activeEventRemainingTime={null} venueClock="" systemTime=""/>);
+    rerender(<TimeDisplay isConnected timeSinceLastSync={null} productionClock={clock('0', '0', 0)} activeEventRemainingTime={null} venueClock="" showVenueClock systemTime=""/>);
     expect(screen.getByLabelText('Synchroniseren...')).toBeTruthy();
 
-    rerender(<TimeDisplay isConnected timeSinceLastSync={9} productionClock={clock('0', '0', 0)} activeEventRemainingTime={null} venueClock="" systemTime=""/>);
+    rerender(<TimeDisplay isConnected timeSinceLastSync={9} productionClock={clock('0', '0', 0)} activeEventRemainingTime={null} venueClock="" showVenueClock systemTime=""/>);
     expect(screen.getByLabelText('Sync >5s')).toBeTruthy();
 
-    rerender(<TimeDisplay isConnected={false} timeSinceLastSync={1} productionClock={clock('0', '0', 0)} activeEventRemainingTime={null} venueClock="" systemTime=""/>);
+    rerender(<TimeDisplay isConnected={false} timeSinceLastSync={1} productionClock={clock('0', '0', 0)} activeEventRemainingTime={null} venueClock="" showVenueClock systemTime=""/>);
     expect(screen.getByLabelText('Verbinding verbroken').className).toContain('animate-pulse');
   });
 
   it('has a large variant for the Show Caller', () => {
     render(<TimeDisplay isConnected timeSinceLastSync={1} productionClock={clock('01', '05', 65)} activeEventRemainingTime={null}
-                        venueClock="08:15" systemTime="19:45:10" variant="large"/>);
+                        venueClock="08:15" showVenueClock systemTime="19:45:10" variant="large"/>);
     expect(screen.getByText('Zaal')).toBeTruthy();
     expect(screen.getByText('19:45:10')).toBeTruthy();
+  });
+
+  it('leaves the venue clock out while the running item does not show it', () => {
+    renderClocks({showVenueClock: false});
+    expect(screen.queryByText('08:15')).toBeNull();
+    expect(screen.queryByText('Zaal')).toBeNull();
+    // The other clocks stay
+    expect(screen.getByText('19:45:10')).toBeTruthy();
+    expect(screen.getByText('Productie')).toBeTruthy();
+  });
+
+  it('leaves the venue clock out in the large variant too, the other clocks keep their place', () => {
+    render(<TimeDisplay isConnected timeSinceLastSync={1} productionClock={clock('01', '05', 65)} activeEventRemainingTime={null}
+                        venueClock="08:15" showVenueClock={false} systemTime="19:45:10" variant="large"/>);
+    expect(screen.queryByText('Zaal')).toBeNull();
+    expect(screen.getByText('19:45:10')).toBeTruthy();
+    expect(screen.getByText('Tijd').parentElement?.parentElement?.children).toHaveLength(3);
   });
 });

@@ -1,6 +1,6 @@
 import request from 'supertest';
 import app from '../main';
-import {afterAll, beforeAll, describe, expect, it} from 'vitest';
+import {afterAll, afterEach, beforeAll, describe, expect, it} from 'vitest';
 import {createProductionScenario, ProductionScenario} from '../../test-scenarios';
 import {testDb as prisma} from '../../test-helpers';
 
@@ -63,6 +63,40 @@ describe.runIf(runDb)('vMix match info data source (integration)', () => {
   it('clears all fields when no production is active', async () => {
     await prisma.production.update({where: {id: productionId}, data: {isActive: false}});
     const res = await request(app).get('/api/vmix/active-production/match');
-    expect(Object.values(res.body[0]).every((v) => v === '')).toBe(true);
+    const {matchPart, matchPartRunning, ...texts} = res.body[0];
+    expect(Object.values(texts).every((v) => v === '')).toBe(true);
+    expect({matchPart, matchPartRunning}).toEqual({matchPart: 0, matchPartRunning: false});
+  });
+});
+
+describe.runIf(runDb)('vMix match info: match part (integration)', () => {
+  let show: ProductionScenario | undefined;
+  afterEach(async () => {
+    await show?.cleanup();
+    show = undefined;
+  });
+
+  const fetchRow = async () => (await request(app).get('/api/vmix/active-production/match')).body[0];
+
+  it('follows the statuses of the match-part items', async () => {
+    show = await createProductionScenario(prisma, {
+      active: true,
+      items: [
+        {title: 'Voorbeschouwing', status: 'COMPLETED'},
+        {title: 'Eerste helft', isMatchPart: true, showVenueClock: true, status: 'COMPLETED'},
+        {title: 'Rust', status: 'ACTIVE'},
+        {title: 'Tweede helft', isMatchPart: true, showVenueClock: true},
+      ],
+    });
+    expect(await fetchRow()).toMatchObject({matchPart: 1, matchPartRunning: false});
+
+    const second = (await prisma.productionEvent.findMany({where: {productionId: show.productionId, title: 'Tweede helft'}}))[0];
+    await prisma.productionEvent.update({where: {id: second.id}, data: {status: 'ACTIVE'}});
+    expect(await fetchRow()).toMatchObject({matchPart: 2, matchPartRunning: true});
+  });
+
+  it('is 0 and false before the first match part', async () => {
+    show = await createProductionScenario(prisma, {active: true, items: [{title: 'Voorbeschouwing', status: 'ACTIVE'}, {title: 'Eerste helft', isMatchPart: true}]});
+    expect(await fetchRow()).toMatchObject({matchPart: 0, matchPartRunning: false});
   });
 });

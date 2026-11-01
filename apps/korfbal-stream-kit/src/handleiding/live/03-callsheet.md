@@ -18,7 +18,7 @@ Bovenaan staan de ploegen en de **aanvangstijd**, en een klokbalk:
 
 | Klok | Betekenis |
 |---|---|
-| **Zaal** | De wedstrijdklok van het scorebord in de zaal |
+| **Zaal** | De wedstrijdklok van het scorebord in de zaal. Staat alleen in beeld zolang het lopende item **Zaalklok tonen** heeft (bijvoorbeeld *Eerste helft*); in de voorbeschouwing en de rust is hij weg. De andere klokken blijven staan |
 | **Tijd** | De huidige tijd op je apparaat |
 | **Resterend** | Hoe lang het actieve item nog duurt |
 | **Productie** | Hoe lang de productie al loopt (als er geen item actief is) |
