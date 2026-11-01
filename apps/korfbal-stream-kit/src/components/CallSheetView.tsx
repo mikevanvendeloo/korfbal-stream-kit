@@ -9,6 +9,7 @@ import {MdSettings} from "react-icons/md";
 import {useFontSize} from "../hooks/useFontSize";
 import {InterviewPhotosToggle} from "./InterviewPhotosToggle";
 import {withChapterHeadings} from "../lib/liveChapters";
+import {callsheetFullSlots} from "../lib/callsheetCompact";
 
 // Helper om een naam om te zetten naar een URL-vriendelijke slug
 const toSlug = (name: string) => {
@@ -257,6 +258,13 @@ export const CallSheetView = () => {
     // The time slots per hoofdstuk, each hoofdstuk starting with a heading slot "chapter:<id>" that every
     // column shows at the same height (openspec/changes/chapters D5); slots outside any hoofdstuk come last
     const slots = useMemo(() => withChapterHeadings(allTimes, timedItems, chapters), [allTimes, timedItems, chapters]);
+
+    // The current and next item of every shown column in full, the rest as one compact line (aligned per slot)
+    const fullSlots = useMemo(() => {
+        const shown = [primaryPositionId, ...(showSecondaryColumn ? [secondaryPositionId ?? -2] : []), ...(showTertiaryColumn ? [tertiaryPositionId ?? -3] : [])];
+        const activeIds = new Set([activeEvent?.id, activeVenueEventId].filter((id): id is string => !!id));
+        return callsheetFullSlots(timedItems, shown, activeIds);
+    }, [timedItems, primaryPositionId, secondaryPositionId, tertiaryPositionId, showSecondaryColumn, showTertiaryColumn, activeEvent?.id, activeVenueEventId]);
 
 
     // The sticky page header's real height: the column headers stick right under it on every resolution
@@ -605,6 +613,7 @@ export const CallSheetView = () => {
                     activeVenueEvent={activeVenueEvent}
                     activeVenueRemainingTime={activeVenueRemainingTime}
                     allTimes={slots}
+                    fullSlots={fullSlots}
                     chapters={chapters}
                     allPositions={allPositions}
                     onPositionChange={handleSetPrimary}
@@ -625,6 +634,7 @@ export const CallSheetView = () => {
                         activeVenueEvent={activeVenueEvent}
                         activeVenueRemainingTime={activeVenueRemainingTime}
                         allTimes={slots}
+                        fullSlots={fullSlots}
                         chapters={chapters}
                         allPositions={allPositions}
                         onPositionChange={handleSetSecondary}
@@ -646,6 +656,7 @@ export const CallSheetView = () => {
                         activeVenueEvent={activeVenueEvent}
                         activeVenueRemainingTime={activeVenueRemainingTime}
                         allTimes={slots}
+                        fullSlots={fullSlots}
                         chapters={chapters}
                         allPositions={allPositions}
                         onPositionChange={handleSetTertiary}

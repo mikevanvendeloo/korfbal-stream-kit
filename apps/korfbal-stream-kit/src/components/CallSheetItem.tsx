@@ -15,9 +15,11 @@ interface Props {
   isTimeAnchor?: boolean;
   /** Photos of the chosen interview people next to their names (when the setting is on) */
   showInterviewPhotos?: boolean;
+  /** One compact line instead of the full card (items after the current and the next one) */
+  compact?: boolean;
 }
 
-export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled = false, elapsedTime = 0, remainingTimeDisplay = null, isPlaceholder = false, hideStreamVenueLabels = false, isVenueItem = false, isTimeAnchor = false, showInterviewPhotos = true }: Props) => {
+export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled = false, elapsedTime = 0, remainingTimeDisplay = null, isPlaceholder = false, hideStreamVenueLabels = false, isVenueItem = false, isTimeAnchor = false, showInterviewPhotos = true, compact = false }: Props) => {
   const { fontSize } = useFontSize();
   const isActuallyPlaceholder = isPlaceholder || !item;
   const duration = item?.durationSec ?? 0;
@@ -96,6 +98,35 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
         return 'p-3';
     };
 
+    // Compact: one line with time, title, lanes and duration (items after the current and the next one)
+    if (compact) {
+      const compactColor = isActuallyPlaceholder ? 'border-dashed border-gray-300 dark:border-white/5 opacity-40'
+        : isAnchor ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-500/40'
+          : isVenueItem ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-500/20'
+            : 'bg-gray-100 dark:bg-gray-700/50 border-transparent';
+      const tag = `rounded px-1 font-semibold uppercase ${getFontSizeClass('text-[8px]', 'text-[10px]', 'text-sm', 'text-base')}`;
+      return (
+        <div id={item?.id ? `event-${item.id}` : undefined} data-compact=""
+             className={`flex items-baseline gap-3 px-3 py-1.5 rounded-lg border ${compactColor} ${textColor}`}>
+          <span className={`font-mono tabular-nums shrink-0 text-gray-600 dark:text-gray-300 ${getFontSizeClass('text-xs', 'text-sm', 'text-xl', 'text-2xl')} ${isActuallyPlaceholder ? 'invisible' : ''}`}>
+            {displayTime.slice(0, 5)}
+          </span>
+          <span className={`flex-1 min-w-0 leading-snug font-semibold ${getFontSizeClass('text-sm', 'text-base', 'text-2xl', 'text-3xl')} ${isActuallyPlaceholder ? 'invisible' : ''}`}>
+            {item?.title ? <InterviewText text={item.title} photos={showInterviewPhotos}/> : ' '}
+          </span>
+          {!isActuallyPlaceholder && !hideStreamVenueLabels && (
+            <span className="flex shrink-0 gap-1 self-center">
+              {isInLivestream && <span className={`${tag} bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300`}>Stream</span>}
+              {isInVenue && <span className={`${tag} bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300`}>Zaal</span>}
+            </span>
+          )}
+          <span className={`font-mono tabular-nums shrink-0 text-gray-500 ${getFontSizeClass('text-[10px]', 'text-xs', 'text-lg', 'text-xl')} ${isActuallyPlaceholder ? 'invisible' : ''}`}>
+            {formatDuration(duration)}
+          </span>
+        </div>
+      );
+    }
+
     return (
     <div
       id={item?.id ? `event-${item.id}` : undefined}
@@ -140,13 +171,7 @@ export const CallSheetItem = ({ item, isActive = false, isAutoAdvanceScheduled =
             )}
           </div>
 
-          {item?.note && <p className={`${getFontSizeClass('text-[10px]', 'text-sm', 'text-xl', 'text-2xl')} text-gray-600 dark:text-gray-300/80 mt-2 italic leading-snug`}><InterviewText text={item.note} photos={showInterviewPhotos}/></p>}
-          {(isActuallyPlaceholder || !item?.note) && (
-            <p className={`${getFontSizeClass('text-[10px]', 'text-sm', 'text-base', 'text-lg')} text-gray-600 dark:text-gray-300/80 mt-1 italic border-t border-gray-200 dark:border-white/10 pt-1 ${isActuallyPlaceholder ? 'invisible' : ''}`}>
-              &nbsp;
-            </p>
-          )}
-
+          {/* No toelichting (note) on the callsheet: hardly used, and it made every item taller */}
           <div className={`flex flex-wrap items-center justify-between mt-2 pt-1 border-t border-gray-200 dark:border-white/10 ${getFontSizeClass('text-[8px]', 'text-[10px]', 'text-lg', 'text-xl')} font-medium uppercase tracking-wider opacity-80 min-h-[1.25rem] ${isActuallyPlaceholder ? 'invisible' : ''}`}>
             <div className="flex flex-wrap gap-2">
               {!hideStreamVenueLabels && isInLivestream && (

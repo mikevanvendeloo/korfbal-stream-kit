@@ -30,6 +30,8 @@ interface Props {
   activeVenueRemainingTime?: { minutes: string; seconds: string; isNegative: boolean; rawSeconds: number } | null;
   /** The hoofdstukken: `allTimes` holds a heading slot "chapter:<id>" before each one */
   chapters?: LiveChapter[];
+  /** Slots shown in full (current and next item, see callsheetFullSlots); the others are one compact line. Absent: all full */
+  fullSlots?: ReadonlySet<string>;
 }
 
 export const CallSheetColumn = ({
@@ -50,6 +52,7 @@ export const CallSheetColumn = ({
   chapters = [],
   activeVenueEvent = null,
   activeVenueRemainingTime = null,
+  fullSlots,
 }: Props) => {
   const isBlue = accentColor === 'blue';
   const isEmerald = accentColor === 'emerald';
@@ -69,6 +72,8 @@ export const CallSheetColumn = ({
     waitPlaced = true;
     return <CallSheetWaitRow wait={wait} chapterName={wait.kind === 'waiting' ? chapterName(chapters, wait.next.chapterId) : null}/>;
   };
+
+  const isCompactSlot = (slot: string) => !!fullSlots && !fullSlots.has(slot);
 
   const itemsByTime: Record<string, (ProductionEvent & { calculatedTime?: Date | null })[]> = {};
   relevantItems.forEach(item => {
@@ -153,6 +158,7 @@ export const CallSheetColumn = ({
                 {wait?.kind === 'waiting' && wait.next.id === item.id && waitRow()}
                 <CallSheetItem
                   item={item}
+                  compact={isCompactSlot(timeSlot)}
                   isActive={isActive(item.id)}
                   isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
                   elapsedTime={elapsedTime}
@@ -168,6 +174,7 @@ export const CallSheetColumn = ({
             <CallSheetItem
               key={timeSlot}
               isPlaceholder={true}
+              compact={isCompactSlot(timeSlot)}
               isVenueItem={isEmerald}
             />
           );

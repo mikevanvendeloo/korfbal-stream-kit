@@ -57,6 +57,19 @@ function Tags({event, autoTimer}: { event: ProductionEvent; autoTimer: boolean }
   );
 }
 
+/** Where an item of the list runs: Zaal (the hall lane, or also in the hall) and/or Stream. */
+function LaneTags({event, inHall}: { event: ProductionEvent; inHall: boolean }) {
+  const tag = 'mr-1 rounded px-1 align-middle text-[10px] font-semibold uppercase';
+  const venue = inHall || !!event.isInVenue;
+  const stream = !inHall && event.isInLivestream !== false;
+  return (
+    <>
+      {venue && <span className={`${tag} bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300`}>Zaal</span>}
+      {stream && <span className={`${tag} bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300`}>Stream</span>}
+    </>
+  );
+}
+
 /**
  * The Show Caller on a phone: what is on now and what comes next, readable at arm's length, with the
  * buttons at the bottom under your thumb. Same data and actions as the wide Show Caller.
@@ -249,7 +262,8 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
               <li key={e.id} className={`flex items-baseline gap-3 px-4 py-2.5 ${isRelevant(e) ? '' : 'opacity-50'}`}>
                 <span className="font-mono text-sm tabular-nums text-gray-500 shrink-0">{hhmm(e.calculatedTime)}</span>
                 <span className="flex-1 min-w-0 text-base leading-snug">
-                  {lane.hall.has(e.id) && <span className="mr-1.5 rounded px-1 align-middle text-[10px] font-semibold uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">Zaal</span>}
+                  {/* A phone has no two lanes: every item says where it runs */}
+                  <LaneTags event={e} inHall={lane.hall.has(e.id)}/>
                   <InterviewText text={e.title}/>
                 </span>
                 <span className="font-mono text-xs tabular-nums text-gray-400 shrink-0">{duration(e.durationSec)}</span>

@@ -246,3 +246,14 @@ describe('ShowCallerPhone: Zaal and Stream in parallel', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('ShowCallerPhone list lanes', () => {
+  it('says for every later item where it runs, since a phone has no two lanes', () => {
+    renderPhone({items: rustItems, activeEventId: 'r3', positionSlug: 'all', positionName: null, isRelevant: () => true, chapters: rustChapters});
+    const later = screen.getByRole('region', {name: 'Daarna'});
+    for (const row of within(later).getAllByRole('listitem')) {
+      const tags = within(row).queryAllByText(/^(Zaal|Stream)$/).map((t) => t.textContent);
+      expect(tags.length, row.textContent ?? '').toBeGreaterThan(0);
+    }
+  });
+});

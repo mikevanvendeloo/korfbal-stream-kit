@@ -1,7 +1,8 @@
 import {render, screen} from '@testing-library/react';
 import {CallSheetItem} from './CallSheetItem';
 import {describe, expect, it, vi} from 'vitest';
-import {ProductionEvent} from '../hooks/useLiveState';
+import {formatSystemTime, ProductionEvent} from '../hooks/useLiveState';
+import {showItem} from '../test/showCaller';
 
 // Mock FontSizeProvider context
 vi.mock('../hooks/useFontSize', () => ({
@@ -42,5 +43,15 @@ describe('CallSheetItem', () => {
     // Check for active ring classes
     const activeDiv = container.querySelector('.ring-2.ring-yellow-400');
     expect(activeDiv).toBeDefined();
+  });
+});
+
+describe('CallSheetItem compact', () => {
+  it('is one line with time, title, lanes and duration, without countdown or note', () => {
+    const item = showItem('z', 5, 'Opkomst spelers', {isInVenue: true, isInLivestream: true, durationSec: 90, note: 'Toelichting'});
+    const {container} = render(<CallSheetItem item={item} compact/>);
+    const line = container.querySelector('#event-z') as HTMLElement;
+    expect(line.hasAttribute('data-compact')).toBe(true);
+    expect(line.textContent).toBe(`${formatSystemTime(item.calculatedTime).slice(0, 5)}Opkomst spelersStreamZaal1:30`);
   });
 });

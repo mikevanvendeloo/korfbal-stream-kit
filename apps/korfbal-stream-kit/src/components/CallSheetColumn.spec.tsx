@@ -1,6 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {fireEvent, render, screen, within} from '@testing-library/react';
 import {CallSheetColumn} from './CallSheetColumn';
+import {formatSystemTime} from '../hooks/useLiveState';
 import {CAMERA, LED, REGIE, remaining, rustHallDone, rustItems, showItems} from '../test/showCaller';
 
 vi.mock('../hooks/useFontSize', () => ({useFontSize: () => ({fontSize: 'm'})}));
@@ -139,5 +140,32 @@ describe('CallSheetColumn header', () => {
       expect(sticky.className).not.toMatch(/top-\[\d/);
       unmount();
     }
+  });
+});
+
+describe('CallSheetColumn compact items', () => {
+  it('shows the slots outside fullSlots as one compact line, items and placeholders alike', () => {
+    const slots = showItems.map((i) => `${i.calculatedTime.toISOString()}#0`);
+    const {container} = render(
+      <CallSheetColumn title="REGIE" positionId={REGIE.id} items={showItems} activeEvent={showItems[1]}
+                       autoAdvanceEventId={null} elapsedTime={0} allTimes={slots} allPositions={[REGIE, CAMERA]}
+                       onPositionChange={() => undefined} secondaryPositionId={null} accentColor="blue" isCompact
+                       fullSlots={new Set([slots[1], slots[3]])}/>
+    );
+    const card = (id: string) => container.querySelector(`#event-${id}`) as HTMLElement;
+    // b runs and d is the regie's next: in full; a (done) and e (later) are compact
+    expect(card('b').hasAttribute('data-compact')).toBe(false);
+    expect(card('d').hasAttribute('data-compact')).toBe(false);
+    expect(card('a').hasAttribute('data-compact')).toBe(true);
+    expect(card('e').hasAttribute('data-compact')).toBe(true);
+    expect(card('e').textContent).toContain(formatSystemTime(showItems[4].calculatedTime).slice(0, 5));
+    expect(card('e').textContent).toContain('Opkomst spelers');
+    // c and f are the camera's: compact placeholders keep the column aligned
+    expect(container.querySelectorAll('[data-compact]:not([id])')).toHaveLength(2);
+  });
+
+  it('shows everything in full without fullSlots', () => {
+    const {container} = renderColumn(REGIE.id, showItems.map((i) => `${i.calculatedTime.toISOString()}#0`));
+    expect(container.querySelectorAll('[data-compact]')).toHaveLength(0);
   });
 });

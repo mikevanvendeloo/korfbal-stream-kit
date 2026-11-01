@@ -25,10 +25,14 @@ Bovenaan staan de ploegen en de **aanvangstijd**, en een klokbalk:
 
 Boven je items staat de naam van je positie met een keuzelijst ernaast: daarmee wissel je snel naar een andere positie. Die kopregel blijft bij het scrollen direct onder de klokbalk staan.
 
-Daaronder staan jouw items onder elkaar, op tijd, verdeeld over de **hoofdstukken** van het draaiboek (bijvoorbeeld *Voorbereiding*, *Voorbeschouwing*, *Eerste helft*, *Rust*). Elk hoofdstuk begint met een kopregel; staat er in een hoofdstuk niets voor jou, dan is het één dunne regel met **— niets voor jou**. Met meer kolommen staan de kopregels op dezelfde hoogte. Per item zie je:
+Daaronder staan jouw items onder elkaar, op tijd, verdeeld over de **hoofdstukken** van het draaiboek (bijvoorbeeld *Voorbereiding*, *Voorbeschouwing*, *Eerste helft*, *Rust*). Elk hoofdstuk begint met een kopregel; staat er in een hoofdstuk niets voor jou, dan is het één dunne regel met **— niets voor jou**. Met meer kolommen staan de kopregels op dezelfde hoogte.
+
+Alleen het item dat **nu** loopt en je **volgende** item staan volledig in beeld. De andere items (wat al geweest is en wat later komt) zijn één compacte regel met tijd, titel, **Stream**/**Zaal** en duur, zodat je meer van de show overziet. Met meer kolommen krijgt elke kolom zijn eigen volgende item volledig, en blijven de regels naast elkaar op dezelfde hoogte.
+
+Bij een volledig item zie je:
 
 - de **begintijd** (wordt automatisch bijgesteld als de show uitloopt of voorloopt);
-- de **titel** en eventueel een **opmerking**;
+- de **titel**;
 - de **duur**;
 - labels: **Stream** (te zien in de livestream), **Zaal** (in de zaal), **Link** (hoort bij een ander item) en **Auto** (gaat vanzelf door naar het volgende item; tijdens het aftellen staat er **Auto TIMER**).
 
@@ -80,7 +84,7 @@ Via het **tandwiel** linksboven. Deze instellingen gelden alleen voor jouw scher
 
 ## Interviewnamen
 
-Titels en opmerkingen kunnen een plek voor een interviewnaam bevatten. Die wordt gevuld met de keuze op [Actieve productie](/handleiding/actieve-productie#interviews-kiezen):
+Titels kunnen een plek voor een interviewnaam bevatten. Die wordt gevuld met de keuze op [Actieve productie](/handleiding/actieve-productie#interviews-kiezen):
 
 | In het draaiboek | Wordt |
 |---|---|
