@@ -31,8 +31,8 @@ Rechts in de balk:
 
 - **Logo en naam van je organisatie**: een menu met **Organisatie-instellingen** (opent Beheer, zie de *Handleiding Beheer*) en **Wissel organisatie** (zie hierboven).
 - **?** opent deze handleiding bij het scherm waar je op dat moment bent.
+- **Beheer** (het dashboard-icoon): naar het deel waarin de productie wordt voorbereid (zie de *Handleiding Beheer*);
 - **Tandwiel**: een menu met
-  - **Beheer**: het deel waarin de productie wordt voorbereid (zie de *Handleiding Beheer*);
   - **Donkere modus** / **Lichte modus**: wisselt tussen een donker en een licht scherm. Je keuze wordt op dit apparaat onthouden;
   - **Over deze app**: de versie van de app.
 

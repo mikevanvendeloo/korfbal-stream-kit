@@ -102,8 +102,12 @@ function LiveNav() {
         <div className="flex items-center gap-3 shrink-0">
           <OrganizationMenu open={openMenu === 'organization'} onToggle={toggleMenu('organization')}/>
           <HelpButton/>
-          <NavDropdown open={openMenu === 'gear'} onToggle={toggleMenu('gear')} label="Beheer en instellingen" summary={<MdSettings className="w-5 h-5"/>}>
-            <li><Link to="/admin" className={navMenuItemClass}><MdSpaceDashboard/><span>Beheer</span></Link></li>
+          {/* Beheer has its own button and icon; the gear is only for the look of this screen and the info */}
+          <Link to="/admin" title="Beheer" aria-label="Beheer"
+                className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800">
+            <MdSpaceDashboard className="w-5 h-5"/>
+          </Link>
+          <NavDropdown open={openMenu === 'gear'} onToggle={toggleMenu('gear')} label="Weergave en info" summary={<MdSettings className="w-5 h-5"/>}>
             <li><ThemeToggle className={`${navMenuItemClass} w-full text-left`}/></li>
             <li><Link to="/over" className={navMenuItemClass}><MdInfo/><span>Over deze app</span></Link></li>
           </NavDropdown>

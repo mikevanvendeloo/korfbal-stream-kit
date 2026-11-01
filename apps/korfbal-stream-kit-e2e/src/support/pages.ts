@@ -195,7 +195,7 @@ export class CallSheetScreen {
     await expect(this.gear()).toBeVisible();
   }
 
-  /** The callsheet's own gear; exact, as the LIVE nav's gear is titled "Beheer en instellingen" */
+  /** The callsheet's own gear; exact, as the LIVE nav's gear is titled "Weergave en info" */
   gear() {
     return this.page.getByTitle('Instellingen', {exact: true});
   }
