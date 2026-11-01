@@ -8,7 +8,7 @@ De Show Caller ziet het hele draaiboek en zet de show door: hij bepaalt welk ite
 
 ## Openen
 
-Kies **Callsheet** in de menubalk en dan de eerste tegel, **Show Caller**. Je ziet direct alle items. Bewaar het adres (bijvoorbeeld `/show-caller/12/all`) als bladwijzer, dan kom je er de volgende keer direct. Wil je alleen de items van één positie benadrukken, kies dan via het tandwiel **Wissel Positie**.
+Kies **Callsheet** in de menubalk en dan de eerste tegel, **Show Caller**. Je ziet direct alle items. Bewaar het adres `/show-caller` als bladwijzer, dan kom je er de volgende keer direct. Net als de callsheet toont de Show Caller altijd de actieve productie en schakelt hij vanzelf over als een andere productie actief wordt. Wil je alleen de items van één positie benadrukken, kies dan via het tandwiel **Wissel Positie**.
 
 ## De knoppen
 
@@ -38,7 +38,7 @@ Volgend en vorig gaan door de items van **alle** posities. Lopen Zaal en Stream 
 
 ## Wat je ziet
 
-- Een grote klokbalk met **Zaal**, **Tijd** en **Resterend** (of **Productie** als er geen item actief is).
+- Een grote klokbalk met **Zaal**, **Tijd** en **Resterend** (of **Productie** als er geen item actief is). **Zaal** staat alleen in beeld zolang het lopende item (stream of zaal) **Zaalklok tonen** heeft; anders blijft die plek leeg.
 - Twee banen: **Zaal draaiboek** (groen, links) en **Stream draaiboek** (blauw, rechts). Een item dat voor beide geldt, staat over de hele breedte.
 - Een kopregel per **hoofdstuk** van het draaiboek, met de geplande begin- en eindtijd. Een hoofdstuk is een kop, geen stap: **Volgend** en **Vorig** gaan per item. Met een positie gekozen zijn hoofdstukken zonder items voor die positie lichter.
 - Bovenin **Hoofdstuk: …** met **nog …**: hoe lang het lopende hoofdstuk nog duurt: de rest van het huidige item plus de items erna in dat hoofdstuk (bij Zaal en Stream naast elkaar telt de langste baan), en niet korter dan de **minimale duur** van het hoofdstuk.
@@ -52,7 +52,7 @@ Op een telefoon krijgt de Show Caller een eigen, eenvoudige weergave, gemaakt om
 - **Nu**: het item dat nu loopt, met de resterende tijd in grote cijfers. De balk is groen, oranje in de laatste 10 seconden en rood als het item over tijd is. Erboven staat het hoofdstuk met hoe lang het nog duurt.
 - **Volgende**: het item dat start als je op **Volgend** drukt, met de begintijd en duur. Is het niet voor jouw positie, dan staat dat erbij. Begint het volgende item een nieuw hoofdstuk, dan staat de naam van dat hoofdstuk erboven.
 - **Zaal** (groen, tussen **Nu** en **Volgende**): alleen als de zaal naast de stream loopt. Het zaal-item dat nu loopt met zijn resterende tijd, en de knop **Zaal ›**. Is de zaal eerder klaar dan de stream, dan staat er **Zaal klaar · volgende: …**.
-- **Daarna voor jou**: de items die daarna komen voor je positie (en items voor iedereen), met tijd en duur; zaal-items die vanzelf meelopen hebben het label **Zaal**. Via het menu (de drie puntjes) wissel je naar **alle items**.
+- **Daarna voor jou**: de items die daarna komen voor je positie (en items voor iedereen), met tijd en duur. Een telefoon heeft geen twee banen, dus bij elk item staat waar het loopt: **Zaal** (groen), **Stream** (blauw) of allebei. Via het menu (de drie puntjes) wissel je naar **alle items**.
 - In het blok **Nu**, bij **Zet**: **15s**, **30s** en **60s** zetten de resterende tijd van het huidige item meteen op die waarde.
 - Onderaan, onder je duim: **Stop**, **Vorig** en een grote knop **Volgend**. Voor de start staat daar **Start show**. Stop vraagt eerst om bevestiging. Staat er in de knop **Volgend** *Zaal nog m:ss bezig*, dan stopt Volgend ook het zaal-item dat nog loopt.
 - In het menu (drie puntjes): **Interviewfoto's: aan** (of **uit**) om de foto's te wisselen, **Wissel positie**, **Callsheet view**, **Tijden herberekenen**, **Herstart show** en **Draaiboek resetten**. Herstarten en resetten vragen eerst om bevestiging.

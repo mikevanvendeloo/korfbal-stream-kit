@@ -12,7 +12,7 @@ const items = showItems;
 
 function renderPhone(overrides: Partial<ShowCallerPhoneProps> = {}) {
   const props: ShowCallerPhoneProps = {
-    productionId: '47', positionSlug: 'regie-livestream', positionName: 'Regie livestream', items,
+    positionSlug: 'regie-livestream', positionName: 'Regie livestream', items,
     activeEventId: 'b', remaining: remaining(8),
     autoAdvanceEventId: null, isConnected: true, systemTime: '19:52:10',
     isRelevant: isForRegie,
@@ -124,7 +124,7 @@ describe('ShowCallerPhone', () => {
     render(
       <StaticInterviewNames names={interviewNames}>
         <MemoryRouter>
-          <ShowCallerPhone productionId="47" positionSlug="all" positionName={null} items={withInterviews} activeEventId="n"
+          <ShowCallerPhone positionSlug="all" positionName={null} items={withInterviews} activeEventId="n"
                            remaining={remaining(30)} autoAdvanceEventId={null} isConnected systemTime="19:52:10"
                            isRelevant={() => true} controls={fakeControls()}/>
         </MemoryRouter>
@@ -244,5 +244,16 @@ describe('ShowCallerPhone: Zaal and Stream in parallel', () => {
     await act(() => result.current.venueNext());
     expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toContain('/api/production/47/venue-next');
     vi.unstubAllGlobals();
+  });
+});
+
+describe('ShowCallerPhone list lanes', () => {
+  it('says for every later item where it runs, since a phone has no two lanes', () => {
+    renderPhone({items: rustItems, activeEventId: 'r3', positionSlug: 'all', positionName: null, isRelevant: () => true, chapters: rustChapters});
+    const later = screen.getByRole('region', {name: 'Daarna'});
+    for (const row of within(later).getAllByRole('listitem')) {
+      const tags = within(row).queryAllByText(/^(Zaal|Stream)$/).map((t) => t.textContent);
+      expect(tags.length, row.textContent ?? '').toBeGreaterThan(0);
+    }
   });
 });

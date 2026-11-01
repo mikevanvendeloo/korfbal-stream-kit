@@ -6,6 +6,7 @@ import {logger} from './utils/logger';
 import {sponsorsRouter} from './routes/sponsors';
 import {matchRouter} from './routes/match';
 import {scoreboardRouter} from './routes/scoreboard';
+import {statsRouter} from './routes/stats';
 import {adminVmixRouter, vmixRouter} from './routes/vmix';
 import {settingsRouter} from './routes/settings';
 import {personsRouter} from './routes/persons';
@@ -38,6 +39,9 @@ import {applyStandardSetWhereMissing} from './services/standardSet';
 import {migrateLogoStorage} from './services/logoStorage';
 
 const app: Express = express();
+
+// Match statistics: read the statistics PC's Access file
+
 /** The HTTP server with Socket.io; tests listen on it to connect socket clients. */
 export const httpServer = createServer(app);
 
@@ -166,6 +170,7 @@ app.use('/api/manual-matches', manualMatchesRouter);
 
 // Scoreboard endpoints
 app.use('/api/scoreboard', scoreboardRouter);
+app.use('/api/stats', statsRouter);
 
 // vMix endpoints
 app.use('/api/vmix', vmixRouter);
@@ -328,7 +333,7 @@ const openapi = {
                 id: { type: 'string', description: 'Only to link items (parentId) within the file' },
                 cue: { type: 'string' }, title: { type: 'string' }, note: { type: 'string', nullable: true }, color: { type: 'string', nullable: true },
                 durationSec: { type: 'integer' }, orderIndex: { type: 'integer' },
-                isInVenue: { type: 'boolean' }, isInLivestream: { type: 'boolean' }, isTimeAnchor: { type: 'boolean' },
+                isInVenue: { type: 'boolean' }, isMatchPart: { type: 'boolean' }, showVenueClock: { type: 'boolean' }, isInLivestream: { type: 'boolean' }, isTimeAnchor: { type: 'boolean' },
                 anchorType: { type: 'string', nullable: true, enum: ['MATCH_START', 'LIVESTREAM_START', null] }, autoAdvance: { type: 'boolean' },
                 parentId: { type: 'string', nullable: true }, chapter: { type: 'string', nullable: true, description: 'Hoofdstuk name' },
                 positions: { type: 'array', items: { type: 'string' } },

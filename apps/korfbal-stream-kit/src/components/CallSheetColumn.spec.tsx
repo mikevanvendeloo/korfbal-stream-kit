@@ -1,6 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {render, screen, within} from '@testing-library/react';
+import {fireEvent, render, screen, within} from '@testing-library/react';
 import {CallSheetColumn} from './CallSheetColumn';
+import {formatSystemTime} from '../hooks/useLiveState';
 import {CAMERA, LED, REGIE, remaining, rustHallDone, rustItems, showItems} from '../test/showCaller';
 
 vi.mock('../hooks/useFontSize', () => ({useFontSize: () => ({fontSize: 'm'})}));
@@ -102,5 +103,69 @@ describe('CallSheetColumn: the hall item next to the stream', () => {
                        onPositionChange={() => undefined} secondaryPositionId={null} accentColor="blue" isCompact/>
     );
     expect(within(screen.getByRole('status')).getByText(/Volgende:/).textContent).toContain('Start tweede helft');
+  });
+});
+
+describe('CallSheetColumn header', () => {
+  const header = (props: {onPositionChange?: (id: number) => void; isCompact?: boolean; secondaryPositionId?: number | null}) => render(
+    <CallSheetColumn title="REGIE" positionId={REGIE.id} items={showItems} activeEvent={null}
+                     autoAdvanceEventId={null} elapsedTime={0} allTimes={[]} allPositions={[REGIE, CAMERA, LED]}
+                     onPositionChange={props.onPositionChange ?? (() => undefined)} secondaryPositionId={props.secondaryPositionId ?? null}
+                     accentColor="blue" isCompact={props.isCompact ?? false}/>
+  );
+
+  it('chooses the position in one dropdown instead of a bar with every position', () => {
+    const onPositionChange = vi.fn();
+    header({onPositionChange});
+    const select = screen.getByRole('combobox', {name: 'Positie van deze kolom'}) as HTMLSelectElement;
+    expect(select.value).toBe(String(REGIE.id));
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual([REGIE.name, CAMERA.name, LED.name]);
+    fireEvent.change(select, {target: {value: String(CAMERA.id)}});
+    expect(onPositionChange).toHaveBeenCalledWith(CAMERA.id);
+    expect(screen.queryAllByRole('button', {name: CAMERA.name})).toHaveLength(0);
+  });
+
+  it('disables the positions another column shows', () => {
+    header({secondaryPositionId: CAMERA.id});
+    const options = within(screen.getByRole('combobox', {name: 'Positie van deze kolom'})).getAllByRole('option') as HTMLOptionElement[];
+    expect(options.find((o) => o.textContent === CAMERA.name)?.disabled).toBe(true);
+    expect(options.find((o) => o.textContent === LED.name)?.disabled).toBe(false);
+  });
+
+  it('sticks right under the measured page header, also when compact', () => {
+    for (const isCompact of [false, true]) {
+      const {container, unmount} = header({isCompact});
+      const sticky = container.querySelector('header') as HTMLElement;
+      expect(sticky.className).toContain('sticky top-[var(--callsheet-header-h,0px)]');
+      expect(sticky.className).not.toMatch(/top-\[\d/);
+      unmount();
+    }
+  });
+});
+
+describe('CallSheetColumn compact items', () => {
+  it('shows the slots outside fullSlots as one compact line, items and placeholders alike', () => {
+    const slots = showItems.map((i) => `${i.calculatedTime.toISOString()}#0`);
+    const {container} = render(
+      <CallSheetColumn title="REGIE" positionId={REGIE.id} items={showItems} activeEvent={showItems[1]}
+                       autoAdvanceEventId={null} elapsedTime={0} allTimes={slots} allPositions={[REGIE, CAMERA]}
+                       onPositionChange={() => undefined} secondaryPositionId={null} accentColor="blue" isCompact
+                       fullSlots={new Set([slots[1], slots[3]])}/>
+    );
+    const card = (id: string) => container.querySelector(`#event-${id}`) as HTMLElement;
+    // b runs and d is the regie's next: in full; a (done) and e (later) are compact
+    expect(card('b').hasAttribute('data-compact')).toBe(false);
+    expect(card('d').hasAttribute('data-compact')).toBe(false);
+    expect(card('a').hasAttribute('data-compact')).toBe(true);
+    expect(card('e').hasAttribute('data-compact')).toBe(true);
+    expect(card('e').textContent).toContain(formatSystemTime(showItems[4].calculatedTime).slice(0, 5));
+    expect(card('e').textContent).toContain('Opkomst spelers');
+    // c and f are the camera's: compact placeholders keep the column aligned
+    expect(container.querySelectorAll('[data-compact]:not([id])')).toHaveLength(2);
+  });
+
+  it('shows everything in full without fullSlots', () => {
+    const {container} = renderColumn(REGIE.id, showItems.map((i) => `${i.calculatedTime.toISOString()}#0`));
+    expect(container.querySelectorAll('[data-compact]')).toHaveLength(0);
   });
 });

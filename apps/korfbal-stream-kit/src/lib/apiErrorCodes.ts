@@ -35,6 +35,8 @@ export const API_ERROR_CODES = {
   SOURCE_UNREACHABLE: 'SOURCE_UNREACHABLE',
   /** 502: not JSON or an unexpected shape */
   SOURCE_INVALID_RESPONSE: 'SOURCE_INVALID_RESPONSE',
+  /** 503: the statistics bridge is offline */
+  STATS_BRIDGE_OFFLINE: 'STATS_BRIDGE_OFFLINE',
 } as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[keyof typeof API_ERROR_CODES];

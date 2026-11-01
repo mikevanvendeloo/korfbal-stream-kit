@@ -11,7 +11,7 @@ const positions = [
   {id: 6, name: 'Muziek', category: 'TECHNICAL', sortOrder: 70},
 ];
 const item: DraaiboekItemData = {
-  id: 'a', cue: 'INTRO', title: 'Intro filmpje', note: null, durationSec: 48, isInVenue: true, isInLivestream: true,
+  id: 'a', cue: 'INTRO', title: 'Intro filmpje', note: null, durationSec: 48, isInVenue: true, isMatchPart: false, showVenueClock: false, isInLivestream: true,
   isTimeAnchor: false, anchorType: null, autoAdvance: false, parentId: null, positionIds: [1, 2, 3, 4, 6], timeStart: '2026-11-14T17:55:00.000Z',
 };
 
@@ -48,6 +48,30 @@ describe('DraaiboekItem', () => {
     fireEvent.click(within(picker).getByRole('checkbox', {name: 'Presentatie'}));
     fireEvent.click(within(form).getByRole('button', {name: 'Opslaan'}));
     await waitFor(() => expect(handlers.onSave).toHaveBeenCalledWith(expect.objectContaining({cue: 'INTRO2', positionIds: [1, 2, 4, 6, 5]})));
+  });
+
+  it('ticking Wedstrijddeel ticks Zaalklok tonen too, which can be unticked again', async () => {
+    const handlers = renderItem(true);
+    const form = screen.getByRole('form', {name: 'Intro filmpje wijzigen'});
+    const part = within(form).getByRole('checkbox', {name: 'Wedstrijddeel'}) as HTMLInputElement;
+    const clock = within(form).getByRole('checkbox', {name: 'Zaalklok tonen'}) as HTMLInputElement;
+    expect([part.checked, clock.checked]).toEqual([false, false]);
+
+    fireEvent.click(part);
+    expect([part.checked, clock.checked]).toEqual([true, true]);
+    fireEvent.click(clock);
+    expect([part.checked, clock.checked]).toEqual([true, false]);
+
+    fireEvent.click(within(form).getByRole('button', {name: 'Opslaan'}));
+    await waitFor(() => expect(handlers.onSave).toHaveBeenCalledWith(expect.objectContaining({isMatchPart: true, showVenueClock: false})));
+  });
+
+  it('ticking Zaalklok tonen alone does not make a match part', async () => {
+    const handlers = renderItem(true);
+    const form = screen.getByRole('form', {name: 'Intro filmpje wijzigen'});
+    fireEvent.click(within(form).getByRole('checkbox', {name: 'Zaalklok tonen'}));
+    fireEvent.click(within(form).getByRole('button', {name: 'Opslaan'}));
+    await waitFor(() => expect(handlers.onSave).toHaveBeenCalledWith(expect.objectContaining({isMatchPart: false, showVenueClock: true})));
   });
 });
 

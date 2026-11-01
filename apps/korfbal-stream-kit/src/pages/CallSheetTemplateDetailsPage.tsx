@@ -16,7 +16,8 @@ import {addTemplateChapter, deleteTemplateChapter, saveTemplateStructure, update
 
 const asItem = (item: CallSheetTemplateItem): DraaiboekItemData => ({
   id: item.id, cue: item.cue ?? '', title: item.title, note: item.note, durationSec: item.durationSec,
-  isInVenue: item.isInVenue, isInLivestream: item.isInLivestream, isTimeAnchor: item.isTimeAnchor,
+  isInVenue: item.isInVenue, isMatchPart: !!item.isMatchPart, showVenueClock: !!item.showVenueClock,
+  isInLivestream: item.isInLivestream, isTimeAnchor: item.isTimeAnchor,
   anchorType: item.anchorType, autoAdvance: item.autoAdvance, parentId: item.parentId,
   positionIds: item.positions.map((p) => p.positionId), startOffsetSec: item.startOffsetSec ?? null,
 });
@@ -83,6 +84,8 @@ export default function CallSheetTemplateDetailsPage() {
       chapterId,
       isInLivestream: true,
       isInVenue: false,
+      isMatchPart: false,
+      showVenueClock: false,
       positionIds: showcallerId ? [showcallerId] : []
     });
     if (!newItem) throw new Error('Item toevoegen mislukt');

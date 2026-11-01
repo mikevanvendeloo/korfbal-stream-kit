@@ -168,7 +168,7 @@ callSheetTemplateChaptersRouter.post('/from-callsheet/:callSheetId', async (req,
             chapterId,
             cue: item.cue,
             title: item.title, note: item.note, durationSec: item.durationSec, orderIndex: i + 1,
-            isInVenue: item.isInVenue, isInLivestream: item.isInLivestream, isTimeAnchor: item.isTimeAnchor,
+            isInVenue: item.isInVenue, isMatchPart: item.isMatchPart, showVenueClock: item.showVenueClock, isInLivestream: item.isInLivestream, isTimeAnchor: item.isTimeAnchor,
             anchorType: item.anchorType, autoAdvance: item.autoAdvance,
           },
         });

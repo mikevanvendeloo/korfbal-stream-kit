@@ -23,7 +23,7 @@ import {
   getActiveSeason,
 } from '../services/season';
 import {migrateLegacySeasonAssets} from '../services/seasonAssetMigration';
-import {getSetting, GLOBAL_SETTING_KEYS, setSetting} from '../services/appSettings';
+import {getSetting, GLOBAL_SETTING_KEYS, MATCH_STATS_BRIDGE_TOKEN_KEY, setSetting} from '../services/appSettings';
 import {getOwnClubId, setOwnClubId} from '../services/ownClub';
 import {clearOrganizationLookupCache} from '../middleware/organizationContext';
 import {ChapterRestore, fileChapterOrder, fileChapters} from '../services/chapterMigration';
@@ -351,6 +351,8 @@ backupRouter.get('/producties/export', async (_req, res, next) => {
           durationSec: item.durationSec,
           orderIndex: item.orderIndex,
           isInVenue: item.isInVenue,
+          isMatchPart: item.isMatchPart,
+          showVenueClock: item.showVenueClock,
           anchorType: item.anchorType,
           isTimeAnchor: item.isTimeAnchor,
           autoAdvance: item.autoAdvance,
@@ -376,6 +378,8 @@ backupRouter.get('/producties/export', async (_req, res, next) => {
         triggerSource: ev.triggerSource,
         vMixInputName: ev.vMixInputName,
         isInVenue: ev.isInVenue,
+        isMatchPart: ev.isMatchPart,
+        showVenueClock: ev.showVenueClock,
         isInLivestream: ev.isInLivestream,
         isTimeAnchor: ev.isTimeAnchor,
         anchorType: ev.anchorType,
@@ -462,7 +466,8 @@ backupRouter.get('/sponsors/export', async (_req, res, next) => {
 backupRouter.get('/settings/export', async (_req, res, next) => {
   try {
     const items = await prisma.organizationSetting.findMany({ orderBy: { key: 'asc' } });
-    const exportData: { key: string; value: unknown }[] = items.map((s) => ({ key: s.key, value: s.value }));
+    // Secrets stay out of the backup (the bridge token, like the match source token)
+    const exportData: { key: string; value: unknown }[] = items.filter((s) => s.key !== MATCH_STATS_BRIDGE_TOKEN_KEY).map((s) => ({ key: s.key, value: s.value }));
     // The own club lives on the organization; exported under its old key so older and newer backups restore alike
     const ownClubId = await getOwnClubId();
     if (ownClubId !== null) {
@@ -992,6 +997,8 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                       durationSec: Number(iData.durationSec || 0),
                       orderIndex: Number(iData.orderIndex || 0),
                       isInVenue: !!iData.isInVenue,
+                      isMatchPart: !!iData.isMatchPart,
+                      showVenueClock: !!iData.showVenueClock,
                       anchorType: iData.anchorType,
                       isTimeAnchor: !!iData.isTimeAnchor,
                       autoAdvance: !!iData.autoAdvance,
@@ -1049,6 +1056,8 @@ backupRouter.post('/producties/import', async (req, res, next) => {
                   triggerSource: evData.triggerSource,
                   vMixInputName: evData.vMixInputName,
                   isInVenue: evData.isInVenue,
+                  isMatchPart: evData.isMatchPart,
+                  showVenueClock: evData.showVenueClock,
                   isInLivestream: evData.isInLivestream,
                   isTimeAnchor: evData.isTimeAnchor,
                   anchorType: evData.anchorType,
@@ -1230,6 +1239,7 @@ backupRouter.post('/settings/import', async (req, res, next) => {
         if (typeof item?.key !== 'string' || !item.key) continue;
         const key: string = item.key;
         const value = item.value ?? null;
+        if (key === MATCH_STATS_BRIDGE_TOKEN_KEY) continue;
         if (GLOBAL_SETTING_KEYS.has(key) || key === ACTIVE_SEASON_NAME_EXPORT_KEY) {
           logger.info(`Skipping setting ${key} from backup: it holds for the whole installation, not one organization`);
           continue;

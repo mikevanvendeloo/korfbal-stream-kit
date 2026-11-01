@@ -97,8 +97,9 @@ export class ShowCallerPhone {
     this.hall = page.getByRole('region', {name: 'Zaal'});
   }
 
-  async open(productionId: number, position = 'all') {
-    await this.page.goto(`/show-caller/${productionId}/${position}`);
+  /** The active production (LIVE has no production in the address); `all` is the plain /show-caller */
+  async open(position = 'all') {
+    await this.page.goto(position === 'all' ? '/show-caller' : `/show-caller/${position}`);
     await expect(this.controls).toBeVisible();
   }
 
@@ -131,8 +132,9 @@ export class ShowCallerPhone {
 export class ShowCallerWide {
   constructor(private readonly page: Page) {}
 
-  async open(productionId: number, position = 'all') {
-    await this.page.goto(`/show-caller/${productionId}/${position}`);
+  /** The active production (LIVE has no production in the address); `all` is the plain /show-caller */
+  async open(position = 'all') {
+    await this.page.goto(position === 'all' ? '/show-caller' : `/show-caller/${position}`);
     await expect(this.page.getByText('Stream draaiboek')).toBeVisible();
   }
 
@@ -187,12 +189,13 @@ export class InterviewsScreen {
 export class CallSheetScreen {
   constructor(private readonly page: Page) {}
 
-  async open(productionId: number, position: string) {
-    await this.page.goto(`/callsheet/${productionId}/${position}`);
+  /** The active production (LIVE has no production in the address) */
+  async open(position: string) {
+    await this.page.goto(`/callsheet/${position}`);
     await expect(this.gear()).toBeVisible();
   }
 
-  /** The callsheet's own gear; exact, as the LIVE nav's gear is titled "Beheer en instellingen" */
+  /** The callsheet's own gear; exact, as the LIVE nav's gear is titled "Weergave en info" */
   gear() {
     return this.page.getByTitle('Instellingen', {exact: true});
   }

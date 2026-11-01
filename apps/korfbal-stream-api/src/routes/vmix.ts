@@ -781,6 +781,7 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
     const displayHost = process.env.HOST_IP || hostIp;
 
     const baseUrl = `http://${displayHost}:${port}/api/vmix`;
+    const statsUrl = `http://${displayHost}:${port}/api/stats`;
 
     const endpoints = [
       {
@@ -796,7 +797,7 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
       {
         name: 'Wedstrijdinformatie (actieve productie)',
         url: `${baseUrl}/active-production/match`,
-        description: 'Teams, korte namen en afkortingen (homeAbbreviation/awayAbbreviation), clublogo\'s, clubkleuren (homePrimaryColor, homeSecondaryColor, awayPrimaryColor, awaySecondaryColor als #rrggbb), datum, aanvangs-, verzamel- en livetijd, zaal, veld, scheidsrechters, score, wedstrijd- en balsponsor (met logo).'
+        description: 'Teams, korte namen en afkortingen (homeAbbreviation/awayAbbreviation), clublogo\'s, clubkleuren (homePrimaryColor, homeSecondaryColor, awayPrimaryColor, awaySecondaryColor als #rrggbb), datum, aanvangs-, verzamel- en livetijd, zaal, veld, scheidsrechters, score, wedstrijd- en balsponsor (met logo), en het wedstrijddeel: matchPart (1 = eerste helft, 0 voor de wedstrijd) en matchPartRunning.'
       },
       {
         name: 'Active Production Staff',
@@ -822,6 +823,27 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
         name: 'Callsheet Timing (Presentatie)',
         url: `${baseUrl}/callsheet/timing?position=Presentatie`,
         description: 'Current and next callsheet item for this position, with remaining time and start times.'
+      },
+      // Match statistics through the statistics bridge (also feeds with an API key)
+      {
+        name: 'Statistieken: teams',
+        url: `${statsUrl}/team-stats`,
+        description: 'Twee regels: rij 1 thuis, rij 2 uit. goals, attempts, goalPct, en per onderdeel gescoord/pogingen/percentage (rebound, strafworp, vrijeBal, afstand, kortSchot, doorloop), goalsDames, goalsHeren, goalsRatio (dames:heren), aanvalscijfers (attacks, attackGoals, turnovers, avgAttemptsPerAttack, attackGoalPct).'
+      },
+      {
+        name: 'Statistieken: topscorers',
+        url: `${statsUrl}/top-scorers`,
+        description: 'Eén regel per speler die gescoord heeft, per ploeg de meeste doelpunten eerst: team (home/away), teamName, rank, name, sex, goals, attempts, goalPct. Filter in vMix op team en rank voor een top 3.'
+      },
+      {
+        name: 'Statistieken: spelers van de lopende wedstrijd',
+        url: `${statsUrl}/current/players`,
+        description: 'Eén regel per speler van de wedstrijd met de laatste actie (uit het statistiekenbestand, anders de live pagina): naam, gescoord/pogingen per schottype, percentage, rebound, aangeef.'
+      },
+      {
+        name: 'Statistieken live: spelers thuis',
+        url: `${statsUrl}/live/players?team=home`,
+        description: 'Eén regel per speler van de live statistiekenpagina; team=away voor de uitploeg, &vak=1 of &vak=2 voor één vak.'
       }
     ];
 

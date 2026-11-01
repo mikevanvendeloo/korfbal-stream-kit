@@ -1,15 +1,17 @@
 import React from 'react';
 import {Link, Route, Routes, useLocation} from 'react-router-dom';
-import {MdClose, MdInfo, MdMenu, MdMic, MdPlayCircleFilled, MdSettings, MdTableChart, MdVideocam, MdViewList} from 'react-icons/md';
+import {MdClose, MdExpandMore, MdInfo, MdInsights, MdMenu, MdMic, MdPlayCircleFilled, MdBarChart, MdSettings, MdSpaceDashboard, MdTableChart, MdVideocam, MdViewList} from 'react-icons/md';
 import {NavDropdown, navMenuItemClass} from '../components/NavDropdown';
 import ActiveProductionPage from '../pages/ActiveProductionPage';
 import ScoreboardPage from '../pages/ScoreboardPage';
 import LiveVmixPage from '../pages/LiveVmixPage';
 import AboutPage from '../pages/AboutPage';
+import StatisticsPage from '../pages/StatisticsPage';
+import AnalysisPage from '../pages/AnalysisPage';
 import InterviewsPage from '../pages/InterviewsPage';
 import ManualView from '../handleiding/ManualView';
 import HelpButton from '../handleiding/HelpButton';
-import LiveCallsheetEntry from '../pages/LiveCallsheetEntry';
+import {ActiveProductionRoute, LegacyLiveAddress, LivePositionRoute, SHOW_CALLER_CHOOSE} from '../components/ActiveProductionRoute';
 import {PositionSelector} from '../components/PositionSelector';
 import {CallSheetView} from '../components/CallSheetView';
 import {ShowCallerView} from '../components/ShowCallerView';
@@ -31,6 +33,12 @@ const links = [
   {to: '/scoreboard', label: 'Scoreboard', icon: MdTableChart, also: null},
   {to: '/callsheet', label: 'Callsheet', icon: MdViewList, also: '/show-caller'},
   {to: '/interviews', label: 'Interviews', icon: MdMic, also: null},
+];
+
+/** Less used during a show: together under "Overig" */
+const moreLinks: typeof links = [
+  {to: '/statistieken', label: 'Statistieken', icon: MdBarChart, also: null},
+  {to: '/analyse', label: 'Analyse', icon: MdInsights, also: null},
   {to: '/vmix', label: 'vMix', icon: MdVideocam, also: null},
 ];
 
@@ -42,7 +50,7 @@ function currentLabel(pathname: string): string {
   if (pathname.startsWith('/handleiding')) return 'Handleiding';
   if (pathname.startsWith('/over')) return 'Over';
   if (pathname.startsWith('/show-caller')) return 'Show Caller';
-  return links.find((link) => isCurrent(pathname, link))?.label ?? '';
+  return [...links, ...moreLinks].find((link) => isCurrent(pathname, link))?.label ?? '';
 }
 
 /** In the phone menu: the chosen organization with its two choices, as in OrganizationMenu. */
@@ -66,8 +74,8 @@ function LiveNav() {
   const {pathname} = useLocation();
   const [menuOpen, setMenuOpen] = React.useState(false);
   // The organization and gear menus on wide screens: one open at a time
-  const [openMenu, setOpenMenu] = React.useState<'organization' | 'gear' | null>(null);
-  const toggleMenu = (menu: 'organization' | 'gear') => (open: boolean) =>
+  const [openMenu, setOpenMenu] = React.useState<'organization' | 'gear' | 'more' | null>(null);
+  const toggleMenu = (menu: 'organization' | 'gear' | 'more') => (open: boolean) =>
     setOpenMenu((current) => open ? menu : (current === menu ? null : current));
   React.useEffect(() => {
     setMenuOpen(false);
@@ -94,12 +102,31 @@ function LiveNav() {
               </Link>
             );
           })}
+          <NavDropdown open={openMenu === 'more'} onToggle={toggleMenu('more')} label="Overig" align="left"
+                       summaryClassName={`list-none cursor-pointer inline-flex items-center gap-1 whitespace-nowrap py-1 border-b-2 ${moreLinks.some((link) => isCurrent(pathname, link)) ? 'border-red-600 font-semibold text-gray-900 dark:text-white' : 'border-transparent text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'}`}
+                       summary={<><span>Overig</span><MdExpandMore/></>}>
+            {moreLinks.map((link) => {
+              const {to, label, icon: Icon} = link;
+              const current = isCurrent(pathname, link);
+              return (
+                <li key={to}>
+                  <Link to={to} aria-current={current ? 'page' : undefined} className={`${navMenuItemClass} ${current ? 'font-semibold' : ''}`}>
+                    <Icon/><span>{label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </NavDropdown>
         </nav>
         <div className="flex items-center gap-3 shrink-0">
           <OrganizationMenu open={openMenu === 'organization'} onToggle={toggleMenu('organization')}/>
           <HelpButton/>
-          <NavDropdown open={openMenu === 'gear'} onToggle={toggleMenu('gear')} label="Beheer en instellingen" summary={<MdSettings className="w-5 h-5"/>}>
-            <li><Link to="/admin" className={navMenuItemClass}><MdSettings/><span>Beheer</span></Link></li>
+          {/* Beheer has its own button and icon; the gear is only for the look of this screen and the info */}
+          <Link to="/admin" title="Beheer" aria-label="Beheer"
+                className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800">
+            <MdSpaceDashboard className="w-5 h-5"/>
+          </Link>
+          <NavDropdown open={openMenu === 'gear'} onToggle={toggleMenu('gear')} label="Weergave en info" summary={<MdSettings className="w-5 h-5"/>}>
             <li><ThemeToggle className={`${navMenuItemClass} w-full text-left`}/></li>
             <li><Link to="/over" className={navMenuItemClass}><MdInfo/><span>Over deze app</span></Link></li>
           </NavDropdown>
@@ -139,10 +166,25 @@ function LiveNav() {
               );
             })}
           </ul>
+          <p className="px-2 pt-3 pb-1 text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">Overig</p>
+          <ul aria-label="Overig" className="flex flex-col">
+            {moreLinks.map((link) => {
+              const {to, label, icon: Icon} = link;
+              const current = isCurrent(pathname, link);
+              return (
+                <li key={to}>
+                  <Link to={to} aria-current={current ? 'page' : undefined}
+                        className={`flex items-center gap-3 px-2 py-3 rounded-md text-base ${current ? 'font-semibold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800' : 'text-gray-700 dark:text-gray-300'}`}>
+                    <Icon className="w-5 h-5"/>{label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
           <PhoneOrganizationSection/>
           <div className="flex flex-wrap items-center gap-2 border-t border-gray-200 dark:border-gray-800 mt-2 pt-3 pb-1">
             <Link to="/admin" className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">
-              <MdSettings/> Beheer
+              <MdSpaceDashboard/> Beheer
             </Link>
             <Link to="/over" className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">
               <MdInfo/> Over deze app
@@ -168,13 +210,20 @@ export default function LiveApp() {
           <Routes>
             <Route index element={<ActiveProductionPage/>}/>
             <Route path="scoreboard" element={<ScoreboardPage/>}/>
-            <Route path="callsheet" element={<LiveCallsheetEntry viewType="standard"/>}/>
-            <Route path="callsheet/:productionId" element={<PositionSelector viewType="callsheet"/>}/>
-            <Route path="callsheet/:productionId/:positionSlug" element={<InterviewNamesProvider><CallSheetView/></InterviewNamesProvider>}/>
-            <Route path="show-caller" element={<LiveCallsheetEntry viewType="show-caller"/>}/>
-            <Route path="show-caller/:productionId" element={<PositionSelector viewType="show-caller"/>}/>
-            <Route path="show-caller/:productionId/:positionSlug" element={<InterviewNamesProvider><ShowCallerView/></InterviewNamesProvider>}/>
+            {/* Always the active production: no production id in the address (openspec/changes/callsheet-active-production) */}
+            <Route element={<ActiveProductionRoute/>}>
+              <Route path="callsheet" element={<PositionSelector viewType="callsheet"/>}/>
+              <Route path="callsheet/:positionSlug" element={<LivePositionRoute base="callsheet"><InterviewNamesProvider><CallSheetView/></InterviewNamesProvider></LivePositionRoute>}/>
+              <Route path="show-caller" element={<InterviewNamesProvider><ShowCallerView/></InterviewNamesProvider>}/>
+              <Route path={`show-caller/${SHOW_CALLER_CHOOSE}`} element={<PositionSelector viewType="show-caller"/>}/>
+              <Route path="show-caller/:positionSlug" element={<LivePositionRoute base="show-caller"><InterviewNamesProvider><ShowCallerView/></InterviewNamesProvider></LivePositionRoute>}/>
+            </Route>
+            {/* Old bookmarks with a production id */}
+            <Route path="callsheet/:legacyId/:positionSlug" element={<LegacyLiveAddress base="callsheet"/>}/>
+            <Route path="show-caller/:legacyId/:positionSlug" element={<LegacyLiveAddress base="show-caller"/>}/>
             <Route path="interviews" element={<InterviewsPage/>}/>
+            <Route path="statistieken" element={<StatisticsPage/>}/>
+            <Route path="analyse" element={<AnalysisPage/>}/>
             <Route path="vmix" element={<LiveVmixPage/>}/>
             <Route path="over" element={<AboutPage/>}/>
             <Route path="handleiding" element={<ManualView part="live"/>}/>

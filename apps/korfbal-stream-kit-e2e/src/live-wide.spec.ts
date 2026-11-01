@@ -13,7 +13,7 @@ const activeTitle = async (productionId: number) =>
 
 test('runs the show with the round buttons and the arrow keys', async ({page, liveShow}) => {
   const showCaller = new ShowCallerWide(page);
-  await showCaller.open(liveShow.productionId);
+  await showCaller.open();
   await showCaller.start();
   await showCaller.expectRunning();
   await expect.poll(() => activeTitle(liveShow.productionId)).toBe(liveShow.titles[0]);
@@ -26,7 +26,7 @@ test('runs the show with the round buttons and the arrow keys', async ({page, li
 
 test('Zet 15s sets the remaining time, and the red button stops the show', async ({page, liveShow}) => {
   const showCaller = new ShowCallerWide(page);
-  await showCaller.open(liveShow.productionId);
+  await showCaller.open();
   await showCaller.start();
   await showCaller.expectRunning();
 
@@ -50,7 +50,9 @@ test('LIVE finds the active production when another season is active', async ({p
     await page.goto('/');
     await expect(page.getByText('Scenario Thuis vs Scenario Uit')).toBeVisible();
     await page.goto('/show-caller');
-    await expect(page).toHaveURL(new RegExp(`/show-caller/${liveShow.productionId}/all$`));
+    await expect(page).toHaveURL(/\/show-caller$/);
+    // The active production, without its id in the address
+    await expect(page.getByText(liveShow.titles[0]).first()).toBeVisible();
   } finally {
     await request.put(`${apiUrl}/api/seasons/active`, {data: {seasonId: active.id}});
     await db.season.deleteMany({where: {startYear: 2099}});
@@ -67,7 +69,7 @@ test('shows the hoofdstukken as headings above their items, and the current one 
     ],
   });
   const showCaller = new ShowCallerWide(page);
-  await showCaller.open(show.productionId);
+  await showCaller.open();
 
   const before = showCaller.chapterHeading('Voorbeschouwing');
   const during = showCaller.chapterHeading('Wedstrijd');

@@ -1,0 +1,81 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@korfbal-stream-kit/statistics-bridge",
+  "projectType": "application",
+  "root": "apps/statistics-bridge",
+  "sourceRoot": "apps/statistics-bridge/src",
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "defaultConfiguration": "production",
+      "options": {
+        "platform": "node",
+        "outputPath": "dist/apps/statistics-bridge",
+        "format": [
+          "cjs"
+        ],
+        "bundle": false,
+        "main": "apps/statistics-bridge/src/main.ts",
+        "tsConfig": "apps/statistics-bridge/tsconfig.app.json",
+        "generatePackageJson": false,
+        "esbuildOptions": {
+          "sourcemap": true,
+          "outExtension": {
+            ".js": ".js"
+          }
+        }
+      },
+      "configurations": {
+        "development": {},
+        "production": {
+          "generateLockfile": true,
+          "esbuildOptions": {
+            "sourcemap": false,
+            "outExtension": {
+              ".js": ".js"
+            }
+          }
+        }
+      }
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsx watch apps/statistics-bridge/src/main.ts"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest run --config apps/statistics-bridge/vitest.config.ts",
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "lintFilePatterns": [
+          "apps/statistics-bridge/**/*.ts"
+        ]
+      }
+    },
+    "typecheck": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "tsConfig": "apps/statistics-bridge/tsconfig.app.json",
+        "noEmit": true
+      }
+    },
+    "docker:build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker build -f apps/statistics-bridge/Dockerfile -t statistics-bridge:latest .",
+        "cwd": "."
+      }
+    }
+  },
+  "tags": []
+}

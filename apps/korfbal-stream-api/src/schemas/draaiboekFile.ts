@@ -18,6 +18,8 @@ export const DraaiboekFileItemSchema = z.object({
   durationSec: z.coerce.number().int().min(0).max(24 * 3600),
   orderIndex: z.coerce.number().int().optional(),
   isInVenue: z.boolean().optional(),
+  isMatchPart: z.boolean().optional(),
+  showVenueClock: z.boolean().optional(),
   isInLivestream: z.boolean().optional(),
   isTimeAnchor: z.boolean().optional(),
   /** An empty value (older template files) counts as none */

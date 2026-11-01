@@ -4,7 +4,7 @@ Er zijn rapporten per productie (tabblad **Rapport**) en overzichten over alle p
 
 ## Productierapport
 
-Het productierapport is het verslag van één uitzending: wie er was, het tijdschema, de bezetting, de interviews en de sponsors.
+Het productierapport is het verslag van één uitzending: wie er was, het tijdschema, de bezetting, de interviews en de sponsors. Bij de interviews staat eerst de **volgorde van de interviews** (in de volgorde van het draaiboek, met het hoofdstuk), ook in de PDF, de Markdown en de WhatsApp-tekst.
 
 Vul in:
 

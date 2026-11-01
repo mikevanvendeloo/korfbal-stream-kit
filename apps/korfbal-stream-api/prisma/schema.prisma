@@ -275,6 +275,8 @@ model CallSheetTemplateItem {
   durationSec    Int
   orderIndex     Int                         @default(0)
   isInVenue      Boolean                     @default(false)
+  isMatchPart      Boolean                     @default(false)
+  showVenueClock      Boolean                     @default(false)
   isInLivestream Boolean                     @default(true)
   isTimeAnchor   Boolean                     @default(false)
   anchorType     String?
@@ -524,6 +526,8 @@ model CallSheetItem {
   createdAt      DateTime                @default(now())
   updatedAt      DateTime                @updatedAt
   isInVenue      Boolean                 @default(false)
+  isMatchPart      Boolean                 @default(false)
+  showVenueClock      Boolean                 @default(false)
   anchorType     String?
   isTimeAnchor   Boolean                 @default(false)
   autoAdvance    Boolean                 @default(false)
@@ -601,6 +605,8 @@ model ProductionEvent {
   callSheetItemId  String?                   @unique
   isInLivestream   Boolean                   @default(true)
   isInVenue        Boolean                   @default(false)
+  isMatchPart        Boolean                   @default(false)
+  showVenueClock        Boolean                   @default(false)
   isTimeAnchor     Boolean                   @default(false)
   parentId         String?
   parent           ProductionEvent?          @relation("LinkedEvents", fields: [parentId], references: [id])

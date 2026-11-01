@@ -249,6 +249,10 @@ reportsRouter.get('/daily-occupancy-by-position', async (req, res, next) => {
   }
 });
 
+/** The coach before the player, then in the order they were chosen */
+const coachFirst = (a: {role: string; id: number}, b: {role: string; id: number}) =>
+  (a.role === 'COACH' ? 0 : 1) - (b.role === 'COACH' ? 0 : 1) || a.id - b.id;
+
 // 3. Overzicht van de interviews over alle wedstrijden heen
 // GET /api/reports/interviews
 reportsRouter.get('/interviews', async (req, res, next) => {
@@ -274,11 +278,14 @@ reportsRouter.get('/interviews', async (req, res, next) => {
 
     const ends = await liveEnds(productions.map((p) => p.id));
     const report = productions.map(p => {
+      // Per club the coach before the player (as everywhere else)
       const homeInterviews = p.interviewSubjects
         .filter(s => s.side === 'HOME')
+        .sort(coachFirst)
         .map(s => ({ name: s.player.name, role: s.role, photoUrl: s.player.photoUrl }));
       const awayInterviews = p.interviewSubjects
         .filter(s => s.side === 'AWAY')
+        .sort(coachFirst)
         .map(s => ({ name: s.player.name, role: s.role, photoUrl: s.player.photoUrl }));
 
       const endLiveTime = ends.get(p.id) ?? null;

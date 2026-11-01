@@ -2,6 +2,7 @@ import {Link, NavLink, Outlet, useLocation, useParams} from 'react-router-dom';
 import {MdArrowBack, MdLiveTv} from 'react-icons/md';
 import {MatchHeader} from './MatchHeader';
 import {adminPaths} from '../lib/adminPaths';
+import {useActiveProduction} from '../hooks/useProductions';
 
 const tabClass = ({isActive}: { isActive: boolean }) =>
   `px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${isActive
@@ -20,6 +21,8 @@ const subTabClass = ({isActive}: { isActive: boolean }) =>
 export default function ProductionLayout() {
   const id = Number(useParams<{ id: string }>().id);
   const {pathname} = useLocation();
+  // LIVE always shows the active production: only that one can be opened there
+  const {data: activeProduction} = useActiveProduction();
   if (!Number.isInteger(id) || id <= 0) {
     return (
       <div className="container py-6 text-gray-800 dark:text-gray-100">
@@ -42,11 +45,22 @@ export default function ProductionLayout() {
             </Link>
             <MatchHeader productionId={id} showLogos={true}/>
           </div>
-          <Link to={`/callsheet/${id}`}
-                className="px-3 py-1 border rounded inline-flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 transition-colors">
-            <MdLiveTv className="w-5 h-5"/>
-            <span>Open in LIVE</span>
-          </Link>
+          {activeProduction?.id === id ? (
+            <Link to="/callsheet"
+                  className="px-3 py-1 border rounded inline-flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 transition-colors">
+              <MdLiveTv className="w-5 h-5"/>
+              <span>Open in LIVE</span>
+            </Link>
+          ) : (
+            <span className="inline-flex flex-col items-end gap-0.5">
+              <button type="button" disabled aria-describedby="open-in-live-hint"
+                      className="px-3 py-1 border rounded inline-flex items-center gap-2 bg-gray-200 text-gray-500 dark:bg-gray-800 dark:text-gray-400 cursor-not-allowed">
+                <MdLiveTv className="w-5 h-5"/>
+                <span>Open in LIVE</span>
+              </button>
+              <span id="open-in-live-hint" className="text-xs text-gray-500 dark:text-gray-400">Activeer deze productie om hem in LIVE te openen</span>
+            </span>
+          )}
         </div>
 
         <nav aria-label="Productie" className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto">

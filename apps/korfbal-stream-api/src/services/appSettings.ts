@@ -120,6 +120,30 @@ export async function setSponsorSlidesTypes(types: string[]): Promise<void> {
   await setSetting(SPONSOR_SLIDES_TYPES_KEY, types);
 }
 
+export const MATCH_STATS_KEY = 'matchStats';
+/** The bridge's shared secret lives under its own key so it can be kept out of the settings backup. */
+export const MATCH_STATS_BRIDGE_TOKEN_KEY = 'matchStatsBridgeToken';
+/** bridgeUrl: the statistics bridge (its own app, one per venue) that reads the statistics PC; older values (pageUrl, mdbPath, ...) are ignored */
+export type MatchStatsSetting = {bridgeUrl: string | null};
+
+export async function getMatchStats(): Promise<MatchStatsSetting> {
+  const v = await getSetting<Partial<MatchStatsSetting>>(MATCH_STATS_KEY);
+  return {bridgeUrl: v?.bridgeUrl || null};
+}
+
+export async function setMatchStats(input: MatchStatsSetting): Promise<void> {
+  await setSetting(MATCH_STATS_KEY, input);
+}
+
+/** The bridge token: never returned by an API route, only sent to the bridge. */
+export async function getBridgeToken(): Promise<string | null> {
+  return (await getSetting<string>(MATCH_STATS_BRIDGE_TOKEN_KEY)) || null;
+}
+
+export async function setBridgeToken(token: string | null): Promise<void> {
+  await setSetting(MATCH_STATS_BRIDGE_TOKEN_KEY, token ?? '');
+}
+
 export async function getScoreboardUrl(): Promise<string | null> {
   return getSetting<string>(SCOREBOARD_URL_KEY);
 }

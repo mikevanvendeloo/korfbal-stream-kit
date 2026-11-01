@@ -5,6 +5,11 @@ import {LiveChapter, Position, ProductionEvent} from '../hooks/useLiveState';
 import {chapterName} from '../lib/liveChapters';
 import {callsheetWait, isForPosition} from '../lib/callsheetWait';
 
+/** Set by CallSheetView from the measured height of its sticky page header */
+export const CALLSHEET_HEADER_VAR = '--callsheet-header-h';
+// Tailwind needs the literal class: keep the variable name in sync with CALLSHEET_HEADER_VAR
+const STICKY_UNDER_PAGE_HEADER = 'sticky top-[var(--callsheet-header-h,0px)]';
+
 interface Props {
   title: string;
   positionId: number;
@@ -25,6 +30,8 @@ interface Props {
   activeVenueRemainingTime?: { minutes: string; seconds: string; isNegative: boolean; rawSeconds: number } | null;
   /** The hoofdstukken: `allTimes` holds a heading slot "chapter:<id>" before each one */
   chapters?: LiveChapter[];
+  /** Slots shown in full (current and next item, see callsheetFullSlots); the others are one compact line. Absent: all full */
+  fullSlots?: ReadonlySet<string>;
 }
 
 export const CallSheetColumn = ({
@@ -45,6 +52,7 @@ export const CallSheetColumn = ({
   chapters = [],
   activeVenueEvent = null,
   activeVenueRemainingTime = null,
+  fullSlots,
 }: Props) => {
   const isBlue = accentColor === 'blue';
   const isEmerald = accentColor === 'emerald';
@@ -65,6 +73,8 @@ export const CallSheetColumn = ({
     return <CallSheetWaitRow wait={wait} chapterName={wait.kind === 'waiting' ? chapterName(chapters, wait.next.chapterId) : null}/>;
   };
 
+  const isCompactSlot = (slot: string) => !!fullSlots && !fullSlots.has(slot);
+
   const itemsByTime: Record<string, (ProductionEvent & { calculatedTime?: Date | null })[]> = {};
   relevantItems.forEach(item => {
     const timeKey = item.calculatedTime ? item.calculatedTime.toISOString() : 'no-time';
@@ -77,55 +87,41 @@ export const CallSheetColumn = ({
   return (
     <div className={`bg-gray-50 dark:bg-black/20 rounded-xl border border-gray-200 dark:border-white/5 shadow-xl transition-all`}>
       {/* Kolom Header met Positie Selectie */}
+      {/* The column headers stick right under the page header: its measured height (--callsheet-header-h), never a
+          guessed offset, which left the header floating halfway down the screen on other resolutions */}
       {!isCompact && (
           <header
-            className="sticky top-[300px] sm:top-[220px] lg:top-[120px] z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md p-3 rounded-t-xl border-b border-gray-200 dark:border-white/10 mb-4 transition-colors">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-black tracking-tight flex items-center gap-3 text-gray-900 dark:text-white">
-                <span className={`w-1.5 h-6 rounded-full ${
+            className={`${STICKY_UNDER_PAGE_HEADER} z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md p-3 rounded-t-xl border-b border-gray-200 dark:border-white/10 mb-4 transition-colors`}>
+            <div className="flex items-center justify-between gap-3 min-w-0">
+              <h2 className="text-xl font-black tracking-tight flex items-center gap-3 text-gray-900 dark:text-white min-w-0">
+                <span className={`w-1.5 h-6 shrink-0 rounded-full ${
                     isBlue ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' :
                     isEmerald ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' :
                     'bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]'
                 }`}></span>
-                {title}
+                <span className="truncate">{title}</span>
               </h2>
-            </div>
-
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
-              {allPositions.map(pos => {
-                const isSelected = pos.id === positionId;
-                const isUsedElsewhere = pos.id === secondaryPositionId || pos.id === tertiaryPositionId;
-
-                return (
-                  <button
-                    key={pos.id}
-                    onClick={() => onPositionChange(pos.id)}
-                    disabled={isUsedElsewhere}
-                    className={`text-[10px] py-2 px-4 rounded-full font-bold transition-all whitespace-nowrap uppercase tracking-widest border ${
-                      isSelected
-                        ? isBlue
-                          ? 'bg-blue-600 border-blue-500 text-white shadow-lg'
-                          : isEmerald
-                            ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg'
-                            : 'bg-purple-600 border-purple-500 text-white shadow-lg'
-                        : isUsedElsewhere
-                          ? 'bg-black/5 dark:bg-white/5 border-transparent text-gray-300 dark:text-white/10 cursor-not-allowed opacity-50'
-                          : 'bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-500 dark:text-white/40 hover:border-gray-300 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-white/10 hover:text-gray-900 dark:hover:text-white'
-                    }`}
-                  >
+              {/* One dropdown instead of a bar with every position: fits any width */}
+              <select
+                aria-label="Positie van deze kolom"
+                value={positionId}
+                onChange={(e) => onPositionChange(Number(e.target.value))}
+                className="shrink-0 max-w-[45%] truncate text-xs font-bold uppercase tracking-wider py-1.5 pl-2 pr-7 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-800 text-gray-700 dark:text-white/80"
+              >
+                {!allPositions.some((pos) => pos.id === positionId) && <option value={positionId}>Kies positie</option>}
+                {allPositions.map((pos) => (
+                  <option key={pos.id} value={pos.id} disabled={pos.id !== positionId && (pos.id === secondaryPositionId || pos.id === tertiaryPositionId)}>
                     {pos.name}
-                  </button>
-                );
-              })}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
           </header>
       )}
 
       {isCompact && (
            <header
-             className="sticky top-[200px] sm:top-[200px] lg:top-[100px] z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm p-2 rounded-t-xl border-b border-gray-200 dark:border-white/10 mb-4 transition-colors">
+             className={`${STICKY_UNDER_PAGE_HEADER} z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm p-2 rounded-t-xl border-b border-gray-200 dark:border-white/10 mb-4 transition-colors`}>
             <div className="flex items-center gap-2">
                 <span className={`w-1 h-3 rounded-full ${
                     isBlue ? 'bg-blue-500' :
@@ -162,6 +158,7 @@ export const CallSheetColumn = ({
                 {wait?.kind === 'waiting' && wait.next.id === item.id && waitRow()}
                 <CallSheetItem
                   item={item}
+                  compact={isCompactSlot(timeSlot)}
                   isActive={isActive(item.id)}
                   isAutoAdvanceScheduled={autoAdvanceEventId === item.id}
                   elapsedTime={elapsedTime}
@@ -177,6 +174,7 @@ export const CallSheetColumn = ({
             <CallSheetItem
               key={timeSlot}
               isPlaceholder={true}
+              compact={isCompactSlot(timeSlot)}
               isVenueItem={isEmerald}
             />
           );

@@ -25,11 +25,12 @@ describe('CallSheetItem interview photos', () => {
     resetInterviewPhotosForTests();
   });
 
-  it('puts a photo next to each filled-in name, from title and note', () => {
-    renderItem('Interview {speler-thuis} & {coach-uit:kort}', {note: 'Daarna {speler-tegenstander:achternaam}'});
+  it('puts a photo next to each filled-in name of the title; the note (toelichting) is not shown', () => {
+    renderItem('Interview {speler-thuis} & {coach-uit:kort} en {speler-tegenstander:achternaam}', {note: 'Toelichting die niemand leest'});
 
     const people = screen.getAllByTestId('interview-person');
     expect(people.map((p) => p.textContent)).toEqual(['Anna de Vries#7', 'KCK. Coach', '12Bakker']);
+    expect(screen.queryByText(/Toelichting/)).toBeNull();
     // Anna has a photo (and her number next to the name), Kees is a coach (initials), Bram has no photo (number)
     expect(within(people[0]).getByRole('img', {name: 'Foto van Anna de Vries'})).toBeTruthy();
     expect(within(people[1]).getByRole('img', {name: 'Kees Coach'}).textContent).toBe('KC');

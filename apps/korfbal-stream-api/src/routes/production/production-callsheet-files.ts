@@ -84,6 +84,8 @@ async function draaiboekFileOf(callSheet: LoadedCallSheet) {
       durationSec: item.durationSec,
       orderIndex: item.orderIndex,
       isInVenue: item.isInVenue,
+      isMatchPart: item.isMatchPart,
+      showVenueClock: item.showVenueClock,
       isInLivestream: item.isInLivestream,
       isTimeAnchor: item.isTimeAnchor,
       anchorType: item.anchorType,
@@ -230,7 +232,7 @@ productionCallsheetFilesRouter.post('/callsheets/:callSheetId/import-json', uplo
       const item = file.items[index];
       return {
         durationSec: item.durationSec, isTimeAnchor: isAnchor(index), anchorType: item.anchorType ?? null, startOffsetSec: item.startOffsetSec ?? null,
-        isInVenue: !!item.isInVenue, isInLivestream: item.isInLivestream !== false, chapterId: chapterKey(chapterName),
+        isInVenue: !!item.isInVenue, isMatchPart: !!item.isMatchPart, showVenueClock: !!item.showVenueClock, isInLivestream: item.isInLivestream !== false, chapterId: chapterKey(chapterName),
       };
     }), {kickoff, liveStart, chapterMinimums: chapterMinimums(chapterNames.map((name) => ({id: chapterKey(name), minDurationSec: minimumOf(name)})))});
 
@@ -267,6 +269,8 @@ productionCallsheetFilesRouter.post('/callsheets/:callSheetId/import-json', uplo
             durationSec: item.durationSec,
             orderIndex: planned.orderIndex,
             isInVenue: !!item.isInVenue,
+            isMatchPart: !!item.isMatchPart,
+            showVenueClock: !!item.showVenueClock,
             isInLivestream: item.isInLivestream !== false,
             isTimeAnchor: isAnchor(planned.index),
             anchorType: item.anchorType ?? null,

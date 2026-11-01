@@ -1,5 +1,11 @@
 import {Router} from 'express';
+import {clearStatsBridgeCache} from '../services/stats/statsBridge';
+import {clearStatsTeamCache} from '../services/stats/statsTeam';
 import {
+  getBridgeToken,
+  getMatchStats,
+  setBridgeToken,
+  setMatchStats,
   getScoreboardUrl,
   getSetting,
   getShotclockUrl,
@@ -166,6 +172,57 @@ settingsRouter.put('/scoreboard-config', async (req, res, next) => {
       setShotclockUrl(parsed.shotclockUrl || ''),
     ]);
     return res.json(parsed);
+  } catch (err: any) {
+    if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid payload' });
+    return next(err);
+  }
+});
+
+// GET /api/settings/match-stats: the bridge's address; the token is never returned (hasBridgeToken only)
+settingsRouter.get('/match-stats', async (_req, res, next) => {
+  try {
+    const [{bridgeUrl}, token] = await Promise.all([getMatchStats(), getBridgeToken()]);
+    return res.json({bridgeUrl, hasBridgeToken: !!token});
+  } catch (err) {
+    return next(err);
+  }
+});
+
+function originOf(url: string | null): string | null {
+  try {
+    return url ? new URL(url).origin : null;
+  } catch {
+    return null;
+  }
+}
+
+// PUT /api/settings/match-stats {bridgeUrl, bridgeToken?}: the statistics bridge (http or https: LAN device).
+// bridgeToken absent keeps it, null or '' removes it; it is also removed when the bridge's origin changes
+// without a new token, so a token never travels to another server.
+const MatchStatsSchema = z.object({
+  bridgeUrl: z.string().trim().max(500).nullable().optional().transform((v) => (v || null)?.replace(/\/+$/, '') ?? null)
+    .refine((v) => {
+      if (v === null) return true;
+      try {
+        const u = new URL(v);
+        return /^https?:$/.test(u.protocol) && !u.username && !u.password && !u.search && !u.hash;
+      } catch {
+        return false;
+      }
+    }, 'Het adres van de statistics bridge moet met http:// of https:// beginnen, zoals http://statistics-bridge:3340'),
+  bridgeToken: z.string().max(500).nullable().optional(),
+});
+
+settingsRouter.put('/match-stats', async (req, res, next) => {
+  try {
+    const parsed = MatchStatsSchema.parse(req.body);
+    const before = await getMatchStats();
+    await setMatchStats({bridgeUrl: parsed.bridgeUrl});
+    if (parsed.bridgeToken !== undefined) await setBridgeToken(parsed.bridgeToken || null);
+    else if (originOf(before.bridgeUrl) !== originOf(parsed.bridgeUrl)) await setBridgeToken(null);
+    clearStatsBridgeCache();
+    clearStatsTeamCache();
+    return res.json({bridgeUrl: parsed.bridgeUrl, hasBridgeToken: !!(await getBridgeToken())});
   } catch (err: any) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid payload' });
     return next(err);

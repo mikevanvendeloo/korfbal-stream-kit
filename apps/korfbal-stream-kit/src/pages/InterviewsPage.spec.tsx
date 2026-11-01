@@ -14,10 +14,10 @@ const fakeSocket = {
 const emit = (event: string, payload: unknown) => listeners.get(event)?.forEach((fn) => fn(payload));
 vi.mock('../lib/socket', () => ({getSharedSocket: () => fakeSocket}));
 
-function mockShow(cards = interviewCards) {
+function mockShow(cards = interviewCards, moments: unknown[] = []) {
   return mockApi(({path}) => {
     if (path === '/api/production/active') return {item: {id: 47, matchScheduleId: 1, isActive: true}};
-    if (path === '/api/production/47/interview-cards') return {items: cards};
+    if (path === '/api/production/47/interview-cards') return {items: cards, moments};
     return {};
   });
 }
@@ -68,5 +68,29 @@ describe('InterviewsPage', () => {
     expect(interviewRoleLabel('PLAYER', 'HOME')).toBe('Speler thuis');
     expect(interviewRoleLabel('COACH', 'AWAY')).toBe('Coach uit');
     expect(interviewRoleLabel('PLAYER', 'NONE')).toBe('Speler');
+  });
+});
+
+describe('InterviewsPage order', () => {
+  afterEach(() => listeners.clear());
+
+  it('shows the interviews in draaiboek order with their hoofdstuk, and on each card its numbers', async () => {
+    mockShow(interviewCards, [
+      {position: 1, itemId: 'a', title: 'Interview Kees Coach', chapter: 'Voorbeschouwing', plannedStartTime: null, people: [{side: 'AWAY', role: 'COACH', name: 'Kees Coach'}]},
+      {position: 2, itemId: 'b', title: 'Interview coach thuis', chapter: 'Voorbeschouwing', plannedStartTime: null, people: [{side: 'HOME', role: 'COACH', name: null}]},
+      {position: 3, itemId: 'c', title: 'Interview Kees Coach en Bram Bakker', chapter: 'Nabeschouwing', plannedStartTime: null, people: [{side: 'AWAY', role: 'COACH', name: 'Kees Coach'}, {side: 'AWAY', role: 'PLAYER', name: 'Bram Bakker'}]},
+    ]);
+    renderPage(<InterviewsPage/>);
+
+    const order = await screen.findByRole('list', {name: 'Volgorde van de interviews'});
+    expect(within(order).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      '1VoorbeschouwingInterview Kees Coach',
+      '2VoorbeschouwingInterview coach thuis',
+      '3NabeschouwingInterview Kees Coach en Bram Bakker',
+    ]);
+    const cards = screen.getByRole('list', {name: 'Gekozen interviews'});
+    expect(within(cards).getByRole('listitem', {name: 'Kees Coach'}).textContent).toContain('Interview 1 en 3');
+    expect(within(cards).getByRole('listitem', {name: 'Bram Bakker'}).textContent).toContain('Interview 3');
+    expect(within(cards).getByRole('listitem', {name: 'Anna de Vries'}).textContent).not.toContain('Interview 1');
   });
 });

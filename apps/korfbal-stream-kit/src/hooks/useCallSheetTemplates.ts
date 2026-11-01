@@ -23,6 +23,8 @@ export interface CallSheetTemplateItem {
   durationSec: number;
   orderIndex: number;
   isInVenue: boolean;
+  isMatchPart: boolean;
+  showVenueClock: boolean;
   isInLivestream: boolean;
   isTimeAnchor: boolean;
   anchorType: string | null;

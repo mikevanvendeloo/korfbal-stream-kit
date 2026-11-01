@@ -126,6 +126,8 @@ async function addStandardSet(tx: Prisma.TransactionClient): Promise<StandardSet
           durationSec: item.durationSec,
           orderIndex: orderIndex + 1,
           isInVenue: item.isInVenue,
+          isMatchPart: item.isMatchPart,
+          showVenueClock: item.showVenueClock,
           isInLivestream: item.isInLivestream,
           isTimeAnchor: item.isTimeAnchor ?? false,
           anchorType: item.anchorType ?? null,

@@ -23,7 +23,8 @@ import {formatTime} from '../lib/time';
 
 const asItem = (it: CallSheetItem): DraaiboekItemData => ({
   id: it.id, cue: it.cue ?? '', title: it.title, note: it.note ?? null, durationSec: it.durationSec,
-  isInVenue: !!it.isInVenue, isInLivestream: it.isInLivestream !== false, isTimeAnchor: !!it.isTimeAnchor,
+  isInVenue: !!it.isInVenue, isMatchPart: !!it.isMatchPart, showVenueClock: !!it.showVenueClock,
+  isInLivestream: it.isInLivestream !== false, isTimeAnchor: !!it.isTimeAnchor,
   anchorType: it.anchorType ?? null, autoAdvance: !!it.autoAdvance, parentId: it.parentId ?? null,
   positionIds: (it.positions ?? []).map((p) => p.positionId), timeStart: it.timeStart ?? null,
 });

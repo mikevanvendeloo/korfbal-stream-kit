@@ -10,10 +10,12 @@ Kies **Interviews** in de menubalk. Op een telefoon staat het in het menu (drie 
 
 ## Wat je ziet
 
-Per gekozen interview één kaart met:
+Bovenaan staat de **Volgorde**: de interviews in de volgorde van het draaiboek, genummerd, met het **hoofdstuk** en de geplande tijd, bijvoorbeeld *1 · Voorbeschouwing · Interview Kees Uit*. Een interview is elk draaiboekitem met een interviewnaam in de titel, zoals `{coach-uit}`. Dezelfde persoon kan dus twee keer voorkomen, bijvoorbeeld de coach uit vóór en na de wedstrijd. Staat er nog niemand gekozen, dan staat er de rol, zoals *coach thuis*.
+
+Daaronder per gekozen interview één kaart met:
 
 - de **foto** van de speler of coach;
-- de **rol**: **Speler thuis**, **Speler uit**, **Coach thuis** of **Coach uit**;
+- de **rol**: **Speler thuis**, **Speler uit**, **Coach thuis** of **Coach uit**; ernaast **Interview 1 en 3**: de nummers uit de volgorde waarin deze persoon aan de beurt is;
 - de **naam**;
 - het **rugnummer**, zoals **#7**;
 - de **ploeg**, zoals de teamnaam uit het wedstrijdprogramma;

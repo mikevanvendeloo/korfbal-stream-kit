@@ -1,0 +1,11 @@
+# PAGE_URL: zonder eigen waarde geldt de opgeslagen pagina uit compose/local-html, die niet op de share staat. Zet PAGE_URL=http://10.12.0.63/... voor de echte pagina.
+# Mac: de share van de statistiek-pc staat gemount in /Volumes/KL2627 (scripts/statistics-bridge/mount-share-mac.sh).
+# Docker Desktop mag die map delen (Settings > Resources > File sharing, standaard staat /Volumes erbij).
+# Staat de pc uit, dan is de map leeg of weg: alleen de bridge merkt het, en gebruikt de lokale kopie.
+services:
+  statistics-bridge:
+    environment:
+      STATS_DIR: /stats
+      MDB_ENABLED: "true"
+    volumes:
+      - ${STATS_SOURCE_DIR:-/Volumes/KL2627}:/stats:ro

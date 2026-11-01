@@ -1,13 +1,16 @@
 import {useNavigate, useParams} from 'react-router-dom';
-import {CallSheetColumn} from './CallSheetColumn';
+import {useLiveProductionId} from './ActiveProductionRoute';
+import {CALLSHEET_HEADER_VAR, CallSheetColumn} from './CallSheetColumn';
 import {TimeDisplay} from './TimeDisplay';
+import {showsVenueClock} from '../lib/venueClock';
 import {calculateEventTimes, useLiveState} from '../hooks/useLiveState';
-import {useEffect, useMemo, useRef, useState} from "react";
+import {useEffect, useMemo, useRef, useState, type CSSProperties} from "react";
 import {MatchHeader} from "./MatchHeader";
 import {MdSettings} from "react-icons/md";
 import {useFontSize} from "../hooks/useFontSize";
 import {InterviewPhotosToggle} from "./InterviewPhotosToggle";
 import {withChapterHeadings} from "../lib/liveChapters";
+import {callsheetFullSlots} from "../lib/callsheetCompact";
 
 // Helper om een naam om te zetten naar een URL-vriendelijke slug
 const toSlug = (name: string) => {
@@ -15,7 +18,8 @@ const toSlug = (name: string) => {
 };
 
 export const CallSheetView = () => {
-    const {productionId, positionSlug} = useParams<{ productionId: string; positionSlug: string }>();
+    const productionId = useLiveProductionId();
+    const {positionSlug} = useParams<{ positionSlug: string }>();
     const navigate = useNavigate();
 
     const {
@@ -142,7 +146,7 @@ export const CallSheetView = () => {
                 const other = allPositions.find(p => p.id !== posId && p.id !== primaryPositionId && p.id !== secondaryPositionId);
                 setTertiaryPositionId(other ? other.id : null);
             }
-            navigate(`/callsheet/${productionId}/${toSlug(pos.name)}`);
+            navigate(`/callsheet/${toSlug(pos.name)}`);
         }
     };
 
@@ -152,7 +156,7 @@ export const CallSheetView = () => {
         // dan moeten we de primaire naar de oude secundaire verplaatsen
         if (posId === primaryPositionId) {
             if (secondaryPosition) {
-                navigate(`/callsheet/${productionId}/${toSlug(secondaryPosition.name)}`);
+                navigate(`/callsheet/${toSlug(secondaryPosition.name)}`);
             }
         } else if (posId === tertiaryPositionId) {
             // Als deze al tertiair was, wissel ze om
@@ -167,7 +171,7 @@ export const CallSheetView = () => {
         // dan moeten we de primaire naar de oude tertiaire verplaatsen
         if (posId === primaryPositionId) {
             if (tertiaryPosition) {
-                navigate(`/callsheet/${productionId}/${toSlug(tertiaryPosition.name)}`);
+                navigate(`/callsheet/${toSlug(tertiaryPosition.name)}`);
             }
         } else if (posId === secondaryPositionId) {
             // Als deze al secundair was, wissel ze om
@@ -256,6 +260,26 @@ export const CallSheetView = () => {
     // column shows at the same height (openspec/changes/chapters D5); slots outside any hoofdstuk come last
     const slots = useMemo(() => withChapterHeadings(allTimes, timedItems, chapters), [allTimes, timedItems, chapters]);
 
+    // The current and next item of every shown column in full, the rest as one compact line (aligned per slot)
+    const fullSlots = useMemo(() => {
+        const shown = [primaryPositionId, ...(showSecondaryColumn ? [secondaryPositionId ?? -2] : []), ...(showTertiaryColumn ? [tertiaryPositionId ?? -3] : [])];
+        const activeIds = new Set([activeEvent?.id, activeVenueEventId].filter((id): id is string => !!id));
+        return callsheetFullSlots(timedItems, shown, activeIds);
+    }, [timedItems, primaryPositionId, secondaryPositionId, tertiaryPositionId, showSecondaryColumn, showTertiaryColumn, activeEvent?.id, activeVenueEventId]);
+
+
+    // The sticky page header's real height: the column headers stick right under it on every resolution
+    const [pageHeader, setPageHeader] = useState<HTMLElement | null>(null);
+    const [pageHeaderHeight, setPageHeaderHeight] = useState(0);
+    useEffect(() => {
+        if (!pageHeader) return;
+        const measure = () => setPageHeaderHeight(pageHeader.getBoundingClientRect().height);
+        measure();
+        if (typeof ResizeObserver === 'undefined') return;
+        const observer = new ResizeObserver(measure);
+        observer.observe(pageHeader);
+        return () => observer.disconnect();
+    }, [pageHeader]);
 
     const lastScrolledEventId = useRef<string | null>(null);
 
@@ -302,8 +326,9 @@ export const CallSheetView = () => {
     }
 
     return (
-        <div className="bg-white dark:bg-gray-950 min-h-screen text-gray-900 dark:text-white p-2 md:p-4 transition-colors">
-            <header
+        <div className="bg-white dark:bg-gray-950 min-h-screen text-gray-900 dark:text-white p-2 md:p-4 transition-colors"
+             style={{[CALLSHEET_HEADER_VAR]: `${pageHeaderHeight}px`} as CSSProperties}>
+            <header ref={setPageHeader}
                 className="mb-1 sticky top-0 z-40 bg-white dark:bg-gray-950 transition-colors">
                 <div className="flex flex-col gap-2 p-2 md:p-3 bg-gray-100/80 dark:bg-black/80 rounded-b-lg backdrop-blur-md border-b border-gray-200 dark:border-white/10 shadow-2xl relative min-h-[72px] box-content">
                     {/* Background accent */}
@@ -335,7 +360,7 @@ export const CallSheetView = () => {
                                                         className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-white/30">Positie</span>
                                                     <button
                                                         onClick={() => {
-                                                            navigate(`/callsheet/${productionId}`);
+                                                            navigate(`/callsheet`);
                                                             setShowSettings(false);
                                                         }}
                                                         className="px-3 py-1.5 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border border-gray-200 dark:border-white/10 text-gray-600 dark:text-white/60"
@@ -385,7 +410,7 @@ export const CallSheetView = () => {
 
                                                     <button
                                                         onClick={() => {
-                                                            const newPath = `/show-caller/${productionId}/${positionSlug}`;
+                                                            const newPath = `/show-caller/${positionSlug}`;
                                                             navigate(newPath);
                                                             setShowSettings(false);
                                                         }}
@@ -397,7 +422,7 @@ export const CallSheetView = () => {
 
                                                     <button
                                                         onClick={() => {
-                                                            navigate(`/callsheet/${productionId}`);
+                                                            navigate(`/callsheet`);
                                                             setShowSettings(false);
                                                         }}
                                                         className="w-full px-4 py-3 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-gray-200 dark:border-white/5 text-gray-600 dark:text-white/70 text-center"
@@ -563,6 +588,7 @@ export const CallSheetView = () => {
                                 productionClock={productionClock}
                                 activeEventRemainingTime={activeEventRemainingTime}
                                 venueClock={venueClock}
+                                showVenueClock={showsVenueClock(activeEvent, activeVenueEvent)}
                                 systemTime={systemTime}
                             />
                         </div>
@@ -589,6 +615,7 @@ export const CallSheetView = () => {
                     activeVenueEvent={activeVenueEvent}
                     activeVenueRemainingTime={activeVenueRemainingTime}
                     allTimes={slots}
+                    fullSlots={fullSlots}
                     chapters={chapters}
                     allPositions={allPositions}
                     onPositionChange={handleSetPrimary}
@@ -609,6 +636,7 @@ export const CallSheetView = () => {
                         activeVenueEvent={activeVenueEvent}
                         activeVenueRemainingTime={activeVenueRemainingTime}
                         allTimes={slots}
+                        fullSlots={fullSlots}
                         chapters={chapters}
                         allPositions={allPositions}
                         onPositionChange={handleSetSecondary}
@@ -630,6 +658,7 @@ export const CallSheetView = () => {
                         activeVenueEvent={activeVenueEvent}
                         activeVenueRemainingTime={activeVenueRemainingTime}
                         allTimes={slots}
+                        fullSlots={fullSlots}
                         chapters={chapters}
                         allPositions={allPositions}
                         onPositionChange={handleSetTertiary}

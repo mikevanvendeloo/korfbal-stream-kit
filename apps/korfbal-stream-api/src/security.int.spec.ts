@@ -1113,6 +1113,15 @@ describe.runIf(runDb)('live state per organization (integration)', () => {
     expect(clientNone.events.map((e) => e.event).filter((e) => !GLOBAL_EVENTS.has(e))).toEqual([]);
   });
 
+  it('tells only the own organization that its active production changed', async () => {
+    for (const c of [clientA, clientB, clientNone]) c.events.length = 0;
+    expect((await asA(request(app).post(`/api/production/${a.productionId}/activate`))).status).toBe(200);
+    await waitFor(() => clientA.events.some((e) => e.event === 'active_production_changed'), 3000);
+    expect(JSON.parse(clientA.events.find((e) => e.event === 'active_production_changed')?.payload ?? '[]')[0]).toEqual({productionId: a.productionId});
+    expect(clientB.events.some((e) => e.event === 'active_production_changed')).toBe(false);
+    expect(clientNone.events.some((e) => e.event === 'active_production_changed')).toBe(false);
+  });
+
   it('keeps the production clock (time sync) per organization', async () => {
     expect(await runWithOrganization(orgA, async () => timeSyncService.getState())).toMatchObject({mode: 'counting_down', initialDuration: 90});
     expect(await runWithOrganization(orgB, async () => timeSyncService.getState())).toMatchObject({mode: 'stopped'});
@@ -1454,7 +1463,7 @@ describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
   });
 
   it('answers 401 "API-sleutel ontbreekt" on a feed without key or organization', async () => {
-    for (const path of ['/api/vmix/sponsor-names', '/api/vmix/active-production/staff', '/api/scoreboard', '/api/scoreboard/clock', '/api/vmix/production/1/titles', '/api/vmix/production/active/titles/presentatie']) {
+    for (const path of ['/api/vmix/sponsor-names', '/api/vmix/active-production/staff', '/api/scoreboard', '/api/scoreboard/clock', '/api/stats/live', '/api/stats/live/players?team=home', '/api/stats/matches', '/api/stats/players', '/api/stats/current/players', '/api/stats/team-stats', '/api/stats/top-scorers', '/api/stats/analysis', '/api/stats/status', '/api/vmix/production/1/titles', '/api/vmix/production/active/titles/presentatie']) {
       const res = await feed(path);
       expect(res.status, path).toBe(401);
       expect(res.body, path).toEqual({error: 'API-sleutel ontbreekt', code: 'API_KEY_MISSING'});

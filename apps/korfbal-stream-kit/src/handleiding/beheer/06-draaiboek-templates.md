@@ -34,7 +34,7 @@ Het standaarddraaiboek van een nieuwe organisatie heeft al *Eerste helft* 35:00,
 
 ## Items
 
-Met **Nieuw Draaiboek** maak je een lege template; met **Bekijken / Bewerken** open je er een. Elk item staat op één regel: de **cue**, de titel, labels (anker, Auto, Zaal, *Geen stream*), de posities (de eerste drie, daarna *+2*; Showcaller staat er niet bij, die staat altijd aan) en de duur. Klik op een regel om hem te openen en te wijzigen:
+Met **Nieuw Draaiboek** maak je een lege template; met **Bekijken / Bewerken** open je er een. Elk item staat op één regel: de **cue**, de titel, labels (anker, Auto, Wedstrijddeel, Zaal, *Geen stream*), de posities (de eerste drie, daarna *+2*; Showcaller staat er niet bij, die staat altijd aan) en de duur. Klik op een regel om hem te openen en te wijzigen:
 
 | Veld | Betekenis |
 |---|---|
@@ -42,6 +42,8 @@ Met **Nieuw Draaiboek** maak je een lege template; met **Bekijken / Bewerken** o
 | **Titel** en **Notitie** | Wat er gebeurt. Hierin mag je [interviewnamen](#interviewnamen) gebruiken. |
 | **Duur (seconden)** | Hoe lang het item duurt |
 | **Zaal** / **Stream** | Of het in de zaal en/of in de livestream te zien is |
+| **Wedstrijddeel** | Het item is een deel van de wedstrijd, bijvoorbeeld een helft of een kwart. Het nummer van het deel dat bezig is, gaat naar vMix als `matchPart` (zie [vMix](/admin/handleiding/vmix)). Als je dit aanvinkt, gaat **Zaalklok tonen** ook aan; die kun je weer uitzetten. |
+| **Zaalklok tonen** | In LIVE (callsheet en Show Caller) staat de zaalklok alleen in beeld zolang een item met dit vinkje loopt (in de stream of in de zaal). Bij andere items is de klok weg. Alleen bedoeld voor de wedstrijd zelf, maar een item zonder Wedstrijddeel mag hem ook tonen, bijvoorbeeld een time-out. |
 | **Tijd Anchor** | Het ijkpunt van het schema: *Wedstrijd starttijd* of *Livestream start*. Alle andere tijden worden daar vóór of na gerekend. |
 | **Auto Advance** | Het item gaat in LIVE vanzelf door naar het volgende als de duur om is |
 | **Koppel aan item (Parent)** | Een item dat tegelijk met een ander item gebeurt (in LIVE ernaast getoond); het staat altijd in hetzelfde hoofdstuk |
@@ -88,7 +90,7 @@ Een item met **Auto** gaat nog steeds vanzelf door als zijn tijd om is. Zie de [
 
 Met **Excel Import** of **JSON Import** maak je een template uit een bestand: kies het bestand, controleer de naam en klik op **Importeren**. Bij JSON wordt de naam uit het bestand voorgesteld. Zo maak je ook een template van het draaiboek van een productie: importeer hier het bestand van **Exporteer JSON** in het draaiboek, of van **Exporteer** bij de productie (de hele productie; alleen het draaiboek wordt gebruikt). Via de knoppen op een kaart exporteer je een template naar Excel of JSON. Beide nemen de hoofdstukken mee (JSON ook de standaardbezetting per hoofdstuk).
 
-In Excel staan per regel: Volgorde, Titel, Notitie, Duur (sec), Tijd Anchor (JA/NEE), Anchor Type (MATCH_START of LIVESTREAM_START), Auto Advance (JA), Zaal (JA), Stream (NEE om uit te zetten), **Hoofdstuk**, **Cue**. Daarna één kolom per positie, met precies de naam van de positie als kop, en een X bij de items voor die positie.
+In Excel staan per regel: Volgorde, Titel, Notitie, Duur (sec), Tijd Anchor (JA/NEE), Anchor Type (MATCH_START of LIVESTREAM_START), Auto Advance (JA), Zaal (JA), Stream (NEE om uit te zetten), **Hoofdstuk**, **Cue**. Daarna één kolom per positie, met precies de naam van de positie als kop, en een X bij de items voor die positie. Helemaal achteraan staan **Wedstrijddeel** en **Zaalklok** (JA/NEE); een bestand zonder die kolommen geeft overal NEE.
 
 > - Een kolom met een positienaam die niet bestaat, wordt zonder melding overgeslagen.
 > - Excel neemt geen gekoppelde items (parent) mee; JSON wel.

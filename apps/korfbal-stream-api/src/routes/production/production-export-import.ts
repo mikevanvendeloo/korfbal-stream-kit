@@ -8,6 +8,7 @@ import {ensureSeasonForDate} from '../../services/season';
 import {amsterdamDay, parseInstant} from '../../utils/time';
 import {migrateLegacySeasonAssets} from '../../services/seasonAssetMigration';
 import {contentDisposition} from '../../utils/attachment';
+import {emitToOrganization} from '../../services/socket';
 import {titlePartsForCreate} from '../../services/backupFields';
 import {ChapterRestore, fileChapterOrder, fileChapters} from '../../services/chapterMigration';
 
@@ -206,6 +207,8 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
           durationSec: item.durationSec,
           orderIndex: item.orderIndex,
           isInVenue: item.isInVenue,
+          isMatchPart: item.isMatchPart,
+          showVenueClock: item.showVenueClock,
           anchorType: item.anchorType,
           isTimeAnchor: item.isTimeAnchor,
           autoAdvance: item.autoAdvance,
@@ -230,6 +233,8 @@ productionExportImportRouter.get('/:id/export', async (req, res, next) => {
         chapterOrderIndex: production.chapters.find(c => c.id === ev.chapterId)?.orderIndex ?? null,
         isInLivestream: ev.isInLivestream,
         isInVenue: ev.isInVenue,
+        isMatchPart: ev.isMatchPart,
+        showVenueClock: ev.showVenueClock,
         isTimeAnchor: ev.isTimeAnchor,
         parentId: ev.parentId,
         metadata: ev.metadata,
@@ -508,6 +513,8 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
                 durationSec: itemData.durationSec,
                 orderIndex: itemData.orderIndex,
                 isInVenue: itemData.isInVenue,
+                isMatchPart: itemData.isMatchPart,
+                showVenueClock: itemData.showVenueClock,
                 anchorType: itemData.anchorType,
                 isTimeAnchor: itemData.isTimeAnchor,
                 autoAdvance: itemData.autoAdvance,
@@ -563,6 +570,8 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
               chapterId: chapterRestore.eventChapter(fileChapterOrder(evData)),
               isInLivestream: evData.isInLivestream,
               isInVenue: evData.isInVenue,
+              isMatchPart: evData.isMatchPart,
+              showVenueClock: evData.showVenueClock,
               isTimeAnchor: evData.isTimeAnchor,
               metadata: evData.metadata || {},
               triggerSource: evData.triggerSource,
@@ -601,6 +610,8 @@ productionExportImportRouter.post('/import', async (req, res, next) => {
 
     // Interview players created by the import may carry pre-season `players/...` photoUrls.
     await migrateLegacySeasonAssets().catch((err) => logger.error('Season asset migration after production import failed', err as Error));
+    // An imported active production is now the one LIVE shows: open callsheets switch to it
+    if (data.production.isActive) emitToOrganization('active_production_changed', {productionId: result.id});
     return res.json({ ok: true, id: result.id });
   } catch (err) {
     logger.error('Import production failed', err);

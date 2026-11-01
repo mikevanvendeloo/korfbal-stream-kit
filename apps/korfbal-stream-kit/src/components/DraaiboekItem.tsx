@@ -13,6 +13,10 @@ export type DraaiboekItemData = {
   note: string | null;
   durationSec: number;
   isInVenue: boolean;
+  /** Wedstrijddeel: one of the parts of the match (halves, quarters) */
+  isMatchPart: boolean;
+  /** Zaalklok tonen: LIVE shows the Zaal clock while this item runs */
+  showVenueClock: boolean;
   isInLivestream: boolean;
   isTimeAnchor: boolean;
   anchorType: string | null;
@@ -73,6 +77,7 @@ export default function DraaiboekItem({item, handle, positions, fixedPositionIds
         <span className="truncate font-medium text-gray-900 dark:text-white">{item.title}</span>
         {item.isTimeAnchor && <Anchor className="w-3.5 h-3.5 shrink-0 text-amber-600" aria-label={item.anchorType === 'LIVESTREAM_START' ? 'Anker: livestream start' : 'Anker: wedstrijd start'}/>}
         {item.autoAdvance && <FastForward className="w-3.5 h-3.5 shrink-0 text-purple-600" aria-label="Auto"/>}
+        {item.isMatchPart && <span className="shrink-0 rounded bg-blue-100 px-1 text-[10px] font-semibold uppercase text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">Wedstrijddeel</span>}
         {item.isInVenue && <span className="shrink-0 rounded bg-emerald-100 px-1 text-[10px] font-semibold uppercase text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">Zaal</span>}
         {!item.isInLivestream && <span className="shrink-0 rounded bg-gray-100 px-1 text-[10px] font-semibold uppercase text-gray-500 dark:bg-white/10 dark:text-white/50">Geen stream</span>}
         <span className="ml-auto hidden min-w-0 items-center gap-1 truncate sm:flex">
@@ -101,11 +106,13 @@ function DraaiboekItemForm({item, positions, fixedPositionIds, parentOptions, on
 }) {
   const [data, setData] = React.useState<DraaiboekItemChange>(() => ({
     cue: item.cue, title: item.title, note: item.note, durationSec: item.durationSec, isInVenue: item.isInVenue,
-    isInLivestream: item.isInLivestream, isTimeAnchor: item.isTimeAnchor, anchorType: item.anchorType,
+    isMatchPart: item.isMatchPart, showVenueClock: item.showVenueClock, isInLivestream: item.isInLivestream, isTimeAnchor: item.isTimeAnchor, anchorType: item.anchorType,
     autoAdvance: item.autoAdvance, parentId: item.parentId, positionIds: item.positionIds,
   }));
   const [saving, setSaving] = React.useState(false);
   const set = <K extends keyof DraaiboekItemChange>(key: K, value: DraaiboekItemChange[K]) => setData((d) => ({...d, [key]: value}));
+  // A match part shows the venue clock; the user can untick it again
+  const setMatchPart = (checked: boolean) => setData((d) => ({...d, isMatchPart: checked, ...(checked ? {showVenueClock: true} : {})}));
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -141,6 +148,13 @@ function DraaiboekItemForm({item, positions, fixedPositionIds, parentOptions, on
             <label className="flex items-center gap-1.5"><input type="checkbox" checked={data.isInVenue} onChange={(e) => set('isInVenue', e.target.checked)}/>Zaal</label>
             <label className="flex items-center gap-1.5"><input type="checkbox" checked={data.isInLivestream} onChange={(e) => set('isInLivestream', e.target.checked)}/>Stream</label>
             <label className="flex items-center gap-1.5"><input type="checkbox" checked={data.autoAdvance} onChange={(e) => set('autoAdvance', e.target.checked)}/>Auto</label>
+          </div>
+        </div>
+        <div className="space-y-1">
+          <span className={label}>Wedstrijd</span>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-700 dark:text-white/80">
+            <label className="flex items-center gap-1.5"><input type="checkbox" checked={data.isMatchPart} onChange={(e) => setMatchPart(e.target.checked)}/>Wedstrijddeel</label>
+            <label className="flex items-center gap-1.5"><input type="checkbox" checked={data.showVenueClock} onChange={(e) => set('showVenueClock', e.target.checked)}/>Zaalklok tonen</label>
           </div>
         </div>
         <div className="space-y-1">

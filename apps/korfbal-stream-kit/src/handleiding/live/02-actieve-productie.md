@@ -21,8 +21,10 @@ Per groep (**Algemeen**, **Techniek**, **Entertainment**) zie je wie er staat en
 
 Rechts staan de interviews. In het blok **Interview selectie** kies je per ploeg wie er geïnterviewd wordt:
 
-- **Thuis – speler/speelster** en **Uit – speler/speelster**
-- **Thuis – coach** en **Uit – coach**
+- **Uit – coach** en **Uit – speler/speelster**
+- **Thuis – coach** en **Thuis – speler/speelster**
+
+De volgorde is overal dezelfde: eerst de uitploeg, dan de thuisploeg, en per ploeg eerst de coach en dan de speler. Zo staan ze ook op de kaart **Interviews**, op het scherm Interviews en in het productierapport.
 
 De lijsten tonen de spelers en coaches van de club van die ploeg, voor dit seizoen. Is een lijst leeg, dan herkent de app de club bij de teamnaam niet, of zijn de spelers van dat seizoen nog niet geïmporteerd (beide in Beheer).
 

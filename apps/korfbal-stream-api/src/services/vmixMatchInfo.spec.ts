@@ -35,12 +35,16 @@ describe('buildVmixMatchInfo', () => {
       homeScore: '24', awayScore: '22', score: '24 - 22',
       matchSponsor: 'Bakkerij Jansen', matchSponsorLogo: 'http://10.0.0.5:3333/uploads/sponsors/bakkerij-jansen.png',
       ballSponsor: 'Vrije tekst', ballSponsorLogo: '',
+      matchPart: 0, matchPartRunning: false,
     });
   });
 
   it('keeps unknown fields empty and has an all-empty row without an active production', () => {
     const empty = buildVmixMatchInfo(null, base);
-    expect(Object.values(empty).every((v) => v === '')).toBe(true);
+    // Every field empty, the match part 0 / false
+    const {matchPart, matchPartRunning, ...texts} = empty;
+    expect(Object.values(texts).every((v) => v === '')).toBe(true);
+    expect([matchPart, matchPartRunning]).toEqual([0, false]);
 
     const partial = buildVmixMatchInfo({
       productionId: 1, liveTime: null,

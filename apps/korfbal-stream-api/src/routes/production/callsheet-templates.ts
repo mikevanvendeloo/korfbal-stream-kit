@@ -22,6 +22,8 @@ interface TemplateItemData {
   durationSec: number;
   orderIndex: number;
   isInVenue: boolean;
+  isMatchPart: boolean;
+  showVenueClock: boolean;
   isInLivestream: boolean;
   isTimeAnchor: boolean;
   anchorType?: string;
@@ -129,7 +131,7 @@ callSheetTemplateRouter.post('/:id/items', async (req, res, next) => {
     const templateId = Number(req.params.id);
     const {
       title, note, durationSec, orderIndex,
-      isInVenue, isInLivestream, isTimeAnchor, anchorType,
+      isInVenue, isMatchPart, showVenueClock, isInLivestream, isTimeAnchor, anchorType,
       autoAdvance, positionIds, parentId, cue
     } = req.body;
 
@@ -152,6 +154,8 @@ callSheetTemplateRouter.post('/:id/items', async (req, res, next) => {
         // Without a place: at the end of the draaiboek
         orderIndex: Number(orderIndex) || ((await prisma.callSheetTemplateItem.aggregate({ where: { templateId }, _max: { orderIndex: true } }))._max.orderIndex ?? 0) + 1,
         isInVenue: !!isInVenue,
+        isMatchPart: !!isMatchPart,
+        showVenueClock: !!showVenueClock,
         isInLivestream: isInLivestream !== false,
         isTimeAnchor: !!isTimeAnchor,
         anchorType,
@@ -179,7 +183,7 @@ callSheetTemplateRouter.put('/items/:itemId', async (req, res, next) => {
 
     const {
       title, note, durationSec, orderIndex,
-      isInVenue, isInLivestream, isTimeAnchor, anchorType,
+      isInVenue, isMatchPart, showVenueClock, isInLivestream, isTimeAnchor, anchorType,
       autoAdvance, positionIds, parentId, cue
     } = req.body;
 
@@ -218,6 +222,8 @@ callSheetTemplateRouter.put('/items/:itemId', async (req, res, next) => {
           durationSec: durationSec !== undefined ? Number(durationSec) : undefined,
           orderIndex: orderIndex !== undefined ? Number(orderIndex) : undefined,
           isInVenue: isInVenue !== undefined ? !!isInVenue : undefined,
+          isMatchPart: isMatchPart !== undefined ? !!isMatchPart : undefined,
+          showVenueClock: showVenueClock !== undefined ? !!showVenueClock : undefined,
           isInLivestream: isInLivestream !== undefined ? !!isInLivestream : undefined,
           isTimeAnchor: isTimeAnchor !== undefined ? !!isTimeAnchor : undefined,
           anchorType,
@@ -399,6 +405,8 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
           durationSec: tItem.durationSec,
           orderIndex: tItem.orderIndex,
           isInVenue: tItem.isInVenue,
+          isMatchPart: tItem.isMatchPart,
+          showVenueClock: tItem.showVenueClock,
           isInLivestream: tItem.isInLivestream,
           isTimeAnchor: tItem.isTimeAnchor,
           anchorType: tItem.anchorType,
@@ -419,6 +427,8 @@ callSheetTemplateRouter.post('/:id/apply/:productionId', async (req, res, next) 
           isTimeAnchor: tItem.isTimeAnchor,
           anchorType: tItem.anchorType,
           isInVenue: tItem.isInVenue,
+          isMatchPart: tItem.isMatchPart,
+          showVenueClock: tItem.showVenueClock,
           isInLivestream: tItem.isInLivestream,
           parentId: null as string | null,
         });
@@ -545,6 +555,8 @@ callSheetTemplateRouter.get('/:id/export', async (req, res, next) => {
     // Header row
     const headers = ['Volgorde', 'Titel', 'Notitie', 'Duur (sec)', 'Tijd Anchor', 'Anchor Type', 'Auto Advance', 'Zaal (inVenue)', 'Stream (inStream)', 'Hoofdstuk', 'Cue'];
     positions.forEach(p => headers.push(p.name));
+    // After the positions: older files lack these, and the import finds them by their header
+    headers.push('Wedstrijddeel', 'Zaalklok');
 
     worksheet.addRow(headers);
 
@@ -568,6 +580,7 @@ callSheetTemplateRouter.get('/:id/export', async (req, res, next) => {
       positions.forEach(p => {
         rowData.push(itemPosIds.has(p.id) ? 'X' : '');
       });
+      rowData.push(item.isMatchPart ? 'JA' : 'NEE', item.showVenueClock ? 'JA' : 'NEE');
 
       worksheet.addRow(rowData);
     });
@@ -607,6 +620,8 @@ callSheetTemplateRouter.post('/import', uploadMem, async (req, res, next) => {
     const positionColumns: { col: number, id: number }[] = [];
     let chapterColumn: number | null = null;
     let cueColumn: number | null = null;
+    let matchPartColumn: number | null = null;
+    let venueClockColumn: number | null = null;
 
     // Skip header row
     worksheet.eachRow((row, rowNumber) => {
@@ -616,6 +631,8 @@ callSheetTemplateRouter.post('/import', uploadMem, async (req, res, next) => {
           const header = cell.text.toLowerCase();
           if (header.trim() === 'hoofdstuk') chapterColumn = colNumber;
           if (header.trim() === 'cue') cueColumn = colNumber;
+          if (header.trim() === 'wedstrijddeel') matchPartColumn = colNumber;
+          if (header.trim() === 'zaalklok') venueClockColumn = colNumber;
           const posId = posMap.get(header);
           if (posId !== undefined) {
             positionColumns.push({ col: colNumber, id: posId });
@@ -635,6 +652,8 @@ callSheetTemplateRouter.post('/import', uploadMem, async (req, res, next) => {
       const autoAdvance = row.getCell(7).text.toUpperCase() === 'JA';
       const isInVenue = row.getCell(8).text.toUpperCase() === 'JA';
       const isInLivestream = row.getCell(9).text.toUpperCase() !== 'NEE'; // Default true
+      const isMatchPart = matchPartColumn ? row.getCell(matchPartColumn).text.toUpperCase() === 'JA' : false;
+      const showVenueClock = venueClockColumn ? row.getCell(venueClockColumn).text.toUpperCase() === 'JA' : false;
 
       // Collect positions from columns
       const positionIds: number[] = [];
@@ -652,6 +671,8 @@ callSheetTemplateRouter.post('/import', uploadMem, async (req, res, next) => {
         durationSec,
         orderIndex,
         isInVenue,
+        isMatchPart,
+        showVenueClock,
         isInLivestream,
         isTimeAnchor,
         anchorType: anchorType || undefined,
@@ -724,6 +745,8 @@ callSheetTemplateRouter.get('/:id/export-json', async (req, res, next) => {
         durationSec: item.durationSec,
         orderIndex: item.orderIndex,
         isInVenue: item.isInVenue,
+        isMatchPart: item.isMatchPart,
+        showVenueClock: item.showVenueClock,
         isInLivestream: item.isInLivestream,
         isTimeAnchor: item.isTimeAnchor,
         anchorType: item.anchorType,
@@ -783,6 +806,8 @@ export async function createTemplateFromDraaiboek(name: string, data: any) {
         durationSec: Number(item.durationSec) || 0,
         orderIndex: Number(item.orderIndex) || 0,
         isInVenue: !!item.isInVenue,
+        isMatchPart: !!item.isMatchPart,
+        showVenueClock: !!item.showVenueClock,
         isInLivestream: item.isInLivestream !== false,
         isTimeAnchor: !!item.isTimeAnchor,
         anchorType: item.anchorType ?? null,

@@ -1,5 +1,6 @@
 import {Router} from 'express';
 import {timeSyncService} from '../services/timeSyncService';
+import {updateVenueClock} from '../services/productionState';
 
 export const timeRouter: Router = Router();
 
@@ -31,6 +32,7 @@ timeRouter.post('/venue-clock', (req, res) => {
     if (typeof time !== 'string') {
         return res.status(400).json({ error: 'Invalid time format.'});
     }
-    timeSyncService.updateVenueClock(time);
+    // The venue clock has one path (productionState): never through the production clock's time_state_update
+    updateVenueClock(time);
     return res.status(200).json({ message: 'Venue clock updated.' });
 });

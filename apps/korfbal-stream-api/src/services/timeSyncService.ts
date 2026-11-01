@@ -58,17 +58,6 @@ export const timeSyncService = {
     broadcastTimeState();
   },
 
-  updateVenueClock: (newTime: string) => {
-    const state = timeState();
-    if (state.venueClock === newTime) return;
-    state.venueClock = newTime;
-    // Update de serverStartTime bij een venue clock update, zodat lokale interpolatie
-    // op de client synchroon loopt met de laatst ontvangen tijd van de server.
-    state.serverStartTime = Date.now();
-    // We sturen de *volledige* state mee, zodat clients altijd alles hebben.
-    broadcastTimeState();
-  },
-
   getState: (): TimeState => ({...timeState()}),
 
   initializeClient: (socket: { emit: (event: string, ...args: unknown[]) => unknown }) => {

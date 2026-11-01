@@ -33,6 +33,9 @@ export type ScenarioItem = {
   autoAdvance?: boolean;
   isInVenue?: boolean;
   isInLivestream?: boolean;
+  /** A match part (Wedstrijddeel) and/or showing the venue clock; both default false */
+  isMatchPart?: boolean;
+  showVenueClock?: boolean;
   /** A time anchor (`anchorType` default MATCH_START) */
   isTimeAnchor?: boolean;
   anchorType?: 'MATCH_START' | 'LIVESTREAM_START';
@@ -203,6 +206,7 @@ async function buildScenario(db: PrismaClient, organizationId: number, options: 
         productionId: production.id, order: i + 1, title: item.title, durationSec, chapterId: itemChapterIds[i],
         status: item.status ?? 'WAITING', autoAdvance: item.autoAdvance ?? false,
         isInVenue: item.isInVenue ?? false, isInLivestream: item.isInLivestream ?? true,
+        isMatchPart: item.isMatchPart ?? false, showVenueClock: item.showVenueClock ?? false,
         isTimeAnchor: item.isTimeAnchor ?? false, anchorType: item.isTimeAnchor ? item.anchorType ?? 'MATCH_START' : null,
         plannedStartTime: new Date(plannedStart), plannedEndTime: new Date(plannedStart + durationSec * 1000),
         positions: {create: (item.positions ?? []).map((name) => ({positionId: positionIds[name], organizationId}))},
@@ -222,7 +226,7 @@ async function buildScenario(db: PrismaClient, organizationId: number, options: 
         data: {
           organizationId, id: randomUUID(), callSheetId: callSheet.id, chapterId: event.chapterId as number, cue: `C${event.order}`, title: event.title,
           durationSec: event.durationSec ?? 0, orderIndex: event.order, timeStart: event.plannedStartTime, timeEnd: event.plannedEndTime,
-          isInVenue: event.isInVenue, isInLivestream: event.isInLivestream, isTimeAnchor: event.isTimeAnchor, anchorType: event.anchorType,
+          isInVenue: event.isInVenue, isMatchPart: event.isMatchPart, showVenueClock: event.showVenueClock, isInLivestream: event.isInLivestream, isTimeAnchor: event.isTimeAnchor, anchorType: event.anchorType,
         },
       });
       callSheetItemIds.push(item.id);
