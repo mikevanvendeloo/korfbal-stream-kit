@@ -75,6 +75,12 @@ export function formatTime(totalSeconds: number): DisplayTime {
   return { minutes, seconds, isNegative, rawSeconds: totalSeconds };
 }
 
+/** The venue clock as the scoreboard shows it: "MM:SS" of its seconds */
+export function venueClockText(scoreboardSeconds: number): string {
+  const t = formatTime(scoreboardSeconds);
+  return `${t.minutes}:${t.seconds}`;
+}
+
 /** "19:30:05": a wall-clock time in Amsterdam, whatever the device's zone. */
 export function formatSystemTime(date: Date): string {
   return formatAmsterdamTime(date, {seconds: true});
@@ -219,13 +225,8 @@ export const useLiveState = () => {
         if (clockResponse.ok) {
           const clockData = await clockResponse.json();
           if (clockData.clocks) {
-              const displayVenue = formatTime(clockData.clocks.scoreboardTime);
-              const venueClockStr = `${displayVenue.minutes}:${displayVenue.seconds}`;
-
-              // Alleen setten als het niet 00:00 is of als we nog niks hebben
-              if (clockData.clocks.scoreboardTime > 0 || !venueClock) {
-                setVenueClock(venueClockStr);
-              }
+              const venueClockStr = venueClockText(clockData.clocks.scoreboardTime);
+              setVenueClock(venueClockStr);
 
               if (!timeStateRef.current) {
                 timeStateRef.current = {
@@ -273,31 +274,11 @@ export const useLiveState = () => {
           } else if (state.mode === 'counting_down') {
             setProductionClock(formatTime(state.initialDuration - elapsedSec));
           }
-
-          // Lokale interpolatie voor de zaalklok (venueClock)
-          // Scorebord data komt binnen als "MM:SS" (bijv. "15:34")
-          const venueParts = state.venueClock.split(':');
-          if (venueParts.length === 2) {
-            const venueMins = parseInt(venueParts[0]);
-            const venueSecs = parseInt(venueParts[1]);
-            const totalVenueSecs = venueMins * 60 + venueSecs;
-
-            // We interpoleren vanaf de laatst ontvangen venue clock tijd.
-            // Omdat we weten dat de serverStartTime is bijgewerkt bij de laatste venue clock update,
-            // kunnen we berekenen hoeveel tijd er sindsdien is verstreken.
-            const elapsedSinceLastVenueSync = (Date.now() - state.serverStartTime) / 1000;
-
-            // Korfbal klokken tellen vrijwel altijd af.
-            const interpolatedVenueSecs = Math.max(0, totalVenueSecs - elapsedSinceLastVenueSync);
-            const displayVenue = formatTime(interpolatedVenueSecs);
-            setVenueClock(`${displayVenue.minutes}:${displayVenue.seconds}`);
-          } else {
-            setVenueClock(state.venueClock);
-          }
         } else {
           setProductionClock({ minutes: '00', seconds: '00', isNegative: false, rawSeconds: 0 });
-          setVenueClock(state.venueClock);
         }
+        // The venue clock is never counted here: it shows what the scoreboard said (venue_clock_update and the
+        // snapshot). Counting on locally made it flicker at every stoppage and with a device clock off.
       }
 
       if (eventStartTimeRef.current) {
@@ -346,15 +327,9 @@ export const useLiveState = () => {
         if (id !== (venueRef.current?.id ?? null)) setVenue(id, state.activeVenueStartTime ?? null);
       }
       if (state.clocks) {
-        // Update venue clock from global state if no specific time_state_update was received yet
-        // or as a fallback. Format seconds to MM:SS
-        const displayVenue = formatTime(state.clocks.scoreboardTime);
-        const venueClockStr = `${displayVenue.minutes}:${displayVenue.seconds}`;
-
-        // Alleen overschrijven als we een zinvolle tijd hebben of als de huidige 00:00 is
-        if (state.clocks.scoreboardTime > 0 || venueClock === '00:00' || !venueClock) {
-            setVenueClock(venueClockStr);
-        }
+        // The snapshot carries the scoreboard's last time as well
+        const venueClockStr = venueClockText(state.clocks.scoreboardTime);
+        setVenueClock(venueClockStr);
 
         // Update timeStateRef if it's currently null or if it has a 0 duration and we get a positive one
         if (!timeStateRef.current || (timeStateRef.current.initialDuration === 0 && state.clocks.scoreboardTime > 0)) {
@@ -368,13 +343,15 @@ export const useLiveState = () => {
       }
     });
 
+    // The production clock only; the venue clock has its own event
     listen('time_state_update', (newState: TimeState) => {
       timeStateRef.current = newState;
       setLastSyncTime(Date.now());
-      // Triggers immediate update
-      if (newState.venueClock) {
-          setVenueClock(newState.venueClock);
-      }
+    });
+
+    // The scoreboard's time, sent when it changed: shown as it is
+    listen('venue_clock_update', (update: {scoreboardTime: number}) => {
+      if (typeof update?.scoreboardTime === 'number') setVenueClock(venueClockText(update.scoreboardTime));
     });
 
     listen('active_event_update', (event: ProductionEvent) => {

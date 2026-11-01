@@ -179,3 +179,20 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('ProductionState Service Auto-
     }
   });
 });
+
+describe.runIf(process.env.REQUIRE_DB === 'true')('ProductionState venue clock', () => {
+  beforeEach(() => emit.mockClear());
+
+  it('sends the scoreboard time in its own event, only when it changed, and never as the production clock', async () => {
+    await inTestOrganization(async () => {
+      productionState.updateVenueClock('15:34');
+      productionState.updateVenueClock('15:34'); // stoppage: the scoreboard answers the same time
+      productionState.updateVenueClock('15:33');
+      productionState.updateVenueClock('kapot');
+    });
+    const venue = emit.mock.calls.filter(([event]) => event === 'venue_clock_update').map(([, payload]) => payload);
+    expect(venue).toEqual([{scoreboardTime: 15 * 60 + 34}, {scoreboardTime: 15 * 60 + 33}]);
+    expect(emit.mock.calls.some(([event]) => event === 'time_state_update')).toBe(false);
+    expect((await inTestOrganization(async () => productionState.liveStateSnapshot())).clocks.scoreboardTime).toBe(15 * 60 + 33);
+  });
+});

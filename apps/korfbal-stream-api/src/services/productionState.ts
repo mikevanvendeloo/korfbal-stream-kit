@@ -920,23 +920,19 @@ export async function startProduction(productionId: number, firstEvent: Producti
   broadcastState();
 }
 
+/**
+ * The venue clock as the scoreboard shows it ("MM:SS"), asked every second. The scoreboard is the only source:
+ * clients show this value as it is and never count on themselves, because the clock stands still at every
+ * stoppage (zuivere speeltijd). Its own event, sent only when the time changed: `time_state_update` is the
+ * production clock and must not be overwritten by the venue clock.
+ */
 export function updateVenueClock(time: string) {
-  // Parse time "MM:SS" to seconds
   const [minutes, seconds] = time.split(':').map(Number);
-  if (!isNaN(minutes) && !isNaN(seconds)) {
-    const totalSeconds = minutes * 60 + seconds;
-    live().clocks.scoreboardTime = totalSeconds;
-
-    logger.debug(`Venue clock sync: ${time} (${totalSeconds}s)`);
-
-    // Stuur ook de geformatteerde tijd mee voor directe weergave
-    emit('time_state_update', {
-      mode: 'counting_down', // Korfbal klok telt meestal af
-      serverStartTime: Date.now(),
-      initialDuration: totalSeconds,
-      venueClock: time
-    });
-
-    broadcastState();
-  }
+  if (isNaN(minutes) || isNaN(seconds)) return;
+  const totalSeconds = minutes * 60 + seconds;
+  const changed = live().clocks.scoreboardTime !== totalSeconds;
+  live().clocks.scoreboardTime = totalSeconds;
+  logger.debug(`Venue clock sync: ${time} (${totalSeconds}s)`);
+  if (changed) emit('venue_clock_update', {scoreboardTime: totalSeconds});
+  broadcastState();
 }
