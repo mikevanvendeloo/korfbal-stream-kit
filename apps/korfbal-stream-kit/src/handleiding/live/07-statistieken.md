@@ -19,6 +19,16 @@ Op een telefoon scroll je de tabel zijwaarts; de rest van de pagina blijft op he
 
 Op het tabblad **Wedstrijd uit database** kies je bij **Wedstrijd** een wedstrijd uit het Access-bestand van de statistiek-pc (nieuwste eerst). Je ziet per ploeg de totalen per speler over de hele wedstrijd, met het **%** van het totaal.
 
+## Verbinding met de statistiek-pc
+
+Bovenaan staat of de app de statistiek-pc kan bereiken; dat wordt elke 15 seconden opnieuw getest, en met **Verbinding testen** meteen:
+
+- **Netwerk**: de pc staat aan en zit op het netwerk (de server kan de gedeelde map van de pc bereiken).
+- **Database op de share**: het bestand WEDSTRIJDEN.mdb is te lezen.
+- **Statistiekenpagina**: de pagina van de pc antwoordt.
+
+Een groen bolletje is bereikbaar, een rood niet. Is **Netwerk** rood, dan staat de pc uit of zit hij niet op het netwerk; de database wordt dan niet geprobeerd.
+
 ## Bron van de gegevens
 
 Boven de gegevens staat de **Bron**. Bij **Live** is dat de *live pagina*. Bij **Wedstrijd uit database** is het de *share* (het bestand op de statistiek-pc is net gelezen) of een *lokale kopie van* een tijdstip. De app leest het bestand alleen opnieuw als het veranderd is (hooguit eens per 10 seconden) en werkt de kopie hooguit eens per 5 minuten bij; de cijfers in de kopie kunnen dus tot 5 minuten oud zijn. Is de share niet bereikbaar of antwoordt hij niet, dan gebruikt de app die kopie en zie je de tijd waarop ze is gemaakt. Staat er een oude tijd, dan zijn de cijfers niet actueel.

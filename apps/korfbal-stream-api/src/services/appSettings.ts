@@ -122,11 +122,12 @@ export async function setSponsorSlidesTypes(types: string[]): Promise<void> {
 
 export const MATCH_STATS_KEY = 'matchStats';
 /** keepCopy: keep a local copy of the .mdb as a fallback (default on; off saves writes and never reads an old copy) */
-export type MatchStatsSetting = {pageUrl: string | null; mdbPath: string | null; keepCopy: boolean};
+/** shareHost: the statistics PC on the network (IP or name) for the connection test; else the page URL's host */
+export type MatchStatsSetting = {pageUrl: string | null; mdbPath: string | null; keepCopy: boolean; shareHost: string | null};
 
 export async function getMatchStats(): Promise<MatchStatsSetting> {
   const v = await getSetting<Partial<MatchStatsSetting>>(MATCH_STATS_KEY);
-  return {pageUrl: v?.pageUrl || null, mdbPath: v?.mdbPath || null, keepCopy: v?.keepCopy !== false};
+  return {pageUrl: v?.pageUrl || null, mdbPath: v?.mdbPath || null, keepCopy: v?.keepCopy !== false, shareHost: v?.shareHost || null};
 }
 
 export async function setMatchStats(input: MatchStatsSetting): Promise<void> {

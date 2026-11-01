@@ -149,6 +149,7 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/scoreboard/clock': {device: 'scoreboard proxy'},
   'GET /api/scoreboard/shotclock': {device: 'shot clock proxy'},
   'GET /api/stats/current/players': {device: 'statistics database file on the share, else the statistics page'},
+  'GET /api/stats/status': {device: 'connection test of the statistics PC (SMB port, share file, page)'},
   'GET /api/stats/live': {device: 'statistics page of the statistics PC'},
   'GET /api/stats/live/players': {device: 'statistics page of the statistics PC'},
   'GET /api/stats/matches': {device: 'statistics database file on the share'},

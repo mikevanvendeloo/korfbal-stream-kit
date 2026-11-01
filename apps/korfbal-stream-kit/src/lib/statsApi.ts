@@ -23,7 +23,11 @@ export type DerivedPlayerRow = {
 };
 export type MatchPlayers = {source: 'share' | 'copy'; readAt: string; teams: {own: string | null; opponent: string | null}; players: DerivedPlayerRow[]};
 
-export type MatchStatsConfig = {pageUrl: string | null; mdbPath: string | null; keepCopy: boolean};
+export type MatchStatsConfig = {pageUrl: string | null; mdbPath: string | null; keepCopy: boolean; shareHost: string | null};
+
+/** null = not configured, so not tested */
+export type StatsCheck = {ok: boolean; ms: number | null} | null;
+export type StatsConnection = {host: string | null; network: StatsCheck; file: StatsCheck; page: StatsCheck};
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(createUrl(path));
@@ -34,6 +38,7 @@ async function getJson<T>(path: string): Promise<T> {
 export const fetchLiveStats = () => getJson<LiveStats>('/api/stats/live');
 export const fetchStatsMatches = () => getJson<StatsMatch[]>('/api/stats/matches');
 export const fetchMatchPlayers = (table: string) => getJson<MatchPlayers>(`/api/stats/matches/${encodeURIComponent(table)}/players`);
+export const fetchStatsConnection = () => getJson<StatsConnection>('/api/stats/status');
 export const getMatchStatsConfig = () => getJson<MatchStatsConfig>('/api/settings/match-stats');
 
 export async function setMatchStatsConfig(config: MatchStatsConfig): Promise<MatchStatsConfig> {

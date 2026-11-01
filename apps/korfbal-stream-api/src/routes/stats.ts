@@ -6,6 +6,7 @@ import type {Sourced} from '../services/stats/mdbFile';
 import {listStatsMatches, readMatchActions, readStatsPlayers} from '../services/stats/mdbFile';
 import {derivedPlayerRows, livePlayerRows} from '../services/stats/flatRows';
 import {StatsError} from '../services/stats/statsErrors';
+import {statsConnection} from '../services/stats/connectionTest';
 
 /** Match statistics from the statistics PC: the live page and the Access database. Feed routes (API key). */
 export const statsRouter: Router = Router();
@@ -33,6 +34,9 @@ const LiveQuery = z.object({
 });
 
 // GET /api/stats/live
+// Connection test: the statistics PC on the network (SMB port), the database file and the page; ok/failed only
+statsRouter.get('/status', wrap(async (_req, res) => res.json(await statsConnection())));
+
 statsRouter.get('/live', wrap(async (_req, res) => res.json(await getLiveStats())));
 
 // GET /api/stats/live/players?team=home|away&vak=1

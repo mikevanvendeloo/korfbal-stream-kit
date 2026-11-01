@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {getMatchStatsConfig, setMatchStatsConfig} from '../lib/statsApi';
+import StatsConnectionStatus from './StatsConnectionStatus';
 
 const input = 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100';
 
@@ -8,6 +9,7 @@ export default function MatchStatsSettings() {
   const [pageUrl, setPageUrl] = useState('');
   const [mdbPath, setMdbPath] = useState('');
   const [keepCopy, setKeepCopy] = useState(true);
+  const [shareHost, setShareHost] = useState('');
   const [message, setMessage] = useState<{ok: boolean; text: string} | null>(null);
 
   useEffect(() => {
@@ -16,6 +18,7 @@ export default function MatchStatsSettings() {
         setPageUrl(c.pageUrl ?? '');
         setMdbPath(c.mdbPath ?? '');
         setKeepCopy(c.keepCopy !== false);
+        setShareHost(c.shareHost ?? '');
       })
       .catch(() => undefined);
   }, []);
@@ -24,7 +27,7 @@ export default function MatchStatsSettings() {
     e.preventDefault();
     setMessage(null);
     try {
-      await setMatchStatsConfig({pageUrl: pageUrl.trim() || null, mdbPath: mdbPath.trim() || null, keepCopy});
+      await setMatchStatsConfig({pageUrl: pageUrl.trim() || null, mdbPath: mdbPath.trim() || null, keepCopy, shareHost: shareHost.trim() || null});
       setMessage({ok: true, text: 'Statistiekeninstellingen opgeslagen'});
     } catch (err) {
       setMessage({ok: false, text: (err as Error).message || 'Opslaan mislukt'});
@@ -47,12 +50,20 @@ export default function MatchStatsSettings() {
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Relatief aan de gedeelde map van de statistiek-pc op de server.</p>
         </div>
         <div>
+          <label htmlFor="statsShareHost" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Statistiek-pc op het netwerk</label>
+          <input id="statsShareHost" type="text" className={input} placeholder="10.12.0.63" value={shareHost} onChange={(e) => setShareHost(e.target.value)}/>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">IP-adres of naam van de pc met de gedeelde map, voor de verbindingstest (de server probeert de SMB-poort). Leeg: het adres uit de statistiekenpagina.</p>
+        </div>
+        <div>
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
             <input type="checkbox" checked={keepCopy} onChange={(e) => setKeepCopy(e.target.checked)}/>
             Lokale kopie bewaren
           </label>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Hooguit eens per 5 minuten een kopie van de database op de server, voor als de gedeelde map wegvalt. Uit: geen kopie, en zonder gedeelde map komen de spelerscijfers van de statistiekenpagina.</p>
         </div>
+      </div>
+      <div className="mt-4">
+        <StatsConnectionStatus/>
       </div>
       <div className="flex justify-end mt-4">
         <button type="button" onClick={save} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Statistieken opslaan</button>

@@ -192,12 +192,14 @@ const MatchStatsSchema = z.object({
   mdbPath: z.string().trim().max(500).nullable().optional().transform((v) => v || null)
     .refine((v) => v === null || (!/^([a-z]:|[\\/])/i.test(v) && !v.split(/[\\/]+/).includes('..') && /\.(mdb|accdb)$/i.test(v)), 'Het pad moet relatief zijn (zonder ..) en op .mdb of .accdb eindigen'),
   keepCopy: z.boolean().optional().default(true),
+  shareHost: z.string().trim().max(253).nullable().optional().transform((v) => v || null)
+    .refine((v) => v === null || /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i.test(v), 'Vul een IP-adres of computernaam in, zoals 10.12.0.63'),
 });
 
 settingsRouter.put('/match-stats', async (req, res, next) => {
   try {
     const parsed = MatchStatsSchema.parse(req.body);
-    await setMatchStats({pageUrl: parsed.pageUrl, mdbPath: parsed.mdbPath, keepCopy: parsed.keepCopy});
+    await setMatchStats({pageUrl: parsed.pageUrl, mdbPath: parsed.mdbPath, keepCopy: parsed.keepCopy, shareHost: parsed.shareHost});
     clearLiveStatsCache();
     clearMdbCache();
     return res.json(parsed);

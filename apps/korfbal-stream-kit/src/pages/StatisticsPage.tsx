@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {formatTime} from '../lib/time';
+import StatsConnectionStatus from '../components/StatsConnectionStatus';
 import {fetchLiveStats, fetchMatchPlayers, fetchStatsMatches, type PercentageRow, type PlayerStats, type StatsTeam} from '../lib/statsApi';
 
 const POLL_MS = 5000;
@@ -131,6 +132,9 @@ export default function StatisticsPage() {
   return (
     <div className="container py-4 min-w-0">
       <h1 className="text-xl font-semibold mb-3">Statistieken</h1>
+      <div className="mb-4">
+        <StatsConnectionStatus auto/>
+      </div>
       <div role="tablist" className="flex gap-2 mb-4 border-b border-gray-200 dark:border-gray-800">
         <button type="button" role="tab" aria-selected={tab === 'live'} className={tabClass(tab === 'live')} onClick={() => setTab('live')}>Live</button>
         <button type="button" role="tab" aria-selected={tab === 'match'} className={tabClass(tab === 'match')} onClick={() => setTab('match')}>Wedstrijd uit database</button>

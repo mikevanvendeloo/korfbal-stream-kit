@@ -16,6 +16,16 @@ const team = (name: string, score: number, playerName: string) => ({
 });
 
 describe('StatisticsPage', () => {
+  it('shows whether the statistics PC is on the network, the share file and the page', async () => {
+    mockApi(({path}) => path === '/api/stats/status'
+      ? {host: '10.12.0.63', network: {ok: true, ms: 4}, file: {ok: false, ms: null}, page: null}
+      : {status: 409, ok: false, headers: new Headers({'content-type': 'application/json'}), json: async () => ({error: 'Niet ingesteld'}), clone() { return this; }});
+    renderPage(<StatisticsPage/>);
+    expect(await screen.findByText('Netwerk (10.12.0.63): bereikbaar (4 ms)')).toBeTruthy();
+    expect(screen.getByText('Database op de share: niet bereikbaar')).toBeTruthy();
+    expect(screen.queryByText(/Statistiekenpagina:/)).toBeNull();
+  });
+
   it('shows score, clock and the vak tables of both teams, in a scroll container', async () => {
     mockApi(({path}) => path === '/api/stats/live'
       ? {title: 'x', date: '2026-10-31', clock: '00:55:11', home: team('Fortuna/Ruitenheer', 27, 'Roos van Groen'), away: team('KZ/Keukensale.com', 14, 'Zoë Engel')}
