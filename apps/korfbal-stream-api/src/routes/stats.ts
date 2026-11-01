@@ -1,6 +1,6 @@
 import {NextFunction, Request, Response, Router} from 'express';
 import {z} from 'zod';
-import {derivePlayerStats, teamNamesOf} from '../services/stats/matchActions';
+import {derivePlayerStats, lastActionAt, teamNamesOf} from '../services/stats/matchActions';
 import {getLiveStats} from '../services/stats/liveStats';
 import type {Sourced} from '../services/stats/mdbFile';
 import {listStatsMatches, readMatchActions, readStatsPlayers} from '../services/stats/mdbFile';
@@ -77,10 +77,21 @@ statsRouter.get('/players', wrap(async (_req, res) => {
 // readable, the player rows of the live page. Same flat rows either way, with `source` and `readAt`.
 statsRouter.get('/current/players', wrap(async (_req, res) => {
   try {
+    // The match with the latest entered action: the database also holds tables of coming matches (only
+    // definition rows) and older test input, so the newest date is not the current match
     const list = await listStatsMatches();
-    const newest = list.data[0];
-    if (!newest) throw new StatsError(404, 'Geen wedstrijden in het statistiekenbestand');
-    const {source, readAt, data: rows} = await readMatchActions(newest.table);
+    let current: Awaited<ReturnType<typeof readMatchActions>> | null = null;
+    let currentAt = -Infinity;
+    for (const match of list.data) {
+      const read = await readMatchActions(match.table);
+      const at = lastActionAt(read.data);
+      if (at !== null && at > currentAt) {
+        current = read;
+        currentAt = at;
+      }
+    }
+    if (!current) throw new StatsError(404, 'Geen gespeelde wedstrijd in het statistiekenbestand');
+    const {source, readAt, data: rows} = current;
     const teams = teamNamesOf(rows);
     const out = derivedPlayerRows(derivePlayerStats(rows), teams).map((p) => ({...p, source, readAt}));
     return sendSourced(res, {source, readAt, data: out}, out);

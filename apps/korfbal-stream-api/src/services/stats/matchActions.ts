@@ -99,6 +99,23 @@ export function isAction(r: ActionRow): boolean {
 }
 
 /**
+ * When the last action of a match was entered, in ms (only for comparing matches); null without actions.
+ * `absoluut` is an ISO time from mdb-reader or `MM/DD/YY hh:mm:ss` in a CSV export.
+ */
+export function lastActionAt(rows: ActionRow[]): number | null {
+  let last: number | null = null;
+  for (const r of rows) {
+    if (!isAction(r) || !r.absoluut) continue;
+    const m = r.absoluut.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4}) (\d{1,2}):(\d{2}):(\d{2})$/);
+    const t = m
+      ? Date.UTC(m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]), Number(m[1]) - 1, Number(m[2]), Number(m[4]), Number(m[5]), Number(m[6]))
+      : Date.parse(r.absoluut);
+    if (Number.isFinite(t) && (last === null || t > last)) last = t;
+  }
+  return last;
+}
+
+/**
  * Per-player totals for the whole match. The actor of a shot/aangeef/rebound is `speler` for AANVAL and
  * `tegenstander` for VERDEDIGING. Shots: 3xxx is a goal on either side. Rebounds: + and - are from the own
  * club's view, so for the opponent a 2008 is a won rebound and a 3008 a lost one.
