@@ -3,7 +3,7 @@ import path from 'node:path';
 import {describe, expect, it} from 'vitest';
 import {decodeStatsPage, parseTweedeScherm} from './tweedeScherm';
 
-const html = decodeStatsPage(fs.readFileSync(path.join(__dirname, '../../test-fixtures/stats/tweede-scherm.html')));
+const html = decodeStatsPage(fs.readFileSync(path.join(__dirname, '../test-fixtures/stats/tweede-scherm.html')));
 
 describe('parseTweedeScherm', () => {
   const page = parseTweedeScherm(html);

@@ -5,7 +5,7 @@ import {derivePlayerStats, listMatchTables, normalizeActionRow, parseMatchTableN
 import {readCsv} from './testCsv';
 import {decodeStatsPage, parseTweedeScherm} from './tweedeScherm';
 
-const dir = path.join(__dirname, '../../test-fixtures/stats');
+const dir = path.join(__dirname, '../test-fixtures/stats');
 
 const rows = readCsv('Fortuna Koog Zaandijk_31_10_2026.csv').map(normalizeActionRow);
 const players = derivePlayerStats(rows);

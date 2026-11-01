@@ -1,7 +1,6 @@
 import axios from 'axios';
-import {getMatchStats} from '../appSettings';
-import {requireOrganizationId} from '../organizationContext';
-import {logger} from '../../utils/logger';
+import {config} from '../config';
+import {logger} from '../logger';
 import {HTML_EXTENSIONS, MAX_HTML_BYTES, readSharedFile} from './mdbFile';
 import {isHttpUrl} from './smbReach';
 import {shareHostOf} from './smbReach';
@@ -13,10 +12,10 @@ export const MAX_PAGE_BYTES = 512 * 1024;
 export const LIVE_CACHE_MS = 3000;
 
 type Entry = {url: string; at: number; value?: TweedeScherm; pending?: Promise<TweedeScherm>};
-const entries = new Map<number, Entry>();
+let entry: Entry | null = null;
 
 export function clearLiveStatsCache(): void {
-  entries.clear();
+  entry = null;
 }
 
 export {isHttpUrl};
@@ -48,21 +47,18 @@ export async function fetchPage(url: string, host: string | null = null): Promis
 }
 
 /**
- * The parsed page of the organization's statistics PC. Many vMix polls hit the PC at most once per
- * LIVE_CACHE_MS: a fresh answer is reused and a running request is shared.
+ * The parsed page of the statistics PC. Many polls hit the PC at most once per LIVE_CACHE_MS: a fresh
+ * answer is reused and a running request is shared.
  */
 export async function getLiveStats(): Promise<TweedeScherm> {
-  const setting = await getMatchStats();
-  const {pageUrl} = setting;
+  const pageUrl = config.pageUrl;
   if (!pageUrl) throw NOT_CONFIGURED_PAGE;
-  const orgId = requireOrganizationId('live statistics');
-  const entry = entries.get(orgId);
   if (entry && entry.url === pageUrl) {
     if (entry.pending) return entry.pending;
     if (entry.value && Date.now() - entry.at < LIVE_CACHE_MS) return entry.value;
   }
   const next: Entry = {url: pageUrl, at: 0};
-  next.pending = fetchPage(pageUrl, shareHostOf(setting)).then(
+  next.pending = fetchPage(pageUrl, shareHostOf(config)).then(
     (value) => {
       next.value = value;
       next.at = Date.now();
@@ -70,10 +66,10 @@ export async function getLiveStats(): Promise<TweedeScherm> {
       return value;
     },
     (err) => {
-      entries.delete(orgId);
+      if (entry === next) entry = null;
       throw err;
     },
   );
-  entries.set(orgId, next);
+  entry = next;
   return next.pending;
 }

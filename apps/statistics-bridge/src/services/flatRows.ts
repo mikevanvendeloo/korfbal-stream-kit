@@ -37,3 +37,30 @@ export function derivedPlayerRows(players: DerivedPlayer[], names?: {own: string
     ...columns(p),
   }));
 }
+
+/** The page's players summed over the vakken, as whole-match players (the shape of the database's derived players). */
+export function pagePlayersAsDerived(page: TweedeScherm): DerivedPlayer[] {
+  const out: DerivedPlayer[] = [];
+  const zero = () => ({goals: 0, attempts: 0});
+  for (const [side, team] of [['own', page.home], ['opponent', page.away]] as const) {
+    const byName = new Map<string, DerivedPlayer>();
+    for (const vak of team.vakken) {
+      for (const p of vak.players) {
+        let sum = byName.get(p.name);
+        if (!sum) {
+          sum = {side, name: p.name, afstand: zero(), doorloop: zero(), kortSchot: zero(), vrijeBal: zero(), strafworp: zero(), totaal: zero(), rebound: {won: 0, total: 0}, aangeef: 0};
+          byName.set(p.name, sum);
+        }
+        for (const key of ['afstand', 'doorloop', 'kortSchot', 'vrijeBal', 'strafworp', 'totaal'] as const) {
+          sum[key].goals += p[key].goals;
+          sum[key].attempts += p[key].attempts;
+        }
+        sum.rebound.won += p.rebound.won;
+        sum.rebound.total += p.rebound.total;
+        sum.aangeef += p.aangeef;
+      }
+    }
+    out.push(...byName.values());
+  }
+  return out;
+}

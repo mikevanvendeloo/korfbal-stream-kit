@@ -5,7 +5,7 @@ import path from 'node:path';
 import {afterEach, describe, expect, it} from 'vitest';
 import {fetchPage} from './liveStats';
 
-const page = fs.readFileSync(path.join(__dirname, '../../test-fixtures/stats/tweede-scherm.html'));
+const page = fs.readFileSync(path.join(__dirname, '../test-fixtures/stats/tweede-scherm.html'));
 
 describe('fetchPage', () => {
   let server: http.Server | null = null;

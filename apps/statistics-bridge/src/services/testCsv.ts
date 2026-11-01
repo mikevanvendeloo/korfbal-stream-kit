@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const dir = path.join(__dirname, '../../test-fixtures/stats');
+const dir = path.join(__dirname, '../test-fixtures/stats');
 
 /** Minimal CSV reader for the mdb-export fixtures (quoted fields, no embedded newlines). */
 export function readCsv(file: string): Record<string, unknown>[] {

@@ -5,7 +5,7 @@ import {describe, expect, it} from 'vitest';
 import {openMdbInWorker} from './mdbReader';
 import {derivePlayerStats, lastActionAt, listMatchTables, normalizeActionRow} from './matchActions';
 
-const fixture = path.join(__dirname, '../../test-fixtures/stats/WEDSTRIJDEN.mdb');
+const fixture = path.join(__dirname, '../test-fixtures/stats/WEDSTRIJDEN.mdb');
 
 describe('mdb-reader on the statistics database', () => {
   const db = new MDBReader(fs.readFileSync(fixture));

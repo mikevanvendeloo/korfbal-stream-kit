@@ -2,19 +2,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {config} from '../config';
-import {runWithOrganization} from '../organizationContext';
+import {config, setConfigForTests} from '../config';
 import {clearMdbCache, copyFileName, resetShareForTests, setSmbProbe, listStatsMatches, readSharedFile, readStatsFile, resolveStatsFile, setMdbOpener, setShareTimings, HTML_EXTENSIONS} from './mdbFile';
 
-vi.mock('../appSettings', () => ({getMatchStats: async () => ({pageUrl: null, mdbPath: 'F1/WEDSTRIJDEN.mdb'})}));
-
-const mutable = config as {statsDir: string; assetsDir: string};
-const inOrg = <T>(fn: () => Promise<T>) => runWithOrganization(7, fn, 'stats-unit');
+const inOrg = <T>(fn: () => Promise<T>) => fn();
 
 describe('statistics file access', () => {
   let share: string;
   let assets: string;
-  const original = {statsDir: config.statsDir, assetsDir: config.assetsDir};
+  const original = {...config};
 
   beforeEach(() => {
     share = fs.mkdtempSync(path.join(os.tmpdir(), 'stats-share-'));
@@ -22,15 +18,14 @@ describe('statistics file access', () => {
     fs.mkdirSync(path.join(share, 'F1'));
     fs.writeFileSync(path.join(share, 'F1', 'WEDSTRIJDEN.mdb'), 'first');
     fs.writeFileSync(path.join(share, 'F1', 'tweede.html'), '<html></html>');
-    mutable.statsDir = share;
-    mutable.assetsDir = assets;
+    setConfigForTests({statsDir: share, copyDir: assets, mdbPath: 'F1/WEDSTRIJDEN.mdb', mdbEnabled: true, keepCopy: true, shareHost: null, pageUrl: null});
     setShareTimings(3000, 5000);
     resetShareForTests();
     setSmbProbe(null);
   });
   afterEach(() => {
     resetShareForTests();
-    Object.assign(mutable, original);
+    setConfigForTests(original);
     fs.rmSync(share, {recursive: true, force: true});
     fs.rmSync(assets, {recursive: true, force: true});
     vi.restoreAllMocks();
@@ -49,13 +44,13 @@ describe('statistics file access', () => {
   it('keeps a local copy at <assets>/stats/<slug>/<file> after a read of the share', async () => {
     const read = await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
     expect(read.source).toBe('share');
-    expect(fs.readFileSync(path.join(assets, 'stats', 'stats-unit', copyFileName('F1/WEDSTRIJDEN.mdb')), 'utf8')).toBe('first');
-    expect(fs.readdirSync(path.join(assets, 'stats', 'stats-unit'))).toEqual([copyFileName('F1/WEDSTRIJDEN.mdb')]);
+    expect(fs.readFileSync(path.join(assets, copyFileName('F1/WEDSTRIJDEN.mdb')), 'utf8')).toBe('first');
+    expect(fs.readdirSync(assets)).toEqual([copyFileName('F1/WEDSTRIJDEN.mdb')]);
   });
 
   it('without keepCopy writes no copy and never falls back to an old one', async () => {
     await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
-    const copy = path.join(assets, 'stats', 'stats-unit', copyFileName('F1/WEDSTRIJDEN.mdb'));
+    const copy = path.join(assets, copyFileName('F1/WEDSTRIJDEN.mdb'));
     fs.rmSync(copy);
     await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', false));
     expect(fs.existsSync(copy)).toBe(false);
@@ -71,7 +66,7 @@ describe('statistics file access', () => {
       await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
       fs.writeFileSync(path.join(share, 'F1', 'WEDSTRIJDEN.mdb'), 'second');
       await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
-      const copy = path.join(assets, 'stats', 'stats-unit', copyFileName('F1/WEDSTRIJDEN.mdb'));
+      const copy = path.join(assets, copyFileName('F1/WEDSTRIJDEN.mdb'));
       expect(fs.readFileSync(copy, 'utf8')).toBe('first');
       vi.setSystemTime(Date.now() + 5 * 60_000 + 1);
       await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
@@ -90,17 +85,17 @@ describe('statistics file access', () => {
     vi.useFakeTimers({toFake: ['Date']});
     try {
       const file = path.join(share, 'F1', 'WEDSTRIJDEN.mdb');
-      await inOrg(() => listStatsMatches());
+      await inOrg(() => listStatsMatches('1'));
       vi.setSystemTime(Date.now() + 4000);
-      await inOrg(() => listStatsMatches());
+      await inOrg(() => listStatsMatches('1'));
       expect(opened).toEqual(['first']);
       fs.writeFileSync(file, 'second');
       fs.utimesSync(file, new Date(), new Date(Date.now() + 1000));
       vi.setSystemTime(Date.now() + 4000);
-      await inOrg(() => listStatsMatches());
+      await inOrg(() => listStatsMatches('1'));
       expect(opened).toEqual(['first']);
       vi.setSystemTime(Date.now() + 4000);
-      await inOrg(() => listStatsMatches());
+      await inOrg(() => listStatsMatches('1'));
       expect(opened).toEqual(['first', 'second']);
     } finally {
       vi.useRealTimers();
@@ -115,7 +110,7 @@ describe('statistics file access', () => {
     const read = await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
     expect(read.source).toBe('copy');
     expect(read.buffer.toString()).toBe('first');
-    const mtime = fs.statSync(path.join(assets, 'stats', 'stats-unit', copyFileName('F1/WEDSTRIJDEN.mdb'))).mtime.toISOString();
+    const mtime = fs.statSync(path.join(assets, copyFileName('F1/WEDSTRIJDEN.mdb'))).mtime.toISOString();
     expect(read.readAt).toBe(mtime);
   });
 
@@ -203,7 +198,7 @@ describe('statistics file access', () => {
     });
 
     it('is used when STATS_DIR is not set', async () => {
-      mutable.statsDir = '';
+      setConfigForTests({statsDir: ''});
       const read = await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
       expect(read.source).toBe('copy');
       expect(read.buffer.toString()).toBe('first');
@@ -220,7 +215,7 @@ describe('statistics file access', () => {
     });
 
     it('is not used without "Lokale kopie bewaren"', async () => {
-      mutable.statsDir = '';
+      setConfigForTests({statsDir: ''});
       await expect(inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', false))).rejects.toMatchObject({status: 409});
     });
 
@@ -229,13 +224,13 @@ describe('statistics file access', () => {
     });
 
     it('is only the copy of that path', async () => {
-      mutable.statsDir = '';
+      setConfigForTests({statsDir: ''});
       await expect(inOrg(() => readStatsFile('F2/WEDSTRIJDEN.mdb'))).rejects.toMatchObject({status: 409});
     });
   });
 
   it('keeps the 409 when STATS_DIR is not set and there is no copy', async () => {
-    mutable.statsDir = '';
+    setConfigForTests({statsDir: ''});
     await expect(inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'))).rejects.toMatchObject({status: 409});
   });
 
