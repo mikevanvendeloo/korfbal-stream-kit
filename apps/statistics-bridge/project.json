@@ -7,12 +7,16 @@
   "targets": {
     "build": {
       "executor": "@nx/esbuild:esbuild",
-      "outputs": ["{options.outputPath}"],
+      "outputs": [
+        "{options.outputPath}"
+      ],
       "defaultConfiguration": "production",
       "options": {
         "platform": "node",
         "outputPath": "dist/apps/statistics-bridge",
-        "format": ["cjs"],
+        "format": [
+          "cjs"
+        ],
         "bundle": false,
         "main": "apps/statistics-bridge/src/main.ts",
         "tsConfig": "apps/statistics-bridge/tsconfig.app.json",
@@ -37,12 +41,6 @@
         }
       }
     },
-    "serve": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "tsx watch apps/statistics-bridge/src/main.ts"
-      }
-    },
     "dev": {
       "executor": "nx:run-commands",
       "options": {
@@ -59,7 +57,9 @@
     "lint": {
       "executor": "@nx/eslint:lint",
       "options": {
-        "lintFilePatterns": ["apps/statistics-bridge/**/*.ts"]
+        "lintFilePatterns": [
+          "apps/statistics-bridge/**/*.ts"
+        ]
       }
     },
     "typecheck": {

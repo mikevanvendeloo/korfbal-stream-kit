@@ -1,0 +1,11 @@
+# PAGE_URL: zonder eigen waarde geldt de opgeslagen pagina uit compose/local-html, die niet op de share staat. Zet PAGE_URL=http://10.12.0.63/... voor de echte pagina.
+# Windows: een map die door robocopy wordt gevuld met de bestanden van de share (scripts/statistics-bridge/sync-stats.ps1,
+# bijvoorbeeld elke 5 seconden naar C:\streamz\stats). De container leest alleen die lokale map, dus een pc die uit staat
+# of een share die hangt raakt de bridge niet; de bestanden zijn dan alleen niet meer vers.
+services:
+  statistics-bridge:
+    environment:
+      STATS_DIR: /stats
+      MDB_ENABLED: "true"
+    volumes:
+      - C:/streamz/stats:/stats:ro

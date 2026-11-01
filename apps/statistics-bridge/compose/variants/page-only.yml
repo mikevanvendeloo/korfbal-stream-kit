@@ -1,0 +1,9 @@
+# Alleen de HTML-pagina ("Tweede Scherm klassiek"): geen database, geen share, geen volume.
+# De spelerscijfers komen dan van de pagina (Bron: live pagina (database uit)).
+# Vul PAGE_URL in, bijvoorbeeld:  PAGE_URL=http://10.12.0.63/tweede-scherm.html
+# (Zonder variant geldt de opgeslagen pagina in compose/local-html; deze variant is voor de echte pagina.)
+# Zonder statistiek-pc testen: zie "De HTML-terugval testen" in apps/statistics-bridge/README.md
+services:
+  statistics-bridge:
+    environment:
+      MDB_ENABLED: "false"

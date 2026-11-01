@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import express, {NextFunction, Request, Response} from 'express';
+import express, {type Express, NextFunction, Request, Response} from 'express';
 import {z} from 'zod';
 import {config} from './config';
 import {logger} from './logger';
@@ -73,7 +73,7 @@ async function pageOrOffline(): Promise<TweedeScherm> {
 
 const databaseReason = (err: DatabaseUnavailableError) => err.reason;
 
-export function createApp() {
+export function createApp(): Express {
   const app = express();
   app.disable('x-powered-by');
   app.use(requireToken);
