@@ -165,3 +165,23 @@ export async function applyStandardSetWhereMissing(organizationIds?: number[]): 
     logger.info(`Standard set added to organization ${organization.slug}`, result);
   }
 }
+
+/**
+ * Deploy seed (prisma/seed.ts): the roles (skills) of the standard set that an organization doesn't have yet.
+ * Only adds: an existing role (also one with a differently written code) is left as it is, and nothing else of
+ * the standard set is added again, so what an organization removed or changed stays that way.
+ */
+export async function addMissingStandardSkills(organizationId: number): Promise<number> {
+  return runWithOrganization(organizationId, async () => {
+    const existing = await prisma.skill.findMany({select: {code: true}});
+    const known = new Set(existing.map((s) => skillKey(s.code)));
+    let added = 0;
+    for (const s of standardSkills) {
+      if (known.has(skillKey(s.code))) continue;
+      await prisma.skill.create({data: {code: s.code, name: s.name, nameMale: s.nameMale, nameFemale: s.nameFemale, type: s.type}});
+      known.add(skillKey(s.code));
+      added++;
+    }
+    return added;
+  });
+}
