@@ -797,7 +797,7 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
       {
         name: 'Wedstrijdinformatie (actieve productie)',
         url: `${baseUrl}/active-production/match`,
-        description: 'Teams, korte namen en afkortingen (homeAbbreviation/awayAbbreviation), clublogo\'s, clubkleuren (homePrimaryColor, homeSecondaryColor, awayPrimaryColor, awaySecondaryColor als #rrggbb), datum, aanvangs-, verzamel- en livetijd, zaal, veld, scheidsrechters, score, wedstrijd- en balsponsor (met logo), en het wedstrijddeel: matchPart (1 = eerste helft, 0 voor de wedstrijd) en matchPartRunning.'
+        description: 'Teams, korte namen en afkortingen (homeAbbreviation/awayAbbreviation), clublogo\'s, clubkleuren (homePrimaryColor, homeSecondaryColor, awayPrimaryColor, awaySecondaryColor als #rrggbb), datum, aanvangs-, verzamel- en livetijd, zaal, veld, scheidsrechters, score, wedstrijd- en balsponsor (met logo), en het wedstrijddeel: matchPart (1 voor en tijdens de eerste helft, 2 in de tweede helft) en matchPartRunning.'
       },
       {
         name: 'Active Production Staff',

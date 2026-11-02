@@ -71,7 +71,7 @@ describe.runIf(runDb)('vMix match info data source (integration)', () => {
     const res = await request(app).get('/api/vmix/active-production/match');
     const {matchPart, matchPartRunning, ...texts} = res.body[0];
     expect(Object.values(texts).every((v) => v === '')).toBe(true);
-    expect({matchPart, matchPartRunning}).toEqual({matchPart: 0, matchPartRunning: false});
+    expect({matchPart, matchPartRunning}).toEqual({matchPart: 1, matchPartRunning: false});
   });
 });
 
@@ -101,8 +101,8 @@ describe.runIf(runDb)('vMix match info: match part (integration)', () => {
     expect(await fetchRow()).toMatchObject({matchPart: 2, matchPartRunning: true});
   });
 
-  it('is 0 and false before the first match part', async () => {
+  it('is part 1 and not running before the first match part', async () => {
     show = await createProductionScenario(prisma, {active: true, items: [{title: 'Voorbeschouwing', status: 'ACTIVE'}, {title: 'Eerste helft', isMatchPart: true}]});
-    expect(await fetchRow()).toMatchObject({matchPart: 0, matchPartRunning: false});
+    expect(await fetchRow()).toMatchObject({matchPart: 1, matchPartRunning: false});
   });
 });

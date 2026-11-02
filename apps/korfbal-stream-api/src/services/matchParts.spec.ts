@@ -5,13 +5,13 @@ const part = (status: string) => ({status, isMatchPart: true});
 const other = (status: string) => ({status, isMatchPart: false});
 
 describe('matchPartState', () => {
-  it('is 0 / false without items or without match parts', () => {
-    expect(matchPartState([])).toEqual({matchPart: 0, matchPartRunning: false});
-    expect(matchPartState([other('ACTIVE'), {status: 'WAITING'}])).toEqual({matchPart: 0, matchPartRunning: false});
+  it('is part 1, not running, without items or without match parts (a match always starts in part 1)', () => {
+    expect(matchPartState([])).toEqual({matchPart: 1, matchPartRunning: false});
+    expect(matchPartState([other('ACTIVE'), {status: 'WAITING'}])).toEqual({matchPart: 1, matchPartRunning: false});
   });
 
-  it('is 0 / false before the first match part', () => {
-    expect(matchPartState([other('ACTIVE'), part('WAITING'), part('WAITING')])).toEqual({matchPart: 0, matchPartRunning: false});
+  it('is part 1, not running, before the first match part', () => {
+    expect(matchPartState([other('ACTIVE'), part('WAITING'), part('WAITING')])).toEqual({matchPart: 1, matchPartRunning: false});
   });
 
   it('counts the second half as running', () => {
