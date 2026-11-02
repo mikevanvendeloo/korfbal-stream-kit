@@ -42,7 +42,7 @@ export type VmixMatchInfo = {
   matchSponsorLogo: string;
   ballSponsor: string;
   ballSponsorLogo: string;
-  /** The match part that has started (0 before the first) and whether it is running */
+  /** The match part the match is in (1 before and during the first part) and whether it is running */
   matchPart: number;
   matchPartRunning: boolean;
 };
@@ -53,7 +53,7 @@ const EMPTY: VmixMatchInfo = {
   date: '', dateShort: '', kickoff: '', attendanceTime: '', liveStart: '', accommodation: '', field: '',
   referee: '', reserveReferee: '', referees: '', description: '', season: '', homeScore: '', awayScore: '', score: '',
   matchSponsor: '', matchSponsorLogo: '', ballSponsor: '', ballSponsorLogo: '',
-  matchPart: 0, matchPartRunning: false,
+  matchPart: 1, matchPartRunning: false,
 };
 
 // Amsterdam time: vMix shows the text as is

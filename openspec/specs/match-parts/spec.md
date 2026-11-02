@@ -39,7 +39,7 @@ LIVE (callsheet and show caller) SHALL show the venue clock only while the runni
 - **THEN** the Zaal clock is shown
 
 ### Requirement: Current match part
-The current match part SHALL be the number of match-part items of the active production that have started (ACTIVE or COMPLETED), in draaiboek order, and 0 before the first; `matchPartRunning` SHALL tell whether one of them is ACTIVE.
+The current match part SHALL be the number of match-part items of the active production that have started (ACTIVE or COMPLETED), in draaiboek order, and at least 1 (a match always starts in part 1, so also before the first); `matchPartRunning` SHALL tell whether one of them is ACTIVE.
 
 #### Scenario: During the rust
 - **WHEN** the first half is COMPLETED and the rust is ACTIVE
@@ -50,7 +50,7 @@ The current match part SHALL be the number of match-part items of the active pro
 - **THEN** `matchPart` is 3 and `matchPartRunning` is true
 
 ### Requirement: Match data source
-`GET /api/vmix/active-production/match` SHALL include `matchPart` and `matchPartRunning`; without an active production they SHALL be 0 and false.
+`GET /api/vmix/active-production/match` SHALL include `matchPart` and `matchPartRunning`; without an active production they SHALL be 1 and false.
 
 #### Scenario: Second half running
 - **WHEN** the second match part is ACTIVE

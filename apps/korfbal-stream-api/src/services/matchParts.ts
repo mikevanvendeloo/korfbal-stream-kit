@@ -5,7 +5,7 @@ export type MatchPartItem = {
 };
 
 export type MatchPartState = {
-  /** How many match parts have started (ACTIVE or COMPLETED); 0 before the first */
+  /** The match part the match is in: how many have started (ACTIVE or COMPLETED), at least 1 (a match always starts in part 1) */
   matchPart: number;
   /** One of the match parts is ACTIVE */
   matchPartRunning: boolean;
@@ -18,7 +18,7 @@ export type MatchPartState = {
 export function matchPartState(items: MatchPartItem[]): MatchPartState {
   const parts = items.filter((item) => item.isMatchPart);
   return {
-    matchPart: parts.filter((item) => item.status === 'ACTIVE' || item.status === 'COMPLETED').length,
+    matchPart: Math.max(1, parts.filter((item) => item.status === 'ACTIVE' || item.status === 'COMPLETED').length),
     matchPartRunning: parts.some((item) => item.status === 'ACTIVE'),
   };
 }
