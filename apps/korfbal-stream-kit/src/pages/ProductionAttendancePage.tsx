@@ -70,23 +70,35 @@ export default function ProductionAttendancePage() {
   const delPerson = useDeleteProductionPerson(productionId);
   // Presence as just clicked, until the server's answer (and the new minimum staffing) is in
   const [pending, setPending] = React.useState<Map<number, boolean>>(new Map());
-  const isPresent = (p: AttendancePerson) => pending.get(p.id) ?? p.productionPersonId !== null;
+  // People unchecked but not yet saved: marking someone absent also removes their positions in this
+  // production, so that only happens on Opslaan (Annuleren keeps them present)
+  const [toRemove, setToRemove] = React.useState<Set<number>>(new Set());
+  const [saving, setSaving] = React.useState(false);
+  const isPresent = (p: AttendancePerson) => pending.get(p.id) ?? (p.productionPersonId !== null && !toRemove.has(p.id));
 
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [successMsg, setSuccessMsg] = React.useState<string | null>(null);
 
+  const isLoading = prodLoading || attendance.isLoading;
+  const persons = attendance.data?.persons ?? [];
+  const removals = persons.filter((p) => p.productionPersonId !== null && toRemove.has(p.id));
+
   async function onTogglePersonPresence(person: AttendancePerson) {
     setErrorMsg(null);
     setSuccessMsg(null);
-    setPending((p) => new Map(p).set(person.id, !person.productionPersonId));
+    if (person.productionPersonId) {
+      setToRemove((s) => {
+        const next = new Set(s);
+        if (!next.delete(person.id)) next.add(person.id);
+        return next;
+      });
+      return;
+    }
+    setPending((p) => new Map(p).set(person.id, true));
     try {
-      if (person.productionPersonId) {
-        await delPerson.mutateAsync(person.productionPersonId);
-      } else {
-        await addPerson.mutateAsync({personId: person.id});
-      }
-    } catch (e: any) {
-      setErrorMsg(e?.message || 'Wijziging mislukt');
+      await addPerson.mutateAsync({personId: person.id});
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : 'Wijziging mislukt');
     } finally {
       setPending((p) => {
         const next = new Map(p);
@@ -96,15 +108,30 @@ export default function ProductionAttendancePage() {
     }
   }
 
-  function onSave() {
+  async function onSave() {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setSaving(true);
+    try {
+      for (const person of removals) {
+        await delPerson.mutateAsync(person.productionPersonId as number);
+        setToRemove((s) => {
+          const next = new Set(s);
+          next.delete(person.id);
+          return next;
+        });
+      }
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : 'Opslaan mislukt');
+      setSaving(false);
+      return;
+    }
     setSuccessMsg('Aanwezigheid opgeslagen!');
     setTimeout(() => {
       navigate(adminPaths.production(productionId));
     }, 1000);
   }
 
-  const isLoading = prodLoading || attendance.isLoading;
-  const persons = attendance.data?.persons ?? [];
   const presentCount = persons.filter(isPresent).length;
 
   return (
@@ -187,6 +214,9 @@ export default function ProductionAttendancePage() {
                             <span className={`flex-1 min-w-0 truncate ${present ? 'font-medium' : ''}`}>
                               {p.name}
                             </span>
+                            {p.productionPersonId !== null && toRemove.has(p.id) && (
+                              <span className="shrink-0 text-xs text-amber-700 dark:text-amber-300">afmelden</span>
+                            )}
                           </label>
                         );
                       })}
@@ -196,10 +226,21 @@ export default function ProductionAttendancePage() {
               ))}
             </div>
 
-            <div className="flex items-center gap-3">
+            {removals.length > 0 && (
+              <p
+                data-testid="attendance-pending-removals"
+                className="mb-3 rounded-md border border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-3 py-2 text-sm"
+              >
+                {removals.length === 1 ? '1 persoon wordt' : `${removals.length} personen worden`} bij <strong>Opslaan</strong> afgemeld;
+                hun posities in deze productie worden dan ook weggehaald.
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={onSave}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center gap-2 font-medium"
+                disabled={saving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 inline-flex items-center gap-2 font-medium"
               >
                 <MdSave className="w-5 h-5" />
                 Opslaan

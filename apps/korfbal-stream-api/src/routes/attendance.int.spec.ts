@@ -93,6 +93,42 @@ describe.runIf(runDb)('production attendance (integration)', () => {
     }
   });
 
+  it('marking someone absent removes their positions in that production, not in others', async () => {
+    const crew = await createProductionScenario(prisma, {
+      chapters: ['Voor', 'Na'],
+      crew: [
+        {name: `${MARK} Weg`, skills: ['CAMERA_ZOOM'], present: true},
+        {name: `${MARK} Blijft`, skills: ['CAMERA_ZOOM'], present: true},
+      ],
+    });
+    const otherShow = await createProductionScenario(prisma, {});
+    try {
+      const position = await prisma.position.findFirstOrThrow({where: {skill: {code: 'CAMERA_ZOOM'}}});
+      const gone = crew.personIds[`${MARK} Weg`];
+      const stays = crew.personIds[`${MARK} Blijft`];
+      for (const personId of [gone, stays]) {
+        await prisma.productionPersonPosition.create({data: {productionId: crew.productionId, personId, positionId: position.id}});
+        for (const chapterId of Object.values(crew.chapterIds)) {
+          await prisma.chapterRoleAssignment.create({data: {productionSegmentId: chapterId, personId, positionId: position.id}});
+        }
+      }
+      await prisma.productionPersonPosition.create({data: {productionId: otherShow.productionId, personId: gone, positionId: position.id}});
+
+      const presence = await prisma.productionPerson.findFirstOrThrow({where: {productionId: crew.productionId, personId: gone}});
+      await request(app).delete(`/api/production/${crew.productionId}/persons/${presence.id}`).expect(204);
+
+      expect(await prisma.productionPersonPosition.count({where: {productionId: crew.productionId, personId: gone}})).toBe(0);
+      expect(await prisma.chapterRoleAssignment.count({where: {personId: gone}})).toBe(0);
+      // The other person and the other production keep their positions
+      expect(await prisma.productionPersonPosition.count({where: {productionId: crew.productionId, personId: stays}})).toBe(1);
+      expect(await prisma.chapterRoleAssignment.count({where: {personId: stays}})).toBe(2);
+      expect(await prisma.productionPersonPosition.count({where: {productionId: otherShow.productionId, personId: gone}})).toBe(1);
+    } finally {
+      await otherShow.cleanup();
+      await crew.cleanup();
+    }
+  });
+
   it('answers 404 for a production of another organization (security)', async () => {
     const otherId = await ensureOrganization(prisma, 'att-other', 'Att Other');
     const other = await createProductionScenario(prisma, {organizationId: otherId, crew: [{name: `${MARK} Ander`, present: true}]});

@@ -93,7 +93,8 @@ productionPersonsRouter.post('/:id/persons', async (req, res, next) => {
   }
 });
 
-// Remove person from production (mark as absent)
+// Remove person from production (mark as absent). Their positions in this production go too:
+// the production-wide ones and those per hoofdstuk (bezetting).
 productionPersonsRouter.delete('/:id/persons/:productionPersonId', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
@@ -106,7 +107,12 @@ productionPersonsRouter.delete('/:id/persons/:productionPersonId', async (req, r
     const existing = await prisma.productionPerson.findUnique({ where: { id: productionPersonId } });
     if (!existing || existing.productionId !== id) return res.status(404).json({ error: 'Not found' });
 
-    await prisma.productionPerson.delete({ where: { id: productionPersonId } });
+    const personId = existing.personId;
+    await prisma.$transaction([
+      prisma.productionPersonPosition.deleteMany({ where: { productionId: id, personId } }),
+      prisma.chapterRoleAssignment.deleteMany({ where: { personId, productionSegment: { productionId: id } } }),
+      prisma.productionPerson.delete({ where: { id: productionPersonId } }),
+    ]);
     return res.status(204).send();
   } catch (err) {
     return next(err);
