@@ -378,7 +378,12 @@ export function useDeleteProductionPerson(productionId: number) {
       const res = await fetch(createUrl(`/api/production/${productionId}/persons/${id}`), { method: 'DELETE' });
       if (!res.ok && res.status !== 204) throw new Error(await extractError(res));
     },
-    onSuccess: () => invalidateAttendance(qc, productionId),
+    // Marking someone absent also removes their positions (production-wide and per hoofdstuk)
+    onSuccess: () => Promise.all([
+      invalidateAttendance(qc, productionId),
+      qc.invalidateQueries({ queryKey: ['production', productionId] }),
+      qc.invalidateQueries({ queryKey: ['production', 'chapters'] }),
+    ]),
   });
 }
 

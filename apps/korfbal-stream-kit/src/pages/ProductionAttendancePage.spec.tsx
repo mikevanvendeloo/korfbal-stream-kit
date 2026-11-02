@@ -142,12 +142,31 @@ describe('ProductionAttendancePage', () => {
     expect(api.calls.find((c) => c.method === 'POST')?.body).toEqual({personId: 2});
   });
 
-  it('marks a person absent with the id of their presence', async () => {
+  it('marks a person absent only on Opslaan, with the id of their presence', async () => {
     renderWithProviders(<ProductionAttendancePage/>);
     await screen.findByTestId('staffing-summary');
     fireEvent.click(checkboxOf('Zoë'));
+    expect(checkboxOf('Zoë').checked).toBe(false);
+    expect(screen.getByText('0 van 7 aanwezig')).toBeInTheDocument();
+    expect(screen.getByTestId('attendance-pending-removals')).toHaveTextContent('1 persoon wordt bij Opslaan afgemeld');
+    expect(api.calls.some((c) => c.method === 'DELETE')).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', {name: 'Opslaan'}));
     await waitFor(() => expect(api.calls.some((c) => c.method === 'DELETE' && c.path === '/api/production/1/persons/101')).toBe(true));
-    await waitFor(() => expect(screen.getByText('0 van 7 aanwezig')).toBeInTheDocument());
+    expect(await screen.findByText('Aanwezigheid opgeslagen!')).toBeInTheDocument();
+  });
+
+  it('checking an unsaved absent person again keeps them present', async () => {
+    renderWithProviders(<ProductionAttendancePage/>);
+    await screen.findByTestId('staffing-summary');
+    fireEvent.click(checkboxOf('Zoë'));
+    fireEvent.click(checkboxOf('Zoë'));
+    expect(checkboxOf('Zoë').checked).toBe(true);
+    expect(screen.queryByTestId('attendance-pending-removals')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', {name: 'Opslaan'}));
+    expect(await screen.findByText('Aanwezigheid opgeslagen!')).toBeInTheDocument();
+    expect(api.calls.some((c) => c.method === 'DELETE' || c.method === 'POST')).toBe(false);
   });
 
   it('shows a save message', async () => {
