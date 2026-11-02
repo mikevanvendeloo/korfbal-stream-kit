@@ -41,7 +41,7 @@ RUN npx nx build korfbal-stream-api --prod --verbose
 # zonder ts-node/tsx kan seeden.
 # We compileren de seed scripts naar CJS output. rootDir is de API-app, want seed.ts importeert
 # ook services uit src/ (o.a. src/services/season.ts): output in dist-seed/prisma en dist-seed/src.
-RUN npx tsc apps/korfbal-stream-api/prisma/seed.ts apps/korfbal-stream-api/prisma/seed-data.ts \
+RUN npx tsc apps/korfbal-stream-api/prisma/seed.ts \
     --outDir /app/dist-seed \
     --module commonjs \
     --target ES2020 \

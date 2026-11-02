@@ -13,10 +13,7 @@ apps/korfbal-stream-api/
 ├── prisma/
 │   ├── schema.prisma          # Prisma data model (PostgreSQL)
 │   ├── migrations/            # Prisma migrations (never edit the DB directly)
-│   ├── seed.ts                # Seed entrypoint (npm run prisma:seed)
-│   ├── seed-data.ts           # Seed data definitions
-│   └── seed-data/
-│       └── callsheets/        # Callsheet template seeds (JSON)
+│   └── seed.ts                # Deploy seed (npm run prisma:seed): only adds the current season and missing standard roles
 └── src/
     ├── main.ts                # Express app: router mounting, organization context, static assets, OpenAPI/Swagger, Socket.io init
     ├── standardSet/           # Standard set for new organizations (skills, positions, title templates, draaiboek templates with hoofdstukken)

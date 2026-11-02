@@ -13,8 +13,8 @@ function run(label, args) {
 try {
   const prismaCli = require.resolve('prisma/build/index.js', {paths: ['/app']});
   run('Prisma migration', [prismaCli, 'migrate', 'deploy', `--schema=${SCHEMA}`]);
-  // SKIP_SEED=true: only migrate, e.g. on a database restored from a backup whose data the seed
-  // (which updates persons, sponsors and templates) must not touch.
+  // SKIP_SEED=true: only migrate. The seed only adds (the current season and missing standard roles),
+  // so it is safe on a restored backup too; the switch stays for a migration without any seed.
   if (process.env.SKIP_SEED === 'true') console.log('=== Seed skipped (SKIP_SEED=true) ===');
   else run('seed', ['/app/seed/prisma/seed.js']);
 } catch (err) {

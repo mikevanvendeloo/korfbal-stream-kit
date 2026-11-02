@@ -1,7 +1,7 @@
 import {afterAll, describe, expect, it} from 'vitest';
 import {ensureOrganization, testDb as prisma} from '../../test-helpers';
 import {runWithOrganization} from './organizationContext';
-import {applyStandardSet, applyStandardSetWhereMissing} from './standardSet';
+import {addMissingStandardSkills, applyStandardSet, applyStandardSetWhereMissing} from './standardSet';
 import {standardPositionLinks, standardPositions, standardSkills, standardTitles} from '../standardSet/data';
 import {standardCallSheetTemplates} from '../standardSet/callSheetTemplates';
 
@@ -100,5 +100,39 @@ describe.runIf(runDb)('standard set (integration)', () => {
     const id = await ensureOrganization(prisma, slugs[1]);
     await applyStandardSetWhereMissing([id]);
     expect((await counts(id)).positions).toBe(standardPositions.length);
+  });
+});
+
+describe.runIf(runDb)('deploy seed: only missing standard roles (integration)', () => {
+  const slug = 'std-seed-roles';
+  afterAll(async () => {
+    await prisma.organization.deleteMany({where: {slug}});
+  });
+
+  it('adds the roles an organization lacks and leaves everything it has as it is', async () => {
+    const organizationId = await ensureOrganization(prisma, slug, 'Seed roles');
+    const [kept, ...rest] = standardSkills;
+    const setup = await runWithOrganization(organizationId, async () => {
+      // A standard role with a differently written code and its own name, a person with a role, no positions
+      const role = await prisma.skill.create({data: {code: kept.code.toLowerCase(), name: 'Eigen naam', nameMale: 'Eigen naam', nameFemale: 'Eigen naam', type: kept.type}});
+      const person = await prisma.person.create({data: {name: 'Seed Persoon', gender: 'female'}});
+      await prisma.personSkill.create({data: {personId: person.id, skillId: role.id}});
+      return {roleId: role.id, personId: person.id};
+    });
+
+    expect(await addMissingStandardSkills(organizationId)).toBe(rest.length);
+    // Running it again adds nothing
+    expect(await addMissingStandardSkills(organizationId)).toBe(0);
+
+    await runWithOrganization(organizationId, async () => {
+      const role = await prisma.skill.findUniqueOrThrow({where: {id: setup.roleId}});
+      expect({code: role.code, name: role.name}).toEqual({code: kept.code.toLowerCase(), name: 'Eigen naam'});
+      expect(await prisma.skill.count()).toBe(standardSkills.length);
+      expect((await prisma.personSkill.findMany({where: {personId: setup.personId}})).map((ps) => ps.skillId)).toEqual([setup.roleId]);
+      // Nothing else of the standard set: no positions, titles or draaiboek templates
+      expect(await prisma.position.count()).toBe(0);
+      expect(await prisma.callSheetTemplate.count()).toBe(0);
+      expect(await prisma.titleDefinition.count({where: {productionId: null}})).toBe(0);
+    });
   });
 });
