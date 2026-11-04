@@ -35,6 +35,8 @@ export const API_ERROR_CODES = {
   SOURCE_UNREACHABLE: 'SOURCE_UNREACHABLE',
   /** 502: not JSON or an unexpected shape */
   SOURCE_INVALID_RESPONSE: 'SOURCE_INVALID_RESPONSE',
+  /** 400: clubs restore with players without a season and no season chosen */
+  PLAYER_SEASON_REQUIRED: 'PLAYER_SEASON_REQUIRED',
   /** 503: the statistics bridge is offline */
   STATS_BRIDGE_OFFLINE: 'STATS_BRIDGE_OFFLINE',
 } as const;

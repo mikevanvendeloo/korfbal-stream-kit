@@ -69,6 +69,12 @@ export const API_ERRORS = {
     hint: 'Controleer het Adres (URL): het moet naar de API van de bron wijzen (eindigt meestal op /v1), niet naar de website.',
   },
 
+  /** Clubs restore: the backup has players without a season (from before the seasons) and no ?seasonId= */
+  PLAYER_SEASON_REQUIRED: {
+    status: 400, error: 'Kies het seizoen van de spelers',
+    hint: 'Deze backup is van vóór de seizoenen: kies bij het herstellen in welk seizoen de spelers horen.',
+  },
+
   // Statistics bridge (its own app next to the API): unreachable, not answering in time or not a bridge
   /** The statistics bridge is offline (the PC or share may be fine: only the bridge is down) */
   STATS_BRIDGE_OFFLINE: {
