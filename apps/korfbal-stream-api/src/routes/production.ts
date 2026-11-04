@@ -5,7 +5,7 @@ import * as productionStateService from '../services/productionState';
 import {getSetting, PRODUCTION_TEAM_NAMES_KEY} from '../services/appSettings';
 import {resolveSeasonId} from '../services/season';
 import {staffingSummaries} from '../services/productionStaffing';
-import {parseOptionalInstant} from '../utils/time';
+import {amsterdamDay, amsterdamDayRange, parseOptionalInstant} from '../utils/time';
 import {plannedTimesOf} from '../services/dayPlanning';
 import {liveEnds} from '../services/productionTiming';
 import {findClubByTeamName} from '../utils/clubs';
@@ -58,32 +58,58 @@ productionRouter.use(callsheetControlsRouter);
 productionRouter.use('/skills', skillsRouter);
 
 // Activate a production (ensure only one active at a time)
+/** Makes this production the organization's only active one; a running show of another production is stopped. */
+async function activateProduction(id: number) {
+  const currentProductionId = productionStateService.getActiveProductionId();
+  if (currentProductionId && currentProductionId !== id) {
+    await productionStateService.stopProduction(currentProductionId);
+  }
+
+  await prisma.$transaction([
+    prisma.production.updateMany({ where: { isActive: true }, data: { isActive: false } }),
+    prisma.production.update({ where: { id }, data: { isActive: true } }),
+  ]);
+
+  // LIVE always shows the active production: open callsheets and show callers switch to it
+  emitToOrganization('active_production_changed', {productionId: id});
+  return prisma.production.findUnique({ where: { id }, include: { matchSchedule: true } });
+}
+
 productionRouter.post('/:id/activate', async (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
   try {
     const target = await prisma.production.findUnique({ where: { id } });
     if (!target) return res.status(404).json({ error: 'Not found' });
-
-    // Stop de lopende productie als die anders is dan de te activeren productie
-    const currentProductionId = productionStateService.getActiveProductionId();
-    if (currentProductionId && currentProductionId !== id) {
-      await productionStateService.stopProduction(currentProductionId);
-    }
-
-    await prisma.$transaction([
-      prisma.production.updateMany({ where: { isActive: true }, data: { isActive: false } }),
-      prisma.production.update({ where: { id }, data: { isActive: true } }),
-    ]);
-
-    const updated = await prisma.production.findUnique({ where: { id } });
-    // LIVE always shows the active production: open callsheets and show callers switch to it
-    emitToOrganization('active_production_changed', {productionId: id});
-    return res.json(updated);
+    return res.json(await activateProduction(id));
   } catch (err) {
     return next(err);
   }
 });
+
+// POST /api/production/activate-next | activate-previous: activate a production relative to today
+// (Europe/Amsterdam), e.g. from a Stream Deck button (feed: API key). Next = the first match from today's
+// midnight on (today's match counts as next), previous = the last one before today. Not season-scoped.
+for (const direction of ['next', 'previous'] as const) {
+  productionRouter.post(`/activate-${direction}`, async (_req, res, next) => {
+    try {
+      const startOfToday = amsterdamDayRange(amsterdamDay(new Date())).start;
+      const target = await prisma.production.findFirst({
+        where: { matchSchedule: { date: direction === 'next' ? { gte: startOfToday } : { lt: startOfToday } } },
+        orderBy: direction === 'next'
+          ? [{ matchSchedule: { date: 'asc' } }, { id: 'asc' }]
+          : [{ matchSchedule: { date: 'desc' } }, { id: 'desc' }],
+        select: { id: true },
+      });
+      if (!target) {
+        return res.status(404).json({ error: direction === 'next' ? 'No next production' : 'No previous production' });
+      }
+      return res.json(await activateProduction(target.id));
+    } catch (err) {
+      return next(err);
+    }
+  });
+}
 
 // GET /api/production/matches -> list candidate matches for production with filters
 productionRouter.get('/matches', async (req, res, next) => {

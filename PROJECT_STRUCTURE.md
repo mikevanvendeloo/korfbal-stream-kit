@@ -289,6 +289,8 @@ No login (internal LAN tool), but every `/api` request needs an organization: `X
 | PUT | /api/production/:id | Update production |
 | DELETE | /api/production/:id | Delete production |
 | POST | /api/production/:id/activate | Activate production (deactivates all others) |
+| POST | /api/production/activate-next | Activate the production of the first match from today (Europe/Amsterdam midnight) on; a running show of another production is stopped; 404 when none; feed (API key, Stream Deck) |
+| POST | /api/production/activate-previous | Activate the production of the last match before today; otherwise as `activate-next`; feed (API key, Stream Deck) |
 | GET | /api/production/:id/export | Export full production |
 | POST | /api/production/import | Import full production |
 

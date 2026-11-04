@@ -233,6 +233,8 @@ const ROUTES: Record<string, Probe> = {
   'POST /api/players/images': GLOBAL,
   'POST /api/production': OWN,
   'POST /api/production/:id/activate': {write: (a) => `/api/production/${a.productionId}/activate`},
+  'POST /api/production/activate-next': OWN,
+  'POST /api/production/activate-previous': OWN,
   'POST /api/production/:id/callsheets': {write: (a) => `/api/production/${a.productionId}/callsheets`, body: () => ({name: 'Overgenomen'})},
   'POST /api/production/:id/callsheets/import-excel': {write: (a) => `/api/production/${a.productionId}/callsheets/import-excel`},
   'POST /api/production/:id/events': {write: (a) => `/api/production/${a.productionId}/events`, body: () => ({title: 'Overgenomen', order: 9})},

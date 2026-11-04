@@ -1449,7 +1449,8 @@ describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
       expect((await feed(`${path}?key=${keyA}`)).status, path).not.toBe(401);
     }
     // The Stream Deck buttons too (no show running in A: the route itself answers)
-    for (const path of ['/api/show/next', '/api/show/previous', '/api/show/remaining', '/api/vmix/set-timer']) {
+    for (const path of ['/api/show/next', '/api/show/previous', '/api/show/remaining', '/api/vmix/set-timer',
+      '/api/production/activate-next', '/api/production/activate-previous']) {
       const res = await withoutOrganization(request(app).post(`${path}?key=${keyA}`)).send({seconds: 30});
       expect(res.status, path).not.toBe(401);
       expect(res.status, path).not.toBe(403);
