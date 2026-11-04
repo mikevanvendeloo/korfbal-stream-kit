@@ -25,6 +25,9 @@ const FEED_API_PATHS: ReadonlyArray<string | RegExp> = [
   '/show/next',
   '/show/previous',
   '/show/remaining',
+  // ... and activating the next/previous production (relative to today)
+  '/production/activate-next',
+  '/production/activate-previous',
   /^\/scoreboard(\/.*)?$/,
   // Match statistics from the statistics PC (vMix data sources)
   /^\/stats(\/.*)?$/,

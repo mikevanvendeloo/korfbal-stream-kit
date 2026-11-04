@@ -11,6 +11,7 @@ import {
 import { usePersons } from '../hooks/usePersons';
 import ProductionWideAssignmentsCard from '../components/ProductionWideAssignmentsCard';
 import ChapterOverridesManager from '../components/ChapterOverridesManager';
+import { MdExpandLess, MdExpandMore } from 'react-icons/md';
 
 function PersonFilterControlInner({ value, onChange, persons }: { value: number | null; onChange: (v: number | null) => void; persons: Array<{ id: number; name: string }>; }) {
   return (
@@ -44,6 +45,7 @@ export default function ProductionStaffingPage() {
   const personsList = usePersons({ page: 1, limit: 200 });
 
   const [personFilterId, setPersonFilterId] = React.useState<number | null>(null);
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
 
   if (!Number.isInteger(id) || id <= 0) {
     return <div className="container py-6 text-gray-800 dark:text-gray-100">Ongeldige productie id</div>;
@@ -71,14 +73,29 @@ export default function ProductionStaffingPage() {
         <ProductionWideAssignmentsCard productionId={id} />
       </div>
 
+      {/* Afwijkingen per hoofdstuk are rarely needed: hidden behind Geavanceerd */}
       <div className="mt-8">
-        <ChapterOverridesManager
-          productionId={id}
-          chapters={chapters.data || []}
-          productionPersons={productionPersons || []}
-          allPositions={allPositions || []}
-          productionPersonPositions={productionPersonPositions || []}
-        />
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((v) => !v)}
+          aria-expanded={showAdvanced}
+          aria-controls="chapter-overrides"
+          className="px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 inline-flex items-center gap-1"
+        >
+          {showAdvanced ? <MdExpandLess className="w-5 h-5"/> : <MdExpandMore className="w-5 h-5"/>}
+          Geavanceerd
+        </button>
+        {showAdvanced && (
+          <div id="chapter-overrides" className="mt-4">
+            <ChapterOverridesManager
+              productionId={id}
+              chapters={chapters.data || []}
+              productionPersons={productionPersons || []}
+              allPositions={allPositions || []}
+              productionPersonPositions={productionPersonPositions || []}
+            />
+          </div>
+        )}
       </div>
 
       <div className="mt-8">

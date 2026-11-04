@@ -45,7 +45,7 @@ Dit is de basis: de rapporten, de vMix-naamtitels (presentatie, analist, comment
 
 ### Afwijkingen per hoofdstuk
 
-Doet iemand in één hoofdstuk van het draaiboek iets extra's, bijvoorbeeld in de rust de camera in de studio? Voeg dan bij **Afwijkingen per hoofdstuk** een afwijking toe: kies de **Persoon**, het **Hoofdstuk** en de **Positie (afwijking)**, en klik op **Afwijking toevoegen**.
+Doet iemand in één hoofdstuk van het draaiboek iets extra's, bijvoorbeeld in de rust de camera in de studio? Klik dan op **Geavanceerd** (onder de productie-brede posities) en voeg bij **Afwijkingen per hoofdstuk** een afwijking toe: kies de **Persoon**, het **Hoofdstuk** en de **Positie (afwijking)**, en klik op **Afwijking toevoegen**.
 
 > Een afwijking komt **bovenop** de productie-brede posities: de persoon houdt in dat hoofdstuk ook zijn gewone positie.
 
@@ -62,5 +62,5 @@ Met **Kopieer naar…** neem je de afwijkingen van een hoofdstuk over in andere 
 ## Waar zie ik het terug?
 
 - In LIVE op **Actieve productie** (de crew per groep).
-- In de **Callsheet** (Rapport → Callsheet: bezetting per hoofdstuk) en het **Productierapport**.
+- In het **Productierapport**. De **Callsheet** (Rapport → Callsheet) toont alleen het tijdschema, geen bezetting.
 - In de **Rapportages** Dagbezetting en Positieoverzicht (alleen de productie-brede posities), en Entertainmentrollen en Crewrollen (ook de posities per hoofdstuk).

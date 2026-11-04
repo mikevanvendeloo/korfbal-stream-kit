@@ -62,27 +62,12 @@ describe.runIf(runDb)('crew reports (integration)', () => {
     if (createdSkillId) await prisma.skill.delete({where: {id: createdSkillId}});
   });
 
-  it('shows the effective crew per segment, with only the positions that are filled', async () => {
+  it('gives the callsheets with their items, without a crew per hoofdstuk', async () => {
     const res = await request(app).get(`/api/production/${productionId}/crew-report`);
     expect(res.status).toBe(200);
-
-    expect(res.body.groupedPositions).toEqual([
-      {category: 'TECHNICAL', positions: [
-        expect.objectContaining({id: positions.regie}),
-        expect.objectContaining({id: positions.camera}),
-      ]},
-      {category: 'ENTERTAINMENT', positions: [expect.objectContaining({id: positions.commentaar})]},
-    ]);
-
-    const crewOf = (segmentId: number) => res.body.cells
-      .filter((c: { chapterId: number }) => c.chapterId === segmentId)
-      .map((c: { personName: string }) => c.personName.replace(`${PREFIX} `, ''))
-      .sort();
-    expect(crewOf(segmentIds[0])).toEqual(['Anna', 'Cor']);
-    expect(crewOf(segmentIds[1])).toEqual(['Anna', 'Bas', 'Cor']);
-
-    expect(res.body.chapters.map((c: { name: string }) => c.name)).toEqual(['Voorbeschouwing', 'Eerste helft']);
     expect(res.body.callsheets[0].items[0]).toMatchObject({title: 'Opening', chapterId: segmentIds[0], positionIds: [positions.camera]});
+    expect(res.body).not.toHaveProperty('cells');
+    expect(res.body).not.toHaveProperty('groupedPositions');
   });
 
   type RolesReport = { positions: Array<{ id: number; name: string }>; productions: Array<{ id: number; assignments: Record<string, string[]> }> };

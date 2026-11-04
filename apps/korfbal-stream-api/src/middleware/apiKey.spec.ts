@@ -10,6 +10,7 @@ describe('isFeedApiPath', () => {
     '/vmix/production/active/titles/coach-uit', '/VMIX/Production/Active/Titles/Presentatie/',
     '/vmix/callsheet/timing', '/vmix/sync/activate-event', '/vmix/production/trigger-manual', '/vmix/set-timer',
     '/show/next', '/show/previous', '/show/remaining',
+    '/production/activate-next', '/production/activate-previous',
     '/scoreboard', '/scoreboard/clock', '/scoreboard/shotclock',
     // Express routes case-insensitively and with an optional trailing slash
     '/VMIX/Sponsor-Names', '/vmix/sponsor-names/',

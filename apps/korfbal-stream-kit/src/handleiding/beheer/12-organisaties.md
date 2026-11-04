@@ -78,6 +78,10 @@ Met Bitfocus Companion zet je de Show Caller-knoppen op een Stream Deck. Maak pe
 | Vorig item | `/api/show/previous` | geen |
 | Item eindigt over x seconden (zoals 15/30/60 s in de Show Caller) | `/api/show/remaining` | `{"seconds": 30}` |
 | Countdown in vMix op x seconden | `/api/vmix/set-timer` | `{"seconds": 30}` |
+| Volgende productie actief zetten | `/api/production/activate-next` | geen |
+| Vorige productie actief zetten | `/api/production/activate-previous` | geen |
+
+**Volgende productie** is de productie van de eerste wedstrijd vanaf vandaag; een wedstrijd van vandaag telt als volgende, ook als hij al begonnen is. **Vorige productie** is die van de laatste wedstrijd vóór vandaag. Net als **Activeren** in Beheer stopt dit een show die nog loopt van een andere productie.
 
 De knoppen werken op de show van de organisatie van de sleutel. Iedereen met die sleutel kan de show bedienen: gebruik voor de Stream Deck een eigen sleutel.
 

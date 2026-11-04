@@ -1,12 +1,7 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {createUrl, extractError} from "../lib/api";
-import {Position, PositionCategory} from "./usePositions";
 
 export type CrewReport = {
-  chapters: Array<{ id: number; name: string; orderIndex: number }>;
-  groupedPositions: Array<{ category: PositionCategory, positions: Position[] }>;
-  /** Effective crew per hoofdstuk: production-wide positions plus the ones for that hoofdstuk only. */
-  cells: Array<{ chapterId: number; positionId: number; personName: string; type: 'chapter' | 'production' }>;
   callsheets: Array<CallSheet & { items: Array<CallSheetItem & { chapter: { name: string } | null; positionIds: number[] }> }>;
   productionEvents?: Array<{
     callSheetItemId?: string | null;

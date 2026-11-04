@@ -160,42 +160,6 @@ export default function CrewReportPage() {
           </div>
         )}
 
-        <div className="overflow-auto border rounded-md mb-8">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-gray-800">
-                <th className="p-2 text-left sticky left-0 bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">Hoofdstuk</th>
-                {data.groupedPositions.map(group => (
-                  <th key={group.category} colSpan={group.positions.length} className="p-2 text-center whitespace-nowrap border-b dark:border-gray-700 border-x">{group.category}</th>
-                ))}
-              </tr>
-              <tr className="bg-gray-50 dark:bg-gray-800">
-                <th className="p-2 text-left sticky left-0 bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700"></th>
-                {data.groupedPositions.flatMap(g => g.positions).map((pos) => (
-                  <th key={pos.id} className="p-2 text-left whitespace-nowrap border-b dark:border-gray-700">{pos.name}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.chapters.map((chapter, i) => (
-                <tr key={chapter.id} className="border-b dark:border-gray-700">
-                  <th className="p-2 text-left sticky left-0 bg-white dark:bg-gray-900 border-r dark:border-gray-700">{i + 1}. {chapter.name}</th>
-                  {data.groupedPositions.flatMap(g => g.positions).map((pos) => {
-                    const names = data.cells
-                      .filter((c) => c.chapterId === chapter.id && c.positionId === pos.id)
-                      .map((c) => c.personName);
-                    return (
-                      <td key={pos.id} className="p-2 align-top border-r dark:border-gray-700 last:border-r-0">
-                        {names.length ? names.join(', ') : <span className="text-gray-400">—</span>}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
         {/* Interviews Section */}
         {(homeInterviews.length > 0 || awayInterviews.length > 0) && (
           <div className="mt-8">

@@ -1,4 +1,4 @@
-import {fireEvent, render, screen, within} from '@testing-library/react';
+import {fireEvent, render, screen} from '@testing-library/react';
 import {MemoryRouter, Route, Routes} from 'react-router-dom';
 import {describe, expect, it, vi} from 'vitest';
 import CrewReportPage from './CrewReportPage';
@@ -11,13 +11,6 @@ vi.mock('../hooks/useCallsheet', () => ({
   useCrewReport: () => ({
     isLoading: false, error: null,
     data: {
-      chapters: [{id: 10, name: 'Voorbeschouwing', orderIndex: 1}, {id: 11, name: 'Eerste helft', orderIndex: 2}],
-      groupedPositions: [{category: 'TECHNICAL', positions: [regie, camera]}],
-      cells: [
-        {chapterId: 10, positionId: 2, personName: 'Anna', type: 'production'},
-        {chapterId: 11, positionId: 2, personName: 'Anna', type: 'production'},
-        {chapterId: 11, positionId: 1, personName: 'Bas', type: 'chapter'},
-      ],
       callsheets: [{id: 1, productionId: 7, name: 'Main', items: [
         {id: 'a', cue: 'A1', title: 'Opening', durationSec: 60, positionIds: [1], chapter: null},
         {id: 'b', cue: 'A2', title: 'Iedereen', durationSec: 60, positionIds: [], chapter: null},
@@ -44,12 +37,12 @@ function renderPage() {
 }
 
 describe('CrewReportPage', () => {
-  it('shows who does what per hoofdstuk', () => {
+  it('shows the time schedule, without a crew table per hoofdstuk', () => {
     renderPage();
-    const rows = screen.getAllByRole('row');
-    const firstHalf = rows.find((r) => r.textContent?.includes('2. Eerste helft'))!;
-    expect(within(firstHalf).getByText('Anna')).toBeTruthy();
-    expect(within(firstHalf).getByText('Bas')).toBeTruthy();
+    expect(screen.getByText('Opening')).toBeTruthy();
+    // The removed table had a column per position
+    expect(screen.queryByRole('columnheader', {name: 'Regie'})).toBeNull();
+    expect(screen.queryByRole('columnheader', {name: 'Camera'})).toBeNull();
   });
 
   it('shows a call sheet per position, including items for everyone', () => {
