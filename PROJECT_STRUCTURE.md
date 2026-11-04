@@ -308,7 +308,7 @@ No login (internal LAN tool), but every `/api` request needs an organization: `X
 | DELETE | /api/production/:id/person-positions/:personPositionId | Delete person-position assignment |
 | GET | /api/production/:id/crew | Crew overview |
 | GET | /api/production/active | The active production with its match, independent of the active season (`{item}` or `{item: null}`) |
-| GET | /api/production/:id/crew-report | Crew report: `chapters`, effective crew per hoofdstuk (`cells` with `chapterId`, production-wide + per hoofdstuk, `services/crewReport.ts`), filled positions per category, callsheets with `positionIds` and items with `chapterId` |
+| GET | /api/production/:id/crew-report | Callsheet report (Rapport → Callsheet): callsheets with items (`positionIds`, `chapterId`, hoofdstuk), production events and the production report; no crew per hoofdstuk |
 | GET | /api/production/positions | List positions |
 | POST | /api/production/positions | Create position |
 | PUT | /api/production/positions/:id | Update position |
