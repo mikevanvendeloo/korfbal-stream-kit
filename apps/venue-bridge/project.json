@@ -27,7 +27,8 @@
             ".js": ".js"
           }
         },
-        "thirdParty": false
+        "thirdParty": false,
+        "deleteOutputPath": false
       },
       "configurations": {
         "development": {},
@@ -40,7 +41,10 @@
             }
           }
         }
-      }
+      },
+      "dependsOn": [
+        "@korfbal-stream-kit/venue-bridge-ui:build"
+      ]
     },
     "dev": {
       "executor": "nx:run-commands",

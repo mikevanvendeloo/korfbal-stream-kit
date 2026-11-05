@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import type {AddressInfo} from 'node:net';
 import request from 'supertest';
@@ -145,6 +146,25 @@ describe('bridge server', () => {
     const res = await request(app).get('/');
     expect(res.status).toBe(200);
     expect(res.text).toContain('Venue-bridge');
+  });
+
+  it('serves the built status page and its assets when there is one', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-page-'));
+    try {
+      fs.mkdirSync(path.join(dir, 'assets'));
+      fs.writeFileSync(path.join(dir, 'index.html'), '<!doctype html><title>Bridge status</title>');
+      fs.writeFileSync(path.join(dir, 'assets', 'app.js'), 'console.log(1)');
+      const vmix = new VmixClient(() => cache.config?.vmix);
+      const withPage = createApp({
+        name: 'Zaal', version: '1.0.0', apiKey: KEY, cache, readers, vmix, pageDir: dir,
+        getApi: () => ({connected, since: null, error: null}), getConfigState: () => cache.state, getConfig: () => cache.config,
+      });
+      expect((await request(withPage).get('/')).text).toContain('Bridge status');
+      expect((await request(withPage).get('/assets/app.js')).status).toBe(200);
+      expect((await request(withPage).get('/bridge/status')).status).toBe(200);
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true});
+    }
   });
 
   it('calls a statistics handler in-process by path and query after a configuration change', async () => {

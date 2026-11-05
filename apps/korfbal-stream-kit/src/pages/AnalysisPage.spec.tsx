@@ -98,10 +98,10 @@ describe('AnalysisPage', () => {
     expect((await screen.findByRole('alert')).textContent).toBe('De analyse heeft het statistiekenbestand nodig');
   });
 
-  it('shows "De statistics bridge is offline" instead of the cards', async () => {
+  it('shows "De venue-bridge is offline" instead of the cards', async () => {
     api(() => jsonResponse({error: 'De venue-bridge is offline', code: 'VENUE_BRIDGE_OFFLINE'}, 503), {bridge: {ok: false, ms: null}});
     renderPage(<AnalysisPage/>);
-    expect((await screen.findByRole('alert')).textContent).toBe('De statistics bridge is offline');
+    expect((await screen.findByRole('alert')).textContent).toBe('De venue-bridge is offline');
     expect(screen.queryByRole('region', {name: 'Verloop'})).toBeNull();
   });
 });

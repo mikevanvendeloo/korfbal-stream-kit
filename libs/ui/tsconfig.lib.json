@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "es2020",
+    "target": "es2020",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "lib": ["es2022", "dom"],
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "composite": false,
+    "noEmit": true,
+    "declarationMap": false,
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
+    "rootDir": "."
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

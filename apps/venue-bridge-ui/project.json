@@ -1,0 +1,37 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@korfbal-stream-kit/venue-bridge-ui",
+  "projectType": "application",
+  "root": "apps/venue-bridge-ui",
+  "sourceRoot": "apps/venue-bridge-ui/src",
+  "targets": {
+    "build": {
+      "executor": "@nx/vite:build",
+      "outputs": ["{workspaceRoot}/dist/apps/venue-bridge/public"],
+      "options": {
+        "outputPath": "dist/apps/venue-bridge/public",
+        "configFile": "apps/venue-bridge-ui/vite.config.ts"
+      }
+    },
+    "serve": {
+      "executor": "@nx/vite:dev-server",
+      "options": {
+        "buildTarget": "@korfbal-stream-kit/venue-bridge-ui:build"
+      }
+    },
+    "test": {
+      "executor": "@nx/vite:test",
+      "options": {
+        "passWithNoTests": false,
+        "configFile": "apps/venue-bridge-ui/vite.config.ts"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "lintFilePatterns": ["apps/venue-bridge-ui/**/*.{ts,tsx}"]
+      }
+    }
+  },
+  "tags": []
+}

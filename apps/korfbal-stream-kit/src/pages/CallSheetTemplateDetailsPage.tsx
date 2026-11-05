@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useNavigate, useParams} from 'react-router-dom';
 import {CallSheetTemplateChapter, CallSheetTemplateItem, FullCallSheetTemplate, useCallSheetTemplates} from '../hooks/useCallSheetTemplates';
-import {Button} from '../components/ui/button';
+import {Button} from '@korfbal-stream-kit/ui';
 import {FilePenLine, Save, Trash2} from 'lucide-react';
 import {Input} from '../components/ui/input';
 import {usePositionsCatalog} from "../hooks/usePositions";

@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import express, {type Express, NextFunction, Request, Response} from 'express';
 import {enrichShotclock, type VenueDevice, type VenueReading} from '@korfbal-stream-kit/venue-protocol';
 import {statsErrorHandler, statsNotFound} from './app';
@@ -13,6 +15,8 @@ export type ServerParts = BridgeStatusParts & {
   cache: ConfigCache;
   readers: DeviceReaders;
   vmix: VmixClient;
+  /** The built status page (apps/venue-bridge-ui); default: `public` next to the bundle, or PAGE_DIR */
+  pageDir?: string;
 };
 
 const keyHash = (value: string) => crypto.createHash('sha256').update(value).digest();
@@ -59,7 +63,13 @@ export function createApp(parts: ServerParts): Express {
 
   // For the page: no key, no secrets
   app.get('/bridge/status', (_req, res) => res.json(buildStatus(parts)));
-  app.get('/', (_req, res) => res.type('html').send(PLACEHOLDER_PAGE));
+  // The built status page; without a build (dev) a small placeholder
+  const pageDir = parts.pageDir ?? process.env.PAGE_DIR ?? path.join(__dirname, 'public');
+  if (fs.existsSync(path.join(pageDir, 'index.html'))) {
+    app.use(express.static(pageDir, {index: 'index.html', maxAge: '1h', setHeaders: (res, file) => { if (file.endsWith('index.html')) res.setHeader('Cache-Control', 'no-cache'); }}));
+  } else {
+    app.get('/', (_req, res) => res.type('html').send(PLACEHOLDER_PAGE));
+  }
 
   const api = express.Router();
   api.use(requireApiKey(parts.apiKey));

@@ -52,5 +52,5 @@ De kaarten **Per vak**, **Duels** en **Balverlies per soort** hebben de knoppen 
 
 ## Als het niet werkt
 
-- **De statistics bridge is offline**: de app die de statistiek-pc uitleest draait niet of is niet bereikbaar. Zie het hoofdstuk Statistieken.
-- **De analyse heeft het statistiekenbestand nodig**: de database staat uit op de bridge, de share is niet bereikbaar, of er is nog niets geturfd. **Statistieken** werkt dan nog wel met de live pagina.
+- **De venue-bridge is offline**: de app in de zaal die de statistiek-pc uitleest draait niet of heeft geen verbinding. Zie het hoofdstuk Statistieken.
+- **De analyse heeft het statistiekenbestand nodig**: de database staat uit, de share is niet bereikbaar, of er is nog niets geturfd. **Statistieken** werkt dan nog wel met de live pagina.

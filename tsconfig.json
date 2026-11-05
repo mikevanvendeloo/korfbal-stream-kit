@@ -16,6 +16,12 @@
       "path": "./libs/venue-protocol"
     },
     {
+      "path": "./libs/ui"
+    },
+    {
+      "path": "./apps/venue-bridge-ui"
+    },
+    {
       "path": "./apps/venue-bridge"
     }
   ]
