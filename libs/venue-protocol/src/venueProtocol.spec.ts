@@ -38,6 +38,14 @@ describe('VenueConfigSchema', () => {
     expect(VenueConfigSchema.safeParse({...config, stats: {...config.stats, mdbPath: '../x.mdb'}}).success).toBe(false);
     expect(VenueConfigSchema.safeParse({...config, stats: {...config.stats, mdbPath: '/x.mdb'}}).success).toBe(false);
   });
+  it('refuses device and vMix addresses that are not http(s)', () => {
+    for (const bad of ['file:///etc/passwd', 'ftp://10.0.0.5/x', 'data:text/plain,hi', 'javascript:alert(1)']) {
+      expect(VenueConfigSchema.safeParse({...config, scoreboard: {url: bad}}).success, bad).toBe(false);
+      expect(VenueConfigSchema.safeParse({...config, shotclock: {url: bad}}).success, bad).toBe(false);
+      expect(VenueConfigSchema.safeParse({...config, vmix: {...config.vmix, instances: [{id: 'main', name: 'Main', url: bad}]}}).success, bad).toBe(false);
+    }
+    expect(VenueConfigSchema.safeParse({...config, scoreboard: {url: 'https://10.0.0.5'}}).success).toBe(true);
+  });
   it('refuses a target that is not an instance', () => {
     expect(VenueConfigSchema.safeParse({...config, vmix: {...config.vmix, targets: {countdown: 'other', callsheet: ''}}}).success).toBe(false);
   });

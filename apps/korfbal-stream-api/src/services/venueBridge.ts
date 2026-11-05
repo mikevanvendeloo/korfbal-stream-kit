@@ -13,6 +13,8 @@ export type BridgeConnection = {
   version: string;
   pageUrl: string | null;
   connectedAt: Date;
+  /** The API key it connected with */
+  keyId: number;
 };
 
 const bridges = new Map<number, BridgeConnection>();
@@ -44,6 +46,12 @@ export function removeBridge(organizationId: number, socket: Socket): boolean {
   if (bridges.get(organizationId)?.socket.id !== socket.id) return false;
   bridges.delete(organizationId);
   return true;
+}
+
+/** Disconnects the organization's bridge when it connected with this key (the key was revoked). */
+export function disconnectBridgeOfKey(organizationId: number, keyId: number): void {
+  const bridge = bridges.get(organizationId);
+  if (bridge?.keyId === keyId) bridge.socket.disconnect(true);
 }
 
 export type AskOptions<T> = {deadlineMs: number; maxBytes: number; schema: z.ZodType<T>};

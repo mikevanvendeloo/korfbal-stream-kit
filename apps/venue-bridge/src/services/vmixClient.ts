@@ -95,7 +95,7 @@ export class VmixClient {
     for (const command of request.commands) {
       const url = buildVmixFunctionUrl(target.instance.url, command);
       try {
-        await axios.get(url, {signal: AbortSignal.timeout(FUNCTION_DEADLINE_MS), maxContentLength: MAX_FUNCTION_ANSWER_BYTES, responseType: 'text', transformResponse: (d) => d});
+        await axios.get(url, {maxRedirects: 0, signal: AbortSignal.timeout(FUNCTION_DEADLINE_MS), maxContentLength: MAX_FUNCTION_ANSWER_BYTES, responseType: 'text', transformResponse: (d) => d});
       } catch (err) {
         this.note(target.instance, false);
         logger.warn('vMix call failed', {instance: target.instance.name, function: command.Function, error: axios.isAxiosError(err) ? err.code ?? err.message : 'unknown'});
@@ -111,7 +111,7 @@ export class VmixClient {
     if ('error' in target) return {ok: false, error: target.error};
     try {
       const res = await axios.get(buildVmixApiUrl(target.instance.url, ''), {
-        signal: AbortSignal.timeout(INPUTS_DEADLINE_MS), maxContentLength: MAX_INPUTS_BYTES, responseType: 'text', transformResponse: (d) => d,
+        maxRedirects: 0, signal: AbortSignal.timeout(INPUTS_DEADLINE_MS), maxContentLength: MAX_INPUTS_BYTES, responseType: 'text', transformResponse: (d) => d,
       });
       const xml = String(res.data ?? '');
       if (!/<vmix[\s>]/i.test(xml)) {

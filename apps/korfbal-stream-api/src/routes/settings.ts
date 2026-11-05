@@ -162,9 +162,11 @@ settingsRouter.get('/scoreboard-config', async (_req, res, next) => {
 });
 
 // PUT /api/settings/scoreboard-config
+// Empty clears an address; otherwise http(s) only (the venue-bridge fetches it)
+const deviceAddress = z.string().trim().refine((v) => v === '' || (/^https?:\/\//i.test(v) && URL.canParse(v)), 'The address must start with http:// or https://').optional();
 const ScoreboardConfigSchema = z.object({
-  scoreboardUrl: z.string().optional(),
-  shotclockUrl: z.string().optional(),
+  scoreboardUrl: deviceAddress,
+  shotclockUrl: deviceAddress,
 });
 
 settingsRouter.put('/scoreboard-config', async (req, res, next) => {

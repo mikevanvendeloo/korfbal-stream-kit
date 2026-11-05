@@ -65,7 +65,7 @@ export default function VenueBridgeCard() {
                   </KeyValueRow>
                 );
               })}
-              {data.pageUrl && (
+              {data.pageUrl && /^https?:\/\//i.test(data.pageUrl) && (
                 <KeyValueRow label="Pagina van de bridge">
                   <a href={data.pageUrl} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 underline break-all">{data.pageUrl}</a>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Deze pagina werkt alleen op het netwerk van de zaal.</p>

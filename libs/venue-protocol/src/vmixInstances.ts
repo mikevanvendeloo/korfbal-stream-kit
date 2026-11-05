@@ -8,7 +8,7 @@ export const VmixInstanceSchema = z.object({
   /** Stable id that targets refer to; assigned by the server when missing, kept when renaming. */
   id: z.string().trim().regex(/^[a-z0-9-]{1,40}$/, 'Use lowercase letters, digits and dashes').optional(),
   name: z.string().trim().min(1).max(40),
-  url: z.string().trim().url(),
+  url: z.string().trim().url().refine((v) => /^https?:\/\//i.test(v), 'The address must start with http:// or https://'),
 });
 
 /** Instance id per function; empty means the first instance. */

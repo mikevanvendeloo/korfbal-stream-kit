@@ -15,7 +15,10 @@ export const StatsMdbPathSchema = z.string().trim().max(300).refine(
   'mdbPath must be a relative .mdb/.accdb path',
 );
 
-const deviceUrl = z.string().trim().url().max(500).nullable();
+/** An http(s) address only: file:, ftp:, data: and the like are refused (the bridge fetches these addresses) */
+export const HttpUrlSchema = z.string().trim().url().max(500).refine((v) => /^https?:\/\//i.test(v), 'The address must start with http:// or https://');
+
+const deviceUrl = HttpUrlSchema.nullable();
 
 export const VenueConfigSchema = z.object({
   scoreboard: z.object({url: deviceUrl}),

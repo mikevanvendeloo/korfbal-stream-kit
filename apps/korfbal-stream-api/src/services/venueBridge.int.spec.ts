@@ -191,6 +191,35 @@ describe.runIf(runDb)('venue-bridge: readings, status, configuration, vMix (inte
       await vi.waitFor(() => expect(clients.of('venue_bridge_status').at(-1)?.args[0].connected).toBe(false));
     });
 
+    it('keeps only an http(s) page address of the bridge', async () => {
+      const bad = await connect(key, {auth: {pageUrl: 'javascript:alert(1)'}});
+      await vi.waitFor(async () => expect((await status()).connected).toBe(true));
+      expect((await status()).pageUrl).toBeNull();
+      bad.close();
+      await vi.waitFor(async () => expect((await status()).connected).toBe(false));
+      await connect(key, {auth: {pageUrl: 'http://10.0.0.9:3340'}});
+      await vi.waitFor(async () => expect((await status()).pageUrl).toBe('http://10.0.0.9:3340'));
+    });
+
+    it('drops the bridge when the key it connected with is revoked', async () => {
+      const ownKey = await createBridgeKey(orgId, 'to revoke');
+      const keyId = (await prisma.organizationApiKey.findFirstOrThrow({where: {organizationId: orgId, name: 'to revoke'}, orderBy: {id: 'desc'}})).id;
+      const bridge = await connect(ownKey);
+      await vi.waitFor(async () => expect((await status()).connected).toBe(true));
+      const res = await request(app).delete(`/api/organization/api-keys/${keyId}`);
+      expect(res.status, res.text).toBe(200);
+      await vi.waitFor(() => expect(bridge.socket.connected).toBe(false));
+      await vi.waitFor(async () => expect((await status()).connected).toBe(false));
+      // Revoking another key leaves a connected bridge alone
+      const other = await connect(key);
+      const spare = await createBridgeKey(orgId, 'spare');
+      const spareId = (await prisma.organizationApiKey.findFirstOrThrow({where: {name: 'spare', organizationId: orgId}, orderBy: {id: 'desc'}})).id;
+      await request(app).delete(`/api/organization/api-keys/${spareId}`);
+      await new Promise((r) => setTimeout(r, 100));
+      expect(other.socket.connected).toBe(true);
+      expect(spare).toBeTruthy();
+    });
+
     it('is open to a feed key', async () => {
       const res = await request(app).get(`/api/venue-bridge/status?key=${key}`).set('X-Organization', OTHER);
       expect(res.status).toBe(200);
@@ -262,6 +291,17 @@ describe.runIf(runDb)('venue-bridge: readings, status, configuration, vMix (inte
       bridge.on(VENUE_EVENTS.configApply, () => ({ok: false, error: 'scoreboard.url: Invalid url'}));
       await request(app).put('/api/settings/scoreboard-config').send({scoreboardUrl: 'http://10.0.0.10:8080'});
       await vi.waitFor(async () => expect((await status()).config).toEqual({state: 'refused', error: 'scoreboard.url: Invalid url'}), {timeout: 3000});
+    });
+  });
+
+  describe('device addresses', () => {
+    it('refuses addresses that are not http(s) and keeps the old ones', async () => {
+      expect((await request(app).put('/api/settings/scoreboard-config').send({scoreboardUrl: 'http://10.0.0.10:8080', shotclockUrl: ''})).status).toBe(200);
+      for (const bad of ['file:///etc/passwd', 'ftp://10.0.0.5/x', 'data:text/plain,hi']) {
+        expect((await request(app).put('/api/settings/scoreboard-config').send({scoreboardUrl: bad})).status, bad).toBe(400);
+        expect((await request(app).put('/api/settings/vmix-instances').send({instances: [{name: 'Main', url: bad}], targets: {}})).status, bad).toBe(400);
+      }
+      expect((await request(app).get('/api/settings/scoreboard-config')).body.scoreboardUrl).toBe('http://10.0.0.10:8080');
     });
   });
 

@@ -33,6 +33,13 @@ describe('VenueBridgeCard', () => {
     expect(screen.getByRole('link', {name: 'http://10.0.0.5:3340'})).toHaveAttribute('href', 'http://10.0.0.5:3340');
   });
 
+  it('never links to a page address that is not http(s)', async () => {
+    show({...connected, pageUrl: 'javascript:alert(1)'});
+    expect(await screen.findByText('Zaal Fortuna')).toBeInTheDocument();
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.queryByText(/javascript:/)).toBeNull();
+  });
+
   it('says the venue-bridge is offline when it is not connected', async () => {
     show({...connected, connected: false, name: null, version: null, pageUrl: null, connectedAt: null, config: {state: 'pending', error: null}});
     expect(await screen.findByText('De venue-bridge is offline')).toBeInTheDocument();

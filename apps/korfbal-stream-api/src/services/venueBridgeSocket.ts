@@ -4,7 +4,7 @@ import {VENUE_BRIDGE_PATH, VENUE_EVENTS, VenueReadingSchema, MAX_READING_BYTES} 
 import {logger} from '../utils/logger';
 import {isSameOriginRequest} from '../middleware/sameOrigin';
 import {API_ERRORS} from './apiErrorCodes';
-import {findOrganizationByApiKey} from './apiKeys';
+import {findApiKey} from './apiKeys';
 import {runWithOrganization} from './organizationContext';
 import {getBridge, removeBridge, setBridge} from './venueBridge';
 import {bridgeConnected, bridgeDisconnected, recordReading} from './venueData';
@@ -20,6 +20,12 @@ function refusal(code: 'API_KEY_MISSING' | 'API_KEY_INVALID'): Error {
 }
 
 const text = (value: unknown, max: number): string | null => (typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : null);
+
+/** The bridge's page address: http(s) only (the kit links to it), else none. */
+function webAddress(value: unknown): string | null {
+  const address = text(value, 300);
+  return address && /^https?:\/\/[^\s<>"]+$/i.test(address) ? address : null;
+}
 
 /** The key of a handshake: `auth.key`, the X-Api-Key header or `?key=`. Only the key is read, never logged. */
 function handshakeKey(socket: Socket): string | null {
@@ -45,10 +51,12 @@ export function registerVenueBridgeSocket(httpServer: HttpServer): SocketIOServe
   namespace.use((socket, next) => {
     const key = handshakeKey(socket);
     if (!key) return next(refusal('API_KEY_MISSING'));
-    findOrganizationByApiKey(key)
-      .then((organization) => {
-        if (!organization?.isActive) return next(refusal('API_KEY_INVALID'));
+    findApiKey(key)
+      .then((found) => {
+        const organization = found?.organization;
+        if (!found || !organization?.isActive) return next(refusal('API_KEY_INVALID'));
         socket.data.organizationId = organization.id;
+        socket.data.keyId = found.keyId;
         return next();
       })
       .catch(() => next(new Error('Verbinding geweigerd')));
@@ -61,8 +69,9 @@ export function registerVenueBridgeSocket(httpServer: HttpServer): SocketIOServe
       socket,
       name: text(auth?.name, 80) ?? 'venue-bridge',
       version: text(auth?.version, 40) ?? 'onbekend',
-      pageUrl: text(auth?.pageUrl, 300),
+      pageUrl: webAddress(auth?.pageUrl),
       connectedAt: new Date(),
+      keyId: socket.data.keyId as number,
     });
     // A second bridge replaces the first one
     if (previous) previous.socket.disconnect(true);

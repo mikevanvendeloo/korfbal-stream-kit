@@ -31,7 +31,7 @@ function deviceUrl(config: VenueConfig | null, device: VenueDevice): string | nu
 
 async function read(url: string): Promise<Omit<VenueReading, 'device' | 'readAt'>> {
   try {
-    const response = await axios.get(url, {signal: AbortSignal.timeout(REQUEST_DEADLINE_MS), maxContentLength: MAX_READING_BYTES});
+    const response = await axios.get(url, {maxRedirects: 0, signal: AbortSignal.timeout(REQUEST_DEADLINE_MS), maxContentLength: MAX_READING_BYTES});
     const data: unknown = response.data;
     if (!Array.isArray(data) || data.length > MAX_READING_ITEMS) return {ok: false, data: [], error: 'invalid'};
     return {ok: true, data};
