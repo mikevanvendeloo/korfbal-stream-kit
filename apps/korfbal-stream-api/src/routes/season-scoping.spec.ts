@@ -171,7 +171,7 @@ describe('Season scoping of existing endpoints', () => {
       expect(res.body[0].seasonName).toBe('2026/2027');
     });
 
-    it('clubs import restores players into their exported season, or the active season for old backups', async () => {
+    it('clubs import restores players into their exported season, or the chosen season for old backups', async () => {
       prisma.club = {
         findUnique: vi.fn(async () => null),
         create: vi.fn(async ({data}: any) => ({id: 5, ...data})),
@@ -184,7 +184,7 @@ describe('Season scoping of existing endpoints', () => {
       };
       prisma.playerImage = {findMany: vi.fn(async () => [])};
 
-      const res = await request(app).post('/api/backup/clubs/import').send([
+      const res = await request(app).post(`/api/backup/clubs/import?seasonId=${idOf(2026)}`).send([
         {
           name: 'Fortuna', slug: 'fortuna', players: [
             {name: 'Old', externalId: 'x1', seasonName: '2025/2026'},

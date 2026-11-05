@@ -113,6 +113,8 @@ Backup en restore gaan over de **gekozen organisatie** (de naam staat op het tab
 
 Een restore **vult aan en werkt bij**, hij wist niets. Bestaande gegevens worden herkend (personen en sponsors op naam, skills op code, posities op naam, wedstrijden op hun code of datum en teams) en overschreven met wat in het bestand staat. Een productie die al bestaat, krijgt de hoofdstukken, titels, interviews en het draaiboek uit het bestand (een oude backup met segmenten wordt in hoofdstukken omgezet).
 
+**Clubs** neemt bij elke speler het seizoen mee: een restore zet de speler terug in dat seizoen. Een oudere backup (van vóór de seizoenen) heeft spelers zonder seizoen. Dan wordt er nog niets hersteld en vraagt de restore eerst **in welk seizoen** die spelers horen: kies het seizoen en klik op **Herstellen in dit seizoen**. Kies het seizoen waarin die spelers speelden. Let op: een backup van na 1 juli bevat vaak nog de spelers van het vorige seizoen.
+
 **Instellingen** bevat ook de gegevens van de organisatie zelf (naam, eigen club en logo) en de startdatum van de zaalcompetitie per seizoen. Een restore neemt naam, club en logo over in de gekozen organisatie, maar nooit haar **slug**. De startdatum van de zaalcompetitie komt alleen terug bij een seizoen dat al bestaat en nog geen datum heeft.
 
 ### Afbeeldingen downloaden

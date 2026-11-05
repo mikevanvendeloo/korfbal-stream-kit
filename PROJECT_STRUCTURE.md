@@ -544,5 +544,5 @@ Season-bound endpoints (`GET /api/production`, `/api/production/matches`, `/api/
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/backup/{entity}/export | Export entity as JSON; entity = persons, skills, positions, matches, producties (`chapters`, items/events with `chapterOrderIndex`; older files with `segments` are still read), clubs, sponsors, settings |
-| POST | /api/backup/{entity}/import | Import entity from JSON; same entities, plus `segment-templates` (older backups: each becomes a draaiboek template "<naam> (hoofdstukken)" with only hoofdstukken) |
+| POST | /api/backup/{entity}/import | Import entity from JSON; same entities, plus `segment-templates` (older backups: each becomes a draaiboek template "<naam> (hoofdstukken)" with only hoofdstukken). Clubs: players keep their `seasonName`; players without one need `?seasonId=` (else 400 `PLAYER_SEASON_REQUIRED` with `playersWithoutSeason`, nothing written) |
 | GET | /api/backup/images | Zip of the chosen organization's images (sponsors/<slug>/, organizations/<slug>.<ext>, used club logos and player photos), paths relative to ASSETS_DIR |

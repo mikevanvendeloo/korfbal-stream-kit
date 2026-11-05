@@ -20,8 +20,9 @@ import {Prisma} from '@prisma/client';
 import {
   ACTIVE_SEASON_ID_KEY,
   createSeasonIdResolver,
-  getActiveSeason,
+  tryParseSeasonName,
 } from '../services/season';
+import {API_ERRORS, apiErrorBody} from '../services/apiErrorCodes';
 import {migrateLegacySeasonAssets} from '../services/seasonAssetMigration';
 import {getSetting, GLOBAL_SETTING_KEYS, MATCH_STATS_BRIDGE_TOKEN_KEY, setSetting} from '../services/appSettings';
 import {getOwnClubId, setOwnClubId} from '../services/ownClub';
@@ -1103,16 +1104,35 @@ backupRouter.post('/producties/import', async (req, res, next) => {
 });
 
 // POST /api/backup/clubs/import
+const ClubsImportQuerySchema = z.object({ seasonId: z.coerce.number().int().positive().optional() });
+
 backupRouter.post('/clubs/import', async (req, res, next) => {
   try {
     const data = req.body;
     if (!Array.isArray(data)) return res.status(400).json({ error: 'Array expected' });
+    // Players keep the season they were exported with. A backup from before the seasons has players
+    // without one: their season must be chosen (?seasonId=), never silently the active season, or last
+    // season's players end up in this one. Checked before anything is written.
+    const query = ClubsImportQuerySchema.safeParse(req.query);
+    if (!query.success) return res.status(400).json({ error: 'Ongeldig seizoen' });
+    const withoutSeason = (data as Array<{players?: unknown}>).reduce((n, club) =>
+      n + (Array.isArray(club?.players)
+        ? (club.players as Array<{seasonName?: unknown} | null>).filter((p) => tryParseSeasonName(p?.seasonName) === undefined).length
+        : 0), 0);
+    let fallbackSeasonId: number | undefined;
+    if (withoutSeason > 0) {
+      if (query.data.seasonId === undefined) {
+        return res.status(API_ERRORS.PLAYER_SEASON_REQUIRED.status)
+          .json({ ...apiErrorBody('PLAYER_SEASON_REQUIRED'), playersWithoutSeason: withoutSeason });
+      }
+      const season = await prisma.season.findUnique({ where: { id: query.data.seasonId }, select: { id: true } });
+      if (!season) return res.status(400).json({ error: 'Ongeldig seizoen' });
+      fallbackSeasonId = season.id;
+    }
     let created = 0, updated = 0;
-    const activeSeasonId = (await getActiveSeason()).id;
     const seasons = createSeasonIdResolver();
-    // Players keep the season they were exported with; old backups without one land in the active season.
     const seasonIdForPlayer = async (seasonName: unknown): Promise<number> =>
-      (await seasons.forSeasonName(seasonName)) ?? activeSeasonId;
+      (await seasons.forSeasonName(seasonName)) ?? (fallbackSeasonId as number);
     for (const item of data) {
       try {
         const clubData = {

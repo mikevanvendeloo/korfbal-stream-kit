@@ -3,6 +3,8 @@ import {createUrl} from "../../lib/api";
 import {useCurrentOrganization} from "../../components/OrganizationGate";
 import {todayAmsterdam} from '../../lib/time';
 import {downloadFromApi} from '../../lib/download';
+import {API_ERROR_CODES} from '../../lib/apiErrorCodes';
+import {useSeasons} from '../../hooks/useSeasons';
 
 type Entity = {
   id: string;
@@ -36,6 +38,10 @@ export default function BackupPage() {
   const [status, setStatus] = useState<Record<string, string>>({});
   const {organization} = useCurrentOrganization();
   const organizationName = organization?.name ?? 'de gekozen organisatie';
+  const seasons = useSeasons();
+  // A clubs restore waiting for the season of its players without one
+  const [pendingClubs, setPendingClubs] = useState<{entity: Entity; data: unknown; count: number} | null>(null);
+  const [pendingSeasonId, setPendingSeasonId] = useState<number | null>(null);
 
   const handleExport = async (entity: Entity) => {
     try {
@@ -73,6 +79,42 @@ export default function BackupPage() {
     }
   };
 
+  /** Sends a backup file to the restore; `seasonId` is the season for players without one (clubs). */
+  const restore = async (entity: Entity, data: unknown, seasonId?: number) => {
+    const query = seasonId ? `?seasonId=${seasonId}` : '';
+    const res = await fetch(createUrl(`/api/backup/${entity.endpoint}/import${query}`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json().catch(() => ({}));
+    // A clubs backup from before the seasons: ask which season its players belong to, nothing is written yet
+    if (res.status === 400 && result?.code === API_ERROR_CODES.PLAYER_SEASON_REQUIRED) {
+      setPendingClubs({entity, data, count: Number(result.playersWithoutSeason) || 0});
+      setStatus(prev => ({ ...prev, [entity.id]: '' }));
+      return;
+    }
+    if (!res.ok) throw new Error(result?.error || 'Herstel mislukt');
+    setPendingClubs(null);
+    setStatus(prev => ({
+      ...prev,
+      [entity.id]: `Herstel voltooid: ${result.created} nieuw, ${result.updated} bijgewerkt`
+    }));
+  };
+
+  const restoreWithSeason = async () => {
+    if (!pendingClubs || !pendingSeasonId) return;
+    const {entity, data} = pendingClubs;
+    try {
+      setLoading(`import-${entity.id}`);
+      await restore(entity, data, pendingSeasonId);
+    } catch (err: unknown) {
+      setStatus(prev => ({ ...prev, [entity.id]: `Fout bij herstel: ${err instanceof Error ? err.message : String(err)}` }));
+    } finally {
+      setLoading(null);
+    }
+  };
+
   const handleImport = async (entity: Entity, file: File) => {
     try {
       setLoading(`import-${entity.id}`);
@@ -80,20 +122,7 @@ export default function BackupPage() {
       reader.onload = async (e) => {
         try {
           const content = e.target?.result as string;
-          const data = JSON.parse(content);
-
-          const res = await fetch(createUrl(`/api/backup/${entity.endpoint}/import`), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-          });
-
-          if (!res.ok) throw new Error('Herstel mislukt');
-          const result = await res.json();
-          setStatus(prev => ({
-            ...prev,
-            [entity.id]: `Herstel voltooid: ${result.created} nieuw, ${result.updated} bijgewerkt`
-          }));
+          await restore(entity, JSON.parse(content));
         } catch (err: any) {
           setStatus(prev => ({ ...prev, [entity.id]: `Fout bij verwerken bestand: ${err.message}` }));
         } finally {
@@ -122,7 +151,7 @@ export default function BackupPage() {
 
       <div className="space-y-6">
         {ENTITIES.map(entity => (
-          <div key={entity.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+          <div key={entity.id} className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
             <div className="mb-4 sm:mb-0">
               <h3 className="font-medium text-gray-900 dark:text-gray-100">{entity.label}</h3>
               {entity.description && <p className="text-sm text-gray-500 dark:text-gray-400">{entity.description}</p>}
@@ -156,6 +185,44 @@ export default function BackupPage() {
                 />
               </label>
             </div>
+            {pendingClubs?.entity.id === entity.id && (
+              <div
+                role="group"
+                aria-label="Seizoen van de spelers"
+                className="mt-4 sm:mt-0 sm:basis-full w-full rounded-md border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200 p-3 text-sm"
+              >
+                <p className="mb-2">
+                  Deze backup is van vóór de seizoenen: {pendingClubs.count === 1 ? '1 speler heeft' : `${pendingClubs.count} spelers hebben`} geen
+                  seizoen. Kies in welk seizoen ze horen. Er is nog niets hersteld.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    aria-label="Seizoen"
+                    value={pendingSeasonId ?? ''}
+                    onChange={(e) => setPendingSeasonId(e.target.value ? Number(e.target.value) : null)}
+                    className="border rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">Kies een seizoen…</option>
+                    {(seasons.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={restoreWithSeason}
+                    disabled={!pendingSeasonId || !!loading}
+                    className="px-3 py-1.5 text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Herstellen in dit seizoen
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setPendingClubs(null); setPendingSeasonId(null); }}
+                    className="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                  >
+                    Annuleren
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
 
