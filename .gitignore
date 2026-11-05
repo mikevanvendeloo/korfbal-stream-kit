@@ -76,7 +76,7 @@ secrets.*.env
 .env.*.local
 *.local.env
 
-# Statistics bridge: local copy of the statistics database (see apps/venue-bridge/README.md)
+# Venue-bridge: local copy of the statistics database (see apps/venue-bridge/README.md)
 /data/venue-bridge
 /test-results/
 /streamz-test/
