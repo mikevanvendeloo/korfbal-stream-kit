@@ -1,12 +1,13 @@
 <#
 .SYNOPSIS
-  Start (of herstart) de statistics bridge naast de dev-omgeving, op Windows.
+  Start (of herstart) de venue-bridge op Windows: naast de dev-omgeving, of met -Prod in de zaal.
+  Zet API_URL, API_KEY, BRIDGE_NAME en eventueel BRIDGE_PAGE_URL in de omgeving of in een env-file (-EnvFile).
 
 .EXAMPLE
   .\scripts\venue-bridge\start.ps1                       # standaard: de opgeslagen pagina, geen database
   .\scripts\venue-bridge\start.ps1 windows-robocopy
   .\scripts\venue-bridge\start.ps1 page-only -Base docker-compose-localtest.yml
-  .\scripts\venue-bridge\start.ps1 cifs -Prod     # Docker Hub-image, STREAMZ_BRIDGE_VERSION uit de omgeving
+  .\scripts\venue-bridge\start.ps1 cifs -Prod     # in de zaal: Docker Hub-image, STREAMZ_BRIDGE_VERSION uit de omgeving, zonder andere compose-bestanden
 #>
 [CmdletBinding()]
 param(
@@ -27,7 +28,6 @@ if ($Variant -and -not (Test-Path $variantFile)) {
 }
 
 if ($Prod) {
-  if (-not $Base) { $Base = 'docker-compose-prod.yml' }
   $override = Join-Path $dir 'docker-compose.venue-bridge.prod.yml'
   $build = @()
 } else {
@@ -44,10 +44,12 @@ Push-Location $root
 try {
   $variantArgs = @()
   if ($variantFile) { $variantArgs = @('-f', $variantFile) }
-  docker compose @envArgs -f $Base -f $override @variantArgs up -d @build venue-bridge
+  $baseArgs = @()
+  if ($Base) { $baseArgs = @('-f', $Base) }
+  docker compose @envArgs @baseArgs -f $override @variantArgs up -d @build venue-bridge
 } finally {
   Pop-Location
 }
 $label = if ($Variant) { $Variant } else { 'opgeslagen pagina' }
-Write-Host "Statistics bridge gestart ($label). Controle: curl http://localhost:3340/health"
-Write-Host 'Vul bij Beheer > Instellingen > Statistieken in: Statistics bridge URL = http://venue-bridge:3340'
+Write-Host "Venue-bridge gestart ($label). Controle: curl http://localhost:3340/health"
+Write-Host 'Kijk bij Beheer > Instellingen > Venue of de bridge verbonden is, of open http://localhost:3340'

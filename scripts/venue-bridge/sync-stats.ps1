@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Houdt een lokale map gelijk met de share van de statistiek-pc (robocopy), voor de statistics bridge op Windows.
+  Houdt een lokale map gelijk met de share van de statistiek-pc (robocopy), voor de venue-bridge op Windows.
 
 .DESCRIPTION
   De bridge leest een lokale map (compose/variants/windows-robocopy.yml mount C:/streamz/stats). Zo hangt

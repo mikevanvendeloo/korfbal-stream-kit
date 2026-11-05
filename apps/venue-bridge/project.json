@@ -82,5 +82,8 @@
       }
     }
   },
-  "tags": []
+  "tags": [],
+  "implicitDependencies": [
+    "@korfbal-stream-kit/venue-bridge-ui"
+  ]
 }

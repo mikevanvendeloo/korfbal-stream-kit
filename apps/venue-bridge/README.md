@@ -1,93 +1,132 @@
-# Statistics bridge
+# Venue-bridge
 
-Een kleine, **tijdelijke** app die de statistiek-pc in de zaal uitleest en de cijfers aan de Streamz API geeft. Hij staat los van de API in een eigen Docker-image: valt de pc, de share of het netwerk uit, dan valt alleen de bridge om. De Streamz Kit toont dan "De statistics bridge is offline" en de rest werkt gewoon door.
+De venue-bridge draait **in de zaal** en verbindt de apparaten daar met de Streamz API, die ergens anders (bijvoorbeeld in de cloud) draait: het scorebord, de zaalklok, de schotklok, de statistiek-pc en vMix. De API kan die apparaten niet bereiken; de bridge wel.
 
 ```
-statistiek-pc (10.12.0.63)  --share/pagina-->  statistics-bridge  <--HTTP--  Streamz API  <--  Kit en vMix
+scorebord, schotklok, zaalklok  ──┐
+statistiek-pc (share en pagina) ──┼──  venue-bridge (zaal)  ◄══ socket.io, door de bridge zelf geopend ══►  Streamz API (cloud)  ◄──  Kit, vMix
+vMix-pc's                       ◄─┘            │
+                                               └── pagina en reserve-API op http://<bridge>:3340 (alleen in de zaal)
 ```
 
-Kit en vMix blijven de Streamz API gebruiken (`/api/stats/*`, met dezelfde API-sleutels); alleen de API praat met de bridge. **Een bridge per zaal/statistiek-pc**, ingesteld met omgevingsvariabelen. De bridge kent geen organisaties en heeft geen database.
+De bridge belt zelf naar de API (uitgaand, via `API_URL`); er hoeft geen poort van de zaal naar buiten open. **Een bridge per organisatie**: een tweede bridge met dezelfde sleutel vervangt de eerste. De bridge heeft geen database en kent geen organisaties: de API-sleutel bepaalt voor welke organisatie hij werkt.
 
-## Omgevingsvariabelen
+## Startinstellingen
+
+Alleen wat de bridge nodig heeft om de API te bereiken, met omgevingsvariabelen:
 
 | Variabele | Standaard | Betekenis |
 |---|---|---|
-| `PORT` | `3340` | Poort van de bridge |
-| `STATS_DIR` | leeg | Alleen-lezen map met de bestanden van de statistiek-pc: de gemounte share of een lokale map. Leeg: geen share |
-| `PAGE_URL` | leeg | Adres van de "Tweede Scherm klassiek"-pagina (`http(s)://...`), of een relatief `.html`-pad binnen `STATS_DIR` |
-| `MDB_PATH` | leeg | Pad van `WEDSTRIJDEN.mdb` binnen `STATS_DIR`. `{team}` wordt het teamnummer van de actieve productie (`F{team}/WEDSTRIJDEN.mdb`) |
-| `MDB_ENABLED` | `true` | `false`: de database wordt nooit aangeraakt (ook `STATS_DIR`, de share en de kopie niet); alleen de pagina telt |
-| `SHARE_HOST` | leeg | De statistiek-pc (IP of naam) voor de SMB-poortcontrole. Leeg: de host uit `PAGE_URL` |
-| `KEEP_COPY` | `true` | Na een geslaagde lezing een lokale kopie bewaren (hooguit elke 5 minuten) |
-| `COPY_DIR` | `/data` | Waar die kopie staat (schrijfbaar, van uid 1000) |
-| `BRIDGE_TOKEN` | leeg | Gedeeld geheim: is het gezet, dan vraagt elke route behalve `/health` de header `X-Bridge-Token` (tijdveilig vergeleken). Vul hetzelfde in bij Beheer, Instellingen, Statistieken |
+| `API_URL` | verplicht | Adres van de Streamz API, bijvoorbeeld `https://streamz.example.nl` |
+| `API_KEY` | verplicht | API-sleutel van de organisatie (Beheer, Organisatie-instellingen, API-sleutels). Wordt nooit gelogd of getoond |
+| `BRIDGE_NAME` | `venue-bridge` | Naam van de bridge, zichtbaar in de Kit |
+| `BRIDGE_PAGE_URL` | leeg | Adres van de pagina van deze bridge op het netwerk van de zaal; de Kit toont er een link naar |
+| `STATS_DIR` | leeg | Alleen-lezen map met de bestanden van de statistiek-pc: de gemounte share of een lokale map |
+| `COPY_DIR` | `/data` | Waar de lokale kopie van de statistiekendatabase komt (schrijfbaar, uid 1000) |
+| `CONFIG_FILE` | `/data/venue-bridge.json` | Waar de ontvangen configuratie wordt bewaard |
+| `PORT` / `HOST` | `3340` / `0.0.0.0` | Waar de pagina en de reserve-API luisteren |
 | `LOG_LEVEL` | `info` | `error`, `warn`, `info` of `debug` |
 
-De bridge schrijft nooit naar `STATS_DIR` en logt geen tokens.
+Zonder `API_URL` of `API_KEY` stopt de bridge meteen met een melding.
 
-## Routes
+## Centrale configuratie en de cache
 
-`GET` op de bridge zelf (de Streamz API stuurt dezelfde paden door onder `/api/stats`):
+Alles over de zaal stel je **in de Kit** in, bij **Beheer, Instellingen, Venue**: de adressen van scorebord en schotklok, de statistiekeninstellingen (pagina, databasepad, database aan of uit, adres van de statistiek-pc, lokale kopie) en de vMix-pc's. De API stuurt die configuratie naar de bridge zodra hij verbindt en na elke wijziging; de bridge past hem direct toe.
 
-| Route | Wat |
+De bridge bewaart de laatst ontvangen configuratie in `/data/venue-bridge.json` (rechten 600). Valt de verbinding met de API weg, of start de bridge opnieuw terwijl de API niet bereikbaar is, dan werkt hij door met die opgeslagen configuratie. Is het bestand beschadigd, dan gebruikt hij het niet en wacht hij op een nieuwe. **Zet daarom een volume op `/data`.** Configuratie wijzigen kan alleen als de bridge verbonden is.
+
+## De pagina
+
+`http://<bridge>:3340/` toont de status, voor iedereen op het netwerk van de zaal, zonder sleutel: verbinding met de API (en bij *Niet verbonden met de API* de laatste fout), wanneer de configuratie voor het laatst is ontvangen, per apparaat en vMix-pc de status en de leeftijd van de laatste meting, en de reserve-adressen met een kopieerknop. Ververst elke 2 seconden en werkt op een telefoon. De gegevens komen van `GET /bridge/status`. `GET /health` is voor de containercheck (`{ok, connected, devices}`, ook 200 als de API weg is).
+
+## De reserve-API
+
+Valt de verbinding met de API weg, dan blijven vMix en de Stream Deck in de zaal werken met de adressen van de bridge. Ze vragen **dezelfde API-sleutel** als de bridge zelf (`?key=<sleutel>` of de header `X-Api-Key`):
+
+| Adres | Wat |
 |---|---|
-| `/health` | Het proces draait (geen token, geen share) |
-| `/status` | Verbinding: `network`, `database` (`disabled` of ok/mislukt), `page`, `team` |
-| `/live`, `/live/players?team=home\|away&vak=1` | De pagina, en vlakke spelersrijen voor vMix |
-| `/matches` | Wedstrijden uit de database (nieuwste eerst). Zonder database: één regel `live` (`source: page`) |
-| `/matches/:table/actions`, `/matches/:table/players` | Acties, en totalen per speler. `/matches/live/players`: de spelers van de pagina |
-| `/team-stats` | Twee vlakke rijen (thuis, uit): doelpunt-, rebound-, strafworp-, vrije bal-, afstand-, korte schot- en doorloop-percentages, doelpunten dames/heren, aanvalscijfers |
-| `/top-scorers` | Per ploeg de spelers met een doelpunt, de meeste eerst, met `rank` |
-| `/analysis` | Analyse van de wedstrijd met de laatste actie, voor de analist: verloop van de stand, runs (3+ doelpunten op rij), langste periode zonder doelpunt, aanvallen per vak (aanvallen, met doelpunt, schoten per aanval, balverlies, rebounds), duels (speler tegen directe tegenstander), schotkaart per zone en type, balverlies per soort; alles ook per helft. Alleen uit de database: zonder database 503 "De analyse heeft het statistiekenbestand nodig" |
-| `/players` | Spelersoverzicht (alleen database; anders 503 "Database niet beschikbaar") |
-| `/current/players` | De spelers van de wedstrijd met de laatste actie; zonder database die van de pagina (`source: page`) |
+| `GET http://<bridge>:3340/api/scoreboard` | Het scorebord |
+| `GET http://<bridge>:3340/api/scoreboard/clock` | De zaalklok |
+| `GET http://<bridge>:3340/api/scoreboard/shotclock` | De schotklok, met kleur |
+| `GET http://<bridge>:3340/api/stats/...` | De statistieken (dezelfde paden als in de API) |
+| `POST http://<bridge>:3340/api/vmix/set-timer` | Countdown in vMix, met `{"seconds": 30}` |
 
-`?team=<cijfers>` kiest `{team}` in `MDB_PATH` (standaard 1). De antwoorden hebben `X-Stats-Source` (`share`, `copy` of `page`), `X-Stats-Read-At` en `X-Stats-Team`; bij een pagina als stand-in ook `X-Stats-Database` (`disabled` of `unreachable`).
+Zonder of met een foute sleutel is het antwoord 401. Gebruik de sleutel alleen op het netwerk van de zaal.
 
-## Draaien
+## Installatie in de zaal
 
-Zonder Docker (ontwikkelen): `npm run bridge:dev` (leest de omgevingsvariabelen), tests `npm run bridge:test`, build `npm run bridge:build`.
+1. Maak in de Kit bij **Beheer, Organisatie-instellingen, API-sleutels** een sleutel, bijvoorbeeld *venue-bridge Zaal Fortuna*. Je ziet hem maar één keer.
+2. Kies hoe de bridge bij de statistiek-pc komt (zie hieronder) en start hem met de compose-bestanden in `compose/`:
 
-Met Docker naast de bestaande omgeving: de compose-bestanden staan in `compose/`. Het zijn **overrides**: de hoofdbestanden blijven ongemoeid.
+   ```bash
+   API_URL=https://streamz.example.nl API_KEY=<sleutel> BRIDGE_NAME="Zaal Fortuna" \
+   STREAMZ_BRIDGE_VERSION=2026.11.1 \
+   docker compose -f apps/venue-bridge/compose/docker-compose.venue-bridge.prod.yml \
+                  -f apps/venue-bridge/compose/variants/<variant>.yml up -d venue-bridge
+   ```
+
+   Of met `PROD=1 scripts/venue-bridge/start.sh <variant>` (Windows: `scripts\venue-bridge\start.ps1 <variant> -Prod`). De image is `mvanvendeloo/streamz-kit-venue-bridge`; poort 3340 staat open op het netwerk van de zaal, de container herstart vanzelf (`restart: unless-stopped`). Zet de map `./data/venue-bridge` op uid 1000 (`sudo chown -R 1000:1000 data/venue-bridge`; Docker Desktop doet dat zelf).
+3. Controleer in de Kit bij **Instellingen, Venue** (*Verbonden*, configuratie *Toegepast*, apparaten *In orde*) en open `http://<bridge>:3340`.
+4. Schrijf de reserve-adressen in het draaiboek van de zaal.
+
+### Bij de statistiek-pc komen (varianten)
+
+Alleen nodig voor de database; de statistiekenpagina kan ook op een http(s)-adres. Kies één variant uit `compose/variants/`:
+
+- **mac.yml**: de share staat gemount op de Mac (`scripts/venue-bridge/mount-share-mac.sh`, `//GUEST@10.12.0.63/KL2627` op `/Volumes/KL2627`).
+- **windows-robocopy.yml**: `scripts/venue-bridge/sync-stats.ps1` kopieert elke paar seconden de gewijzigde bestanden naar `C:\streamz\stats`; de bridge leest alleen die map. Met `-Install` start het script bij het inloggen.
+- **cifs.yml**: Docker mount de share zelf. Staat de pc uit, dan start de bridge niet.
+- **page-only.yml**: geen share, alleen een pagina op een http(s)-adres.
+
+De variant mount de map als `STATS_DIR` (`/stats`). Het databasepad in de Kit is relatief aan die map, bijvoorbeeld `F{team}/WEDSTRIJDEN.mdb`.
+
+## Ontwikkelen
+
+`npm run bridge:dev` (leest de omgevingsvariabelen), tests `npm run bridge:test`, build `nx build @korfbal-stream-kit/venue-bridge` (bouwt eerst de pagina uit `apps/venue-bridge-ui` naar `dist/apps/venue-bridge/public`). De pagina draait ook los met `nx serve @korfbal-stream-kit/venue-bridge-ui` (stuurt `/bridge` door naar `localhost:3340`).
+
+Naast de dev-omgeving: zet `API_KEY` (een sleutel van de organisatie) in een env-file en gebruik `docker-compose.venue-bridge.yml` (de bridge op `korfbal-network` tegen `http://korfbal-streamz-api:3333`):
 
 ```bash
-scripts/statistics-bridge/start.sh                # standaard: de opgeslagen pagina, geen database
-scripts/statistics-bridge/start.sh mac            # of: windows-robocopy | cifs | page-only
-scripts/statistics-bridge/start.ps1 windows-robocopy    # Windows
+VENUE_BRIDGE_ENV_FILE=./venue-bridge.env scripts/venue-bridge/start.sh
 ```
 
-Of met de hand:
+Standaard staat dan de opgeslagen pagina `compose/local-html/tweede-scherm.html` in `/stats`. Stel in de Kit bij Instellingen, Venue, Statistieken de pagina `tweede-scherm.html` in en zet *Database gebruiken* uit; dan werkt alles zonder statistiek-pc. Controleer met `curl http://localhost:3340/bridge/status`. In de Kit staat dan *Bron: live pagina (database uit)*.
 
-```bash
-docker compose -f docker-compose.yml \
-  -f apps/statistics-bridge/compose/docker-compose.statistics-bridge.yml \
-  -f apps/statistics-bridge/compose/variants/mac.yml up -d --build statistics-bridge
-```
+## Migratie van de statistics-bridge
 
-Daarna in Beheer, Instellingen, Statistieken: **Statistics bridge URL** `http://statistics-bridge:3340` (de servicenaam binnen Docker), en eventueel het **Bridge-token**. Productie: `docker-compose.statistics-bridge.prod.yml` met de image `mvanvendeloo/statistics-bridge:${STREAMZ_BRIDGE_VERSION}`.
+De oude `statistics-bridge` (image `mvanvendeloo/statistics-bridge`, poort 3340, door de API aangeroepen) is vervangen. Stop hem en start deze bridge. De instellingen die eerst omgevingsvariabelen van de oude bridge waren, staan nu in de Kit:
 
-## De drie manieren om bij de share te komen (plus alleen de pagina)
+| Oud (omgevingsvariabele) | Nu |
+|---|---|
+| `PAGE_URL` | Instellingen, Venue, Statistieken: **Statistiekenpagina** |
+| `MDB_PATH` | **Pad van de database** |
+| `MDB_ENABLED` | **Database gebruiken** |
+| `SHARE_HOST` | **Adres van de statistiek-pc** |
+| `KEEP_COPY` | **Lokale kopie van de database bewaren** |
+| `BRIDGE_TOKEN` en het **Statistics bridge URL** in de Kit | vervallen: de bridge verbindt zich zelf met een API-sleutel |
+| `STATS_DIR`, `COPY_DIR`, `PORT`, `LOG_LEVEL` | blijven omgevingsvariabelen |
 
-1. **Mac, share gemount** (`variants/mac.yml`). Mount de share met `scripts/statistics-bridge/mount-share-mac.sh` (`//GUEST@10.12.0.63/KL2627` op `/Volumes/KL2627`, idempotent, geeft een melding als de pc uit staat). De container ziet die map als `/stats` (alleen-lezen).
-2. **Windows, robocopy** (`variants/windows-robocopy.yml`). `scripts/statistics-bridge/sync-stats.ps1` kopieert elke paar seconden alleen gewijzigde bestanden van de share naar `C:\streamz\stats` (`/R:0 /W:0`: een share die niet antwoordt houdt niets op). Met `-Install` wordt het een geplande taak die bij het inloggen start. De container leest alleen die lokale map.
-3. **CIFS-volume** (`variants/cifs.yml`). Docker mount de share zelf. Let op: staat de pc uit, dan kan Docker het volume niet maken en **start de bridge niet**. Dat is nu geen probleem: alleen de bridge valt om. Heb je dat niet nodig, kies dan 1 of 2.
-4. **Alleen de pagina** (`variants/page-only.yml`): `MDB_ENABLED=false`, alleen `PAGE_URL`, geen volume. De spelerscijfers komen dan van de pagina.
+Nieuw zijn `API_URL`, `API_KEY` en `BRIDGE_NAME`. Het adres van het scorebord en de schotklok en de vMix-pc's stonden al in de Kit en worden nu door de bridge gebruikt. De map `data/statistics-bridge` mag je hernoemen naar `data/venue-bridge`. De oude bridgeadres- en tokeninstellingen blijven in de database staan (voor terugdraaien) maar worden genegeerd. Terugdraaien kan met de vorige API en de oude statistics-bridge-image.
 
-Voor alle varianten geldt: de lokale kopie van de database staat in `./data/statistics-bridge` (op de host), die van uid 1000 moet zijn (`sudo chown -R 1000:1000 data/statistics-bridge`; Docker Desktop doet dat zelf goed).
+## Problemen oplossen
 
-## De HTML-terugval testen
-
-**Standaard** gebruikt `docker-compose.statistics-bridge.yml` zonder variant de opgeslagen pagina `compose/local-html/tweede-scherm.html` met `MDB_ENABLED=false`: de bridge werkt dan meteen, zonder statistiek-pc (`scripts/statistics-bridge/start.sh` zonder variant doet dit). Vervang dat bestand door een nieuwer opgeslagen "Tweede Scherm klassiek", of kies een van de andere manieren. Zonder statistiek-pc, met alleen `MDB_ENABLED=false` en de pagina:
-
-- **Een opgeslagen pagina als bestand.** Zet een opgeslagen `tweede-scherm.html` in een lokale map, bijvoorbeeld `./stats-test/`, en mount die als `/stats` in de container (voeg `STATS_DIR: /stats` en het volume toe). Zet `PAGE_URL=tweede-scherm.html` en `MDB_ENABLED=false`. Een relatief `PAGE_URL` leest dat ene bestand uit `STATS_DIR`; de database, de kopie en de rest van de map blijven onaangeroerd.
-- **Een kleine webserver.** `cd stats-test && python3 -m http.server 8099`, dan op de bridge `PAGE_URL=http://host.docker.internal:8099/tweede-scherm.html` en `MDB_ENABLED=false` (op Linux: voeg `extra_hosts: ["host.docker.internal:host-gateway"]` toe).
-
-Controleren: `curl http://localhost:3340/status` (`database: "disabled"`), `/matches` (één regel `live`) en `/current/players` (`source: "page"`). In de Kit staat dan "Bron: live pagina (database uit)".
+| Symptoom | Oorzaak en oplossing |
+|---|---|
+| Bridge start niet, melding over `API_URL` of `API_KEY` | Zet beide in de omgeving |
+| *Bridge offline* in de Kit, pagina zegt *Niet verbonden met de API* | Klopt `API_URL`, kan de zaal naar buiten, is de sleutel niet ingetrokken (401)? De laatste fout staat op de pagina |
+| Verbonden, maar configuratie *Wacht op bevestiging* of *Geweigerd* | Bij *Geweigerd* staat de reden op de kaart in de Kit; verbeter de instelling en sla opnieuw op |
+| Scorebord, zaalklok of schotklok *Niet bereikbaar* | Adres bij Instellingen, Venue klopt niet, of het apparaat staat uit of zit niet op het netwerk van de bridge |
+| Apparaat *Niet ingesteld* | Vul het adres in bij Instellingen, Venue |
+| Statistieken: database niet beschikbaar | Controleer `STATS_DIR` (volume), het databasepad en of *Database gebruiken* aan staat; zonder database gebruikt hij de pagina |
+| vMix *Niet bereikbaar* | Adres of Web Controller van de vMix-pc; de pc moet voor de bridge bereikbaar zijn |
+| Na herstart zonder verbinding werkt niets | Geen volume op `/data`: zonder opgeslagen configuratie wacht de bridge op de API |
+| 401 op een reserve-adres | Sleutel ontbreekt of is niet die van de bridge |
 
 ## Beveiliging
 
-- Alleen-lezen: de bridge schrijft alleen naar `COPY_DIR`.
-- Paden binnen `STATS_DIR`: geen `..`, geen absolute paden, alleen `.mdb`/`.accdb` (database) en `.html`/`.htm` (pagina), echte pad binnen de root, groottelimiet; het teamnummer is alleen cijfers.
-- Een share die hangt kan de bridge niet blokkeren: één bewerking tegelijk, een tijdslimiet op elke toegang, groeiende wachttijd na een fout, en eerst een poortcontrole van de pc.
-- Het Access-bestand wordt in een aparte thread gelezen (limiet 10 s); de bron is de eigen statistiek-pc.
-- Zet `BRIDGE_TOKEN` als de bridge op een netwerk staat waar meer dan de API bij kan.
+- De bridge schrijft alleen naar `COPY_DIR` (kopie van de database) en `CONFIG_FILE` (rechten 600), nooit naar `STATS_DIR`.
+- De sleutel staat nergens in de logs, op de pagina of in `/bridge/status`; de reserve-API vergelijkt hem tijdveilig.
+- De pagina en `/bridge/status` hebben geen sleutel: zet de poort alleen open op het netwerk van de zaal.
+- Paden binnen `STATS_DIR`: geen `..`, geen absolute paden, alleen `.mdb`/`.accdb` (database) en `.html`/`.htm` (pagina), groottelimiet; het teamnummer is alleen cijfers.
+- Een share die hangt kan de bridge niet blokkeren: één bewerking tegelijk, een tijdslimiet op elke toegang en eerst een poortcontrole van de pc.
+- De container draait als non-root (uid 1000), zonder shell.

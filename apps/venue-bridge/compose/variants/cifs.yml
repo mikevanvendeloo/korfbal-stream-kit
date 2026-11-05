@@ -1,4 +1,3 @@
-# PAGE_URL: zonder eigen waarde geldt de opgeslagen pagina uit compose/local-html, die niet op de share staat. Zet PAGE_URL=http://10.12.0.63/... voor de echte pagina.
 # CIFS: de container mount de share zelf als Docker-volume.
 # LET OP: bestaat de pc niet (uit, andere kamer), dan kan Docker het volume niet aanmaken en start de bridge
 # niet. Dat is hier juist bedoeld: alleen de bridge valt om, de rest van Streamz draait door.
@@ -7,7 +6,6 @@ services:
   venue-bridge:
     environment:
       STATS_DIR: /stats
-      MDB_ENABLED: "true"
     volumes:
       - stats-share:/stats:ro
 

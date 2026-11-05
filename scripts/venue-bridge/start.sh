@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Start (of herstart) de statistics bridge naast de dev-omgeving.
+# Start (of herstart) de venue-bridge: naast de dev-omgeving, of (PROD=1) in de zaal.
 #
 #   scripts/venue-bridge/start.sh                        # standaard: de opgeslagen pagina, geen database
 #   scripts/venue-bridge/start.sh mac                    # variant uit apps/venue-bridge/compose/variants/
 #   scripts/venue-bridge/start.sh page-only
 #   COMPOSE_BASE=docker-compose-localtest.yml scripts/venue-bridge/start.sh windows-robocopy
-#   PROD=1 STREAMZ_BRIDGE_VERSION=2026.11.1 scripts/venue-bridge/start.sh cifs
+#   PROD=1 STREAMZ_BRIDGE_VERSION=2026.11.1 scripts/venue-bridge/start.sh cifs   # in de zaal: Docker Hub-image, zonder andere compose-bestanden
 #
-# Variabelen die de bridge leest (PAGE_URL, SHARE_HOST, MDB_PATH, KEEP_COPY) mogen in de omgeving
-# staan of in een lokale env-file: VENUE_BRIDGE_ENV_FILE=./venue-bridge.env
+# De bridge leest alleen API_URL, API_KEY, BRIDGE_NAME en (optioneel) BRIDGE_PAGE_URL; alle rest van de zaal stel je in
+# bij Beheer > Instellingen > Venue. Zet ze in de omgeving of in een lokale env-file (niet inchecken):
+#   VENUE_BRIDGE_ENV_FILE=./venue-bridge.env scripts/venue-bridge/start.sh
 set -euo pipefail
 
 VARIANT="${1:-}" # leeg: de opgeslagen pagina uit compose/local-html, geen database
@@ -21,7 +22,8 @@ if [[ -n "${VARIANT}" && ! -f "${DIR}/variants/${VARIANT}.yml" ]]; then
 fi
 
 if [[ -n "${PROD:-}" ]]; then
-  BASE="${COMPOSE_BASE:-docker-compose-prod.yml}"
+  # In de zaal staat de bridge los; COMPOSE_BASE=docker-compose-prod.yml voegt hem toe aan een bestaande omgeving
+  BASE="${COMPOSE_BASE:-}"
   OVERRIDE="${DIR}/docker-compose.venue-bridge.prod.yml"
   BUILD=()
 else
@@ -37,6 +39,8 @@ ENV_FILE=()
 cd "${ROOT}"
 VARIANT_FILE=()
 [[ -n "${VARIANT}" ]] && VARIANT_FILE=(-f "${DIR}/variants/${VARIANT}.yml")
-docker compose "${ENV_FILE[@]}" -f "${BASE}" -f "${OVERRIDE}" "${VARIANT_FILE[@]}" up -d "${BUILD[@]}" venue-bridge
-echo "Statistics bridge gestart (${VARIANT:-opgeslagen pagina}). Controle: curl http://localhost:3340/health"
-echo "Vul bij Beheer > Instellingen > Statistieken in: Statistics bridge URL = http://venue-bridge:3340"
+BASE_FILE=()
+[[ -n "${BASE}" ]] && BASE_FILE=(-f "${BASE}")
+docker compose "${ENV_FILE[@]}" "${BASE_FILE[@]}" -f "${OVERRIDE}" "${VARIANT_FILE[@]}" up -d "${BUILD[@]}" venue-bridge
+echo "Venue-bridge gestart (${VARIANT:-opgeslagen pagina}). Controle: curl http://localhost:3340/health"
+echo "Kijk bij Beheer > Instellingen > Venue of de bridge verbonden is, of open http://localhost:3340"

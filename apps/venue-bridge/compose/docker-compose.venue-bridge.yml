@@ -1,23 +1,27 @@
-# De statistics bridge naast de bestaande omgeving (dev of localtest): een tijdelijke, losse app die de
-# statistiek-pc uitleest. Bij een storing van de pc of de share valt alleen de bridge om; de Streamz Kit
-# toont dan "De statistics bridge is offline".
+# De venue-bridge naast de dev-omgeving (docker-compose.yml of docker-compose-localtest.yml): een bridge op
+# korfbal-network die zich met de dev-API verbindt, zoals de bridge in een zaal dat met de echte API doet.
 #
-#   docker compose -f docker-compose.yml -f apps/venue-bridge/compose/docker-compose.venue-bridge.yml \
-#       -f apps/venue-bridge/compose/variants/<variant>.yml up -d --build venue-bridge
-#   (localtest: -f docker-compose-localtest.yml in plaats van docker-compose.yml)
+#   1. Maak in de Kit bij Beheer > Organisatie-instellingen > API-sleutels een sleutel "venue-bridge dev".
+#   2. Zet hem in een env-file die niet wordt ingecheckt, bijvoorbeeld venue-bridge.env:
+#        API_KEY=<de sleutel>
+#        BRIDGE_NAME=dev
+#   3. docker compose --env-file venue-bridge.env -f docker-compose.yml \
+#        -f apps/venue-bridge/compose/docker-compose.venue-bridge.yml \
+#        -f apps/venue-bridge/compose/variants/<variant>.yml up -d --build venue-bridge
+#      (of scripts/venue-bridge/start.sh <variant>; localtest: -f docker-compose-localtest.yml in plaats van docker-compose.yml)
 #
-# STANDAARD (zonder variant): de opgeslagen pagina compose/local-html/tweede-scherm.html (gedownload
-# 'Tweede Scherm klassiek', stand 10-8) en geen database (MDB_ENABLED=false). Zo werkt de bridge meteen, zonder
-# statistiek-pc. Een andere opgeslagen pagina: vervang dat bestand, of zet STATS_BRIDGE_PAGES_DIR / PAGE_URL.
+# Alle instellingen van de zaal (adressen van scorebord, schotklok en vMix, de statistiekeninstellingen) staan in
+# de Kit bij Beheer > Instellingen > Venue; de bridge krijgt ze van de API en bewaart ze in /data.
 #
-# Kies één variant voor de echte bron van de statistieken (variants/):
+# STANDAARD (zonder variant): de opgeslagen pagina compose/local-html/tweede-scherm.html staat in /stats. Vul bij
+# Instellingen > Venue > Statistieken als pagina `tweede-scherm.html` in en zet "Database gebruiken" uit. Zo werkt de
+# bridge zonder statistiek-pc. Voor de echte bron kies je één variant (variants/):
 #   mac.yml              de share staat gemount op de Mac (/Volumes/KL2627)
 #   windows-robocopy.yml een map die op Windows door robocopy wordt gevuld (sync-stats.ps1)
 #   cifs.yml             de container mount de share zelf (start niet als de pc uit staat)
-#   page-only.yml        alleen de HTML-pagina, geen database en geen share
+#   page-only.yml        geen share: alleen een http(s)-adres als pagina
 #
-# De Streamz API bereikt de bridge op http://venue-bridge:3340 (Beheer > Instellingen > Statistieken).
-# De lokale kopie van de database staat in ./data/venue-bridge: die map moet van uid 1000 zijn
+# De map ./data/venue-bridge (de opgeslagen configuratie en de kopie van de database) moet van uid 1000 zijn:
 #   mkdir -p data/venue-bridge && sudo chown -R 1000:1000 data/venue-bridge   (Docker Desktop: niet nodig)
 services:
   venue-bridge:
@@ -32,28 +36,21 @@ services:
       TZ: Europe/Amsterdam
       NODE_ENV: production
       PORT: 3340
-      API_URL: ${API_URL:-http://api:3333}
-      API_KEY: ${API_KEY:-}
-      BRIDGE_NAME: ${BRIDGE_NAME:-venue-bridge}
-      # De "Tweede Scherm klassiek"-pagina: een http(s)-adres, of een relatief .html-pad in STATS_DIR (standaard het
-      # opgeslagen bestand uit compose/local-html)
-      PAGE_URL: ${PAGE_URL:-tweede-scherm.html}
+      # De dev-API op korfbal-network (de servicenaam in docker-compose.yml)
+      API_URL: ${API_URL:-http://korfbal-streamz-api:3333}
+      API_KEY: ${API_KEY:?Zet API_KEY (een API-sleutel van de organisatie) in de omgeving of een env-file}
+      BRIDGE_NAME: ${BRIDGE_NAME:-venue-bridge-dev}
+      # Het adres van de pagina van de bridge op het netwerk van de zaal; de Kit toont er een link naar
+      BRIDGE_PAGE_URL: ${BRIDGE_PAGE_URL:-http://localhost:3340}
       STATS_DIR: /stats
-      # Standaard geen database: alleen de pagina. De varianten mac, windows-robocopy en cifs zetten dit aan.
-      MDB_ENABLED: ${MDB_ENABLED:-false}
-      # De statistiek-pc voor de SMB-poortcontrole; leeg: het adres uit PAGE_URL
-      SHARE_HOST: ${SHARE_HOST:-}
-      # Pad van WEDSTRIJDEN.mdb binnen STATS_DIR; {team} wordt het teamnummer van de actieve productie
-      MDB_PATH: ${MDB_PATH:-F{team}/WEDSTRIJDEN.mdb}
-      KEEP_COPY: ${KEEP_COPY:-true}
       COPY_DIR: /data
     volumes:
       - ./data/venue-bridge:/data
       # Standaard de map met de opgeslagen pagina; een variant mount hier de echte share
-      - ${STATS_BRIDGE_PAGES_DIR:-./apps/venue-bridge/compose/local-html}:/stats:ro
-    # Alleen voor testen vanaf de host (curl http://localhost:3340/health); de Kit en vMix gaan via de Streamz API
+      - ${VENUE_BRIDGE_PAGES_DIR:-./apps/venue-bridge/compose/local-html}:/stats:ro
+    # Op het netwerk van de zaal: de pagina en de reserve-API zijn bereikbaar op http://<bridge>:3340
     ports:
-      - "127.0.0.1:3340:3340"
+      - "3340:3340"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3340/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       interval: 30s

@@ -824,7 +824,7 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
         url: `${baseUrl}/callsheet/timing?position=Presentatie`,
         description: 'Current and next callsheet item for this position, with remaining time and start times.'
       },
-      // Match statistics through the statistics bridge (also feeds with an API key)
+      // Match statistics through the venue-bridge (also feeds with an API key)
       {
         name: 'Statistieken: teams',
         url: `${statsUrl}/team-stats`,

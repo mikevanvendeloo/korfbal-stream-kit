@@ -1,6 +1,6 @@
-# Statistics bridge: de tijdelijke, losse app die de statistiek-pc uitleest (gedeelde map + pagina).
+# Venue-bridge: de app in de zaal die scorebord, schotklok, statistiek-pc en vMix met de Streamz API verbindt.
 # Build with:  docker build -f apps/venue-bridge/Dockerfile .
-# Or via Nx:   npx nx docker:build @korfbal-stream-kit/venue-bridge
+# Or via Nx:   npx nx docker:build @korfbal-stream-kit/venue-bridge   (bouwt ook de statuspagina, apps/venue-bridge-ui)
 #
 # Base images zijn Docker Hardened Images (DHI) van dhi.io, zoals bij de API: eenmalig inloggen met
 #   docker login dhi.io
