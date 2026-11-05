@@ -9,6 +9,17 @@ const apiTarget = process.env.API_PROXY_TARGET || 'http://localhost:3333';
 // changeOrigin rewrites Host to the API's port; xfwd adds X-Forwarded-Host (this dev server's host and
 // port), which the API compares with the browser's Origin (cross-site write and socket origin checks).
 const proxy = {target: apiTarget, changeOrigin: true, xfwd: true};
+// Live state (Socket.io), incl. websocket upgrade. xfwd leaves X-Forwarded-Host out of websocket
+// upgrades, so it is set here; without it the API's origin check refuses the socket.
+const socketProxy = {
+  ...proxy,
+  ws: true,
+  configure: (server: {on: (event: 'proxyReqWs', cb: (proxyReq: {setHeader: (k: string, v: string) => void}, req: {headers: {host?: string}}) => void) => void}) => {
+    server.on('proxyReqWs', (proxyReq, req) => {
+      if (req.headers.host) proxyReq.setHeader('x-forwarded-host', req.headers.host);
+    });
+  },
+};
 
 // Component tests run in a zone other than Amsterdam (the kit must show Amsterdam time on any device);
 // override with e.g. TZ=America/New_York. Set before the test workers start, so they inherit it.
@@ -26,17 +37,10 @@ export default defineConfig(() => ({
       // Statische assets (sponsors logo's, player images, etc.)
       '/uploads': proxy,
       '/storage': proxy,
-      // Live state (Socket.io), incl. websocket upgrade. xfwd leaves X-Forwarded-Host out of websocket
-      // upgrades, so it is set here; without it the API's origin check refuses the socket.
-      '/socket.io': {
-        ...proxy,
-        ws: true,
-        configure: (server) => {
-          server.on('proxyReqWs', (proxyReq, req) => {
-            if (req.headers.host) proxyReq.setHeader('x-forwarded-host', req.headers.host);
-          });
-        },
-      },
+      // Live state (Socket.io)
+      '/socket.io': socketProxy,
+      // The venue-bridge's socket (a bridge on the dev machine connects through the same host)
+      '/venue-bridge-socket': socketProxy,
     },
   },
   preview: {

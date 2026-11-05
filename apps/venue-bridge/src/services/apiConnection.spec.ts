@@ -1,7 +1,7 @@
 import {createServer, type Server as HttpServer} from 'node:http';
 import type {AddressInfo} from 'node:net';
 import {Server, type Namespace, type Socket} from 'socket.io';
-import {VENUE_BRIDGE_NAMESPACE, VENUE_EVENTS, type VenueReading} from '@korfbal-stream-kit/venue-protocol';
+import {VENUE_BRIDGE_PATH, VENUE_EVENTS, type VenueReading} from '@korfbal-stream-kit/venue-protocol';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {ApiConnection, type ApiHandlers} from './apiConnection';
 
@@ -30,8 +30,8 @@ describe('api connection', () => {
     handshake = null;
     acceptKey = 'good-key';
     http = createServer();
-    io = new Server(http);
-    ns = io.of(VENUE_BRIDGE_NAMESPACE);
+    io = new Server(http, {path: VENUE_BRIDGE_PATH});
+    ns = io.of('/');
     ns.use((socket, next) => {
       if (socket.handshake.auth.key !== acceptKey) return next(Object.assign(new Error('API_KEY_INVALID'), {data: {code: 'API_KEY_INVALID'}}));
       handshake = socket.handshake.auth;
@@ -70,6 +70,7 @@ describe('api connection', () => {
     await connect();
     await waitFor(() => !!serverSocket);
     expect(handshake).toMatchObject({key: 'good-key', name: 'Zaal', version: '1.2.3', pageUrl: 'http://bridge:3340'});
+    await waitFor(() => connection.state.connected);
     expect(connection.state.connected).toBe(true);
     expect(handlers.onConnected).toHaveBeenCalled();
   });

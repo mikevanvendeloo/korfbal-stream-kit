@@ -31,6 +31,8 @@ const FEED_API_PATHS: ReadonlyArray<string | RegExp> = [
   /^\/scoreboard(\/.*)?$/,
   // Match statistics from the statistics PC (vMix data sources)
   /^\/stats(\/.*)?$/,
+  // The venue-bridge's connection state (Stream Deck / status displays)
+  '/venue-bridge/status',
 ];
 
 export function isFeedApiPath(path: string): boolean {

@@ -73,7 +73,7 @@ See **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** for the full project tree a
 - **`apps/korfbal-stream-api`** — Express + Prisma + PostgreSQL backend, port 3333. Routes under `/api/`, Swagger UI at `/api/docs`.
 - **`apps/korfbal-stream-kit`** — React 19 + Vite + TanStack Query frontend, port 4200. LIVE at `/`, Beheer under `/admin/*` (URLs from `lib/adminPaths.ts`).
 - **`apps/korfbal-stream-kit-e2e`** — Playwright e2e tests.
-- **`apps/statistics-bridge`** — optional, temporary Express app (own Docker image, port 3340, env-configured, no database) that reads the statistics PC (share + page); the API forwards `/api/stats/*` to it, see docs/claude/live-and-devices.md.
+- **`apps/venue-bridge`** — the one part at the venue (own Docker image, port 3340, no database): reads the scoreboard, shot clock and statistics PC, carries out vMix commands and connects out to the API with an API key; configured by the API, with a fallback API for when the cloud is out of reach. **`libs/venue-protocol`** — the shared events, zod schemas, time parser and shot clock colour rule (alias `@korfbal-stream-kit/venue-protocol`). See docs/claude/live-and-devices.md.
 
 ## Core Rules
 
@@ -84,7 +84,7 @@ See **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** for the full project tree a
 - **Times**: stored as UTC, shown and entered as Europe/Amsterdam via `lib/time.ts` / `utils/time.ts`; never use the server or browser zone.
 - **Draaiboek times** come from one rule, `services/laneTimes.ts` (anchors, Zaal/Stream lanes, Minimale duur); the kit never computes them. Every item sits in exactly one hoofdstuk. → [domain-rules.md](docs/claude/domain-rules.md)
 - **Live state** is in memory, one per organization (`productionState.ts`); emit through `emitToOrganization`, send `liveStateSnapshot()`. One active production per organization. LIVE must work at 360 px wide. → [live-and-devices.md](docs/claude/live-and-devices.md)
-- **Settings** only through `getSetting`/`setSetting`; **positions** only through `findPositionByName` / `services/positions.ts`; vMix calls through `resolveVmixInstance` and `buildVmixFunctionUrl`.
+- **Settings** only through `getSetting`/`setSetting`; **positions** only through `findPositionByName` / `services/positions.ts`; vMix calls through the venue-bridge (`services/vmixBridge.ts`; the bridge resolves the instance and builds the URL). The API never calls a device or vMix itself.
 - **Keep in sync** (exist twice): API error codes, the slug pattern, interview placeholders, lanes (`services/laneTimes.ts` ↔ `lib/lanes.ts`).
 - **Handleiding**: when a screen's behaviour or labels change, update its chapter in `apps/korfbal-stream-kit/src/handleiding/` in the same change.
 - **Frontend style**: match the existing components and Tailwind styles.

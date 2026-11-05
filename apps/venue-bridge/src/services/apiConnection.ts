@@ -1,6 +1,6 @@
 import {io, type Socket} from 'socket.io-client';
 import {
-  ConfigApplyRequestSchema, StatsRequestSchema, VENUE_BRIDGE_NAMESPACE, VENUE_EVENTS, VmixCallRequestSchema, VmixInputsRequestSchema,
+  ConfigApplyRequestSchema, StatsRequestSchema, VENUE_BRIDGE_PATH, VENUE_EVENTS, VmixCallRequestSchema, VmixInputsRequestSchema,
   type ConfigApplyAnswer, type StatsAnswer, type VenueReading, type VmixCallAnswer, type VmixInputsAnswer,
 } from '@korfbal-stream-kit/venue-protocol';
 import {logger} from '../logger';
@@ -41,7 +41,8 @@ export class ApiConnection {
 
   start(): void {
     if (this.socket) return;
-    const socket = io(`${this.settings.apiUrl}${VENUE_BRIDGE_NAMESPACE}`, {
+    const socket = io(this.settings.apiUrl, {
+      path: VENUE_BRIDGE_PATH,
       auth: {key: this.settings.apiKey, name: this.settings.name, version: this.version, pageUrl: this.settings.pageUrl},
       reconnection: true,
       reconnectionDelay: RECONNECT_MIN_MS,

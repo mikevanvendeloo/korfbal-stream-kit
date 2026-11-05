@@ -24,7 +24,7 @@ import {
 } from '../services/season';
 import {API_ERRORS, apiErrorBody} from '../services/apiErrorCodes';
 import {migrateLegacySeasonAssets} from '../services/seasonAssetMigration';
-import {getSetting, GLOBAL_SETTING_KEYS, MATCH_STATS_BRIDGE_TOKEN_KEY, setSetting} from '../services/appSettings';
+import {getSetting, GLOBAL_SETTING_KEYS, MATCH_STATS_BRIDGE_TOKEN_KEY, MATCH_STATS_KEY, setSetting} from '../services/appSettings';
 import {getOwnClubId, setOwnClubId} from '../services/ownClub';
 import {clearOrganizationLookupCache} from '../middleware/organizationContext';
 import {ChapterRestore, fileChapterOrder, fileChapters} from '../services/chapterMigration';
@@ -461,14 +461,21 @@ backupRouter.get('/sponsors/export', async (_req, res, next) => {
   }
 });
 
+/** The statistics settings without the address of the old statistics bridge. */
+function withoutBridgeUrl(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const {bridgeUrl: _bridgeUrl, ...rest} = value as Record<string, unknown>;
+  return rest;
+}
+
 // GET /api/backup/settings/export
 // The chosen organization's settings and own club, plus the installation's active season (by name, for
 // reference: a restore into one organization doesn't change it).
 backupRouter.get('/settings/export', async (_req, res, next) => {
   try {
     const items = await prisma.organizationSetting.findMany({ orderBy: { key: 'asc' } });
-    // Secrets stay out of the backup (the bridge token, like the match source token)
-    const exportData: { key: string; value: unknown }[] = items.filter((s) => s.key !== MATCH_STATS_BRIDGE_TOKEN_KEY).map((s) => ({ key: s.key, value: s.value }));
+    // Secrets stay out of the backup (the old bridge token, like the match source token), and so does the old bridge address
+    const exportData: { key: string; value: unknown }[] = items.filter((s) => s.key !== MATCH_STATS_BRIDGE_TOKEN_KEY).map((s) => ({ key: s.key, value: s.key === MATCH_STATS_KEY ? withoutBridgeUrl(s.value) : s.value }));
     // The own club lives on the organization; exported under its old key so older and newer backups restore alike
     const ownClubId = await getOwnClubId();
     if (ownClubId !== null) {
@@ -1258,7 +1265,7 @@ backupRouter.post('/settings/import', async (req, res, next) => {
       try {
         if (typeof item?.key !== 'string' || !item.key) continue;
         const key: string = item.key;
-        const value = item.value ?? null;
+        const value = key === MATCH_STATS_KEY ? withoutBridgeUrl(item.value ?? null) : (item.value ?? null);
         if (key === MATCH_STATS_BRIDGE_TOKEN_KEY) continue;
         if (GLOBAL_SETTING_KEYS.has(key) || key === ACTIVE_SEASON_NAME_EXPORT_KEY) {
           logger.info(`Skipping setting ${key} from backup: it holds for the whole installation, not one organization`);

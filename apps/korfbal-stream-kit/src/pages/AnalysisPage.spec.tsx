@@ -99,7 +99,7 @@ describe('AnalysisPage', () => {
   });
 
   it('shows "De statistics bridge is offline" instead of the cards', async () => {
-    api(() => jsonResponse({error: 'De statistics bridge is offline', code: 'STATS_BRIDGE_OFFLINE'}, 503), {bridge: {ok: false, ms: null}});
+    api(() => jsonResponse({error: 'De venue-bridge is offline', code: 'VENUE_BRIDGE_OFFLINE'}, 503), {bridge: {ok: false, ms: null}});
     renderPage(<AnalysisPage/>);
     expect((await screen.findByRole('alert')).textContent).toBe('De statistics bridge is offline');
     expect(screen.queryByRole('region', {name: 'Verloop'})).toBeNull();

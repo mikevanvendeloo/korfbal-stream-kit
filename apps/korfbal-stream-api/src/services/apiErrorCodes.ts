@@ -75,11 +75,11 @@ export const API_ERRORS = {
     hint: 'Deze backup is van vóór de seizoenen: kies bij het herstellen in welk seizoen de spelers horen.',
   },
 
-  // Statistics bridge (its own app next to the API): unreachable, not answering in time or not a bridge
-  /** The statistics bridge is offline (the PC or share may be fine: only the bridge is down) */
-  STATS_BRIDGE_OFFLINE: {
-    status: 503, error: 'De statistics bridge is offline',
-    hint: 'Controleer of de statistics bridge draait en of het adres bij Instellingen → Statistieken klopt.',
+  // Venue-bridge (its own app at the venue): not connected, not answering in time or answering something else
+  /** The venue-bridge is offline (the venue's devices may be fine: only the bridge is down) */
+  VENUE_BRIDGE_OFFLINE: {
+    status: 503, error: 'De venue-bridge is offline',
+    hint: 'Controleer of de venue-bridge draait en of zijn API-sleutel nog geldig is.',
   },
 } as const;
 

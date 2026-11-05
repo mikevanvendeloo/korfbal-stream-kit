@@ -1,12 +1,16 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import axios from 'axios';
 import * as appSettings from './appSettings';
 import * as timing from './callsheetTiming';
 import * as instances from './vmixInstances';
 import {VmixCallsheetPushSchema} from '../schemas/vmixCallsheet';
-import {buildVmixCommands, buildVmixCommandUrl, getCallsheetPushConfig, pushCallsheetToVmix} from './vmixCallsheetPush';
+import * as bridge from './vmixBridge';
+import {buildVmixCommands, getCallsheetPushConfig, pushCallsheetToVmix, vmixCommandParams} from './vmixCallsheetPush';
 
-vi.mock('axios');
+vi.mock('./vmixBridge', () => ({vmixCall: vi.fn(), vmixInputs: vi.fn()}));
+vi.mock('./venueBridge', async () => {
+  class BridgeOfflineError extends Error {}
+  return {BridgeOfflineError, hasBridge: () => true};
+});
 vi.mock('./appSettings', async (importOriginal) => {
   const actual = await importOriginal<typeof appSettings>();
   return {...actual, getSetting: vi.fn(), setSetting: vi.fn()};
@@ -49,9 +53,9 @@ describe('buildVmixCommands', () => {
     ]);
   });
 
-  it('builds a vMix function URL with encoded values', () => {
-    expect(buildVmixCommandUrl('http://vmix:8088', 'Callsheet', {function: 'SetColor', selectedName: 'Achtergrond', value: '#22C55E'}))
-      .toBe('http://vmix:8088/api/?Function=SetColor&Input=Callsheet&SelectedName=Achtergrond&Value=%2322C55E');
+  it('builds the vMix call parameters the bridge sends', () => {
+    expect(vmixCommandParams('Callsheet', {function: 'SetColor', selectedName: 'Achtergrond', value: '#22C55E'}))
+      .toEqual({Function: 'SetColor', Input: 'Callsheet', SelectedName: 'Achtergrond', Value: '#22C55E'});
   });
 });
 
@@ -76,7 +80,7 @@ describe('pushCallsheetToVmix', () => {
   beforeEach(() => {
     vi.mocked(appSettings.getSetting).mockResolvedValue(config);
     vi.mocked(instances.resolveVmixInstance).mockResolvedValue({instance: {id: 'scherm', name: 'Scherm-PC', url: 'http://vmix:8088'}});
-    vi.mocked(axios.get).mockResolvedValue({data: ''});
+    vi.mocked(bridge.vmixCall).mockResolvedValue({ok: true});
   });
 
   afterEach(() => {
@@ -88,34 +92,38 @@ describe('pushCallsheetToVmix', () => {
     const first = await pushCallsheetToVmix(true, NOW);
     expect(first.sent).toBe(7);
 
-    vi.mocked(axios.get).mockClear();
+    expect(vi.mocked(bridge.vmixCall)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(bridge.vmixCall).mock.calls[0][0].commands).toHaveLength(7);
+    vi.mocked(bridge.vmixCall).mockClear();
     vi.mocked(timing.loadCallsheetTiming).mockResolvedValue(timingWith({currentTitle: 'Opening', currentRemaining: '00:29'}));
     const second = await pushCallsheetToVmix(false, new Date(NOW.getTime() + 1000));
     expect(second).toMatchObject({sent: 1, skipped: 6, errors: []});
-    expect(vi.mocked(axios.get).mock.calls[0][0]).toContain('SelectedName=Timer.Text&Value=00%3A29');
+    expect(vi.mocked(bridge.vmixCall).mock.calls[0][0].commands).toEqual([{Function: 'SetText', Input: 'Callsheet', SelectedName: 'Timer.Text', Value: '00:29'}]);
   });
 
-  it('retries a field when vMix did not accept it', async () => {
+  it('retries the batch when vMix did not accept it', async () => {
     vi.mocked(timing.loadCallsheetTiming).mockResolvedValue(timingWith({currentTitle: 'Opening'}));
-    vi.mocked(axios.get).mockRejectedValueOnce(new Error('ECONNREFUSED'));
+    vi.mocked(bridge.vmixCall).mockResolvedValueOnce({ok: false, error: 'unreachable'});
     const first = await pushCallsheetToVmix(true, NOW);
-    expect(first.errors).toEqual(['SetText Titel.Text: ECONNREFUSED']);
+    expect(first.errors).toEqual(['vMix: unreachable']);
 
-    vi.mocked(axios.get).mockClear();
+    vi.mocked(bridge.vmixCall).mockClear();
     const second = await pushCallsheetToVmix(false, new Date(NOW.getTime() + 1000));
-    expect(second.sent).toBe(1);
+    // The batch failed as a whole: all of it goes again
+    expect(second.sent).toBe(7);
   });
 
   it('sends to the vMix chosen for the callsheet', async () => {
     vi.mocked(timing.loadCallsheetTiming).mockResolvedValue(timingWith({currentTitle: 'Opening'}));
     await pushCallsheetToVmix(true, NOW);
     expect(instances.resolveVmixInstance).toHaveBeenCalledWith('callsheet');
-    expect(vi.mocked(axios.get).mock.calls[0][0]).toMatch(/^http:\/\/vmix:8088\/api\/\?/);
+    // The bridge picks the instance itself; a call for the callsheet function goes to it
+    expect(vi.mocked(bridge.vmixCall).mock.calls[0][0].function).toBe('callsheet');
   });
 
   it('does nothing without a vMix instance', async () => {
     vi.mocked(instances.resolveVmixInstance).mockResolvedValue({error: 'vMix Web URL is not configured'});
     expect((await pushCallsheetToVmix(true, NOW)).errors).toEqual(['vMix Web URL is not configured']);
-    expect(axios.get).not.toHaveBeenCalled();
+    expect(bridge.vmixCall).not.toHaveBeenCalled();
   });
 });

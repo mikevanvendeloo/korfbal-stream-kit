@@ -2,9 +2,8 @@ import {Router} from 'express';
 import {clearStatsBridgeCache} from '../services/stats/statsBridge';
 import {clearStatsTeamCache} from '../services/stats/statsTeam';
 import {
-  getBridgeToken,
   getMatchStats,
-  setBridgeToken,
+  MatchStatsSchema,
   setMatchStats,
   getScoreboardUrl,
   getSetting,
@@ -26,6 +25,7 @@ import {z} from 'zod';
 import {SponsorTypeEnum} from '../schemas/sponsor';
 import {VmixCallsheetPushSchema} from '../schemas/vmixCallsheet';
 import {getCallsheetPushConfig, setCallsheetPushConfig} from '../services/vmixCallsheetPush';
+import {scheduleVenueConfigPush} from '../services/venueConfig';
 import {VmixInstancesConfigSchema} from '../schemas/vmixInstances';
 import {getVmixInstancesConfig, setFirstVmixUrl, setVmixInstancesConfig} from '../services/vmixInstances';
 import {getOwnClubId, setOwnClubId} from '../services/ownClub';
@@ -58,6 +58,7 @@ settingsRouter.put('/vmix-url', async (req, res, next) => {
     if (!url) return res.status(400).json({ error: 'Missing vmixWebUrl' });
     if (!VmixUrlSchema.safeParse(url).success) return res.status(400).json({ error: 'Invalid URL for vMix Web URL' });
     await setFirstVmixUrl(url);
+    scheduleVenueConfigPush();
     return res.json({ vmixWebUrl: url });
   } catch (err) {
     return next(err);
@@ -78,7 +79,9 @@ settingsRouter.put('/vmix-instances', async (req, res, next) => {
   try {
     const parsed = VmixInstancesConfigSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({error: 'Invalid vMix instances', details: parsed.error.flatten()});
-    return res.json(await setVmixInstancesConfig(parsed.data));
+    const saved = await setVmixInstancesConfig(parsed.data);
+    scheduleVenueConfigPush();
+    return res.json(saved);
   } catch (err) {
     return next(err);
   }
@@ -148,10 +151,10 @@ settingsRouter.get('/scoreboard-config', async (_req, res, next) => {
       getScoreboardUrl(),
       getShotclockUrl(),
     ]);
-    // Return stored values, or fall back to config defaults if not set in DB
+    // The addresses are for the venue-bridge, which reads the devices
     return res.json({
-      scoreboardUrl: scoreboardUrl || config.scoreBoardBaseUrl,
-      shotclockUrl: shotclockUrl || config.shotClockBaseUrl
+      scoreboardUrl: scoreboardUrl || '',
+      shotclockUrl: shotclockUrl || ''
     });
   } catch (err) {
     return next(err);
@@ -171,6 +174,7 @@ settingsRouter.put('/scoreboard-config', async (req, res, next) => {
       setScoreboardUrl(parsed.scoreboardUrl || ''),
       setShotclockUrl(parsed.shotclockUrl || ''),
     ]);
+    scheduleVenueConfigPush();
     return res.json(parsed);
   } catch (err: any) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid payload' });
@@ -178,51 +182,24 @@ settingsRouter.put('/scoreboard-config', async (req, res, next) => {
   }
 });
 
-// GET /api/settings/match-stats: the bridge's address; the token is never returned (hasBridgeToken only)
+// GET /api/settings/match-stats: what the venue-bridge needs to read the statistics PC
 settingsRouter.get('/match-stats', async (_req, res, next) => {
   try {
-    const [{bridgeUrl}, token] = await Promise.all([getMatchStats(), getBridgeToken()]);
-    return res.json({bridgeUrl, hasBridgeToken: !!token});
+    return res.json(await getMatchStats());
   } catch (err) {
     return next(err);
   }
 });
 
-function originOf(url: string | null): string | null {
-  try {
-    return url ? new URL(url).origin : null;
-  } catch {
-    return null;
-  }
-}
-
-// PUT /api/settings/match-stats {bridgeUrl, bridgeToken?}: the statistics bridge (http or https: LAN device).
-// bridgeToken absent keeps it, null or '' removes it; it is also removed when the bridge's origin changes
-// without a new token, so a token never travels to another server.
-const MatchStatsSchema = z.object({
-  bridgeUrl: z.string().trim().max(500).nullable().optional().transform((v) => (v || null)?.replace(/\/+$/, '') ?? null)
-    .refine((v) => {
-      if (v === null) return true;
-      try {
-        const u = new URL(v);
-        return /^https?:$/.test(u.protocol) && !u.username && !u.password && !u.search && !u.hash;
-      } catch {
-        return false;
-      }
-    }, 'Het adres van de statistics bridge moet met http:// of https:// beginnen, zoals http://statistics-bridge:3340'),
-  bridgeToken: z.string().max(500).nullable().optional(),
-});
-
+// PUT /api/settings/match-stats {pageUrl, mdbPath, mdbEnabled, shareHost, keepCopy}; the bridge gets them at once
 settingsRouter.put('/match-stats', async (req, res, next) => {
   try {
     const parsed = MatchStatsSchema.parse(req.body);
-    const before = await getMatchStats();
-    await setMatchStats({bridgeUrl: parsed.bridgeUrl});
-    if (parsed.bridgeToken !== undefined) await setBridgeToken(parsed.bridgeToken || null);
-    else if (originOf(before.bridgeUrl) !== originOf(parsed.bridgeUrl)) await setBridgeToken(null);
+    await setMatchStats(parsed);
     clearStatsBridgeCache();
     clearStatsTeamCache();
-    return res.json({bridgeUrl: parsed.bridgeUrl, hasBridgeToken: !!(await getBridgeToken())});
+    scheduleVenueConfigPush();
+    return res.json(parsed);
   } catch (err: any) {
     if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid payload' });
     return next(err);

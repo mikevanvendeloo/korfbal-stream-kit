@@ -5,7 +5,7 @@ const relativePath = (v: string) => !/^([a-z]:|[\\/])/i.test(v) && !v.split(/[\\
 
 /** http(s) address of the "Tweede Scherm klassiek" page, or a relative .html path inside the share */
 export const StatsPageUrlSchema = z.string().trim().max(500).refine(
-  (v) => /^https?:\/\/[^\s/]+/i.test(v) || (relativePath(v) && /\.html?$/i.test(v)),
+  (v) => /^https?:\/\/[^\s/]+/i.test(v) || (relativePath(v) && !v.includes(':') && /\.html?$/i.test(v)),
   'pageUrl must be an http(s) URL or a relative .html path',
 );
 
