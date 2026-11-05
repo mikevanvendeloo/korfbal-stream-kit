@@ -301,7 +301,7 @@ jobs:
           echo "Branch tag prefix: $PREFIX"
 
           LATEST_INC=0
-          for APP in korfbal-stream-api korfbal-stream-kit statistics-bridge; do
+          for APP in korfbal-stream-api korfbal-stream-kit venue-bridge; do
             # A repository without tags (or not created yet) counts as no tags
             TAGS=$(skopeo list-tags --creds "$DOCKERHUB_USERNAME:$DOCKERHUB_TOKEN" "docker://docker.io/$DOCKERHUB_USERNAME/$APP" 2>/dev/null | jq -r '.Tags[]' || true)
             for TAG in $TAGS; do
@@ -345,7 +345,7 @@ jobs:
         # Matrix vectors may never be empty, so fall back to a 'none' placeholder
         # when no apps are affected (e.g. a root-config-only change) - the actual
         # build/push step is skipped for that placeholder below.
-        app: ${{ github.event_name == 'workflow_dispatch' && fromJson('[{"original":"korfbal-stream-api","sanitized":"korfbal-stream-api"},{"original":"korfbal-stream-kit","sanitized":"korfbal-stream-kit"},{"original":"statistics-bridge","sanitized":"statistics-bridge"}]') || (needs.ci-checks.outputs.affected_apps_json != '' && needs.ci-checks.outputs.affected_apps_json != '[]' && fromJson(needs.ci-checks.outputs.affected_apps_json)) || fromJson('[{"original":"none","sanitized":"none"}]') }}
+        app: ${{ github.event_name == 'workflow_dispatch' && fromJson('[{"original":"korfbal-stream-api","sanitized":"korfbal-stream-api"},{"original":"korfbal-stream-kit","sanitized":"korfbal-stream-kit"},{"original":"venue-bridge","sanitized":"venue-bridge"}]') || (needs.ci-checks.outputs.affected_apps_json != '' && needs.ci-checks.outputs.affected_apps_json != '[]' && fromJson(needs.ci-checks.outputs.affected_apps_json)) || fromJson('[{"original":"none","sanitized":"none"}]') }}
         platform: [linux/amd64, linux/arm64]
 
     steps:
@@ -466,7 +466,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: ${{ github.event_name == 'workflow_dispatch' && fromJson('[{"original":"korfbal-stream-api","sanitized":"korfbal-stream-api"},{"original":"korfbal-stream-kit","sanitized":"korfbal-stream-kit"},{"original":"statistics-bridge","sanitized":"statistics-bridge"}]') || (needs.ci-checks.outputs.affected_apps_json != '' && needs.ci-checks.outputs.affected_apps_json != '[]' && fromJson(needs.ci-checks.outputs.affected_apps_json)) || fromJson('[{"original":"none","sanitized":"none"}]') }}
+        app: ${{ github.event_name == 'workflow_dispatch' && fromJson('[{"original":"korfbal-stream-api","sanitized":"korfbal-stream-api"},{"original":"korfbal-stream-kit","sanitized":"korfbal-stream-kit"},{"original":"venue-bridge","sanitized":"venue-bridge"}]') || (needs.ci-checks.outputs.affected_apps_json != '' && needs.ci-checks.outputs.affected_apps_json != '[]' && fromJson(needs.ci-checks.outputs.affected_apps_json)) || fromJson('[{"original":"none","sanitized":"none"}]') }}
 
     steps:
       - name: Login to Docker Hub
@@ -546,7 +546,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_DESCRIPTION_TOKEN || secrets.DOCKERHUB_TOKEN }}
           repository: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}
           readme-filepath: apps/${{ matrix.app.sanitized }}/DOCKERHUB.md
-          short-description: ${{ matrix.app.sanitized == 'statistics-bridge' && 'Korfbal StreamKit statistics bridge – leest de statistiek-pc (share en pagina) uit voor de Streamz API' || matrix.app.sanitized == 'korfbal-stream-api' && 'Korfbal StreamKit API – producties, callsheets, live show control en vMix-databronnen' || 'Korfbal StreamKit webapp – LIVE callsheet en Show Caller, plus Beheer voor producties' }}
+          short-description: ${{ matrix.app.sanitized == 'venue-bridge' && 'Korfbal StreamKit statistics bridge – leest de statistiek-pc (share en pagina) uit voor de Streamz API' || matrix.app.sanitized == 'korfbal-stream-api' && 'Korfbal StreamKit API – producties, callsheets, live show control en vMix-databronnen' || 'Korfbal StreamKit webapp – LIVE callsheet en Show Caller, plus Beheer voor producties' }}
 
   create-git-tag:
     name: Create Git Tag

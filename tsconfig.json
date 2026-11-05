@@ -11,6 +11,12 @@
     },
     {
       "path": "./apps/korfbal-stream-api"
+    },
+    {
+      "path": "./libs/venue-protocol"
+    },
+    {
+      "path": "./apps/venue-bridge"
     }
   ]
 }
