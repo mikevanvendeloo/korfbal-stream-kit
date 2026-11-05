@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { Button } from './ui/button';
+import { Button } from '@korfbal-stream-kit/ui';
 import { MdErrorOutline, MdRefresh } from 'react-icons/md';
 
 interface Props {

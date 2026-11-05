@@ -1,0 +1,89 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@korfbal-stream-kit/venue-bridge",
+  "projectType": "application",
+  "root": "apps/venue-bridge",
+  "sourceRoot": "apps/venue-bridge/src",
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "defaultConfiguration": "production",
+      "options": {
+        "platform": "node",
+        "outputPath": "dist/apps/venue-bridge",
+        "format": [
+          "cjs"
+        ],
+        "bundle": true,
+        "main": "apps/venue-bridge/src/main.ts",
+        "tsConfig": "apps/venue-bridge/tsconfig.app.json",
+        "generatePackageJson": false,
+        "esbuildOptions": {
+          "sourcemap": true,
+          "outExtension": {
+            ".js": ".js"
+          }
+        },
+        "thirdParty": false,
+        "deleteOutputPath": false
+      },
+      "configurations": {
+        "development": {},
+        "production": {
+          "generateLockfile": true,
+          "esbuildOptions": {
+            "sourcemap": false,
+            "outExtension": {
+              ".js": ".js"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "@korfbal-stream-kit/venue-bridge-ui:build"
+      ]
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsx watch apps/venue-bridge/src/main.ts"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest run --config apps/venue-bridge/vitest.config.ts",
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "lintFilePatterns": [
+          "apps/venue-bridge/**/*.ts"
+        ]
+      }
+    },
+    "typecheck": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "tsConfig": "apps/venue-bridge/tsconfig.app.json",
+        "noEmit": true
+      }
+    },
+    "docker:build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker build -f apps/venue-bridge/Dockerfile -t streamz-kit-venue-bridge:latest .",
+        "cwd": "."
+      }
+    }
+  },
+  "tags": [],
+  "implicitDependencies": [
+    "@korfbal-stream-kit/venue-bridge-ui"
+  ]
+}

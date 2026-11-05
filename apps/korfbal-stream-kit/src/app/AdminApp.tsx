@@ -59,6 +59,7 @@ import {ErrorBoundary} from "../components/ErrorBoundary";
 import ProductionTimingReportPage from "../pages/ProductionTimingReportPage";
 import {useActiveSeason, useSeasonChangedSync} from "../hooks/useSeasons";
 import ThemeToggle from "../components/ThemeToggle";
+import VenueBridgeIndicator from "../components/VenueBridgeIndicator";
 import {NavDropdown, navMenuHeadingClass, navMenuItemClass} from "../components/NavDropdown";
 import NotFound from "../components/NotFound";
 import ManualView from '../handleiding/ManualView';
@@ -227,6 +228,7 @@ function Nav() {
         <div className="flex items-center gap-2">
           <OrganizationMenu open={openMenu === ORGANIZATION_MENU}
                             onToggle={(open) => setOpenMenu((current) => open ? ORGANIZATION_MENU : (current === ORGANIZATION_MENU ? null : current))}/>
+          <VenueBridgeIndicator/>
           <ActiveSeasonBadge/>
           <HelpButton/>
           <SettingsMenu open={openMenu === SETTINGS_MENU}

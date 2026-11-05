@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../../dist/apps/venue-bridge",
+    "module": "es2020",
+    "target": "es2020",
+    "moduleResolution": "bundler",
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "types": ["node"],
+    "rootDir": "../.."
+  },
+  "include": ["src/**/*.ts", "../../libs/venue-protocol/src/**/*.ts"],
+  "exclude": ["src/**/*.spec.ts", "../../libs/**/*.spec.ts", "src/test-setup.ts"],
+  "references": [
+    {
+      "path": "../../libs/venue-protocol"
+    }
+  ]
+}

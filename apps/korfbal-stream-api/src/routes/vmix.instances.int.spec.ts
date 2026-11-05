@@ -1,61 +1,42 @@
 import request from 'supertest';
-import http from 'node:http';
-import {AddressInfo} from 'node:net';
 import app from '../main';
-import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'vitest';
+import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest';
 import {getSetting, setSetting, VMIX_URL_KEY} from '../services/appSettings';
 import {VMIX_INSTANCES_KEY} from '../services/vmixInstances';
 import {VMIX_CALLSHEET_PUSH_KEY} from '../services/vmixCallsheetPush';
-import {inTestOrganization} from '../../test-helpers';
+import {inTestOrganization, testOrganizationId} from '../../test-helpers';
+import {connectFakeBridge, createBridgeKey, type FakeBridge} from '../test-support/fakeBridge';
 
 const runDb = process.env.REQUIRE_DB === 'true';
 
-// What vMix answers to /api/ without a function: its state, with the inputs
-const VMIX_STATE = `<vmix><version>28.0.0.39</version><inputs>
-<input key="11111111-aaaa-bbbb-cccc-000000000001" number="1" type="Capture" title="Camera 1" state="Running">Camera 1</input>
-<input key="22222222-aaaa-bbbb-cccc-000000000002" number="2" type="GT" title="Callsheet.gtzip" state="Paused">Callsheet.gtzip
-<text index="0" name="Titel.Text">Opening</text>
-<text index="1" name="Timer.Text">00:30</text>
-</input>
-</inputs></vmix>`;
-
-/** A stand-in for one vMix PC that remembers the function calls it got. */
-function fakeVmix() {
-  const calls: string[] = [];
-  const server = http.createServer((req, res) => {
-    calls.push(req.url ?? '');
-    res.end(VMIX_STATE);
-  });
-  return {
-    calls,
-    server,
-    start: () => new Promise<string>((resolve) => server.listen(0, '127.0.0.1', () =>
-      resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`))),
-    stop: () => new Promise<void>((resolve) => server.close(() => resolve())),
-  };
-}
+// vMix itself is at the venue: the API asks the venue-bridge, which picks the instance and talks to vMix (its own tests).
+const INPUTS = [
+  {key: '11111111-aaaa-bbbb-cccc-000000000001', number: 1, type: 'Capture', title: 'Camera 1', fields: []},
+  {key: '22222222-aaaa-bbbb-cccc-000000000002', number: 2, type: 'GT', title: 'Callsheet.gtzip', fields: ['Titel.Text', 'Timer.Text']},
+];
 
 describe.runIf(runDb)('vMix instances (integration)', () => {
-  const stream = fakeVmix();
-  const scherm = fakeVmix();
-  let streamUrl = '';
-  let schermUrl = '';
+  const streamUrl = 'http://10.0.0.1:8088';
+  const schermUrl = 'http://10.0.0.2:8088';
   let previous: { instances: unknown; url: unknown } = {instances: null, url: null};
+  let bridge: FakeBridge;
+  let key: string;
 
   beforeAll(async () => {
     previous = {instances: await inTestOrganization(() => getSetting(VMIX_INSTANCES_KEY)), url: await inTestOrganization(() => getSetting(VMIX_URL_KEY))};
-    [streamUrl, schermUrl] = await Promise.all([stream.start(), scherm.start()]);
+    key = await createBridgeKey(await testOrganizationId());
   });
 
-  beforeEach(() => {
-    stream.calls.length = 0;
-    scherm.calls.length = 0;
+  beforeEach(async () => {
+    bridge = await connectFakeBridge(key);
+    bridge.on('vmix:inputs', () => ({ok: true, instance: 'Scherm-PC', inputs: INPUTS}));
   });
+
+  afterEach(() => bridge.close());
 
   afterAll(async () => {
     await inTestOrganization(() => setSetting(VMIX_INSTANCES_KEY, previous.instances as never));
     await inTestOrganization(() => setSetting(VMIX_URL_KEY, previous.url as never));
-    await Promise.all([stream.stop(), scherm.stop()]);
   });
 
   it('stores several vMix instances and which one each function uses', async () => {
@@ -83,21 +64,23 @@ describe.runIf(runDb)('vMix instances (integration)', () => {
     const res = await request(app).post('/api/vmix/set-timer').send({seconds: 30});
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ok: true, seconds: 30, instance: 'Scherm-PC'});
-    expect(scherm.calls).toEqual(['/api/?Function=SetCountdown&Value=00%3A30']);
-    expect(stream.calls).toEqual([]);
+    // The bridge picks the instance from its configuration: the countdown function, no instance named
+    expect(bridge.requestsOf('vmix:call')).toEqual([{function: 'countdown', commands: [{Function: 'SetCountdown', Value: '00:30'}]}]);
 
-    await request(app).post('/api/vmix/set-timer').send({seconds: 10, instanceId: 'stream-pc'}).expect(200);
-    expect(stream.calls).toEqual(['/api/?Function=SetCountdown&Value=00%3A10']);
+    const named = await request(app).post('/api/vmix/set-timer').send({seconds: 10, instanceId: 'stream-pc'});
+    expect(named.body).toMatchObject({instance: 'Stream-PC'});
+    expect(bridge.requestsOf('vmix:call')[1]).toEqual({function: 'countdown', instanceId: 'stream-pc', commands: [{Function: 'SetCountdown', Value: '00:10'}]});
 
     const unknown = await request(app).post('/api/vmix/set-timer').send({seconds: 10, instanceId: 'weg'});
     expect(unknown.status).toBe(400);
     expect(unknown.body.error).toBe('vMix instance "weg" is not configured');
   });
 
-  it('answers 502 without the vMix address when vMix is unreachable', async () => {
+  it('answers 502 without the vMix address when the bridge cannot reach vMix', async () => {
     await request(app).put('/api/settings/vmix-instances').send({
       instances: [{id: 'stream-pc', name: 'Stream-PC', url: 'http://127.0.0.1:1'}],
     });
+    bridge.on('vmix:call', () => ({ok: false, error: 'unreachable'}));
     const res = await request(app).post('/api/vmix/set-timer').send({seconds: 30});
     expect(res.status).toBe(502);
     expect(res.body).toEqual({error: 'vMix niet bereikbaar'});
@@ -115,11 +98,11 @@ describe.runIf(runDb)('vMix instances (integration)', () => {
       {key: '11111111-aaaa-bbbb-cccc-000000000001', number: 1, type: 'Capture', title: 'Camera 1', fields: []},
       {key: '22222222-aaaa-bbbb-cccc-000000000002', number: 2, type: 'GT', title: 'Callsheet.gtzip', fields: ['Titel.Text', 'Timer.Text']},
     ]});
-    // One request for the XML state (axios drops the empty "?" of /api/?)
-    expect(scherm.calls).toEqual(['/api/']);
+    expect(bridge.requestsOf('vmix:inputs')).toEqual([{function: 'callsheet'}]);
 
     expect((await request(app).get('/api/vmix/inputs?function=onbekend')).status).toBe(400);
     await request(app).put('/api/settings/vmix-instances').send({instances: [{id: 'weg', name: 'Weg', url: 'http://127.0.0.1:1'}]});
+    bridge.on('vmix:inputs', () => ({ok: false, error: 'unreachable'}));
     const down = await request(app).get('/api/vmix/inputs');
     expect(down.status).toBe(502);
     expect(down.text).not.toContain('127.0.0.1');

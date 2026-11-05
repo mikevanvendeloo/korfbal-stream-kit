@@ -78,21 +78,6 @@ export async function getVmixUrl(): Promise<string | null> {
   return getSetting<string>(VMIX_URL_KEY);
 }
 
-/** http://host:8088/api/?<query>, the form the vMix Developer API documents (also when the base ends in /api). */
-export function buildVmixApiUrl(base: string, query: string): string {
-  const root = (base || '').replace(/\/+$/, '').replace(/\/api$/i, '');
-  return `${root}/api/?${query.replace(/^\?/, '')}`;
-}
-
-/**
- * A vMix function call. Values are percent-encoded: a space is %20, not the form-encoding "+", which a
- * server need not read as a space ("Eerste helft" could arrive as "Eerste+helft").
- */
-export function buildVmixFunctionUrl(base: string, params: Record<string, string>): string {
-  const query = Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
-  return buildVmixApiUrl(base, query);
-}
-
 export async function getSponsorNamesTypes(): Promise<string[]> {
   const val = await getSetting<string[]>(SPONSOR_NAMES_TYPES_KEY);
   return val || ['premium', 'goud', 'zilver']; // default
@@ -121,27 +106,33 @@ export async function setSponsorSlidesTypes(types: string[]): Promise<void> {
 }
 
 export const MATCH_STATS_KEY = 'matchStats';
-/** The bridge's shared secret lives under its own key so it can be kept out of the settings backup. */
+/** Stored by older versions (the statistics bridge's token): ignored, and left out of the settings backup. */
 export const MATCH_STATS_BRIDGE_TOKEN_KEY = 'matchStatsBridgeToken';
-/** bridgeUrl: the statistics bridge (its own app, one per venue) that reads the statistics PC; older values (pageUrl, mdbPath, ...) are ignored */
-export type MatchStatsSetting = {bridgeUrl: string | null};
+
+const relativePath = (v: string) => !/^([a-z]:|[\\/])/i.test(v) && !v.split(/[\\/]+/).includes('..');
+
+/** The statistics settings the venue-bridge needs to read the statistics PC (it sits at the venue, the API does not read it). */
+export const MatchStatsSchema = z.object({
+  /** http(s) address of the "Tweede Scherm klassiek" page, or a relative .html path inside the share */
+  pageUrl: z.string().trim().max(500).nullable().default(null).transform((v) => v || null)
+    .refine((v) => v === null || /^https?:\/\/[^\s/]+/i.test(v) || (relativePath(v) && !v.includes(':') && /\.html?$/i.test(v)), 'De pagina moet een http(s)-adres of een relatief .html-pad zijn'),
+  /** Path of WEDSTRIJDEN.mdb inside the share; {team} becomes the team number */
+  mdbPath: z.string().trim().max(300).nullable().default(null).transform((v) => v || null)
+    .refine((v) => v === null || (relativePath(v) && /\.(mdb|accdb)$/i.test(v)), 'Het databasepad moet relatief zijn (zonder ..) en op .mdb of .accdb eindigen'),
+  mdbEnabled: z.boolean().default(true),
+  shareHost: z.string().trim().max(200).nullable().default(null).transform((v) => v || null),
+  keepCopy: z.boolean().default(true),
+});
+export type MatchStatsSetting = z.infer<typeof MatchStatsSchema>;
 
 export async function getMatchStats(): Promise<MatchStatsSetting> {
-  const v = await getSetting<Partial<MatchStatsSetting>>(MATCH_STATS_KEY);
-  return {bridgeUrl: v?.bridgeUrl || null};
+  const parsed = MatchStatsSchema.safeParse((await getSetting<unknown>(MATCH_STATS_KEY)) ?? {});
+  // Older values (bridgeUrl) are ignored; anything that no longer validates counts as not set
+  return parsed.success ? parsed.data : MatchStatsSchema.parse({});
 }
 
 export async function setMatchStats(input: MatchStatsSetting): Promise<void> {
   await setSetting(MATCH_STATS_KEY, input);
-}
-
-/** The bridge token: never returned by an API route, only sent to the bridge. */
-export async function getBridgeToken(): Promise<string | null> {
-  return (await getSetting<string>(MATCH_STATS_BRIDGE_TOKEN_KEY)) || null;
-}
-
-export async function setBridgeToken(token: string | null): Promise<void> {
-  await setSetting(MATCH_STATS_BRIDGE_TOKEN_KEY, token ?? '');
 }
 
 export async function getScoreboardUrl(): Promise<string | null> {

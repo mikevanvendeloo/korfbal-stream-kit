@@ -6,13 +6,12 @@ import request from 'supertest';
 import ExcelJS from 'exceljs';
 import express from 'express';
 import {errorHandler} from './middleware/error';
-import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest';
+import {afterAll, afterEach, beforeAll, describe, expect, it, vi} from 'vitest';
 import {io as ioClient, Socket as ClientSocket} from 'socket.io-client';
 import app, {httpServer} from './main';
 import * as liveState from './services/productionState';
 import {timeSyncService} from './services/timeSyncService';
 import {hasPushMemory, pushForActiveOrganizations} from './services/vmixCallsheetPush';
-import {syncVenueClocks, venueClockSyncService} from './services/venueClockSyncService';
 import {setSetting} from './services/appSettings';
 import {hashApiKey, LAST_USED_WRITE_INTERVAL_MS} from './services/apiKeys';
 import {isSameOriginRequest} from './middleware/sameOrigin';
@@ -21,6 +20,7 @@ import {logger} from './utils/logger';
 import {getAssetsRoot} from './services/config';
 import {saveMatchSource} from './services/matchSchedule';
 import {recordingServer} from './test-support/recordingServer';
+import {connectFakeBridge, createBridgeKey, okReading, type FakeBridge} from './test-support/fakeBridge';
 import {prisma as appPrisma, prismaUnscoped} from './services/prisma';
 import {MissingOrganizationContextError, runWithOrganization} from './services/organizationContext';
 import {ensureOrganization, inTestOrganization, recordQueries, TEST_ORGANIZATION_SLUG, testDb as prisma, testOrganizationId, withoutOrganization} from '../test-helpers';
@@ -987,9 +987,6 @@ function connectClient(url: string, auth: Record<string, unknown> = {}): Promise
   });
 }
 
-/** A recorded URL as text: vMix command values are form-encoded (space = +). */
-const decodeQuery = (url: string) => decodeURIComponent(url.replace(/\+/g, ' '));
-
 const GLOBAL_EVENTS = new Set(['heartbeat', 'season_changed']);
 
 describe('socket handshake origin', () => {
@@ -1232,21 +1229,22 @@ describe.runIf(runDb)('interview choice event per organization (integration)', (
 describe.runIf(runDb)('background services per organization (integration)', () => {
   const PA = 'sec-push-a';
   const PB = 'sec-push-b';
-  const servers: Array<Awaited<ReturnType<typeof recordingServer>>> = [];
   let orgA: number;
   let orgB: number;
   let a: ProductionScenario;
   let b: ProductionScenario;
-  let vmixA: Awaited<ReturnType<typeof recordingServer>>;
-  let vmixB: Awaited<ReturnType<typeof recordingServer>>;
-  let boardA: Awaited<ReturnType<typeof recordingServer>>;
-  let boardB: Awaited<ReturnType<typeof recordingServer>>;
+  let bridgeA: FakeBridge;
+  let bridgeB: FakeBridge;
 
-  async function configure(organizationId: number, vmixUrl: string, boardUrl: string, input: string) {
+  /** Everything a bridge was asked to send to vMix, as text. */
+  const sentTo = (bridge: FakeBridge) => JSON.stringify(bridge.requestsOf('vmix:call'));
+  const clockOf = async (organizationId: number) =>
+    (await runWithOrganization(organizationId, async () => liveState.liveStateSnapshot())).clocks.scoreboardTime;
+
+  async function configure(organizationId: number, input: string) {
     await runWithOrganization(organizationId, async () => {
-      await setSetting('vmixInstances', {instances: [{id: 'pc', name: 'PC', url: vmixUrl}], targets: {}});
+      await setSetting('vmixInstances', {instances: [{id: 'pc', name: 'PC', url: 'http://10.9.9.9:8088'}], targets: {}});
       await setSetting('vmixCallsheetPush', {enabled: true, input, positions: [], current: {titleField: 'Titel.Text'}});
-      await setSetting('scoreboardUrl', boardUrl);
     });
   }
 
@@ -1255,31 +1253,29 @@ describe.runIf(runDb)('background services per organization (integration)', () =
     orgB = await ensureOrganization(prisma, PB, 'Sec Push B');
     a = await createProductionScenario(prisma, {organizationId: orgA, active: true, items: [{title: 'PushAlpha item', status: 'ACTIVE'}]});
     b = await createProductionScenario(prisma, {organizationId: orgB, active: true, items: [{title: 'PushBeta item', status: 'ACTIVE'}]});
-    vmixA = await recordingServer({status: 200, body: ''});
-    vmixB = await recordingServer({status: 200, body: ''});
-    boardA = await recordingServer({status: 200, body: '["12","34"]'});
-    boardB = await recordingServer({status: 200, body: '["05","06"]'});
-    servers.push(vmixA, vmixB, boardA, boardB);
-    await configure(orgA, vmixA.url, boardA.url, 'InputAlpha');
-    await configure(orgB, vmixB.url, boardB.url, 'InputBeta');
+    await configure(orgA, 'InputAlpha');
+    await configure(orgB, 'InputBeta');
+    bridgeA = await connectFakeBridge(await createBridgeKey(orgA));
+    bridgeB = await connectFakeBridge(await createBridgeKey(orgB));
     // The loops follow the live state in memory: both shows run (as after a restart with an active item)
     for (const organizationId of [orgA, orgB]) await runWithOrganization(organizationId, liveState.restoreLiveState);
   });
 
   afterAll(async () => {
+    bridgeA?.close();
+    bridgeB?.close();
     for (const organizationId of [orgA, orgB]) if (organizationId) liveState.discardLiveState(organizationId);
-    await Promise.all(servers.map((s) => s.close()));
     await a?.cleanup();
     await b?.cleanup();
     await prisma.organization.deleteMany({where: {slug: {in: [PA, PB]}}});
   });
 
-  it('pushes each organization\'s callsheet to its own vMix only', async () => {
+  it('pushes each organization\'s callsheet through its own bridge only', async () => {
     await pushForActiveOrganizations();
-    const sentA = vmixA.urls.map(decodeQuery).join('\n');
-    const sentB = vmixB.urls.map(decodeQuery).join('\n');
+    const sentA = sentTo(bridgeA);
+    const sentB = sentTo(bridgeB);
     expect(sentA).toContain('PushAlpha item');
-    expect(sentA).toContain('Input=InputAlpha');
+    expect(sentA).toContain('InputAlpha');
     expect(sentA).not.toContain('PushBeta');
     expect(sentA).not.toContain('InputBeta');
     expect(sentB).toContain('PushBeta item');
@@ -1288,88 +1284,37 @@ describe.runIf(runDb)('background services per organization (integration)', () =
   });
 
   it('remembers what was sent per organization (a change in A doesn\'t make B skip or resend)', async () => {
-    vmixA.urls.length = 0;
-    vmixB.urls.length = 0;
+    bridgeA.requests.length = 0;
+    bridgeB.requests.length = 0;
     await runWithOrganization(orgA, () => prisma.productionEvent.update({where: {id: a.eventIds[0]}, data: {title: 'PushAlpha renamed'}}));
     await pushForActiveOrganizations();
-    expect(vmixA.urls.map(decodeQuery).join('\n')).toContain('PushAlpha renamed');
-    expect(vmixB.urls.map(decodeQuery).join('\n')).not.toContain('PushBeta item');
+    expect(sentTo(bridgeA)).toContain('PushAlpha renamed');
+    expect(sentTo(bridgeB)).not.toContain('PushBeta item');
   });
 
-  it('syncs each organization\'s venue clock from its own scoreboard', async () => {
-    await syncVenueClocks();
-    expect((await runWithOrganization(orgA, async () => liveState.liveStateSnapshot())).clocks.scoreboardTime).toBe(12 * 60 + 34);
-    expect((await runWithOrganization(orgB, async () => liveState.liveStateSnapshot())).clocks.scoreboardTime).toBe(5 * 60 + 6);
-    expect(boardA.urls).toContain('/v1/time-as-array');
-    expect(boardB.urls).toContain('/v1/time-as-array');
+  it('takes each organization\'s venue clock from its own bridge only', async () => {
+    bridgeA.sendReading(okReading('clock', ['12', '34']));
+    bridgeB.sendReading(okReading('clock', ['05', '06']));
+    await waitFor(async () => (await clockOf(orgA)) === 12 * 60 + 34 && (await clockOf(orgB)) === 5 * 60 + 6);
+    expect(await clockOf(orgA)).toBe(12 * 60 + 34);
+    expect(await clockOf(orgB)).toBe(5 * 60 + 6);
+    // A's next reading moves A only
+    bridgeA.sendReading(okReading('clock', ['12', '33']));
+    await waitFor(async () => (await clockOf(orgA)) === 12 * 60 + 33);
+    expect(await clockOf(orgB)).toBe(5 * 60 + 6);
   });
 
-  it('doesn\'t let a dripping scoreboard of one organization stall another\'s clock', async () => {
-    const drip = await scoreboardServer('drip');
-    const counting = await scoreboardServer('count');
-    const clockOf = async (organizationId: number) =>
-      (await runWithOrganization(organizationId, async () => liveState.liveStateSnapshot())).clocks.scoreboardTime;
-    await runWithOrganization(orgA, () => setSetting('scoreboardUrl', drip.url));
-    await runWithOrganization(orgB, () => setSetting('scoreboardUrl', counting.url));
-    try {
-      // One round ends at the wall-clock deadline, although the scoreboard keeps sending a byte now and then
-      const started = Date.now();
-      await syncVenueClocks();
-      expect(Date.now() - started).toBeLessThan(1500);
-      expect(await clockOf(orgB)).toBe(1);
-
-      // The timer: B's clock moves on every second while A's scoreboard drips
-      venueClockSyncService.start();
-      try {
-        await waitFor(() => counting.requests() >= 4, 4500);
-      } finally {
-        venueClockSyncService.stop();
-      }
-      expect(counting.requests()).toBeGreaterThanOrEqual(4);
-      expect(await clockOf(orgB)).toBeGreaterThanOrEqual(3);
-      expect(await clockOf(orgA)).toBe(12 * 60 + 34);
-    } finally {
-      await runWithOrganization(orgA, () => setSetting('scoreboardUrl', boardA.url));
-      await runWithOrganization(orgB, () => setSetting('scoreboardUrl', boardB.url));
-      await Promise.all([drip.close(), counting.close()]);
-    }
-  });
+  it('doesn\'t let a bridge that never answers hold up another organization\'s push', async () => {
+    bridgeA.on('vmix:call', () => new Promise(() => undefined));
+    bridgeB.requests.length = 0;
+    await runWithOrganization(orgB, () => prisma.productionEvent.update({where: {id: b.eventIds[0]}, data: {title: 'PushBeta renamed'}}));
+    const started = Date.now();
+    const round = pushForActiveOrganizations();
+    await waitFor(() => sentTo(bridgeB).includes('PushBeta renamed'), 2500);
+    expect(Date.now() - started).toBeLessThan(2500);
+    await round;
+  }, 15_000);
 });
-
-/**
- * A scoreboard answering time-as-array. `count`: 00:01, 00:02, … per request. `drip`: sends one byte
- * every 100 ms for 5 s and never a valid answer (each byte resets an idle timeout).
- */
-async function scoreboardServer(mode: 'count' | 'drip') {
-  let requests = 0;
-  const timers = new Set<NodeJS.Timeout>();
-  const server = http.createServer((_req, res) => {
-    requests++;
-    res.writeHead(200, {'content-type': 'application/json'});
-    if (mode === 'count') return void res.end(JSON.stringify(['00', String(requests).padStart(2, '0')]));
-    res.write('[');
-    let sent = 0;
-    const timer = setInterval(() => {
-      if (++sent > 50 || res.destroyed) {
-        clearInterval(timer);
-        timers.delete(timer);
-        return void res.end();
-      }
-      res.write(' ');
-    }, 100);
-    timers.add(timer);
-  });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  return {
-    url: `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`,
-    requests: () => requests,
-    close: () => new Promise<void>((resolve) => {
-      timers.forEach(clearInterval);
-      server.closeAllConnections();
-      server.close(() => resolve());
-    }),
-  };
-}
 
 describe.runIf(runDb)('API keys on the feed routes (integration)', () => {
   const KA = 'sec-key-a';
@@ -1863,25 +1808,22 @@ describe.runIf(runDb)('background loops follow the live state in memory (integra
   const IDLE = 'sec-loop-idle';
   let organizationId: number;
   let show: ProductionScenario;
-  let vmix: Awaited<ReturnType<typeof recordingServer>>;
-  let board: Awaited<ReturnType<typeof recordingServer>>;
+  let bridge: FakeBridge;
 
   beforeAll(async () => {
     organizationId = await ensureOrganization(prisma, IDLE, 'Sec Loop Idle');
     // Active in the database, but no show runs (not started, no live state)
     show = await createProductionScenario(prisma, {organizationId, active: true, items: [{title: 'IdleLoop item', status: 'ACTIVE'}]});
-    vmix = await recordingServer({status: 200, body: ''});
-    board = await recordingServer({status: 200, body: '["01","02"]'});
     await runWithOrganization(organizationId, async () => {
-      await setSetting('vmixInstances', {instances: [{id: 'pc', name: 'PC', url: vmix.url}], targets: {}});
+      await setSetting('vmixInstances', {instances: [{id: 'pc', name: 'PC', url: 'http://10.9.9.9:8088'}], targets: {}});
       await setSetting('vmixCallsheetPush', {enabled: true, input: 'IdleInput', positions: [], current: {titleField: 'Titel.Text'}});
-      await setSetting('scoreboardUrl', board.url);
     });
+    bridge = await connectFakeBridge(await createBridgeKey(organizationId));
   });
 
   afterAll(async () => {
     liveState.discardLiveState(organizationId);
-    await Promise.all([vmix?.close(), board?.close()]);
+    bridge?.close();
     await show?.cleanup();
     await prisma.organization.deleteMany({where: {slug: IDLE}});
   });
@@ -1890,28 +1832,24 @@ describe.runIf(runDb)('background loops follow the live state in memory (integra
     expect(liveState.liveOrganizationIds()).not.toContain(organizationId);
     const queries = await recordQueries(async () => {
       await pushForActiveOrganizations();
-      await syncVenueClocks();
     });
     expect(queries).toEqual([]);
-    expect(vmix.urls).toEqual([]);
-    expect(board.urls).toEqual([]);
+    expect(bridge.requestsOf('vmix:call')).toEqual([]);
   });
 
-  it('pushes and syncs once the show runs, and stops again when it stops', async () => {
+  it('pushes and takes the venue clock once the show runs, and stops again when it stops', async () => {
     await runWithOrganization(organizationId, liveState.restoreLiveState);
     expect(liveState.liveOrganizationIds()).toContain(organizationId);
     await pushForActiveOrganizations();
-    await syncVenueClocks();
-    expect(vmix.urls.map(decodeQuery).join('\n')).toContain('IdleLoop item');
-    expect(board.urls).toContain('/v1/time-as-array');
+    bridge.sendReading(okReading('clock', ['01', '02']));
+    await waitFor(async () => (await runWithOrganization(organizationId, async () => liveState.liveStateSnapshot())).clocks.scoreboardTime === 62);
+    expect(JSON.stringify(bridge.requestsOf('vmix:call'))).toContain('IdleLoop item');
 
     await runWithOrganization(organizationId, () => liveState.stopProduction(show.productionId));
     expect(liveState.liveOrganizationIds()).not.toContain(organizationId);
-    vmix.urls.length = 0;
-    board.urls.length = 0;
+    bridge.requests.length = 0;
     await pushForActiveOrganizations();
-    await syncVenueClocks();
-    expect([vmix.urls, board.urls]).toEqual([[], []]);
+    expect(bridge.requests).toEqual([]);
   });
 });
 
@@ -1983,5 +1921,162 @@ describe.runIf(runDb)('Zaal › (venue-next, parallel-lanes)', () => {
     liveState.discardLiveState(organizationId);
     expect(state.venueTimer).toBeNull();
     expect(liveState.hasLiveState(organizationId)).toBe(false);
+  });
+});
+
+describe.runIf(runDb)('venue-bridge connection (integration)', () => {
+  const VA = 'sec-venue-bridge-a';
+  const VB = 'sec-venue-bridge-b';
+  let orgA: number;
+  let orgB: number;
+  let keyA: string;
+  let keyB: string;
+  const open: FakeBridge[] = [];
+
+  const connect = async (key: string, options?: Parameters<typeof connectFakeBridge>[1]) => {
+    const bridge = await connectFakeBridge(key, options);
+    open.push(bridge);
+    return bridge;
+  };
+  const refusal = async (key: string, options?: Parameters<typeof connectFakeBridge>[1]) => {
+    try {
+      open.push(await connectFakeBridge(key, options));
+    } catch (err) {
+      return err as Error & {data?: {code?: string}};
+    }
+    return null;
+  };
+
+  beforeAll(async () => {
+    orgA = await ensureOrganization(prisma, VA, 'Sec Venue Bridge A');
+    orgB = await ensureOrganization(prisma, VB, 'Sec Venue Bridge B');
+    keyA = await createBridgeKey(orgA);
+    keyB = await createBridgeKey(orgB);
+  });
+  afterEach(() => {
+    for (const b of open.splice(0)) b.close();
+  });
+  afterAll(async () => {
+    await prisma.organization.deleteMany({where: {slug: {in: [VA, VB]}}});
+  });
+
+  it('refuses a handshake without a key (API_KEY_MISSING) and with an unknown key (API_KEY_INVALID)', async () => {
+    const none = await refusal('');
+    expect(none?.message).toBe('API-sleutel ontbreekt');
+    expect(none?.data?.code).toBe('API_KEY_MISSING');
+    const wrong = await refusal('sk_does-not-exist');
+    expect(wrong?.message).toBe('Ongeldige API-sleutel');
+    expect(wrong?.data?.code).toBe('API_KEY_INVALID');
+  });
+
+  it('refuses a revoked key and the key of an inactive organization', async () => {
+    const revokedKey = await createBridgeKey(orgA, 'to revoke');
+    const created = await prismaUnscoped.organizationApiKey.findUniqueOrThrow({where: {keyHash: hashApiKey(revokedKey)}});
+    expect(await connect(revokedKey)).toBeTruthy();
+    open.pop()?.close();
+    await runWithOrganization(orgA, async () => (await import('./services/apiKeys')).revokeApiKey(created.id));
+    expect((await refusal(revokedKey))?.data?.code).toBe('API_KEY_INVALID');
+
+    await prisma.organization.update({where: {id: orgB}, data: {isActive: false}});
+    clearOrganizationLookupCache();
+    try {
+      expect((await refusal(keyB))?.data?.code).toBe('API_KEY_INVALID');
+    } finally {
+      await prisma.organization.update({where: {id: orgB}, data: {isActive: true}});
+      clearOrganizationLookupCache();
+    }
+  });
+
+  it('reads the key from the X-Api-Key header and the query as well as auth.key', async () => {
+    const byHeader = await connect('', {auth: {key: undefined}, headers: {'x-api-key': keyA}});
+    expect(byHeader.socket.connected).toBe(true);
+    byHeader.close();
+    const byQuery = await connect('', {auth: {key: undefined}, query: {key: keyA}});
+    expect(byQuery.socket.connected).toBe(true);
+  });
+
+  it('refuses a page of another site, also with a valid key (the same-origin rule)', async () => {
+    const err = await refusal(keyA, {headers: {origin: 'https://evil.example'}});
+    expect(err).not.toBeNull();
+    expect(await runWithOrganization(orgA, async () => (await import('./services/venueBridge')).hasBridge(orgA))).toBe(false);
+  });
+
+  it('never logs the key, in the logger or on the console', async () => {
+    const logged: string[] = [];
+    const spies = (['info', 'warn', 'error', 'debug'] as const).map((level) => vi.spyOn(logger, level).mockImplementation(((...args: unknown[]) => {
+      logged.push(JSON.stringify(args));
+      return logger;
+    }) as never));
+    const written = vi.spyOn(process.stdout, 'write').mockImplementation(((chunk: unknown) => {
+      logged.push(String(chunk));
+      return true;
+    }) as never);
+    try {
+      const bridge = await connect(keyA);
+      bridge.sendReading(okReading('clock', ['1', '2']));
+      await refusal('sk_wrong-key-in-log');
+      await new Promise((r) => setTimeout(r, 200));
+      bridge.close();
+      await new Promise((r) => setTimeout(r, 100));
+    } finally {
+      spies.forEach((spy) => spy.mockRestore());
+      written.mockRestore();
+    }
+    const text = logged.join('\n');
+    expect(text).toContain('Venue-bridge connected');
+    expect(text).not.toContain(keyA);
+    expect(text).not.toContain('sk_wrong-key-in-log');
+  });
+
+  it('keeps organizations apart: readings, statistics questions and configuration go to the owner of the key only', async () => {
+    const bridgeA = await connect(keyA, {name: 'bridge A'});
+    const bridgeB = await connect(keyB, {name: 'bridge B'});
+    await runWithOrganization(orgA, () => setSetting('scoreboardUrl', 'http://alpha-only.example:8080'));
+    await runWithOrganization(orgB, () => setSetting('scoreboardUrl', 'http://beta-only.example:8080'));
+
+    bridgeA.sendReading(okReading('score', [{home: 1}]));
+    await waitFor(async () => (await request(app).get('/api/scoreboard').set('X-Organization', VA)).status === 200);
+    expect((await request(app).get('/api/scoreboard').set('X-Organization', VA)).body).toEqual([{home: 1}]);
+    expect((await request(app).get('/api/scoreboard').set('X-Organization', VB)).status).toBe(502);
+
+    bridgeA.on('stats:request', () => ({status: 200, headers: {}, body: [{from: 'A'}]}));
+    bridgeB.on('stats:request', () => ({status: 200, headers: {}, body: [{from: 'B'}]}));
+    expect((await request(app).get('/api/stats/players').set('X-Organization', VA)).body).toEqual([{from: 'A'}]);
+    expect((await request(app).get('/api/stats/players').set('X-Organization', VB)).body).toEqual([{from: 'B'}]);
+    expect(bridgeA.requestsOf('stats:request')).toHaveLength(1);
+
+    await runWithOrganization(orgA, async () => (await import('./services/venueConfig')).pushVenueConfigNow(orgA));
+    await runWithOrganization(orgB, async () => (await import('./services/venueConfig')).pushVenueConfigNow(orgB));
+    expect(JSON.stringify(bridgeA.requestsOf('config:apply'))).toContain('alpha-only');
+    expect(JSON.stringify(bridgeA.requestsOf('config:apply'))).not.toContain('beta-only');
+    expect(JSON.stringify(bridgeB.requestsOf('config:apply'))).toContain('beta-only');
+    expect(JSON.stringify(bridgeB.requestsOf('config:apply'))).not.toContain('alpha-only');
+
+    expect((await request(app).get('/api/venue-bridge/status').set('X-Organization', VA)).body.name).toBe('bridge A');
+    expect((await request(app).get('/api/venue-bridge/status').set('X-Organization', VB)).body.name).toBe('bridge B');
+  });
+
+  it('keeps the large message limit to the bridges\' socket: a browser socket drops a message over 1 MB', async () => {
+    const browserSocket = await connectClient(await socketServerUrl(), {organization: VA});
+    const closed = new Promise<string>((resolve) => browserSocket.socket.once('disconnect', resolve));
+    browserSocket.socket.emit('too_big', 'x'.repeat(2 * 1024 * 1024));
+    expect(await closed).toMatch(/transport/);
+    // The bridges' socket takes what a statistics answer needs (several MB)
+    const bridge = await connect(keyA);
+    bridge.on('stats:request', () => ({status: 200, headers: {}, body: ['x'.repeat(3 * 1024 * 1024)]}));
+    const res = await request(app).get('/api/stats/players').set('X-Organization', VA);
+    expect(res.status).toBe(200);
+  });
+
+  it('keeps a bridge\'s status events away from another organization\'s browsers', async () => {
+    const url = await socketServerUrl();
+    const browserB = await connectClient(url, {organization: VB});
+    try {
+      await connect(keyA);
+      await new Promise((r) => setTimeout(r, 200));
+      expect(browserB.events.some((e) => e.event === 'venue_bridge_status')).toBe(false);
+    } finally {
+      browserB.socket.close();
+    }
   });
 });

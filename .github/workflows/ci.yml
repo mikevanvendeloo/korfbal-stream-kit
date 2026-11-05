@@ -86,13 +86,17 @@ jobs:
           AFFECTED_OUTPUT=$(npx nx show projects --affected --type=app --base=$NX_BASE --head=$NX_HEAD --json)
           # 2. Use 'jq' to map the original name to a sanitized version.
           SANITIZED_APPS_JSON=$(echo "$AFFECTED_OUTPUT" | jq -c '
-            map({
+            # venue-bridge-ui is built into the venue-bridge image (an implicit dependency makes the bridge affected too)
+            map(select(. != "@korfbal-stream-kit/venue-bridge-ui"))
+            | map({
               original: .,
               sanitized: .
                 # **ALGEMEEN GEMAAKT:** Verwijdert elke @scope-naam/ prefix aan het begin van de string.
                 | sub("^@[^/]+/|@"; "")
                 | sub("/"; "-")
             })
+            # image: the Docker Hub repository; the folder (sanitized) stays the Dockerfile path
+            | map(. + {image: (if .sanitized == "venue-bridge" then "streamz-kit-venue-bridge" else .sanitized end)})
           ')
           echo "Sanitized Affected Apps JSON: $SANITIZED_APPS_JSON"
           # 3. Set the new, object-based JSON list as a step output
@@ -301,7 +305,7 @@ jobs:
           echo "Branch tag prefix: $PREFIX"
 
           LATEST_INC=0
-          for APP in korfbal-stream-api korfbal-stream-kit statistics-bridge; do
+          for APP in korfbal-stream-api korfbal-stream-kit streamz-kit-venue-bridge; do
             # A repository without tags (or not created yet) counts as no tags
             TAGS=$(skopeo list-tags --creds "$DOCKERHUB_USERNAME:$DOCKERHUB_TOKEN" "docker://docker.io/$DOCKERHUB_USERNAME/$APP" 2>/dev/null | jq -r '.Tags[]' || true)
             for TAG in $TAGS; do
@@ -345,7 +349,7 @@ jobs:
         # Matrix vectors may never be empty, so fall back to a 'none' placeholder
         # when no apps are affected (e.g. a root-config-only change) - the actual
         # build/push step is skipped for that placeholder below.
-        app: ${{ github.event_name == 'workflow_dispatch' && fromJson('[{"original":"korfbal-stream-api","sanitized":"korfbal-stream-api"},{"original":"korfbal-stream-kit","sanitized":"korfbal-stream-kit"},{"original":"statistics-bridge","sanitized":"statistics-bridge"}]') || (needs.ci-checks.outputs.affected_apps_json != '' && needs.ci-checks.outputs.affected_apps_json != '[]' && fromJson(needs.ci-checks.outputs.affected_apps_json)) || fromJson('[{"original":"none","sanitized":"none"}]') }}
+        app: ${{ github.event_name == 'workflow_dispatch' && fromJson('[{"original":"korfbal-stream-api","sanitized":"korfbal-stream-api","image":"korfbal-stream-api"},{"original":"korfbal-stream-kit","sanitized":"korfbal-stream-kit","image":"korfbal-stream-kit"},{"original":"venue-bridge","sanitized":"venue-bridge","image":"streamz-kit-venue-bridge"}]') || (needs.ci-checks.outputs.affected_apps_json != '' && needs.ci-checks.outputs.affected_apps_json != '[]' && fromJson(needs.ci-checks.outputs.affected_apps_json)) || fromJson('[{"original":"none","sanitized":"none","image":"none"}]') }}
         platform: [linux/amd64, linux/arm64]
 
     steps:
@@ -415,7 +419,7 @@ jobs:
 
           # No tags here - push by digest only. The merge job combines the
           # per-platform digests into the final tagged multi-arch manifest.
-          outputs: type=image,name=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.image }},push-by-digest=true,name-canonical=true,push=true
 
           # Use the 'original' name for the build-arg (if Dockerfile needs it)
           build-args: |
@@ -425,7 +429,7 @@ jobs:
           # Standard OCI labels, visible on the Docker Hub tag page - points at the
           # GitHub Release for this tag (the actual changelog), or the commit for a branch build.
           labels: |
-            org.opencontainers.image.title=${{ matrix.app.sanitized }}
+            org.opencontainers.image.title=${{ matrix.app.image }}
             org.opencontainers.image.version=${{ steps.docker_tag.outputs.tag }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
@@ -433,8 +437,8 @@ jobs:
             org.opencontainers.image.description=${{ needs.calculate-version.outputs.is_release == 'true' && 'Release notes' || 'Branch build' }}: ${{ steps.docker_tag.outputs.info_url }}
 
           # Cache is per-platform now that each architecture builds in its own job
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:buildcache-${{ env.PLATFORM_PAIR }}
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:buildcache-${{ env.PLATFORM_PAIR }},mode=max
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.image }}:buildcache-${{ env.PLATFORM_PAIR }}
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.image }}:buildcache-${{ env.PLATFORM_PAIR }},mode=max
 
       - name: Export digest
         if: matrix.app.original != 'none'
@@ -466,7 +470,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: ${{ github.event_name == 'workflow_dispatch' && fromJson('[{"original":"korfbal-stream-api","sanitized":"korfbal-stream-api"},{"original":"korfbal-stream-kit","sanitized":"korfbal-stream-kit"},{"original":"statistics-bridge","sanitized":"statistics-bridge"}]') || (needs.ci-checks.outputs.affected_apps_json != '' && needs.ci-checks.outputs.affected_apps_json != '[]' && fromJson(needs.ci-checks.outputs.affected_apps_json)) || fromJson('[{"original":"none","sanitized":"none"}]') }}
+        app: ${{ github.event_name == 'workflow_dispatch' && fromJson('[{"original":"korfbal-stream-api","sanitized":"korfbal-stream-api","image":"korfbal-stream-api"},{"original":"korfbal-stream-kit","sanitized":"korfbal-stream-kit","image":"korfbal-stream-kit"},{"original":"venue-bridge","sanitized":"venue-bridge","image":"streamz-kit-venue-bridge"}]') || (needs.ci-checks.outputs.affected_apps_json != '' && needs.ci-checks.outputs.affected_apps_json != '[]' && fromJson(needs.ci-checks.outputs.affected_apps_json)) || fromJson('[{"original":"none","sanitized":"none","image":"none"}]') }}
 
     steps:
       - name: Login to Docker Hub
@@ -513,17 +517,17 @@ jobs:
         if: matrix.app.original != 'none'
         working-directory: /tmp/digests
         run: |
-          TAGS="-t ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:${{ steps.docker_tag.outputs.tag }}"
+          TAGS="-t ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.image }}:${{ steps.docker_tag.outputs.tag }}"
           # Only releases from main/master move 'latest'
           if [ "${{ needs.calculate-version.outputs.is_release }}" = "true" ]; then
-            TAGS="$TAGS -t ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:latest"
+            TAGS="$TAGS -t ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.image }}:latest"
           fi
           docker buildx imagetools create $TAGS \
-            $(printf '${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}@sha256:%s ' *)
+            $(printf '${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.image }}@sha256:%s ' *)
 
       - name: Inspect image
         if: matrix.app.original != 'none'
-        run: docker buildx imagetools inspect ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}:${{ steps.docker_tag.outputs.tag }}
+        run: docker buildx imagetools inspect ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.image }}:${{ steps.docker_tag.outputs.tag }}
 
       # The Docker Hub overview belongs to the repository, not a tag: only releases update it,
       # so a branch build can't overwrite it. Needs a personal access token with the 'Read, Write, Delete'
@@ -544,9 +548,9 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_DESCRIPTION_TOKEN || secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.sanitized }}
+          repository: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.app.image }}
           readme-filepath: apps/${{ matrix.app.sanitized }}/DOCKERHUB.md
-          short-description: ${{ matrix.app.sanitized == 'statistics-bridge' && 'Korfbal StreamKit statistics bridge – leest de statistiek-pc (share en pagina) uit voor de Streamz API' || matrix.app.sanitized == 'korfbal-stream-api' && 'Korfbal StreamKit API – producties, callsheets, live show control en vMix-databronnen' || 'Korfbal StreamKit webapp – LIVE callsheet en Show Caller, plus Beheer voor producties' }}
+          short-description: ${{ matrix.app.sanitized == 'venue-bridge' && 'Korfbal StreamKit venue-bridge – verbindt scorebord, schotklok, statistiek-pc en vMix in de zaal met de Streamz API' || matrix.app.sanitized == 'korfbal-stream-api' && 'Korfbal StreamKit API – producties, callsheets, live show control en vMix-databronnen' || 'Korfbal StreamKit webapp – LIVE callsheet en Show Caller, plus Beheer voor producties' }}
 
   create-git-tag:
     name: Create Git Tag

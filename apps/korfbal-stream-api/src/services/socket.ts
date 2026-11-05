@@ -8,6 +8,7 @@ import {findActiveOrganization} from '../middleware/organizationContext';
 import {isSameOriginRequest} from '../middleware/sameOrigin';
 import type {SeasonDto} from './season';
 import {API_ERRORS} from './apiErrorCodes';
+import {getBridge} from './venueBridge';
 
 let io: SocketIOServer | undefined;
 
@@ -42,6 +43,8 @@ export function initSocket(httpServer: HttpServer) {
     transports: ['websocket', 'polling'], // Zorg dat beide transports expliciet aan staan
     // Browsers connect same-origin (Vite proxy, nginx): a handshake from a page on another host is refused
     allowRequest: (req, callback) => callback(null, isSameOriginRequest(req)),
+    // Two socket.io servers share this http server (the venue-bridge's has its own path): neither may destroy the other's upgrades
+    destroyUpgrade: false,
   });
   io = server;
 
@@ -96,9 +99,15 @@ export function emitToOrganization(event: string, ...args: unknown[]) {
   io.to(organizationRoom(requireOrganizationId('A live event'))).emit(event, ...args);
 }
 
+/** Sends a live event to the clients of an organization (outside a request: the venue-bridge's sockets). */
+export function emitToOrganizationId(organizationId: number, event: string, ...args: unknown[]) {
+  io?.to(organizationRoom(organizationId)).emit(event, ...args);
+}
+
 /** Closes every socket of an organization (it was switched off); a reconnect is refused as inactive. */
 export function disconnectOrganizationSockets(organizationId: number) {
   io?.in(organizationRoom(organizationId)).disconnectSockets(true);
+  getBridge(organizationId)?.socket.disconnect(true);
 }
 
 export const SEASON_CHANGED_EVENT = 'season_changed';

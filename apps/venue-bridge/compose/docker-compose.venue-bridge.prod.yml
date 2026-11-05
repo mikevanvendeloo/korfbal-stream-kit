@@ -1,0 +1,46 @@
+# De venue-bridge in de zaal: de image van Docker Hub in een vaste versie. Dit bestand staat los van de rest van
+# Streamz; de bridge belt zelf naar de API in de cloud.
+#
+#   API_URL=https://streamz.example.nl API_KEY=<sleutel> BRIDGE_NAME="Zaal Fortuna" \
+#   STREAMZ_BRIDGE_VERSION=2026.11.1 docker compose \
+#       -f apps/venue-bridge/compose/docker-compose.venue-bridge.prod.yml \
+#       -f apps/venue-bridge/compose/variants/<variant>.yml up -d venue-bridge
+#
+# (staat de API in dezelfde Docker-omgeving, voeg dan -f docker-compose-prod.yml vooraan toe en gebruik
+# API_URL=http://korfbal-streamz-api:3333)
+#
+# Alles over de zaal (adressen, statistiekeninstellingen, vMix-pc's) stel je in de Kit in bij Beheer > Instellingen >
+# Venue; zie docker-compose.venue-bridge.yml voor de varianten en de ./data-map.
+services:
+  venue-bridge:
+    image: mvanvendeloo/streamz-kit-venue-bridge:${STREAMZ_BRIDGE_VERSION:-latest}
+    restart: unless-stopped
+    networks:
+      - korfbal-network
+    environment:
+      TZ: Europe/Amsterdam
+      NODE_ENV: production
+      PORT: 3340
+      API_URL: ${API_URL:?Zet API_URL (het adres van Streamz)}
+      API_KEY: ${API_KEY:?Zet API_KEY (een API-sleutel van de organisatie)}
+      BRIDGE_NAME: ${BRIDGE_NAME:-venue-bridge}
+      # Optioneel: het adres van de pagina van de bridge op het netwerk van de zaal (link in de Kit)
+      BRIDGE_PAGE_URL: ${BRIDGE_PAGE_URL:-}
+      STATS_DIR: /stats
+      COPY_DIR: /data
+    volumes:
+      # De opgeslagen configuratie en de lokale kopie van de database
+      - ./data/venue-bridge:/data
+    # Op het netwerk van de zaal (niet alleen localhost): de pagina en de reserve-API
+    ports:
+      - "3340:3340"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3340/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+# Zonder een docker-compose-prod.yml ervoor bestaat dit netwerk nog niet
+networks:
+  korfbal-network:
+    driver: bridge

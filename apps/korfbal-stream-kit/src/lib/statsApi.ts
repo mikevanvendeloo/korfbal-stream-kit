@@ -78,9 +78,14 @@ export type MatchAnalysis = {
 
 export type MatchPlayers ={source: 'share' | 'copy' | 'page'; readAt: string; database?: StatsDatabaseState; team: StatsTeamChoice | null; teams: {own: string | null; opponent: string | null}; players: DerivedPlayerRow[]};
 
-/** The statistics bridge (its own app next to the API); the token is never returned, only whether there is one */
-export type MatchStatsConfig = {bridgeUrl: string | null; hasBridgeToken: boolean};
-export type MatchStatsInput = {bridgeUrl: string | null; bridgeToken?: string | null};
+/** What the venue-bridge needs to read the statistics PC (the API validates it; a refused value comes back as a 400 message) */
+export type MatchStatsConfig = {
+  pageUrl: string | null;
+  mdbPath: string | null;
+  mdbEnabled: boolean;
+  shareHost: string | null;
+  keepCopy: boolean;
+};
 
 /** null = not configured, so not tested */
 export type StatsCheck = {ok: boolean; ms: number | null} | null;
@@ -110,7 +115,7 @@ export const fetchMatchAnalysis = () => getJson<MatchAnalysis>('/api/stats/analy
 export const fetchStatsConnection = () =>getJson<StatsConnection>('/api/stats/status');
 export const getMatchStatsConfig = () => getJson<MatchStatsConfig>('/api/settings/match-stats');
 
-export async function setMatchStatsConfig(config: MatchStatsInput): Promise<MatchStatsConfig> {
+export async function setMatchStatsConfig(config: MatchStatsConfig): Promise<MatchStatsConfig> {
   const res = await fetch(createUrl('/api/settings/match-stats'), {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},

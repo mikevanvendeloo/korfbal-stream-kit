@@ -10,8 +10,8 @@
     "types": ["node"],
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "rootDir": "."
+    "rootDir": "../.."
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.spec.ts", "src/test-setup.ts", "src/test-global-setup.ts", "src/test-database.ts"]
+  "include": ["src/**/*.ts", "../../libs/venue-protocol/src/**/*.ts"],
+  "exclude": ["src/**/*.spec.ts", "../../libs/**/*.spec.ts", "src/test-setup.ts", "src/test-global-setup.ts", "src/test-database.ts"]
 }

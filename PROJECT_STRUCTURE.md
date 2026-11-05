@@ -29,7 +29,8 @@ apps/korfbal-stream-api/
     │   ├── players.ts         # Players and player images
     │   ├── match.ts           # Match schedule fetch/import (via MatchScheduleProvider)
     │   ├── manual-matches.ts  # Manually entered matches
-    │   ├── scoreboard.ts      # Proxy to venue scoreboard / shotclock
+    │   ├── scoreboard.ts      # Scoreboard / zaalklok / shotclock from the venue-bridge's readings
+    │   ├── venueBridge.ts     # GET /api/venue-bridge/status
     │   ├── settings.ts        # App settings (vMix URL, sponsor/scoreboard/club config)
     │   ├── seasons.ts         # Seasons (seizoenen): list, create, delete, active season, indoor start date
     │   ├── vmix.ts            # vMix data sources (sponsors, staff, titles, callsheet timing) + admin title templates
@@ -77,7 +78,11 @@ apps/korfbal-stream-api/
     │   ├── matchChange.ts             # A moved match shifts its production's liveTime, callsheet item and planned event times (not while live)
     │   ├── socket.ts                  # Socket.io server, room org:<id> per handshake, emitToOrganization, broadcastState()
     │   ├── timeSyncService.ts         # Production time / countdown
-    │   ├── venueClockSyncService.ts   # Sync with venue scoreboard clock
+    │   ├── venueBridge.ts             # One venue-bridge socket per organization, askBridge()
+    │   ├── venueBridgeSocket.ts       # Namespace /venue-bridge: API key handshake, readings
+    │   ├── venueConfig.ts             # Venue configuration sent to the bridge (config:apply)
+    │   ├── venueData.ts               # Latest scoreboard/zaalklok/shot clock readings, bridge status
+    │   ├── vmixBridge.ts              # vMix calls and inputs through the bridge
     │   └── matchSchedule/             # Match schedule adapters
     │       ├── MatchScheduleProvider.ts              # Provider interface + normalized types
     │       ├── VrijwilligersMatchScheduleProvider.ts # sportclubvrijwilligersmanagement.nl adapter
@@ -432,11 +437,17 @@ A hoofdstuk is `{id, productionId, name, orderIndex, minDurationSec}` (Minimale 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/scoreboard | Current score (venue scoreboard proxy) |
+| GET | /api/scoreboard | Current score (from the venue-bridge's readings) |
 | GET | /api/scoreboard/shotclock | Shotclock state |
 | GET | /api/scoreboard/clock | Match clock |
 
-### Statistieken (`/api/stats`, forwarded to the statistics bridge)
+### Venue-bridge (`/api/venue-bridge`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /api/venue-bridge/status | Bridge connection, configuration state and device states (organization or feed key) |
+
+### Statistieken (`/api/stats`, asked from the venue-bridge)
 
 | Method | Path | Description |
 |--------|------|-------------|

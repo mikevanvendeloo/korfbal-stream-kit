@@ -293,7 +293,7 @@ export default function AnalysisPage() {
       <div className="mb-4">
         <StatsConnectionStatus auto/>
       </div>
-      {bridgeOffline ? <p role="alert" className="p-4 rounded-md border border-red-200 bg-red-50 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">De statistics bridge is offline</p>
+      {bridgeOffline ? <p role="alert" className="p-4 rounded-md border border-red-200 bg-red-50 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">De venue-bridge is offline</p>
         : isLoading ? <p className="p-4 text-gray-600 dark:text-gray-300">Laden...</p>
           : error && !data ? <p role="alert" className="p-4 text-red-700 dark:text-red-300">{(error as Error).message}</p>
             : data ? (

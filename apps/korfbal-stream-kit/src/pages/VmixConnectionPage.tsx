@@ -1,5 +1,6 @@
 import VmixCallsheetPushSettings from '../components/VmixCallsheetPushSettings';
-import VmixInstancesSettings from '../components/VmixInstancesSettings';
+import {Link} from 'react-router-dom';
+import {adminPaths} from '../lib/adminPaths';
 
 /** Beheer: how the kit reaches vMix. Operating it during the broadcast happens in LIVE (/vmix). */
 export default function VmixConnectionPage() {
@@ -9,7 +10,10 @@ export default function VmixConnectionPage() {
 
       <div className="mt-6">
         <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">vMix-pc's</h2>
-        <VmixInstancesSettings/>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          De vMix-pc's en welke functie naar welke vMix gaat stel je in onder{' '}
+          <Link to={adminPaths.venueSettings} className="text-blue-600 dark:text-blue-400 underline">Instellingen → Venue</Link>.
+        </p>
       </div>
 
       <div className="mt-10">

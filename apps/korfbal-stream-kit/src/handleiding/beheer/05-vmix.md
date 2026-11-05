@@ -1,6 +1,6 @@
 # vMix koppelen
 
-Alles voor vMix staat onder **Stamgegevens → vMix**: de **vMix-koppeling** (welke pc's en wat er naartoe gaat), de **Titel-templates** (de naamtitels) en de **Datasources** (de adressen die je in vMix invult).
+Alles voor vMix staat onder **Stamgegevens → vMix**: de **vMix-koppeling** (de callsheet naar vMix; de pc's zelf stel je in bij **Instellingen → Venue**), de **Titel-templates** (de naamtitels) en de **Datasources** (de adressen die je in vMix invult).
 
 Er zijn twee manieren waarop de app met vMix samenwerkt:
 
@@ -9,7 +9,7 @@ Er zijn twee manieren waarop de app met vMix samenwerkt:
 
 ## vMix-pc's
 
-Op **vMix-koppeling** zet je bij **vMix-pc's** één regel per pc waarop vMix draait, bijvoorbeeld een *Stream-PC* en een *Scherm-PC*. Heb je er maar één, vul dan één regel in.
+Bij **Instellingen → Venue** zet je bij **vMix-pc's** één regel per pc waarop vMix draait, bijvoorbeeld een *Stream-PC* en een *Scherm-PC*. Heb je er maar één, vul dan één regel in.
 
 - **Naam**: hoe je de pc noemt; die naam zie je terug in LIVE.
 - **Web Controller URL**: het adres van de vMix Web Controller, bijvoorbeeld `http://192.168.1.50:8088`. Zet de Web Controller in vMix aan (Settings → Web Controller). `/api` hoeft er niet achter.
@@ -19,7 +19,7 @@ Met **vMix toevoegen** voeg je een pc toe (maximaal 10). Daaronder kies je bij *
 - **Countdown timer**: de knoppen 10s, 30s en 1m in LIVE.
 - **Callsheet naar vMix (presentator & analist)**.
 
-Staat een functie op **Eerste vMix**, dan gaat hij naar de bovenste pc. Druk op **Opslaan**.
+Staat een functie op **Eerste vMix**, dan gaat hij naar de bovenste pc. Druk op **Opslaan**. De opdrachten gaan via de venue-bridge in de zaal naar vMix (zie [Venue-bridge in de zaal](/admin/handleiding/venue-bridge)); is de bridge offline, dan komt er niets bij vMix aan.
 
 > Een pc hernoemen is veilig. Verwijder je een pc waar een functie aan hing, dan gaat die functie naar de eerste pc.
 
@@ -96,7 +96,7 @@ Elk adres eindigt op `key=<jouw-sleutel>`: vMix moet een **API-sleutel** van je 
 | **Statistieken live: alles** | `/api/stats/live`: stand, tijd en beide ploegen met alle vakken, totalen en percentages |
 | **Statistieken uit database** | `/api/stats/matches` (wedstrijden), `/api/stats/matches/<wedstrijd>/players` (totalen per speler, beide ploegen) en `/api/stats/players` (spelersoverzicht); de wedstrijdnaam staat in de adreslijst van `/api/stats/matches` |
 
-De adressen van de statistieken zijn hetzelfde gebleven (`/api/stats/...` met je API-sleutel): vMix praat met Streamz, en Streamz vraagt de statistics bridge. Is de bridge offline, dan krijgt vMix de fout 503 (*De statistics bridge is offline*) en ververst de datasource niet tot hij weer online is.
+De adressen van de statistieken zijn hetzelfde gebleven (`/api/stats/...` met je API-sleutel): vMix praat met Streamz, en Streamz vraagt de venue-bridge. Is de bridge offline, dan krijgt vMix de fout 503 (*De venue-bridge is offline*) en ververst de datasource niet tot hij weer online is.
 
 Welke **sponsortypes** in de ticker, carrousel en slides meedoen, stel je in bij **Instellingen → Sponsors**. Alleen ingeschakelde sponsors doen mee.
 

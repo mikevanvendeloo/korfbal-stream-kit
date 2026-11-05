@@ -37,8 +37,8 @@ export const API_ERROR_CODES = {
   SOURCE_INVALID_RESPONSE: 'SOURCE_INVALID_RESPONSE',
   /** 400: clubs restore with players without a season and no season chosen */
   PLAYER_SEASON_REQUIRED: 'PLAYER_SEASON_REQUIRED',
-  /** 503: the statistics bridge is offline */
-  STATS_BRIDGE_OFFLINE: 'STATS_BRIDGE_OFFLINE',
+  /** 503: the venue-bridge is offline */
+  VENUE_BRIDGE_OFFLINE: 'VENUE_BRIDGE_OFFLINE',
 } as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[keyof typeof API_ERROR_CODES];

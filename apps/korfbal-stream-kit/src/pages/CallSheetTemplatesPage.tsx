@@ -1,7 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {CallSheetTemplate, useCallSheetTemplates} from '../hooks/useCallSheetTemplates';
-import {Card, CardContent, CardHeader, CardTitle} from '../components/ui/card';
-import {Button} from '../components/ui/button';
+import {Button, Card, CardContent, CardHeader, CardTitle} from '@korfbal-stream-kit/ui';
 import {Download, FileSpreadsheet, Plus, Trash2, Upload} from 'lucide-react';
 import {Input} from '../components/ui/input';
 import {Link} from 'react-router-dom';
