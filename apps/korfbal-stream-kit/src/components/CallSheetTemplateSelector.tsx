@@ -1,7 +1,6 @@
 import {useEffect, useState} from 'react';
 import {CallSheetTemplate, useCallSheetTemplates} from '../hooks/useCallSheetTemplates';
-import {Card, CardContent, CardHeader, CardTitle} from './ui/card';
-import {Button} from './ui/button';
+import {Button, Card, CardContent, CardHeader, CardTitle} from '@korfbal-stream-kit/ui';
 import {MdCheckCircle, MdErrorOutline, MdRefresh, MdViewList} from 'react-icons/md';
 
 interface CallSheetTemplateSelectorProps {

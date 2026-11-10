@@ -145,20 +145,21 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/reports/interviews': {read: () => '/api/reports/interviews', control: false},
   'GET /api/reports/next-production-date': {read: () => '/api/reports/next-production-date', control: false},
   'GET /api/reports/production-dates': {read: () => '/api/reports/production-dates', control: false},
-  'GET /api/scoreboard': {device: 'scoreboard proxy'},
-  'GET /api/scoreboard/clock': {device: 'scoreboard proxy'},
-  'GET /api/scoreboard/shotclock': {device: 'shot clock proxy'},
-  'GET /api/stats/current/players': {device: 'the statistics bridge'},
-  'GET /api/stats/status': {device: 'the statistics bridge'},
-  'GET /api/stats/team-stats': {device: 'the statistics bridge'},
-  'GET /api/stats/top-scorers': {device: 'the statistics bridge'},
-  'GET /api/stats/analysis': {device: 'the statistics bridge'},
-  'GET /api/stats/live': {device: 'the statistics bridge'},
-  'GET /api/stats/live/players': {device: 'the statistics bridge'},
-  'GET /api/stats/matches': {device: 'the statistics bridge'},
-  'GET /api/stats/matches/:table/actions': {device: 'the statistics bridge'},
-  'GET /api/stats/matches/:table/players': {device: 'the statistics bridge'},
-  'GET /api/stats/players': {device: 'the statistics bridge'},
+  'GET /api/scoreboard': {device: 'the own organization\'s venue-bridge readings (security.int.spec.ts)'},
+  'GET /api/scoreboard/clock': {device: 'the own organization\'s venue-bridge readings (security.int.spec.ts)'},
+  'GET /api/scoreboard/shotclock': {device: 'the own organization\'s venue-bridge readings (security.int.spec.ts)'},
+  'GET /api/stats/current/players': {device: 'asks the own organization\'s venue-bridge'},
+  'GET /api/stats/status': {device: 'asks the own organization\'s venue-bridge'},
+  'GET /api/stats/team-stats': {device: 'asks the own organization\'s venue-bridge'},
+  'GET /api/stats/top-scorers': {device: 'asks the own organization\'s venue-bridge'},
+  'GET /api/stats/analysis': {device: 'asks the own organization\'s venue-bridge'},
+  'GET /api/stats/live': {device: 'asks the own organization\'s venue-bridge'},
+  'GET /api/stats/live/players': {device: 'asks the own organization\'s venue-bridge'},
+  'GET /api/stats/matches': {device: 'asks the own organization\'s venue-bridge'},
+  'GET /api/stats/matches/:table/actions': {device: 'asks the own organization\'s venue-bridge'},
+  'GET /api/stats/matches/:table/players': {device: 'asks the own organization\'s venue-bridge'},
+  'GET /api/stats/players': {device: 'asks the own organization\'s venue-bridge'},
+  'GET /api/venue-bridge/status': {device: 'the own organization\'s venue-bridge state (security.int.spec.ts)'},
   'GET /api/seasons': GLOBAL,
   'GET /api/seasons/active': GLOBAL,
   'GET /api/seasons/suggest-next': GLOBAL,
@@ -180,7 +181,7 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/vmix/active-production/staff': {read: () => '/api/vmix/active-production/staff', control: false},
   'GET /api/vmix/callsheet/timing': {read: () => '/api/vmix/callsheet/timing', control: false},
   'GET /api/vmix/endpoints': GLOBAL,
-  'GET /api/vmix/inputs': {device: 'asks the own organization\'s vMix for its inputs'},
+  'GET /api/vmix/inputs': {device: 'asks the own organization\'s venue-bridge for the inputs of its vMix'},
   'GET /api/vmix/production/:id/titles': {read: (a) => `/api/vmix/production/${a.productionId}/titles`},
   'GET /api/vmix/production/active/titles': {read: () => '/api/vmix/production/active/titles', control: false},
   'GET /api/vmix/production/active/titles/:role': {read: () => '/api/vmix/production/active/titles/presentatie', control: false},
@@ -277,9 +278,9 @@ const ROUTES: Record<string, Probe> = {
   'POST /api/time/start': LIVE,
   'POST /api/time/stop': LIVE,
   'POST /api/time/venue-clock': LIVE,
-  'POST /api/vmix/callsheet/push': {device: 'sends to vMix'},
+  'POST /api/vmix/callsheet/push': {device: 'sends through the own organization\'s venue-bridge to vMix'},
   'POST /api/vmix/production/trigger-manual': {write: () => '/api/vmix/production/trigger-manual', body: (a) => ({eventId: a.eventId})},
-  'POST /api/vmix/set-timer': {device: 'sends to vMix'},
+  'POST /api/vmix/set-timer': {device: 'sends through the own organization\'s venue-bridge to vMix'},
   'POST /api/vmix/sponsor-rows': {read: () => '/api/vmix/sponsor-rows', method: 'POST', control: false},
 
   'PUT /api/admin/vmix/title-templates/:id': {write: (a) => `/api/admin/vmix/title-templates/${a.titleTemplateId}`, body: () => ({name: 'Overgenomen'})},
@@ -360,8 +361,7 @@ describe.runIf(runDb)('leak test suite: organization B never sees or changes org
       await setSetting('vmixInstances', {instances: [{id: 'a', name: `${MARKER} PC`, url: `http://${MARKER.toLowerCase()}.example:8088`}], targets: {}});
       await setSetting('vmixCallsheetPush', {enabled: false, input: MARKER});
       await setSetting('scoreboardUrl', `http://${MARKER.toLowerCase()}.example/scoreboard`);
-      await setSetting('matchStats', {bridgeUrl: `http://${MARKER.toLowerCase()}.example:3340`});
-      await setSetting('matchStatsBridgeToken', `${MARKER}-bridge-token`);
+      await setSetting('matchStats', {pageUrl: `http://${MARKER.toLowerCase()}.example/tweede.html`, mdbPath: null, mdbEnabled: false, shareHost: null, keepCopy: true});
     });
     // A's sponsor logo on disk, for the image download (sponsors/<slug>/<logoUrl>)
     fs.mkdirSync(path.join(getAssetsRoot(), 'sponsors', A), {recursive: true});

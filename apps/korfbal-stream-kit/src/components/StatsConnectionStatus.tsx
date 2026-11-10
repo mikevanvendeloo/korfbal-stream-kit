@@ -15,7 +15,7 @@ function Line({label, check}: {label: string; check: StatsCheck | undefined}) {
   );
 }
 
-/** Is the statistics bridge online, and through it: the statistics PC on the network, the database and the page. */
+/** Is the venue-bridge online, and through it: the statistics PC on the network, the database and the page. */
 export default function StatsConnectionStatus({auto = false}: {auto?: boolean}) {
   const {data, error, isFetching, refetch} = useStatsConnection(auto);
   const online = data?.bridge.ok === true;
@@ -33,7 +33,7 @@ export default function StatsConnectionStatus({auto = false}: {auto?: boolean}) 
         <ul className="space-y-1">
           <li className="flex items-center gap-2 min-w-0">
             <Dot ok={online}/>
-            <span className="truncate">Statistics bridge: {online ? `online${data.bridge.ms != null ? ` (${data.bridge.ms} ms)` : ''}` : 'offline'}</span>
+            <span className="truncate">Venue-bridge: {online ? `online${data.bridge.ms != null ? ` (${data.bridge.ms} ms)` : ''}` : 'offline'}</span>
           </li>
           {online && !data.network && data.database !== 'disabled' && <li className="text-gray-500">Geen adres van de statistiek-pc ingesteld op de bridge.</li>}
           {online && <Line label={`Netwerk (${data.host ?? '?'})`} check={data.network}/>}

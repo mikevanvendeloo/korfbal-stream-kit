@@ -1,11 +1,12 @@
-import axios from 'axios';
 import {Prisma} from '@prisma/client';
-import {buildVmixFunctionUrl, getSetting, setSetting} from './appSettings';
+import {getSetting, setSetting} from './appSettings';
 import {resolveVmixInstance} from './vmixInstances';
 import {CallsheetTiming, loadCallsheetTiming, TimingState} from './callsheetTiming';
 import {CallsheetColors, VmixCallsheetPushConfig, VmixCallsheetPushSchema} from '../schemas/vmixCallsheet';
 import {logger} from '../utils/logger';
-import {fetchVmixInputs, findVmixInput, VmixInput} from './vmixInputs';
+import {findVmixInput} from './vmixInputs';
+import {vmixCall, vmixInputs} from './vmixBridge';
+import {BridgeOfflineError, hasBridge} from './venueBridge';
 import {liveOrganizationIds} from './productionState';
 import {getOrganizationId, runWithOrganization} from './organizationContext';
 
@@ -68,13 +69,14 @@ export function buildVmixCommands(timing: CallsheetTiming, config: VmixCallsheet
   ];
 }
 
-export function buildVmixCommandUrl(base: string, input: string, command: VmixCommand): string {
-  return buildVmixFunctionUrl(base, {Function: command.function, Input: input, SelectedName: command.selectedName, Value: command.value});
+/** The vMix call for a command, as the venue-bridge carries it out. */
+export function vmixCommandParams(input: string, command: VmixCommand): Record<string, string> {
+  return {Function: command.function, Input: input, SelectedName: command.selectedName, Value: command.value};
 }
 
 // What vMix got last, per function + field, so each tick only sends what changed. Per organization:
 // each one pushes its own callsheet to its own vMix.
-type PushMemory = { lastSent: Map<string, string>; lastTarget: string; lastFullPush: number; lastErrorLog: number; busy: boolean };
+type PushMemory = { lastSent: Map<string, string>; lastTarget: string; lastFullPush: number; lastErrorLog: number; busy: boolean; offlineLogged: boolean };
 const pushMemories = new Map<number, PushMemory>();
 
 function pushMemory(): PushMemory {
@@ -82,7 +84,7 @@ function pushMemory(): PushMemory {
   const key = getOrganizationId() ?? 0;
   let memory = pushMemories.get(key);
   if (!memory) {
-    memory = {lastSent: new Map(), lastTarget: '', lastFullPush: 0, lastErrorLog: 0, busy: false};
+    memory = {lastSent: new Map(), lastTarget: '', lastFullPush: 0, lastErrorLog: 0, busy: false, offlineLogged: false};
     pushMemories.set(key, memory);
   }
   return memory;
@@ -108,37 +110,38 @@ export async function pushCallsheetToVmix(force = false, now = new Date()): Prom
   const config = await getCallsheetPushConfig();
   const target = await resolveVmixInstance('callsheet');
   if ('error' in target) return {sent: 0, skipped: 0, errors: [target.error], timing: null};
-  const base = target.instance.url;
   if (!config.input) return {sent: 0, skipped: 0, errors: ['No vMix title input configured'], timing: null};
+  // No bridge: nothing can be sent (the routes answer 503, the automatic push skips quietly)
+  if (!hasBridge(getOrganizationId() ?? 0)) throw new BridgeOfflineError();
 
   const timing = await loadCallsheetTiming(config.positions, config.warningSeconds, now);
   const commands = buildVmixCommands(timing, config);
   const memory = pushMemory();
   const {lastSent} = memory;
-  const targetKey = `${base}|${config.input}`;
+  const targetKey = `${target.instance.id}|${target.instance.url}|${config.input}`;
   if (force || targetKey !== memory.lastTarget || now.getTime() - memory.lastFullPush > FULL_PUSH_INTERVAL_MS) {
     lastSent.clear();
     memory.lastTarget = targetKey;
     memory.lastFullPush = now.getTime();
   }
 
-  let sent = 0;
+  // One batch per round with what changed; the bridge sends it to vMix
+  const changed = commands.filter((command) => lastSent.get(commandKey(command)) !== command.value);
   const errors: string[] = [];
-  for (const command of commands) {
-    const key = commandKey(command);
-    if (lastSent.get(key) === command.value) continue;
-    try {
-      // A wall-clock deadline: axios' `timeout` only fires when vMix goes quiet, not when it drips
-      await axios.get(buildVmixCommandUrl(base, config.input, command), {signal: AbortSignal.timeout(1500), maxContentLength: 4096});
-      lastSent.set(key, command.value);
-      sent++;
-    } catch (err) {
+  let sent = 0;
+  if (changed.length > 0) {
+    const answer = await vmixCall({function: 'callsheet', commands: changed.map((command) => vmixCommandParams(config.input, command))});
+    if (answer.ok) {
+      for (const command of changed) lastSent.set(commandKey(command), command.value);
+      sent = changed.length;
+    } else {
       // Not remembered, so the next tick tries again
-      lastSent.delete(key);
-      errors.push(`${command.function} ${command.selectedName}: ${(err as Error).message}`);
+      for (const command of changed) lastSent.delete(commandKey(command));
+      errors.push(`vMix: ${answer.error}`);
     }
   }
-  return {sent, skipped: commands.length - sent - errors.length, errors, timing};
+  memory.offlineLogged = false;
+  return {sent, skipped: commands.length - changed.length, errors, timing};
 }
 
 /**
@@ -150,12 +153,9 @@ export async function checkCallsheetTarget(): Promise<string[]> {
   const config = await getCallsheetPushConfig();
   const target = await resolveVmixInstance('callsheet');
   if ('error' in target || !config.input) return [];
-  let inputs: VmixInput[];
-  try {
-    inputs = await fetchVmixInputs(target.instance.url);
-  } catch {
-    return ['De lijst met inputs kon niet uit vMix worden gehaald'];
-  }
+  const answer = await vmixInputs({function: 'callsheet'});
+  if (!answer.ok) return ['De lijst met inputs kon niet uit vMix worden gehaald'];
+  const inputs = answer.inputs;
   const input = findVmixInput(inputs, config.input);
   if (!input) {
     return [`vMix heeft geen input "${config.input}". Een naam moet precies kloppen, met hoofdletters en extensie (bijv. "Callsheet.gtzip"); kies de title uit de lijst.`];
@@ -210,6 +210,14 @@ async function pushWhenEnabled() {
       logger.warn(`vMix callsheet push failed: ${result.errors[0]}${result.errors.length > 1 ? ` (+${result.errors.length - 1} more)` : ''}`);
     }
   } catch (err) {
+    if (err instanceof BridgeOfflineError) {
+      // Once per disconnect, not every second
+      if (!memory.offlineLogged) {
+        memory.offlineLogged = true;
+        logger.info('vMix callsheet push skipped: no venue-bridge connected');
+      }
+      return;
+    }
     if (Date.now() - memory.lastErrorLog > 30_000) {
       memory.lastErrorLog = Date.now();
       logger.error('vMix callsheet push error:', err);

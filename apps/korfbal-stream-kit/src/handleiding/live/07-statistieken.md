@@ -1,6 +1,6 @@
 # Statistieken
 
-**Statistieken** toont de wedstrijdstatistieken van de statistiek-pc in de zaal, zoals het Tweede Scherm ze laat zien. De cijfers komen via de *statistics bridge*, een aparte app die de pc uitleest.
+**Statistieken** toont de wedstrijdstatistieken van de statistiek-pc in de zaal, zoals het Tweede Scherm ze laat zien. De cijfers komen via de *venue-bridge*, de app in de zaal die de pc uitleest.
 
 ## Live
 
@@ -39,11 +39,11 @@ Op het tabblad **Wedstrijd uit database** kies je bij **Wedstrijd** een wedstrij
 
 ## Verbinding met de statistiek-pc
 
-Bovenaan staat of de statistics bridge en de statistiek-pc bereikbaar zijn; dat wordt elke 15 seconden opnieuw getest, en met **Verbinding testen** meteen:
+Bovenaan staat of de venue-bridge en de statistiek-pc bereikbaar zijn; dat wordt elke 15 seconden opnieuw getest, en met **Verbinding testen** meteen:
 
-- **Statistics bridge**: *online* of *offline*. Is de bridge offline, dan zie je *De statistics bridge is offline* in plaats van de tabellen; de rest van Streamz werkt gewoon door. Controleer dan of de bridge draait (zie Beheer, Instellingen, *De statistics bridge draaien*).
+- **Venue-bridge**: *online* of *offline*. Is de bridge offline, dan zie je *De venue-bridge is offline* in plaats van de tabellen; de rest van Streamz werkt gewoon door. Controleer dan of de bridge in de zaal draait (zie Beheer, Instellingen, Venue, en het hoofdstuk *Venue-bridge in de zaal*).
 - **Netwerk**: de pc staat aan en zit op het netwerk (de bridge kan de gedeelde map van de pc bereiken).
-- **Database op de share**: het bestand WEDSTRIJDEN.mdb is te lezen. Staat de database uit op de bridge, dan staat er *Database: uitgeschakeld op de bridge (alleen de statistiekenpagina)*.
+- **Database op de share**: het bestand WEDSTRIJDEN.mdb is te lezen. Staat de database uit op de bridge, dan staat er *Database: uitgeschakeld (alleen de statistiekenpagina)*.
 - **Statistiekenpagina**: de pagina van de pc antwoordt.
 
 Een groen bolletje is bereikbaar, een rood niet. Is **Netwerk** rood, dan staat de pc uit of zit hij niet op het netwerk; de database wordt dan niet geprobeerd.
@@ -56,8 +56,7 @@ Bij **Teamstatistieken** en **Topscorers** staat dezelfde bron onder de tabel. I
 
 ## Als er niets verschijnt
 
-- *De statistics bridge is offline*: de bridge draait niet of het adres klopt niet. Controleer het **Statistics bridge URL** bij Beheer, Instellingen, Statistieken en start de bridge.
-- *De statistics bridge is niet ingesteld*: vul in Beheer bij Instellingen het **Statistics bridge URL** in.
-- *De statistiekenpagina is niet bereikbaar*: de statistiek-pc staat uit of het adres klopt niet (op de bridge). Die pc kan ook even traag zijn; probeer het na een paar seconden opnieuw.
+- *De venue-bridge is offline*: de bridge in de zaal draait niet of heeft geen verbinding met Streamz. Kijk bij Beheer, Instellingen, Venue, en start de bridge.
+- *De statistiekenpagina is niet bereikbaar*: de statistiek-pc staat uit of het adres klopt niet (bij Beheer, Instellingen, Venue, Statistieken). Die pc kan ook even traag zijn; probeer het na een paar seconden opnieuw.
 - *Geen statistieken beschikbaar*: de share is niet bereikbaar en er is nog geen lokale kopie. Controleer de verbinding met de statistiek-pc.
-- *Database niet beschikbaar*: de database staat uit of is niet te lezen op de bridge; alleen de spelers van de pagina zijn er dan.
+- *Database niet beschikbaar*: de database staat uit of is niet te lezen; alleen de spelers van de pagina zijn er dan.

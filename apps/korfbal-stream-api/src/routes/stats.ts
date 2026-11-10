@@ -1,11 +1,11 @@
 import {NextFunction, Request, Response, Router} from 'express';
 import {z} from 'zod';
 import {sendApiError} from '../services/apiErrorCodes';
-import {BridgeNotConfiguredError, BridgeOfflineError, bridgeGet, statsTeam, withTeamSource, type BridgeAnswer} from '../services/stats/statsBridge';
+import {BridgeOfflineError, bridgeGet, statsTeam, withTeamSource} from '../services/stats/statsBridge';
 import {requireOrganizationId} from '../services/organizationContext';
 
 /**
- * Match statistics from the statistics PC, through the statistics bridge (its own app: a failing PC or
+ * Match statistics from the statistics PC, through the venue-bridge (its own app at the venue: a failing PC or
  * share takes down the bridge, not this API). Same URLs as ever, feed routes (API key): this only forwards.
  */
 export const statsRouter: Router = Router();
@@ -14,8 +14,7 @@ const wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => async (r
   try {
     await fn(req, res);
   } catch (err) {
-    if (err instanceof BridgeOfflineError) return sendApiError(res, 'STATS_BRIDGE_OFFLINE');
-    if (err instanceof BridgeNotConfiguredError) return res.status(409).json({error: err.message});
+    if (err instanceof BridgeOfflineError) return sendApiError(res, 'VENUE_BRIDGE_OFFLINE');
     if (err instanceof z.ZodError) return res.status(400).json({error: err.issues[0]?.message || 'Ongeldige invoer'});
     return next(err);
   }
@@ -27,14 +26,6 @@ const LiveQuery = z.object({
 });
 const TableParam = z.string().min(1).max(200);
 
-/** What the bridge says about its token is a setup problem here, not an offline bridge. */
-function mapBridgeAnswer(answer: BridgeAnswer): BridgeAnswer {
-  if (answer.status === 401 || answer.status === 403) {
-    return {...answer, status: 502, body: {error: 'De statistics bridge weigert het bridge-token: controleer het token bij Instellingen → Statistieken'}};
-  }
-  return answer;
-}
-
 /** Forward `path` to the bridge (with the production's team unless `withTeam` is false) and pass its answer on. */
 async function forward(res: Response, path: string, query: Record<string, string | number | undefined> = {}, withTeam = true) {
   const team = withTeam ? await statsTeam() : null;
@@ -42,7 +33,7 @@ async function forward(res: Response, path: string, query: Record<string, string
   for (const [k, v] of Object.entries(query)) if (v !== undefined) params.set(k, String(v));
   if (team) params.set('team', team.value);
   const qs = params.toString();
-  const answer = mapBridgeAnswer(await bridgeGet(`${path}${qs ? `?${qs}` : ''}`));
+  const answer = await bridgeGet(`${path}${qs ? `?${qs}` : ''}`);
   const {headers, body} = team ? withTeamSource(answer, team) : {headers: answer.headers, body: answer.body};
   for (const [k, v] of Object.entries(headers)) res.setHeader(k, v);
   return res.status(answer.status).json(body);
@@ -61,7 +52,7 @@ export function clearStatsStatusCache(): void {
 async function bridgeStatus(): Promise<unknown> {
   const team = await statsTeam();
   try {
-    const answer = mapBridgeAnswer(await bridgeGet(`/status?team=${team.value}`));
+    const answer = await bridgeGet(`/status?team=${team.value}`);
     if (answer.status !== 200) return {bridge: {ok: false, ms: null}, team};
     const {body} = withTeamSource(answer, team);
     return {bridge: {ok: true, ms: answer.ms}, ...(body as object), ...((body as {team?: unknown}).team ? {team} : {})};

@@ -2,6 +2,8 @@ import {createHash, randomBytes} from 'node:crypto';
 import type {Organization, OrganizationApiKey} from '@prisma/client';
 import {prisma, prismaUnscoped} from './prisma';
 import {logger} from '../utils/logger';
+import {requireOrganizationId} from './organizationContext';
+import {disconnectBridgeOfKey} from './venueBridge';
 
 /**
  * API keys of an organization (D7): vMix data sources and other devices can't send X-Organization, so
@@ -65,6 +67,8 @@ export async function revokeApiKey(id: number): Promise<ApiKeyDto | null> {
   if (row.revokedAt) return toApiKeyDto(row);
   const revoked = await prisma.organizationApiKey.update({where: {id}, data: {revokedAt: new Date()}});
   clearApiKeyCache(); // the key stops working on the next request, not when the cache expires
+  // A venue-bridge that connected with this key is a long-lived socket: drop it now
+  disconnectBridgeOfKey(requireOrganizationId('revoke API key'), id);
   return toApiKeyDto(revoked);
 }
 
@@ -74,6 +78,11 @@ export async function revokeApiKey(id: number): Promise<ApiKeyDto | null> {
  * A valid key is answered from memory for ORGANIZATION_LOOKUP_TTL_MS.
  */
 export async function findOrganizationByApiKey(key: string, now = new Date()): Promise<Organization | null> {
+  return (await findApiKey(key, now))?.organization ?? null;
+}
+
+/** Like findOrganizationByApiKey, with the id of the key (a venue-bridge remembers it, to be dropped when the key is revoked). */
+export async function findApiKey(key: string, now = new Date()): Promise<{keyId: number; organization: Organization} | null> {
   if (!key.startsWith(API_KEY_PREFIX) || key.length > MAX_KEY_LENGTH) return null;
   const keyHash = hashApiKey(key);
   let entry = byHash.get(keyHash);
@@ -93,5 +102,5 @@ export async function findOrganizationByApiKey(key: string, now = new Date()): P
     prismaUnscoped.organizationApiKey.update({where: {id: keyId}, data: {lastUsedAt: now}})
       .catch((err: unknown) => logger.warn('Updating lastUsedAt of an API key failed', {id: keyId, error: (err as Error)?.message}));
   }
-  return entry.organization;
+  return {keyId: entry.keyId, organization: entry.organization};
 }

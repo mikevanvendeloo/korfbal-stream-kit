@@ -7,6 +7,9 @@ import {defineConfig} from 'vitest/config';
 process.env.TZ ||= 'UTC';
 
 export default defineConfig({
+  resolve: {
+    alias: {'@korfbal-stream-kit/venue-protocol': fileURLToPath(new URL('../../libs/venue-protocol/src/index.ts', import.meta.url))},
+  },
   test: {
     name: 'korfbal-stream-api-tests',
     // Only this app's tests, wherever vitest is started from. Run it from the repo root: some

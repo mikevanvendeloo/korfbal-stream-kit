@@ -62,7 +62,6 @@ services:
 | `DATABASE_URL` | ja | PostgreSQL connection string |
 | `PORT` | nee | Poort van de API (standaard `3333`) |
 | `ASSETS_DIR` | nee | Map voor logo's, foto's en KNKV-downloads (koppel als volume) |
-| `SCOREBOARD_BASE_URL` / `SHOTCLOCK_BASE_URL` | nee | Adressen van het scorebord en de schotklok in de zaal |
 | `HOST_IP` | nee | IP van de host, zodat de vMix-endpoints het juiste adres tonen |
 | `LOG_LEVEL` | nee | `error`, `warn`, `info` (standaard) of `debug` |
 | `DEBUG_LOGGING` | nee | `true`: log ook elk geslaagd GET-verzoek (vMix, scorebord) en de inhoud van de vMix-databronnen. Standaard alleen wijzigingen en fouten. `LOG_LEVEL` gaat voor. |

@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "@korfbal-stream-kit/ui",
+  "projectType": "library",
+  "root": "libs/ui",
+  "sourceRoot": "libs/ui/src",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest run --config libs/ui/vitest.config.ts",
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "options": {
+        "lintFilePatterns": ["libs/ui/**/*.{ts,tsx}"]
+      }
+    }
+  },
+  "tags": []
+}

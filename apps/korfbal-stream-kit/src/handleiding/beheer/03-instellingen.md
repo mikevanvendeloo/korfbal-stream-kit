@@ -1,6 +1,6 @@
 # Instellingen en een nieuw seizoen
 
-De instellingen open je met **tandwiel → Instellingen** rechtsboven, of door op het label **Seizoen …** te klikken. Er zijn vijf tabbladen: **Seizoen**, **Club & Teams**, **Koppelingen**, **Sponsors** en **Backup**.
+De instellingen open je met **tandwiel → Instellingen** rechtsboven, of door op het label **Seizoen …** te klikken. Er zijn vijf tabbladen: **Seizoen**, **Club & Teams**, **Venue**, **Sponsors** en **Backup**.
 
 ## Een nieuw seizoen starten
 
@@ -76,24 +76,41 @@ Gaat het mis, dan zie je wat er mis is en wat je kunt doen:
 
 Klik op **Instellingen Opslaan**.
 
-## Koppelingen
+## Venue
 
-- **vMix**: die stel je in bij [Stamgegevens → vMix-koppeling](/admin/handleiding/vmix).
-- **Scorebord & Shotclock**: het adres van het scorebord en van de schotklok in de zaal, bijvoorbeeld `http://192.168.1.20:8080`. Hiermee werken het scorebord in LIVE en de zaalklok in de callsheet. Laat je een veld leeg, dan geldt het adres uit de installatie.
-- **Statistieken**: hier stel je de **Statistics bridge URL** in, het adres van de statistics bridge, bijvoorbeeld `http://statistics-bridge:3340` (de naam van de bridge binnen Docker). De bridge is een aparte, tijdelijke app die de statistiek-pc in de zaal uitleest (de gedeelde map met WEDSTRIJDEN.mdb en de statistiekenpagina). Het **Bridge-token** vul je alleen in als de bridge een token vraagt; het wordt nooit getoond (staat er al een token, dan zie je *Ingesteld*; laat je het veld leeg, dan blijft het staan, met **Token verwijderen** haal je het weg). Verander je het adres zonder nieuw token, dan wordt het oude token gewist. Waar de pc, de share en de pagina staan (en of de database aan staat) stel je in op de bridge zelf, zie *De statistics bridge draaien*. Met **Verbinding testen** zie je of de bridge online is en wat hij van de pc bereikt. Sla op met **Statistieken opslaan**. Het resultaat zie je in LIVE bij **Statistieken**.
+Het tabblad **Venue** (bereikbaar met een klik op **Bridge verbonden** of **Bridge offline** in de balk bovenaan) gaat over alles wat in de zaal staat: scorebord, schotklok, statistiek-pc en vMix. Dat leest de **venue-bridge** uit, een kleine app in de zaal (zie [Venue-bridge in de zaal](/admin/handleiding/venue-bridge)). Streamz zelf praat niet rechtstreeks met die apparaten.
 
-### De statistics bridge draaien
+### Kaart Venue-bridge
 
-De bridge draait los van Streamz, in een eigen container. Valt de statistiek-pc of de share uit, dan valt alleen de bridge om: Streamz zelf werkt door en LIVE toont *De statistics bridge is offline*. Zonder instellingen gebruikt de bridge een opgeslagen statistiekenpagina en geen database; zo werkt hij meteen, ook zonder pc.
+Bovenaan staat de status van de bridge, die zichzelf bijwerkt:
 
-Start hem met `scripts/statistics-bridge/start.sh` (Mac) of `scripts\statistics-bridge\start.ps1` (Windows), eventueel met een variant:
+- **Verbinding**: *Verbonden* of *De venue-bridge is offline*. Bij offline zie je alleen dit regeltje.
+- **Naam** en **Versie** van de bridge, en **Verbonden sinds**.
+- **Configuratie**: *Toegepast* (de bridge heeft de instellingen hieronder ontvangen en gebruikt ze), *Wacht op bevestiging* (net verbonden) of *Geweigerd*; bij geweigerd staat de reden eronder.
+- **Scorebord**, **Zaalklok** en **Shotclock**: *In orde*, *Niet bereikbaar*, *Ongeldig antwoord*, *Niet ingesteld* of *Geen recente meting*, met erachter hoe lang geleden de laatste meting was.
+- **Pagina van de bridge**: een link naar de statuspagina van de bridge. Die werkt alleen op het netwerk van de zaal.
 
-- **mac**: de share van de pc staat gemount op de Mac. Mount hem eerst met `scripts/statistics-bridge/mount-share-mac.sh` (die meldt het als de pc uit staat). De bridge leest `/Volumes/KL2627`.
-- **windows-robocopy**: `scripts\statistics-bridge\sync-stats.ps1` kopieert elke paar seconden de gewijzigde bestanden van de share naar `C:\streamz\stats`; de bridge leest alleen die lokale map. Met `-Install` start het script vanzelf bij het inloggen.
-- **cifs**: Docker mount de share zelf. Staat de pc uit, dan start de bridge niet; dat is geen probleem voor de rest.
-- **page-only**: geen database, alleen de statistiekenpagina; de spelerscijfers komen dan van de pagina.
+Is de bridge offline, dan werken het scorebord, de zaalklok, de statistieken en alles wat naar vMix gaat niet. Controleer dan de machine in de zaal en de API-sleutel van de bridge.
 
-Het adres van de pagina, het pad van het bestand (met `{team}` voor het teamnummer van de actieve productie) en het token zet je met omgevingsvariabelen (`PAGE_URL`, `MDB_PATH`, `BRIDGE_TOKEN`); de lijst staat in `apps/statistics-bridge/README.md`. Vul daarna hierboven het **Statistics bridge URL** in.
+### Scorebord & Shotclock
+
+Het adres van het scorebord en van de schotklok in de zaal, bijvoorbeeld `http://192.168.1.20:8080`. Hiermee werken het scorebord in LIVE en de zaalklok in de callsheet. Het zijn adressen in het netwerk van de zaal: de bridge leest ze daar uit. Sla op met **Scorebord opslaan**; de bridge krijgt de nieuwe adressen meteen.
+
+### Statistieken
+
+Wat de bridge van de statistiek-pc leest. Alle velden zijn optioneel:
+
+- **Statistiekenpagina**: een http(s)-adres, of een .html-pad binnen de gedeelde map.
+- **Pad van de database**: het pad van WEDSTRIJDEN.mdb in de gedeelde map, relatief en zonder `..`, eindigend op .mdb of .accdb. `{team}` wordt het teamnummer van de actieve productie.
+- **Adres van de statistiek-pc**: de bridge kijkt eerst of deze pc op het netwerk antwoordt, voor hij de database leest. Antwoordt hij niet, dan leest de bridge de lokale kopie. Leeg: de pc van de statistiekenpagina (als die een http(s)-adres is). Ook gebruikt bij de verbindingstest.
+- **Database gebruiken**: uit betekent dat alleen de statistiekenpagina wordt gebruikt.
+- **Lokale kopie van de database bewaren**: de bridge bewaart een kopie voor als de share even wegvalt.
+
+Sla op met **Statistieken opslaan**. Is een waarde niet toegestaan (bijvoorbeeld een databasepad met `..`), dan staat de melding van de API erboven en blijven de oude instellingen gelden. Met **Verbinding testen** zie je of de bridge online is en wat hij van de pc bereikt. Het resultaat zie je in LIVE bij **Statistieken**.
+
+### vMix-pc's
+
+De vMix-pc's (bijvoorbeeld een stream- en een scherm-pc) en welke functie naar welke vMix gaat. Zie [vMix-pc's](/admin/handleiding/vmix#vmix-pc-s). De bridge stuurt de opdrachten naar vMix; hier zie je daarom ook of de bridge verbonden is.
 
 ## Sponsors
 

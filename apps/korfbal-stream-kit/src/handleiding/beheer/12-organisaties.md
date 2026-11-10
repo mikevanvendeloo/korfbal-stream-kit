@@ -70,7 +70,7 @@ vMix-datasources, vMix-triggers en scorebordschermen kunnen geen organisatie kie
 
 #### Stream Deck
 
-Met Bitfocus Companion zet je de Show Caller-knoppen op een Stream Deck. Maak per knop een HTTP POST-actie naar `http://<server>:<poort>/api/...?key=<jouw-sleutel>` (of zet de sleutel in de header `X-Api-Key`):
+Met Bitfocus Companion zet je de Show Caller-knoppen op een Stream Deck. Maak per knop een HTTP POST-actie naar `http://<server>:<poort>/api/...?key=<jouw-sleutel>` (of zet de sleutel in de header `X-Api-Key`). Staat de Stream Deck in de zaal, dan kun je ook de venue-bridge gebruiken, zie het kopje hieronder:
 
 | Knop | Adres | Inhoud (JSON) |
 |---|---|---|
@@ -84,6 +84,17 @@ Met Bitfocus Companion zet je de Show Caller-knoppen op een Stream Deck. Maak pe
 **Volgende productie** is de productie van de eerste wedstrijd vanaf vandaag; een wedstrijd van vandaag telt als volgende, ook als hij al begonnen is. **Vorige productie** is die van de laatste wedstrijd vóór vandaag. Net als **Activeren** in Beheer stopt dit een show die nog loopt van een andere productie.
 
 De knoppen werken op de show van de organisatie van de sleutel. Iedereen met die sleutel kan de show bedienen: gebruik voor de Stream Deck een eigen sleutel.
+
+##### Reserve-adressen in de zaal
+
+De venue-bridge in de zaal heeft zelf dezelfde adressen voor de scorebordgegevens en de countdown in vMix, voor als de verbinding met Streamz uitvalt: `http://<bridge>:3340/api/...?key=<jouw-sleutel>`, met de sleutel van de bridge. Gebruik het adres van de machine van de bridge in de zaal. Daarop werken:
+
+| Knop | Adres op de bridge |
+|---|---|
+| Countdown in vMix op x seconden | `/api/vmix/set-timer` met `{"seconds": 30}` |
+| Scorebord, zaalklok en schotklok (voor een eigen scherm) | `/api/scoreboard`, `/api/scoreboard/clock`, `/api/scoreboard/shotclock` |
+
+De knoppen die de show bedienen (volgend en vorig item, productie wisselen) bestaan alleen op Streamz zelf, niet op de bridge.
 
 Ben je een sleutel kwijt, maak dan een nieuwe en trek de oude in. **Intrekken** (na bevestigen) werkt meteen: apparaten met die sleutel krijgen geen gegevens meer. Gebruik per apparaat een eigen sleutel, dan kun je er één intrekken zonder de rest aan te passen.
 

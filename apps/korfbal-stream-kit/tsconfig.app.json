@@ -12,9 +12,11 @@
       "vite/client",
       "html2canvas"
     ],
-    "rootDir": "src"
+    "rootDir": "../.."
   },
   "exclude": [
+    "../../libs/ui/src/**/*.spec.tsx",
+    "../../libs/ui/src/test-setup.ts",
     "out-tsc",
     "dist",
     "src/**/*.spec.ts",
@@ -33,6 +35,6 @@
     "eslint.config.cjs",
     "eslint.config.mjs"
   ],
-  "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"],
+  "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx", "../../libs/ui/src/**/*.ts", "../../libs/ui/src/**/*.tsx"],
   "references": []
 }

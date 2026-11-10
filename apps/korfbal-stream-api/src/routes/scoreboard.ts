@@ -1,76 +1,32 @@
-import {Router} from 'express';
-import axios from 'axios';
-import {config} from '../services/config';
-import {logger} from '../utils/logger';
-import {getScoreboardUrl, getShotclockUrl} from '../services/appSettings';
+import {Router, type Request, type Response} from 'express';
+import {enrichShotclock, type VenueDevice} from '@korfbal-stream-kit/venue-protocol';
+import {requireOrganizationId} from '../services/organizationContext';
+import {currentReading, latestReading} from '../services/venueData';
 
+/**
+ * The scoreboard, the venue clock and the shot clock as the venue-bridge last read them (it sits at the venue;
+ * the API never asks the devices itself).
+ */
 export const scoreboardRouter: Router = Router();
 
-// GET /api/scoreboard
-scoreboardRouter.get('/', async (_req, res) => {
-  try {
-    const baseUrl = await getScoreboardUrl() || config.scoreBoardBaseUrl;
-    const url = `${baseUrl.replace(/\/$/, '')}/score-as-array`;
-    const response = await axios.get(url, {signal: AbortSignal.timeout(2000)});
-
-    if (!Array.isArray(response.data)) {
-      return res.status(502).json({ error: 'Invalid response format from scoreboard' });
-    }
-
-    return res.json(response.data);
-  } catch (err: any) {
-    logger.warn('Scoreboard fetch failed', { error: err?.message });
-    return res.status(502).json({ error: 'Failed to fetch scoreboard' });
-  }
-});
-
-function colorForShotclock(time: number): 'green' | 'orange' | 'red' {
-  if (time <= 10) return 'red';
-  if (time <= 15) return 'orange';
-  return 'green';
+function deviceRoute(device: VenueDevice, label: string, transform: (data: unknown[]) => unknown[] = (data) => data) {
+  return (_req: Request, res: Response) => {
+    const organizationId = requireOrganizationId('scoreboard');
+    const reading = currentReading(organizationId, device);
+    if (reading) return res.json(transform(reading.data));
+    // A device that answers something else than an array is a different failure from one that does not answer
+    if (latestReading(organizationId, device)?.error === 'invalid') return res.status(502).json({error: `Invalid response format from ${label}`});
+    return res.status(502).json({error: `Failed to fetch ${label}`});
+  };
 }
 
+// GET /api/scoreboard
+scoreboardRouter.get('/', deviceRoute('score', 'scoreboard'));
+
 // GET /api/scoreboard/shotclock
-scoreboardRouter.get('/shotclock', async (_req, res) => {
-  try {
-    const baseUrl = await getShotclockUrl() || config.shotClockBaseUrl;
-    const url = `${baseUrl.replace(/\/$/, '')}/time-as-array`;
-    const response = await axios.get(url, {signal: AbortSignal.timeout(2000)});
-
-    const data = response.data;
-    if (!Array.isArray(data)) {
-      return res.status(502).json({ error: 'Invalid response format from shotclock' });
-    }
-
-    const enriched = data.map((item: any) => {
-      const time = Number(item?.time);
-      const color = Number.isFinite(time) ? colorForShotclock(time) : undefined;
-      return { ...item, color };
-    });
-
-    return res.json(enriched);
-  } catch (err: any) {
-    logger.warn('Shotclock fetch failed', { error: err?.message });
-    return res.status(502).json({ error: 'Failed to fetch shotclock' });
-  }
-});
+scoreboardRouter.get('/shotclock', deviceRoute('shotclock', 'shotclock', enrichShotclock));
 
 // GET /api/scoreboard/clock
-scoreboardRouter.get('/clock', async (_req, res) => {
-  try {
-    const baseUrl = await getScoreboardUrl() || config.scoreBoardBaseUrl;
-    const url = `${baseUrl.replace(/\/$/, '')}/time-as-array`;
-    const response = await axios.get(url, {signal: AbortSignal.timeout(2000)});
-
-    if (!Array.isArray(response.data)) {
-      return res.status(502).json({ error: 'Invalid response format from scoreboard clock' });
-    }
-
-    return res.json(response.data);
-  } catch (err: any) {
-    logger.warn('Scoreboard clock fetch failed', { error: err?.message });
-    return res.status(502).json({ error: 'Failed to fetch scoreboard clock' });
-  }
-});
+scoreboardRouter.get('/clock', deviceRoute('clock', 'scoreboard clock'));
 
 export default scoreboardRouter;

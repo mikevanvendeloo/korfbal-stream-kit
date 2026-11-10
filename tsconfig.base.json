@@ -17,6 +17,9 @@
     "strict": true,
     "target": "es2022",
     "customConditions": ["@korfbal-stream-kit/korfbal-stream-kit"],
-    "paths": {}
+    "paths": {
+      "@korfbal-stream-kit/ui": ["./libs/ui/src/index.ts"],
+      "@korfbal-stream-kit/venue-protocol": ["./libs/venue-protocol/src/index.ts"]
+    }
   }
 }

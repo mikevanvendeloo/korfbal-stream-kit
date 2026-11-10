@@ -16,14 +16,10 @@ const EnvSchema = z.object({
     .default('3333' as unknown as any),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required').or(z.string().length(0)).default(''),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
-  SCOREBOARD_BASE_URL: z.string().url().default('http://10.12.0.62/scoreboard'),
-  SHOTCLOCK_BASE_URL: z.string().url().default('http://10.12.0.61/shotclock'),
   // The match import is not configured here: each organization sets its source in Beheer (MatchSource).
   // Root directory where binary assets (logos, player photos, uploads) are stored within the container/app.
   // Default: "storage". In tests, if not set, falls back to tmp/test-storage under cwd to avoid polluting real data.
   ASSETS_DIR: z.string().optional().default(''),
-  // Read-only root of the statistics PC's share (WEDSTRIJDEN.mdb); the organization setting holds the path inside it.
-  STATS_DIR: z.string().optional().default(''),
   // App version, typically injected at build time or via env var
   APP_VERSION: z.string().default('0.0.0-dev'),
 });
@@ -49,10 +45,7 @@ const env = parsed.success
     PORT: Number(process.env.PORT || 3333),
     DATABASE_URL: process.env.DATABASE_URL || '',
     LOG_LEVEL: (process.env.LOG_LEVEL || 'info') as 'error' | 'warn' | 'info' | 'debug',
-    SCOREBOARD_BASE_URL: process.env.SCOREBOARD_BASE_URL || 'http://10.12.0.62/scoreboard',
-    SHOTCLOCK_BASE_URL: process.env.SHOTCLOCK_BASE_URL || 'http://10.12.0.61/shotclock',
     ASSETS_DIR: process.env.ASSETS_DIR || '',
-    STATS_DIR: process.env.STATS_DIR || '',
     APP_VERSION: process.env.APP_VERSION || '0.0.0-test',
   } as any);
 
@@ -61,10 +54,7 @@ export const config = {
   port: Number(env.PORT),
   databaseUrl: env.DATABASE_URL,
   logLevel: env.LOG_LEVEL,
-  scoreBoardBaseUrl: env.SCOREBOARD_BASE_URL as string,
-  shotClockBaseUrl: env.SHOTCLOCK_BASE_URL as string,
   assetsDir: (env.ASSETS_DIR || '') as string,
-  statsDir: (env.STATS_DIR || '') as string,
   appVersion: (env.APP_VERSION || '0.0.0-dev') as string,
 };
 

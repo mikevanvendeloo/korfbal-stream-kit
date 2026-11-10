@@ -1,9 +1,9 @@
 import request from 'supertest';
-import axios from 'axios';
 import app from '../main';
 import {afterAll, afterEach, beforeAll, describe, expect, it, vi} from 'vitest';
 import {createProductionScenario, ProductionScenario} from '../../test-scenarios';
-import {inTestOrganization, testDb as prisma} from '../../test-helpers';
+import {inTestOrganization, testDb as prisma, testOrganizationId} from '../../test-helpers';
+import {connectFakeBridge, createBridgeKey} from '../test-support/fakeBridge';
 import {getSetting, setSetting, VMIX_URL_KEY} from '../services/appSettings';
 import {setVmixInstancesConfig, VMIX_INSTANCES_KEY} from '../services/vmixInstances';
 import {pushCallsheetToVmix, setCallsheetPushConfig, VMIX_CALLSHEET_PUSH_KEY} from '../services/vmixCallsheetPush';
@@ -100,12 +100,16 @@ describe.runIf(runDb)('Amsterdam time in text for vMix and reports (integration)
     });
 
     it('sends the start time as Amsterdam time (19:30 for 18:30Z in November)', async () => {
-      const get = vi.spyOn(axios, 'get').mockResolvedValue({status: 200, data: ''});
-      const result = await inTestOrganization(() => pushCallsheetToVmix(true, new Date('2026-11-14T18:10:00.000Z')));
-      expect(result.errors).toEqual([]);
-      expect(result.timing?.nextStartTime).toBe('19:30');
-      const urls = get.mock.calls.map(([url]) => String(url));
-      expect(urls).toContain('http://vmix.invalid:8088/api/?Function=SetText&Input=Callsheet&SelectedName=VolgendStart.Text&Value=19%3A30');
+      const bridge = await connectFakeBridge(await createBridgeKey(await testOrganizationId()));
+      try {
+        const result = await inTestOrganization(() => pushCallsheetToVmix(true, new Date('2026-11-14T18:10:00.000Z')));
+        expect(result.errors).toEqual([]);
+        expect(result.timing?.nextStartTime).toBe('19:30');
+        const commands = bridge.requestsOf('vmix:call').flatMap((call) => call.commands);
+        expect(commands).toContainEqual({Function: 'SetText', Input: 'Callsheet', SelectedName: 'VolgendStart.Text', Value: '19:30'});
+      } finally {
+        bridge.close();
+      }
     });
   });
 

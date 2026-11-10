@@ -1,0 +1,10 @@
+# De map met F1/ en F2/ is instelbaar: STATS_SOURCE_DIR=D:/mijn/share (een gewone lokale map of een map die je zelf deelt; een netwerkstation zoals Z: ziet Docker meestal niet).
+# Windows: een map die door robocopy wordt gevuld met de bestanden van de share (scripts/venue-bridge/sync-stats.ps1,
+# bijvoorbeeld elke 5 seconden naar C:\streamz\stats). De container leest alleen die lokale map, dus een pc die uit staat
+# of een share die hangt raakt de bridge niet; de bestanden zijn dan alleen niet meer vers.
+services:
+  venue-bridge:
+    environment:
+      STATS_DIR: /stats
+    volumes:
+      - ${STATS_SOURCE_DIR:-C:/streamz/stats}:/stats:ro

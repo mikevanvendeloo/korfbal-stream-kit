@@ -1,5 +1,4 @@
 import {NextFunction, Response, Router} from 'express';
-import axios from 'axios';
 import {prisma} from '../services/prisma';
 import {findClubByTeamName} from '../utils/clubs';
 import {logger} from '../utils/logger';
@@ -12,7 +11,6 @@ import {
   UpdateTitleDefinitionSchema
 } from '../schemas/title';
 import {
-  buildVmixFunctionUrl,
   getSponsorNamesTypes,
   getSponsorRowsTypes,
   getSetting,
@@ -20,7 +18,9 @@ import {
   SPONSOR_CAROUSEL_EXTRA_KEY,
 } from '../services/appSettings';
 import {resolveVmixInstance} from '../services/vmixInstances';
-import {fetchVmixInputs} from '../services/vmixInputs';
+import {vmixCall, vmixInputs} from '../services/vmixBridge';
+import {BridgeOfflineError} from '../services/venueBridge';
+import {sendApiError} from '../services/apiErrorCodes';
 import {VMIX_FUNCTIONS} from '../schemas/vmixInstances';
 import {shuffle} from "../utils/array-utils";
 import os from 'node:os';
@@ -110,6 +110,7 @@ vmixRouter.post('/callsheet/push', async (_req, res, next) => {
     const warnings = result.errors.length > 0 && result.sent === 0 ? [] : await checkCallsheetTarget();
     return res.status(result.errors.length > 0 && result.sent === 0 ? 502 : 200).json({...result, warnings});
   } catch (err) {
+    if (err instanceof BridgeOfflineError) return sendApiError(res, 'VENUE_BRIDGE_OFFLINE');
     return next(err);
   }
 });
@@ -127,13 +128,14 @@ vmixRouter.get('/inputs', async (req, res, next) => {
     if (!parsed.success) return res.status(400).json({ error: 'Ongeldige vMix-functie' });
     const target = await resolveVmixInstance(parsed.data.function, parsed.data.instanceId);
     if ('error' in target) return res.status(400).json({ error: target.error });
-    try {
-      return res.json({ instance: target.instance.name, inputs: await fetchVmixInputs(target.instance.url) });
-    } catch (err) {
-      logger.warn('GET /vmix/inputs: vMix failed', { message: (err as Error).message });
+    const answer = await vmixInputs({function: parsed.data.function, instanceId: parsed.data.instanceId});
+    if (!answer.ok) {
+      logger.warn('GET /vmix/inputs: vMix failed', { message: answer.error });
       return res.status(502).json({ error: 'vMix niet bereikbaar' });
     }
+    return res.json({ instance: answer.instance, inputs: answer.inputs });
   } catch (err) {
+    if (err instanceof BridgeOfflineError) return sendApiError(res, 'VENUE_BRIDGE_OFFLINE');
     return next(err);
   }
 });
@@ -157,18 +159,16 @@ vmixRouter.post('/set-timer', async (req, res, next) => {
     if ('error' in target) {
       return res.status(400).json({ error: target.error });
     }
-    const base = target.instance.url;
-    // vMix Web Controller API: SetCountdown expects Value=mm:ss
-    const url = buildVmixFunctionUrl(base, {Function: 'SetCountdown', Value: value});
-    const response = await axios.get(url, {signal: AbortSignal.timeout(2000)});
-
-    return res.json({ ok: true, seconds: secs, instance: target.instance.name, vmixResponse: typeof response.data === 'string' ? response.data : undefined });
-  } catch (err) {
-    // Also reachable with a feed key (Stream Deck): no vMix address or upstream status in the answer, only in the log
-    if (axios.isAxiosError(err)) {
-      logger.warn('POST /vmix/set-timer: vMix failed', { status: err.response?.status, message: err.message });
+    // The venue-bridge sends SetCountdown (Value=mm:ss, vMix Web Controller API) to that vMix
+    const answer = await vmixCall({function: 'countdown', instanceId, commands: [{Function: 'SetCountdown', Value: value}]});
+    // Also reachable with a feed key (Stream Deck): no vMix address in the answer, only in the bridge's log
+    if (!answer.ok) {
+      logger.warn('POST /vmix/set-timer: vMix failed', { message: answer.error });
       return res.status(502).json({ error: 'vMix niet bereikbaar' });
     }
+    return res.json({ ok: true, seconds: secs, instance: target.instance.name });
+  } catch (err) {
+    if (err instanceof BridgeOfflineError) return sendApiError(res, 'VENUE_BRIDGE_OFFLINE');
     return next(err);
   }
 });
@@ -824,7 +824,7 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
         url: `${baseUrl}/callsheet/timing?position=Presentatie`,
         description: 'Current and next callsheet item for this position, with remaining time and start times.'
       },
-      // Match statistics through the statistics bridge (also feeds with an API key)
+      // Match statistics through the venue-bridge (also feeds with an API key)
       {
         name: 'Statistieken: teams',
         url: `${statsUrl}/team-stats`,

@@ -244,7 +244,7 @@ export default function StatisticsPage() {
       <div className="mb-4">
         <StatsConnectionStatus auto/>
       </div>
-      {bridgeOffline && <p role="alert" className="p-4 rounded-md border border-red-200 bg-red-50 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">De statistics bridge is offline</p>}
+      {bridgeOffline && <p role="alert" className="p-4 rounded-md border border-red-200 bg-red-50 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">De venue-bridge is offline</p>}
       {!bridgeOffline && <>
       <div role="tablist" className="flex gap-2 mb-4 overflow-x-auto border-b border-gray-200 dark:border-gray-800">
         <button type="button" role="tab" aria-selected={tab === 'live'} className={tabClass(tab === 'live')} onClick={() => setTab('live')}>Live</button>

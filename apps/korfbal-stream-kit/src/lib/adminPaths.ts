@@ -9,6 +9,8 @@ export type ProductionTab = 'beschikbaarheid' | 'bezetting' | 'vmix-titels' | 'r
 export const adminPaths = {
   home: ADMIN,
   settings: `${ADMIN}/instellingen`,
+  /** Instellingen on its Venue tab: the venue-bridge status and the scoreboard, statistics and vMix settings */
+  venueSettings: `${ADMIN}/instellingen?tab=venue`,
   about: `${ADMIN}/over`,
 
   productions: `${ADMIN}/producties`,

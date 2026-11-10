@@ -13,7 +13,8 @@
         "platform": "node",
         "outputPath": "dist/apps/korfbal-stream-api",
         "format": ["cjs"],
-        "bundle": false,
+        "bundle": true,
+        "thirdParty": false,
         "main": "apps/korfbal-stream-api/src/main.ts",
         "tsConfig": "apps/korfbal-stream-api/tsconfig.app.json",
         "assets": [

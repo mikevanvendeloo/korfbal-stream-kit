@@ -40,7 +40,7 @@ describe('StatisticsPage', () => {
   it('shows the bridge online and, through it, the network, the database and the page', async () => {
     api(() => LIVE, {...BRIDGE_UP, database: {ok: false, ms: null}, page: null});
     renderPage(<StatisticsPage/>);
-    expect(await screen.findByText('Statistics bridge: online (3 ms)')).toBeTruthy();
+    expect(await screen.findByText('Venue-bridge: online (3 ms)')).toBeTruthy();
     expect(screen.getByText('Netwerk (10.12.0.63): bereikbaar (4 ms)')).toBeTruthy();
     expect(screen.getByText('Database op de share: niet bereikbaar')).toBeTruthy();
     expect(screen.queryByText(/Statistiekenpagina:/)).toBeNull();
@@ -52,11 +52,11 @@ describe('StatisticsPage', () => {
     expect(await screen.findByText(/Database: uitgeschakeld op de bridge/)).toBeTruthy();
   });
 
-  it('shows "De statistics bridge is offline" instead of the tables when the bridge is offline', async () => {
+  it('shows "De venue-bridge is offline" instead of the tables when the bridge is offline', async () => {
     api(() => ({}), {bridge: {ok: false, ms: null}});
     renderPage(<StatisticsPage/>);
-    expect((await screen.findByRole('alert')).textContent).toBe('De statistics bridge is offline');
-    expect(screen.getByText('Statistics bridge: offline')).toBeTruthy();
+    expect((await screen.findByRole('alert')).textContent).toBe('De venue-bridge is offline');
+    expect(screen.getByText('Venue-bridge: offline')).toBeTruthy();
     expect(screen.queryByRole('tab')).toBeNull();
     expect(screen.queryByText(/Stand:/)).toBeNull();
   });
