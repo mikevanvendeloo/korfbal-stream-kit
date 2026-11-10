@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {Button, Card, CardContent, CardHeader, CardTitle, KeyValueRow, StatusBadge, type StatusTone} from '@korfbal-stream-kit/ui';
-import {fetchBridgeStatus, REFRESH_MS, type BridgeStatus, type DeviceState} from './status';
+import {fetchBridgeStatus, REFRESH_MS, type BridgeStatus, type DatabaseStatus, type DeviceState} from './status';
 
 const DEVICE_LABEL: Record<keyof BridgeStatus['devices'], string> = {score: 'Scorebord', clock: 'Zaalklok', shotclock: 'Shotclock'};
 
@@ -26,6 +26,55 @@ export function formatAge(ageMs: number | null): string {
 function formatTime(iso: string | null): string {
   if (!iso) return '-';
   return new Date(iso).toLocaleString('nl-NL', {timeZone: 'Europe/Amsterdam', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit'});
+}
+
+const ageOf = (iso: string | null, now: number) => (iso ? formatAge(Math.max(0, now - Date.parse(iso))) : 'nog niet');
+
+function formatBytes(bytes: number | null): string {
+  if (bytes === null) return '-';
+  return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} kB`;
+}
+
+/** The database rows: where the last answer came from, the share, the local copy and the last failure. */
+function DatabaseRows({share, keepCopy, now}: {share: DatabaseStatus; keepCopy: boolean | null; now: number}) {
+  const answer = share.lastAnswer;
+  // The last failure only counts while nothing succeeded after it
+  const failing = share.lastError && (!share.shareCheckedAt || Date.parse(share.lastError.at) >= Date.parse(share.shareCheckedAt));
+  return <>
+    <KeyValueRow label="Laatste antwoord">
+      {!answer
+        ? <StatusBadge tone="neutral">Nog niet gevraagd</StatusBadge>
+        : <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {answer.source === 'share'
+            ? <StatusBadge tone="ok">Van de share</StatusBadge>
+            : <StatusBadge tone="warn">Van de lokale kopie</StatusBadge>}
+          <span className="text-gray-500 dark:text-gray-400">cijfers van {formatTime(answer.readAt)}{answer.team ? `, team ${answer.team}` : ''}</span>
+        </span>}
+    </KeyValueRow>
+    <KeyValueRow label="Share">
+      {share.skipUntil
+        ? <StatusBadge tone="error">Overgeslagen tot {formatTime(share.skipUntil)} ({share.failures}× mislukt)</StatusBadge>
+        : failing
+          ? <StatusBadge tone="error">Mislukt</StatusBadge>
+          : share.shareCheckedAt
+            ? <StatusBadge tone="ok">Bereikbaar</StatusBadge>
+            : <StatusBadge tone="neutral">Nog niet gebruikt</StatusBadge>}
+    </KeyValueRow>
+    {share.hostReachable !== null && (
+      <KeyValueRow label="Statistiek-pc op het netwerk">{share.hostReachable ? 'Ja' : 'Nee'}</KeyValueRow>
+    )}
+    <KeyValueRow label="Laatst gekeken">{ageOf(share.shareCheckedAt, now)}</KeyValueRow>
+    <KeyValueRow label="Laatst gelezen">{ageOf(share.shareReadAt, now)}{share.parseMs !== null ? `, ingelezen in ${share.parseMs} ms` : ''}</KeyValueRow>
+    <KeyValueRow label="Bestand gewijzigd">{share.fileModifiedAt ? `${formatTime(share.fileModifiedAt)} (${formatBytes(share.fileBytes)})` : '-'}</KeyValueRow>
+    <KeyValueRow label="Lokale kopie">
+      {keepCopy === false ? 'Uit' : share.copyError
+        ? <StatusBadge tone="error">{share.copyError.message}</StatusBadge>
+        : share.copyWrittenAt ? `Geschreven ${ageOf(share.copyWrittenAt, now)}` : 'Nog niet geschreven'}
+    </KeyValueRow>
+    {share.lastError && (
+      <KeyValueRow label="Laatste fout">{share.lastError.message} ({ageOf(share.lastError.at, now)})</KeyValueRow>
+    )}
+  </>;
 }
 
 function CopyButton({text}: {text: string}) {
@@ -134,6 +183,24 @@ export default function StatusPage() {
               </KeyValueRow>
             ))}
           </dl>}
+      </Section>
+
+      <Section title="Statistieken">
+        <dl>
+          <KeyValueRow label="Pagina">{data.stats.page === 'configured' ? 'Ingesteld' : 'Niet ingesteld'}</KeyValueRow>
+          <KeyValueRow label="Database">
+            {data.stats.database === 'enabled'
+              ? <StatusBadge tone="ok">Aan</StatusBadge>
+              : data.stats.database === 'disabled' ? <StatusBadge tone="neutral">Uit</StatusBadge> : <StatusBadge tone="warn">Nog geen configuratie</StatusBadge>}
+          </KeyValueRow>
+          {data.stats.database === 'enabled' && <>
+            <KeyValueRow label="Statistiekenmap">
+              {data.stats.folder === 'set' ? 'Gekoppeld' : <StatusBadge tone="error">Niet gekoppeld (STATS_DIR)</StatusBadge>}
+            </KeyValueRow>
+            {data.stats.shareHost && <KeyValueRow label="Statistiek-pc">{data.stats.shareHost}</KeyValueRow>}
+            {data.stats.share && <DatabaseRows share={data.stats.share} keepCopy={data.stats.keepCopy} now={Date.now()}/>}
+          </>}
+        </dl>
       </Section>
 
       <Section title="Reserve-adressen">

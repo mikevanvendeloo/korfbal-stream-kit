@@ -12,7 +12,7 @@ const base: BridgeStatus = {
   devices: {score: {state: 'ok', ageMs: 1000}, clock: {state: 'ok', ageMs: 1000}, shotclock: {state: 'not-configured', ageMs: null}},
   hosts: {scoreboard: '192.168.1.20:8080', shotclock: null},
   vmix: [{id: 'a', name: 'Stream-pc', host: '192.168.1.30:8088', state: 'ok', ageMs: 4000}],
-  stats: {database: 'enabled', page: 'configured'},
+  stats: {database: 'enabled', page: 'configured', shareHost: '10.12.0.63', folder: 'set', keepCopy: true},
   fallback: {paths: ['/api/scoreboard', 'POST /api/vmix/set-timer'], key: '********'},
 };
 
@@ -55,6 +55,28 @@ describe('StatusPage', () => {
     fireEvent.click((await screen.findAllByRole('button', {name: /Kopieer/}))[0]);
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/api/scoreboard?key=********'));
     await screen.findByText('Gekopieerd');
+  });
+
+  it('shows that the statistics come from the local copy while the share is skipped', async () => {
+    const now = Date.now();
+    const iso = (ago: number) => new Date(now - ago).toISOString();
+    show({...base, stats: {...base.stats, share: {
+      shareReadAt: iso(600_000), shareCheckedAt: iso(300_000), lastError: {message: 'De gedeelde map antwoordt niet', at: iso(5000)},
+      failures: 3, skipUntil: new Date(now + 20_000).toISOString(), hostReachable: false,
+      fileModifiedAt: iso(610_000), fileBytes: 3 * 1024 * 1024, copyWrittenAt: iso(600_000), copyError: null, parseMs: 420,
+      lastAnswer: {source: 'copy', readAt: iso(600_000), team: '1', at: iso(1000)},
+    }}});
+    expect(await screen.findByText('Van de lokale kopie')).toBeInTheDocument();
+    expect(screen.getByText(/Overgeslagen tot .* \(3× mislukt\)/)).toBeInTheDocument();
+    expect(screen.getByText(/De gedeelde map antwoordt niet/)).toBeInTheDocument();
+    expect(screen.getByText('Nee')).toBeInTheDocument();
+    expect(screen.getByText(/ingelezen in 420 ms/)).toBeInTheDocument();
+    expect(screen.getByText(/3\.0 MB/)).toBeInTheDocument();
+  });
+
+  it('says the statistics folder is not mounted', async () => {
+    show({...base, stats: {...base.stats, folder: 'not set'}});
+    expect(await screen.findByText('Niet gekoppeld (STATS_DIR)')).toBeInTheDocument();
   });
 
   it('tells when the bridge itself cannot be reached', async () => {

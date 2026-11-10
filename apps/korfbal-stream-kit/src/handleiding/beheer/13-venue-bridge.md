@@ -36,9 +36,22 @@ De bridge heeft een statuspagina op `http://<bridge>:3340/`, voor iedereen op he
 - of de bridge **verbonden is met de API**, en sinds wanneer; zo niet, dan staat er *Niet verbonden met de API*;
 - wanneer de **configuratie** voor het laatst is ontvangen en welke versie;
 - per apparaat (scorebord, zaalklok, schotklok) en per vMix-pc de **status** en hoe lang geleden de laatste meting was;
+- bij **Statistieken** of de pagina en de database aan staan en, met de database aan, hoe het lezen van WEDSTRIJDEN.mdb gaat (zie hieronder);
 - de **reserve-adressen** (zie hieronder), met een knop om ze te kopiëren.
 
 De pagina werkt zichzelf elke 2 seconden bij en is ook op een telefoon te lezen. Dezelfde link staat op de kaart Venue-bridge in Beheer; die werkt alleen op het netwerk van de zaal.
+
+### Statistieken op de pagina
+
+Staat **Database gebruiken** aan, dan zie je op de kaart **Statistieken**:
+
+- **Laatste antwoord**: *Van de share* of *Van de lokale kopie*, met de tijd van de cijfers. Staat er *lokale kopie* met een oude tijd, dan zijn de statistieken niet actueel.
+- **Share**: *Bereikbaar*, *Mislukt*, of *Overgeslagen tot* een tijdstip. Na een fout laat de bridge de share even met rust (eerst 5 seconden, bij elke volgende fout twee keer zo lang, tot een minuut) en antwoordt hij vanuit de kopie.
+- **Statistiek-pc op het netwerk**: *Ja* of *Nee*, als het adres van de pc bekend is.
+- **Laatst gekeken** en **Laatst gelezen**: de bridge kijkt alleen of het bestand veranderd is en leest het pas opnieuw als dat zo is (hooguit eens per 10 seconden). Erachter staat hoe lang het inlezen duurde.
+- **Bestand gewijzigd**: wanneer de statistiek-pc het bestand voor het laatst opsloeg, en hoe groot het is. Blijft die tijd tijdens de wedstrijd staan, dan schrijft de statistiek-pc niet of komt de nieuwe versie niet in de map van de bridge.
+- **Lokale kopie**: wanneer de kopie is geschreven (hooguit eens per 5 minuten), of waarom dat niet lukte.
+- **Laatste fout**: de laatste fout bij de share, met hoe lang geleden.
 
 ## De opgeslagen configuratie
 
@@ -66,3 +79,4 @@ Hiermee blijven vMix en de Stream Deck in de zaal werken, ook als de verbinding 
 - **Een apparaat is *Niet bereikbaar***: klopt het adres bij **Instellingen → Venue** en staat het apparaat aan, op het netwerk van de zaal?
 - **Een apparaat is *Niet ingesteld***: vul het adres in bij **Instellingen → Venue**.
 - **De configuratie is *Geweigerd***: de reden staat op de kaart. Verbeter de instelling en sla opnieuw op.
+- **Statistieken uit de *lokale kopie***: kijk op de pagina van de bridge bij **Statistieken**. *Statistiek-pc op het netwerk: Nee*: de pc staat uit of zit op een ander netwerk. *Statistiekenmap niet gekoppeld*: de map van de statistiek-pc is niet aan de container gekoppeld. Een andere fout staat bij **Laatste fout**.

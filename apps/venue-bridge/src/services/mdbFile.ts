@@ -127,19 +127,62 @@ export async function resolveStatsFile(root: string, relative: string, extension
 
 let shareDownUntil = 0;
 let shareFailures = 0;
+
+/** What the status page shows about the database: times as ISO strings, no paths, no addresses beyond the host name. */
+export type DatabaseStatus = {
+  /** Last successful read of the file from the share */
+  shareReadAt: string | null;
+  /** Last successful look at the share (only the modification time and size) */
+  shareCheckedAt: string | null;
+  /** The last failure on the share, with its time */
+  lastError: {message: string; at: string} | null;
+  /** Failures in a row; the share is skipped until skipUntil */
+  failures: number;
+  skipUntil: string | null;
+  /** The statistics PC on the network at the last probe (null: never probed, or no host known) */
+  hostReachable: boolean | null;
+  /** Modification time and size of the file on the share at the last look */
+  fileModifiedAt: string | null;
+  fileBytes: number | null;
+  /** The local copy: when it was last written, and the last failure to write it */
+  copyWrittenAt: string | null;
+  copyError: {message: string; at: string} | null;
+  /** How long the last parse took */
+  parseMs: number | null;
+  /** The answer the bridge last gave: from the share or the copy, and the time of those numbers */
+  lastAnswer: {source: StatsSource; readAt: string; team: string | null; at: string} | null;
+};
+
+const emptyStatus = (): DatabaseStatus => ({
+  shareReadAt: null, shareCheckedAt: null, lastError: null, failures: 0, skipUntil: null, hostReachable: null,
+  fileModifiedAt: null, fileBytes: null, copyWrittenAt: null, copyError: null, parseMs: null, lastAnswer: null,
+});
+let status: DatabaseStatus = emptyStatus();
+
+/** Only the bridge's own messages: a raw error could carry a path on the share. */
+const safeMessage = (err: unknown) => (err instanceof StatsError ? err.message : 'Onbekende fout');
+
+export function databaseStatus(now = Date.now()): DatabaseStatus {
+  return {...status, failures: shareFailures, skipUntil: shareDownUntil > now ? new Date(shareDownUntil).toISOString() : null};
+}
 /** At most one share operation in flight: until it settles nobody starts another fs call. */
 let inFlight = false;
 let reachCache: {at: number; ok: boolean} | null = null;
 
-function markDown(): void {
+function markDown(err: unknown): void {
   shareFailures += 1;
-  shareDownUntil = Date.now() + Math.min(shareDownMs * 2 ** (shareFailures - 1), MAX_DOWN_MS);
+  const skipMs = Math.min(shareDownMs * 2 ** (shareFailures - 1), MAX_DOWN_MS);
+  shareDownUntil = Date.now() + skipMs;
+  status.lastError = {message: safeMessage(err), at: new Date().toISOString()};
+  logger.debug('Statistics share failed, skipping it for a while', {failures: shareFailures, skipMs, error: status.lastError.message});
 }
 
 async function hostReachable(host: string): Promise<boolean> {
   if (reachCache && Date.now() - reachCache.at < REACH_CACHE_MS) return reachCache.ok;
-  const {ok} = await probe(host);
+  const {ok, ms} = await probe(host);
   reachCache = {at: Date.now(), ok};
+  status.hostReachable = ok;
+  logger.debug('Statistics PC probed', {host, ok, ms});
   return ok;
 }
 
@@ -148,11 +191,18 @@ async function hostReachable(host: string): Promise<boolean> {
  * operation at a time, with a wall-clock deadline; a failing share is skipped for a growing while.
  */
 async function onShare<T>(work: (signal: AbortSignal) => Promise<T>, host: string | null): Promise<T> {
-  if (shareDownUntil > Date.now()) throw new StatsError(504, 'De gedeelde map is tijdelijk niet bereikbaar');
-  if (inFlight) throw new ShareBusyError();
+  if (shareDownUntil > Date.now()) {
+    logger.debug('Statistics share skipped after a failure', {retryInMs: shareDownUntil - Date.now()});
+    throw new StatsError(504, 'De gedeelde map is tijdelijk niet bereikbaar');
+  }
+  if (inFlight) {
+    logger.debug('Statistics share still busy with an earlier operation');
+    throw new ShareBusyError();
+  }
   if (host && !(await hostReachable(host))) {
-    markDown();
-    throw new StatsError(504, 'De statistiek-pc is niet bereikbaar op het netwerk');
+    const err = new StatsError(504, 'De statistiek-pc is niet bereikbaar op het netwerk');
+    markDown(err);
+    throw err;
   }
   if (inFlight) throw new ShareBusyError();
   inFlight = true;
@@ -162,9 +212,13 @@ async function onShare<T>(work: (signal: AbortSignal) => Promise<T>, host: strin
     return result;
   } catch (err) {
     // A refused path or an unset share is a configuration problem, not a failing share
-    if (err instanceof StatsError && (err.status === 400 || err.status === 409)) throw err;
-    markDown();
-    throw err instanceof StatsError ? err : new StatsError(502, 'De gedeelde map kon niet worden gelezen');
+    if (err instanceof StatsError && (err.status === 400 || err.status === 409)) {
+      status.lastError = {message: err.message, at: new Date().toISOString()};
+      throw err;
+    }
+    const failure = err instanceof StatsError ? err : new StatsError(502, 'De gedeelde map kon niet worden gelezen');
+    markDown(failure);
+    throw failure;
   }
 }
 
@@ -177,6 +231,9 @@ export function readSharedFile(relative: string, extensions: Set<string> = MDB_E
 export function sharedFileStamp(relative: string, host: string | null = shareHostOf(config)): Promise<string> {
   return onShare(async () => {
     const stat = await fs.promises.stat(await resolveStatsFile(config.statsDir, relative));
+    status.shareCheckedAt = new Date().toISOString();
+    status.fileModifiedAt = stat.mtime.toISOString();
+    status.fileBytes = stat.size;
     return `${stat.mtimeMs}:${stat.size}`;
   }, host);
 }
@@ -194,13 +251,22 @@ async function writeCopy(relative: string, buffer: Buffer): Promise<void> {
     const dir = config.copyDir;
     const target = path.join(dir, copyFileName(relative));
     const exists = await fs.promises.access(target).then(() => true, () => false);
-    if (exists && Date.now() - copiedAt < COPY_EVERY_MS) return;
+    if (exists && Date.now() - copiedAt < COPY_EVERY_MS) {
+      logger.debug('Statistics copy is recent, not written', {nextInMs: COPY_EVERY_MS - (Date.now() - copiedAt)});
+      return;
+    }
     copiedAt = Date.now();
     await fs.promises.mkdir(dir, {recursive: true});
     const tmp = `${target}.${process.pid}.tmp`;
     await fs.promises.writeFile(tmp, buffer);
     await fs.promises.rename(tmp, target);
+    status.copyWrittenAt = new Date().toISOString();
+    status.copyError = null;
+    logger.debug('Statistics copy written', {file: path.basename(target), bytes: buffer.length});
   } catch (err) {
+    // Only the error code (EACCES, ENOSPC): the status page shows it, the full message stays in the log
+    const code = (err as NodeJS.ErrnoException)?.code;
+    status.copyError = {message: `Kopie niet geschreven${code && /^[A-Z]+$/.test(code) ? ` (${code})` : ''}`, at: new Date().toISOString()};
     logger.warn('Statistics copy not written', {error: err instanceof Error ? err.message : String(err)});
   }
 }
@@ -210,7 +276,10 @@ export async function readStatsFile(relative: string, keepCopy = true, host: str
   let notConfigured: StatsError | null = null;
   try {
     const stamp = await sharedFileStamp(relative, host);
+    const started = Date.now();
     const buffer = await readSharedFile(relative, MDB_EXTENSIONS, MAX_MDB_BYTES, host);
+    status.shareReadAt = new Date().toISOString();
+    logger.debug('Statistics file read from the share', {file: relative, bytes: buffer.length, ms: Date.now() - started});
     if (keepCopy) await writeCopy(relative, buffer);
     return {buffer, source: 'share', readAt: new Date().toISOString(), stamp};
   } catch (err) {
@@ -223,6 +292,7 @@ export async function readStatsFile(relative: string, keepCopy = true, host: str
   try {
     const file = await resolveStatsFile(config.copyDir, copyFileName(relative), MDB_EXTENSIONS);
     const [buffer, stat] = await Promise.all([fs.promises.readFile(file), fs.promises.stat(file)]);
+    logger.debug('Statistics answered from the local copy', {file: relative, copyOf: stat.mtime.toISOString()});
     return {buffer, source: 'copy', readAt: stat.mtime.toISOString()};
   } catch {
     if (notConfigured) throw notConfigured;
@@ -268,7 +338,15 @@ async function openDatabaseInner(team: string): Promise<OpenedValue> {
         // The share is busy with an earlier operation: keep what we have, no new call
         if (err instanceof ShareBusyError) return hit.value;
       }
-      if (stamp && (stamp === hit.stamp || Date.now() - (hit.readAtMs ?? 0) < MIN_READ_MS)) return hit.value;
+      if (stamp && stamp === hit.stamp) {
+        logger.debug('Statistics file unchanged, reusing the last read', {file: mdbPath});
+        return hit.value;
+      }
+      if (stamp && Date.now() - (hit.readAtMs ?? 0) < MIN_READ_MS) {
+        logger.debug('Statistics file changed, read again shortly', {file: mdbPath, inMs: MIN_READ_MS - (Date.now() - (hit.readAtMs ?? 0))});
+        return hit.value;
+      }
+      logger.debug(stamp ? 'Statistics file changed, reading it again' : 'Statistics share not readable, trying again', {file: mdbPath});
     }
   }
   if (!opener) throw new StatsError(503, 'Het lezen van het statistiekenbestand is op deze bridge niet beschikbaar');
@@ -279,7 +357,11 @@ async function openDatabaseInner(team: string): Promise<OpenedValue> {
     try {
       entry.stamp = file.stamp;
       entry.readAtMs = Date.now();
-      return {db: await open(file.buffer), source: file.source, readAt: file.readAt, team: teamChoice, memo: new Map<string, unknown>()};
+      const started = Date.now();
+      const db = await open(file.buffer);
+      status.parseMs = Date.now() - started;
+      logger.debug('Statistics file parsed', {file: mdbPath, source: file.source, ms: status.parseMs});
+      return {db, source: file.source, readAt: file.readAt, team: teamChoice, memo: new Map<string, unknown>()};
     } catch {
       throw new StatsError(502, 'Het statistiekenbestand kon niet worden gelezen');
     }
@@ -299,9 +381,16 @@ async function openDatabaseInner(team: string): Promise<OpenedValue> {
   return entry.pending;
 }
 
+/** Remember which source the bridge last answered from (for the status page). */
+async function noteAnswer(opening: Promise<OpenedValue>): Promise<OpenedValue> {
+  const opened = await opening;
+  status.lastAnswer = {source: opened.source, readAt: opened.readAt, team: opened.team?.value ?? null, at: new Date().toISOString()};
+  return opened;
+}
+
 /** A derived result kept as long as this read of the file lives (a new read of the file starts empty). */
 export async function memoizedOnDatabase<T>(team: string, key: string, compute: (db: MdbDatabase) => T | Promise<T>): Promise<{source: StatsSource; readAt: string; team: TeamChoice | null; value: T}> {
-  const opened = await openDatabase(team);
+  const opened = await noteAnswer(openDatabase(team));
   let value = opened.memo.get(key) as T | undefined;
   if (value === undefined) {
     value = await compute(opened.db);
@@ -311,13 +400,13 @@ export async function memoizedOnDatabase<T>(team: string, key: string, compute: 
 }
 
 export async function listStatsMatches(team: string): Promise<Sourced<MatchTableName[]>> {
-  const {db, source, readAt, team: chosen} = await openDatabase(team);
+  const {db, source, readAt, team: chosen} = await noteAnswer(openDatabase(team));
   return {source, readAt, team: chosen, data: listMatchTables(db.getTableNames())};
 }
 
 /** The normalized rows of one match table, kept per read of the file. */
 export async function readMatchActions(team: string, table: string): Promise<Sourced<ActionRow[]>> {
-  const {db, source, readAt, team: chosen, memo} = await openDatabase(team);
+  const {db, source, readAt, team: chosen, memo} = await noteAnswer(openDatabase(team));
   const key = `actions:${table}`;
   let rows = memo.get(key) as ActionRow[] | undefined;
   if (!rows) {
@@ -330,7 +419,7 @@ export async function readMatchActions(team: string, table: string): Promise<Sou
 }
 
 export async function readStatsPlayers(team: string): Promise<Sourced<Record<string, unknown>[]>> {
-  const {db, source, readAt, team: chosen} = await openDatabase(team);
+  const {db, source, readAt, team: chosen} = await noteAnswer(openDatabase(team));
   if (!db.getTableNames().includes('spelersover')) throw new StatsError(404, 'Spelerstabel niet gevonden');
   return {source, readAt, team: chosen, data: db.getTable('spelersover').getData()};
 }
@@ -341,6 +430,7 @@ export function clearMdbCache(): void {
   shareFailures = 0;
   reachCache = null;
   copiedAt = 0;
+  status = emptyStatus();
 }
 
 /** For tests: forget everything about the share, also an operation that never settled. */

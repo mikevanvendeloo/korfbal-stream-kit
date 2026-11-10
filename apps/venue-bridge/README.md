@@ -37,7 +37,21 @@ De bridge bewaart de laatst ontvangen configuratie in `/data/venue-bridge.json` 
 
 ## De pagina
 
-`http://<bridge>:3340/` toont de status, voor iedereen op het netwerk van de zaal, zonder sleutel: verbinding met de API (en bij *Niet verbonden met de API* de laatste fout), wanneer de configuratie voor het laatst is ontvangen, per apparaat en vMix-pc de status en de leeftijd van de laatste meting, en de reserve-adressen met een kopieerknop. Ververst elke 2 seconden en werkt op een telefoon. De gegevens komen van `GET /bridge/status`. `GET /health` is voor de containercheck (`{ok, connected, devices}`, ook 200 als de API weg is).
+`http://<bridge>:3340/` toont de status, voor iedereen op het netwerk van de zaal, zonder sleutel: verbinding met de API (en bij *Niet verbonden met de API* de laatste fout), wanneer de configuratie voor het laatst is ontvangen, per apparaat en vMix-pc de status en de leeftijd van de laatste meting, de statistieken en de reserve-adressen met een kopieerknop.
+
+De kaart **Statistieken** toont of de pagina en de database aan staan, of `/stats` gekoppeld is en het adres van de statistiek-pc. Met de database aan zie je ook:
+
+| Regel | Betekenis |
+|---|---|
+| Laatste antwoord | *Van de share* of *Van de lokale kopie*, met de tijd van de cijfers en het team |
+| Share | *Bereikbaar*, *Mislukt* of *Overgeslagen tot* (met het aantal fouten na elkaar) |
+| Statistiek-pc op het netwerk | Antwoordde de pc op poort 445 bij de laatste controle |
+| Laatst gekeken / Laatst gelezen | Laatste controle van de wijzigingstijd, laatste echte lezing (met de duur van het inlezen) |
+| Bestand gewijzigd | Wijzigingstijd en grootte van WEDSTRIJDEN.mdb in `/stats` |
+| Lokale kopie | Wanneer de kopie in `/data` is geschreven, of de foutcode (`EACCES`, `ENOSPC`) |
+| Laatste fout | De laatste fout bij de share, met hoe lang geleden |
+
+Paden op de share of in `/data` staan er niet op, alleen de meldingen van de bridge zelf. Ververst elke 2 seconden en werkt op een telefoon. De gegevens komen van `GET /bridge/status`. `GET /health` is voor de containercheck (`{ok, connected, devices}`, ook 200 als de API weg is).
 
 ## De reserve-API
 
@@ -53,32 +67,99 @@ Valt de verbinding met de API weg, dan blijven vMix en de Stream Deck in de zaal
 
 Zonder of met een foute sleutel is het antwoord 401. Gebruik de sleutel alleen op het netwerk van de zaal.
 
-## Installatie in de zaal
+## Configureren, stap voor stap
 
-1. Maak in de Kit bij **Beheer, Organisatie-instellingen, API-sleutels** een sleutel, bijvoorbeeld *venue-bridge Zaal Fortuna*. Je ziet hem maar één keer.
-2. Kies hoe de bridge bij de statistiek-pc komt (zie hieronder) en start hem met de compose-bestanden in `compose/`:
+De bridge configureer je op twee plekken:
 
-   ```bash
-   API_URL=https://streamz.example.nl API_KEY=<sleutel> BRIDGE_NAME="Zaal Fortuna" \
-   STREAMZ_BRIDGE_VERSION=2026.11.1 \
-   docker compose -f apps/venue-bridge/compose/docker-compose.venue-bridge.prod.yml \
-                  -f apps/venue-bridge/compose/variants/<variant>.yml up -d venue-bridge
-   ```
+- **Op de machine in de zaal**: hoe de bridge de API bereikt (`API_URL`, `API_KEY`, `BRIDGE_NAME`) en welke map van de statistiek-pc hij ziet (de variant). Dat zijn omgevingsvariabelen en compose-bestanden.
+- **In de Kit**, bij **Beheer, Instellingen, Venue**: al het andere (scorebord, schotklok, statistieken, vMix). De API stuurt dat naar de bridge.
 
-   Of met `PROD=1 scripts/venue-bridge/start.sh <variant>` (Windows: `scripts\venue-bridge\start.ps1 <variant> -Prod`). De image is `mvanvendeloo/streamz-kit-venue-bridge`; poort 3340 staat open op het netwerk van de zaal, de container herstart vanzelf (`restart: unless-stopped`). Zet de map `./data/venue-bridge` op uid 1000 (`sudo chown -R 1000:1000 data/venue-bridge`; Docker Desktop doet dat zelf).
-3. Controleer in de Kit bij **Instellingen, Venue** (*Verbonden*, configuratie *Toegepast*, apparaten *In orde*) en open `http://<bridge>:3340`.
-4. Schrijf de reserve-adressen in het draaiboek van de zaal.
+### 1. Maak een API-sleutel
 
-### Bij de statistiek-pc komen (varianten)
+In de Kit bij **Beheer, Organisatie-instellingen, API-sleutels**, bijvoorbeeld *venue-bridge Zaal Fortuna*. Je ziet hem maar één keer: zet hem meteen in de env-file van stap 3.
 
-Alleen nodig voor de database; de statistiekenpagina kan ook op een http(s)-adres. Kies één variant uit `compose/variants/`:
+### 2. Kies hoe de bridge bij de statistiek-pc komt (de variant)
 
-- **mac.yml**: de share staat gemount op de Mac (`scripts/venue-bridge/mount-share-mac.sh`, `//GUEST@10.12.0.63/KL2627` op `/Volumes/KL2627`).
-- **windows-robocopy.yml**: `scripts/venue-bridge/sync-stats.ps1` kopieert elke paar seconden de gewijzigde bestanden naar `C:\streamz\stats`; de bridge leest alleen die map. Met `-Install` start het script bij het inloggen.
-- **cifs.yml**: Docker mount de share zelf. Staat de pc uit, dan start de bridge niet.
-- **page-only.yml**: geen share, alleen een pagina op een http(s)-adres.
+De bridge leest de statistieken in de container altijd uit de map **`/stats`** (`STATS_DIR`), en alleen-lezen. Welke map van de host of van het netwerk daar komt, bepaalt de variant in `compose/variants/`:
 
-De variant mount de map als `STATS_DIR` (`/stats`). Het databasepad in de Kit is relatief aan die map, bijvoorbeeld `F{team}/WEDSTRIJDEN.mdb`.
+| Variant | Wat er op `/stats` komt | Wanneer |
+|---|---|---|
+| `mac.yml` | De op de Mac gemounte share: `${STATS_SOURCE_DIR:-/Volumes/KL2627}`. Mount hem eerst met `scripts/venue-bridge/mount-share-mac.sh` (`//GUEST@10.12.0.63/KL2627`) | Bridge op een Mac |
+| `windows-robocopy.yml` | Een lokale map: `${STATS_SOURCE_DIR:-C:/streamz/stats}`. `scripts/venue-bridge/sync-stats.ps1` kopieert daar elke 5 seconden de gewijzigde bestanden van `\\10.12.0.63\KL2627` naartoe (`-Install`: start bij het inloggen) | Bridge op Windows: een share die hangt, hangt dan alleen robocopy |
+| `cifs.yml` | Het Docker-volume `stats-share`: Docker mount zelf de share `${STATS_CIFS_DEVICE:-//10.12.0.63/KL2627}` als gast. Staat de pc uit, dan start de bridge niet | Bridge op Linux |
+| `page-only.yml` | Niets (`STATS_DIR` leeg) | Alleen de statistiekenpagina op een http(s)-adres, geen database |
+| geen variant (alleen bij ontwikkelen) | `compose/local-html`, met een opgeslagen pagina | Testen zonder statistiek-pc |
+
+In de prod-compose zonder variant is `/stats` leeg: dan werkt alleen een statistiekenpagina op een http(s)-adres. Een andere map geef je mee met `STATS_SOURCE_DIR` (mac, robocopy) of `STATS_CIFS_DEVICE` (cifs).
+
+Daarnaast komt `./data/venue-bridge` van de host op **`/data`**: daar bewaart de bridge de ontvangen configuratie en de lokale kopie van de database (`COPY_DIR`). Die map moet van uid 1000 zijn (`sudo chown -R 1000:1000 data/venue-bridge`; Docker Desktop regelt dat zelf).
+
+### 3. Start de bridge
+
+Zet de startinstellingen in een env-file die je niet incheckt, bijvoorbeeld `venue-bridge.env`:
+
+```bash
+API_URL=https://streamz.example.nl
+API_KEY=<sleutel uit stap 1>
+BRIDGE_NAME=Zaal Fortuna
+BRIDGE_PAGE_URL=http://<ip van de bridge>:3340
+STREAMZ_BRIDGE_VERSION=2026.11.1
+# LOG_LEVEL=debug   # tijdelijk, voor meer detail in docker logs (zie Problemen oplossen)
+```
+
+Start hem met de variant uit stap 2:
+
+```bash
+PROD=1 VENUE_BRIDGE_ENV_FILE=./venue-bridge.env scripts/venue-bridge/start.sh <variant>
+# Windows: scripts\venue-bridge\start.ps1 <variant> -Prod
+```
+
+Dat is hetzelfde als:
+
+```bash
+docker compose --env-file ./venue-bridge.env \
+  -f apps/venue-bridge/compose/docker-compose.venue-bridge.prod.yml \
+  -f apps/venue-bridge/compose/variants/<variant>.yml up -d venue-bridge
+```
+
+De image is `mvanvendeloo/streamz-kit-venue-bridge`. Poort 3340 staat open op het netwerk van de zaal en de container herstart vanzelf (`restart: unless-stopped`). Zie [Startinstellingen](#startinstellingen) voor alle variabelen.
+
+### 4. Stel de zaal in de Kit in
+
+Bij **Beheer, Instellingen, Venue**. De bridge krijgt elke wijziging meteen.
+
+- **Scorebord & Shotclock**: de adressen in het netwerk van de zaal, bijvoorbeeld `http://192.168.1.20:8080`.
+- **Statistieken**:
+
+  | Veld | Wat je invult |
+  |---|---|
+  | **Statistiekenpagina** | Het http(s)-adres van het tweede scherm op de statistiek-pc (`http://10.12.0.63/TweedeScherm/klassiek.html`), of een `.html`-pad binnen `/stats` |
+  | **Pad van de database** | Het pad van `WEDSTRIJDEN.mdb` **relatief aan `/stats`**, dus aan de root van de share: bijvoorbeeld `F{team}/WEDSTRIJDEN.mdb`. `{team}` wordt het teamnummer van de actieve productie. Geen `..` of absoluut pad |
+  | **Adres van de statistiek-pc** | Het IP-adres van de pc (`10.12.0.63`). Vóór elke toegang tot de map kijkt de bridge of die pc op poort 445 (SMB) antwoordt; zo niet, dan raakt hij de map niet aan en antwoordt hij uit de lokale kopie. Leeg: de host van de statistiekenpagina als die een http(s)-adres is |
+  | **Database gebruiken** | Aan: de bridge leest WEDSTRIJDEN.mdb. Uit: alleen de statistiekenpagina |
+  | **Lokale kopie van de database bewaren** | Aan (aanbevolen): de bridge bewaart een kopie in `/data` en gebruikt die als de share wegvalt |
+
+  Met **Verbinding testen** zie je wat de bridge van de pc bereikt.
+
+  Let op bij **windows-robocopy**: de bridge leest dan een lokale map, maar controleert nog wel het adres van de statistiek-pc. Kan de container die pc niet bereiken, dan blijft hij de kopie gebruiken.
+- **vMix-pc's**: de adressen van de Web Controller van elke vMix-pc.
+
+### 5. Controleer
+
+- In de Kit bij **Instellingen, Venue**: *Verbonden*, configuratie *Toegepast*, apparaten *In orde*.
+- Op `http://<bridge>:3340`: de kaart **Statistieken** zegt *Van de share* en het bestand heeft een recente wijzigingstijd.
+- Schrijf de reserve-adressen in het draaiboek van de zaal.
+
+### Hoe de bridge WEDSTRIJDEN.mdb leest
+
+Bij elke vraag om statistieken:
+
+1. Is het laatste antwoord minder dan 3 seconden oud, dan gebruikt de bridge dat.
+2. Hij kijkt of de statistiek-pc op poort 445 antwoordt (dat resultaat geldt 5 seconden). Daarna leest hij alleen de wijzigingstijd en de grootte van het bestand. Is het niet veranderd, dan gebruikt hij de vorige lezing. Een veranderd bestand leest hij hooguit eens per 10 seconden opnieuw.
+3. Elke toegang tot de share heeft een tijdslimiet van 3 seconden en er loopt er één tegelijk. Na een fout slaat hij de share over: 5 seconden, bij elke volgende fout twee keer zo lang, tot een minuut.
+4. Na een gelukte lezing schrijft hij de kopie in `/data` (`<hash>-WEDSTRIJDEN.mdb`). Dat gebeurt meteen als er nog geen kopie is en daarna hooguit eens per 5 minuten.
+5. Lukt de share niet, dan antwoordt hij uit de kopie, met de tijd waarop die is geschreven. De Kit toont dan *Bron: lokale kopie van HH:MM*.
+6. Het bestand wordt ingelezen in een aparte thread, met een limiet van 10 seconden.
 
 ## Ontwikkelen
 
@@ -118,6 +199,29 @@ Nieuw zijn `API_URL`, `API_KEY` en `BRIDGE_NAME`. Het adres van het scorebord en
 | Scorebord, zaalklok of schotklok *Niet bereikbaar* | Adres bij Instellingen, Venue klopt niet, of het apparaat staat uit of zit niet op het netwerk van de bridge |
 | Apparaat *Niet ingesteld* | Vul het adres in bij Instellingen, Venue |
 | Statistieken: database niet beschikbaar | Controleer `STATS_DIR` (volume), het databasepad en of *Database gebruiken* aan staat; zonder database gebruikt hij de pagina |
+| Kit toont *Bron: lokale kopie van HH:MM* | Open de kaart **Statistieken** op de pagina van de bridge. *Statistiek-pc op het netwerk: Nee*: de pc staat uit, zit op een ander netwerk, of poort 445 is dicht (firewall). *Overgeslagen tot*: de share faalde net; de bridge probeert het vanzelf weer |
+| *Statistiekenmap: Niet gekoppeld* | De container is zonder variant gestart: start opnieuw met `mac`, `windows-robocopy` of `cifs` |
+| *Laatste fout: Het statistiekenbestand is niet gevonden* | Het **Pad van de database** klopt niet met de map op `/stats` (let op `{team}` en hoofdletters), of robocopy heeft het bestand nog niet gekopieerd |
+| *Bestand gewijzigd* loopt niet mee tijdens de wedstrijd | De statistiek-pc slaat niet op, of de kopie loopt niet: bij windows-robocopy draait `sync-stats.ps1` niet (Taakplanner, taak *Streamz statistics sync*) |
+| *Lokale kopie: Kopie niet geschreven (EACCES)* | `./data/venue-bridge` is niet van uid 1000 |
+
+### Meer detail in de logs
+
+Zet tijdelijk `LOG_LEVEL=debug` in de env-file en herstart de bridge (`start.sh` opnieuw). Volg de logs met `docker logs -f --since 5m <container>` (de naam staat in `docker ps`). Per vraag om statistieken zie je dan regels als:
+
+| Logregel | Betekenis |
+|---|---|
+| `Statistics PC probed` | Controle van poort 445, met `ok` en de tijd in ms |
+| `Statistics file unchanged, reusing the last read` | Bestand niet veranderd: geen nieuwe lezing |
+| `Statistics file changed, read again shortly` | Veranderd, maar minder dan 10 s na de vorige lezing |
+| `Statistics file read from the share` | Gelezen, met de grootte en de duur |
+| `Statistics file parsed` | Ingelezen, met de bron (`share` of `copy`) en de duur |
+| `Statistics copy written` / `Statistics copy is recent, not written` | De kopie in `/data` |
+| `Statistics share failed, skipping it for a while` | Fout, met het aantal fouten na elkaar en hoe lang de share wordt overgeslagen |
+| `Statistics share skipped after a failure` | Vraag binnen die periode: de share wordt niet aangeraakt |
+| `Statistics answered from the local copy` | Antwoord uit de kopie, met de tijd van de kopie |
+
+Ook zonder debug staan `Statistics share not readable, trying the local copy` en `Statistics copy not written` (warn) in de logs. Zet het daarna terug op `info`: debug schrijft bij elke vraag een paar regels.
 | vMix *Niet bereikbaar* | Adres of Web Controller van de vMix-pc; de pc moet voor de bridge bereikbaar zijn |
 | Na herstart zonder verbinding werkt niets | Geen volume op `/data`: zonder opgeslagen configuratie wacht de bridge op de API |
 | 401 op een reserve-adres | Sleutel ontbreekt of is niet die van de bridge |

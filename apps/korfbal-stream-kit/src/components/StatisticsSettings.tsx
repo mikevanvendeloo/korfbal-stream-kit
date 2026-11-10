@@ -55,7 +55,7 @@ export default function StatisticsSettings() {
         <div>
           <label htmlFor="statsShareHost" className={label}>Adres van de statistiek-pc</label>
           <input id="statsShareHost" type="text" className={input} placeholder="10.12.0.63" value={form.shareHost} onChange={(e) => setForm({...form, shareHost: e.target.value})}/>
-          <p className={hint}>Alleen voor de verbindingstest.</p>
+          <p className={hint}>De bridge kijkt eerst of deze pc antwoordt, voor hij de database leest. Leeg: de pc van de statistiekenpagina.</p>
         </div>
         <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
           <input type="checkbox" checked={form.mdbEnabled} onChange={(e) => setForm({...form, mdbEnabled: e.target.checked})}/>

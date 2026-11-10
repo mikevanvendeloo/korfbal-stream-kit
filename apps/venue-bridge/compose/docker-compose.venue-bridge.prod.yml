@@ -28,6 +28,8 @@ services:
       BRIDGE_PAGE_URL: ${BRIDGE_PAGE_URL:-}
       STATS_DIR: /stats
       COPY_DIR: /data
+      # debug: elke stap bij het lezen van de statistieken (opnieuw gelezen, ongewijzigd, overgeslagen, kopie)
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       # De opgeslagen configuratie en de lokale kopie van de database
       - ./data/venue-bridge:/data

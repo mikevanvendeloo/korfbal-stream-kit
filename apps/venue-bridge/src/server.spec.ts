@@ -142,6 +142,18 @@ describe('bridge server', () => {
     expect(res.body.hosts.scoreboard).toBe(new URL(cache.config?.scoreboard.url ?? "").host);
   });
 
+  it('shows the database status only when the database is on, without paths on the share', async () => {
+    expect((await request(app).get('/bridge/status')).body.stats).not.toHaveProperty('share');
+    setConfigForTests({statsDir: '/stats-secret-dir'});
+    cache.apply(venueConfig({stats: {pageUrl: null, mdbPath: 'F{team}/WEDSTRIJDEN.mdb', mdbEnabled: true, shareHost: '10.12.0.63', keepCopy: true}}));
+    const res = await request(app).get('/bridge/status');
+    expect(res.body.stats).toMatchObject({database: 'enabled', shareHost: '10.12.0.63', folder: 'set', keepCopy: true});
+    expect(res.body.stats.share).toMatchObject({failures: 0, lastAnswer: null});
+    const text = JSON.stringify(res.body);
+    expect(text).not.toContain('stats-secret-dir');
+    expect(text).not.toContain('WEDSTRIJDEN');
+  });
+
   it('serves a placeholder page', async () => {
     const res = await request(app).get('/');
     expect(res.status).toBe(200);

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {config, setConfigForTests} from '../config';
-import {clearMdbCache, copyFileName, resetShareForTests, setSmbProbe, listStatsMatches, readSharedFile, readStatsFile, resolveStatsFile, setMdbOpener, setShareTimings, HTML_EXTENSIONS} from './mdbFile';
+import {clearMdbCache, copyFileName, databaseStatus, resetShareForTests, setSmbProbe, listStatsMatches, readSharedFile, readStatsFile, resolveStatsFile, setMdbOpener, setShareTimings, HTML_EXTENSIONS} from './mdbFile';
 
 const inOrg = <T>(fn: () => Promise<T>) => fn();
 
@@ -232,6 +232,73 @@ describe('statistics file access', () => {
   it('keeps the 409 when STATS_DIR is not set and there is no copy', async () => {
     setConfigForTests({statsDir: ''});
     await expect(inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'))).rejects.toMatchObject({status: 409});
+  });
+
+  describe('the status for the status page', () => {
+    const opener = () => setMdbOpener(() => ({getTableNames: () => [], getTable: () => ({getData: () => []})}));
+    afterEach(() => setMdbOpener(null));
+
+    it('records a read from the share, the file, the copy and the answer', async () => {
+      opener();
+      await inOrg(() => listStatsMatches('1'));
+      const s = databaseStatus();
+      expect(s.shareReadAt).not.toBeNull();
+      expect(s.shareCheckedAt).not.toBeNull();
+      expect(s.copyWrittenAt).not.toBeNull();
+      expect(s.fileBytes).toBe(5);
+      expect(s.parseMs).toEqual(expect.any(Number));
+      expect(s.lastAnswer).toMatchObject({source: 'share', team: null});
+      expect(s).toMatchObject({lastError: null, failures: 0, skipUntil: null, copyError: null});
+    });
+
+    it('records the failure, the skip window and an answer from the copy', async () => {
+      opener();
+      await inOrg(() => listStatsMatches('1'));
+      fs.rmSync(path.join(share, 'F1'), {recursive: true});
+      clearMdbCache();
+      setShareTimings(3000, 60_000);
+      await inOrg(() => listStatsMatches('1'));
+      const s = databaseStatus();
+      expect(s.failures).toBe(1);
+      expect(Date.parse(s.skipUntil ?? '')).toBeGreaterThan(Date.now());
+      expect(s.lastError?.message).toBe('Het statistiekenbestand is niet gevonden');
+      expect(s.lastAnswer?.source).toBe('copy');
+    });
+
+    it('records that the statistics PC did not answer', async () => {
+      setSmbProbe(async () => ({ok: false, ms: null}));
+      await expect(inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb', false, '10.12.0.63'))).rejects.toBeDefined();
+      expect(databaseStatus()).toMatchObject({hostReachable: false, failures: 1});
+    });
+
+    it('never shows a path on the share or of the copy, nor a raw error', async () => {
+      opener();
+      await inOrg(() => listStatsMatches('1'));
+      // A raw fs error carries the full path: only a generic message may reach the status
+      const realReadFile = fs.promises.readFile.bind(fs.promises);
+      vi.spyOn(fs.promises, 'readFile').mockImplementation((async (p: fs.PathLike, o?: unknown) => {
+        if (String(p).includes('stats-share-')) throw Object.assign(new Error(`EIO: i/o error, open '${String(p)}'`), {code: 'EIO'});
+        return realReadFile(p as string, o as never);
+      }) as typeof fs.promises.readFile);
+      const file = path.join(share, 'F1', 'WEDSTRIJDEN.mdb');
+      fs.writeFileSync(file, 'changed!');
+      clearMdbCache();
+      await inOrg(() => listStatsMatches('1'));
+      const text = JSON.stringify(databaseStatus());
+      expect(text).not.toContain(share);
+      expect(text).not.toContain(assets);
+      expect(text).not.toContain('WEDSTRIJDEN');
+      expect(text).not.toContain('EIO');
+      expect(databaseStatus().lastError?.message).toBe('De gedeelde map kon niet worden gelezen');
+    });
+
+    it('records a copy that could not be written by its code only', async () => {
+      setConfigForTests({copyDir: path.join(share, 'F1', 'WEDSTRIJDEN.mdb', 'sub')});
+      await inOrg(() => readStatsFile('F1/WEDSTRIJDEN.mdb'));
+      const s = databaseStatus();
+      expect(s.copyError?.message).toMatch(/^Kopie niet geschreven( \([A-Z]+\))?$/);
+      expect(JSON.stringify(s)).not.toContain(share);
+    });
   });
 
   it('reads a local html page through the same resolution', async () => {

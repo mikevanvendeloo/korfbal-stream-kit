@@ -3,6 +3,9 @@ import type {ApiState} from './apiConnection';
 import type {ConfigState} from './configCache';
 import type {DeviceReaders} from './deviceReaders';
 import {hostOf} from '../startSettings';
+import {config as bridgeConfig} from '../config';
+import {databaseStatus} from './mdbFile';
+import {shareHostOf} from './smbReach';
 import type {VmixClient} from './vmixClient';
 
 export const STATUS_READING_CURRENT_MS = 10_000;
@@ -48,7 +51,15 @@ export function buildStatus(parts: BridgeStatusParts, now = Date.now()) {
       const state = parts.vmix.state(i.id ?? '');
       return {id: i.id ?? '', name: i.name, host: hostOf(i.url), state: state ? (state.ok ? 'ok' : 'unreachable') : 'unknown', ageMs: state ? Math.max(0, now - Date.parse(state.at)) : null};
     }),
-    stats: {database: config ? (config.stats.mdbEnabled ? 'enabled' : 'disabled') : null, page: config?.stats.pageUrl ? 'configured' : 'not set'},
+    stats: {
+      database: config ? (config.stats.mdbEnabled ? 'enabled' : 'disabled') : null,
+      page: config?.stats.pageUrl ? 'configured' : 'not set',
+      // Only a host name and whether a folder is mounted: no paths on the share
+      shareHost: config ? shareHostOf(config.stats) : null,
+      folder: bridgeConfig.statsDir ? 'set' : 'not set',
+      keepCopy: config?.stats.keepCopy ?? null,
+      ...(config?.stats.mdbEnabled ? {share: databaseStatus(now)} : {}),
+    },
     fallback: {
       paths: ['/api/scoreboard', '/api/scoreboard/clock', '/api/scoreboard/shotclock', '/api/stats/*', 'POST /api/vmix/set-timer'],
       key: '********',

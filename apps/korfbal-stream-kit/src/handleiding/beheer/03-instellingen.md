@@ -102,7 +102,7 @@ Wat de bridge van de statistiek-pc leest. Alle velden zijn optioneel:
 
 - **Statistiekenpagina**: een http(s)-adres, of een .html-pad binnen de gedeelde map.
 - **Pad van de database**: het pad van WEDSTRIJDEN.mdb in de gedeelde map, relatief en zonder `..`, eindigend op .mdb of .accdb. `{team}` wordt het teamnummer van de actieve productie.
-- **Adres van de statistiek-pc**: alleen voor de verbindingstest.
+- **Adres van de statistiek-pc**: de bridge kijkt eerst of deze pc op het netwerk antwoordt, voor hij de database leest. Antwoordt hij niet, dan leest de bridge de lokale kopie. Leeg: de pc van de statistiekenpagina (als die een http(s)-adres is). Ook gebruikt bij de verbindingstest.
 - **Database gebruiken**: uit betekent dat alleen de statistiekenpagina wordt gebruikt.
 - **Lokale kopie van de database bewaren**: de bridge bewaart een kopie voor als de share even wegvalt.
 

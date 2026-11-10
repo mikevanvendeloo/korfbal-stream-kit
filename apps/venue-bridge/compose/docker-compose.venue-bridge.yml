@@ -44,6 +44,8 @@ services:
       BRIDGE_PAGE_URL: ${BRIDGE_PAGE_URL:-http://localhost:3340}
       STATS_DIR: /stats
       COPY_DIR: /data
+      # debug: elke stap bij het lezen van de statistieken (opnieuw gelezen, ongewijzigd, overgeslagen, kopie)
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - ./data/venue-bridge:/data
       # Standaard de map met de opgeslagen pagina; een variant mount hier de echte share
