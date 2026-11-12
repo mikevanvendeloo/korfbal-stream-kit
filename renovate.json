@@ -1,0 +1,52 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":dependencyDashboard"],
+  "timezone": "Europe/Amsterdam",
+  "schedule": ["before 7am on monday"],
+  "constraints": {"pnpm": "12"},
+  "minimumReleaseAge": "3 days",
+  "platformAutomerge": true,
+  "prConcurrentLimit": 10,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "minimumReleaseAge": null,
+    "schedule": ["at any time"],
+    "labels": ["security"]
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true,
+    "schedule": ["before 7am on monday"]
+  },
+  "packageRules": [
+    {
+      "description": "Minor and patch updates together, merged when CI is green (not 0.x: a minor can break there)",
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchCurrentVersion": "!/^0/",
+      "groupName": "minor and patch",
+      "automerge": true
+    },
+    {
+      "description": "Nx and its plugins together and by hand (nx migrate)",
+      "matchPackageNames": ["nx", "@nx/**"],
+      "groupName": "nx",
+      "automerge": false
+    },
+    {
+      "description": "Prisma client and CLI together",
+      "matchPackageNames": ["prisma", "@prisma/**"],
+      "groupName": "prisma"
+    },
+    {
+      "description": "Major updates only after approval on the Dependency Dashboard",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Base images (dhi.io needs a login) and GitHub Actions: always a PR to look at",
+      "matchDatasources": ["docker", "github-tags", "github-runners"],
+      "automerge": false
+    }
+  ]
+}

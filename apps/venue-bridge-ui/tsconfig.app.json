@@ -5,10 +5,27 @@
     "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
     "jsx": "react-jsx",
     "lib": ["es2022", "dom"],
-    "types": ["node", "vite/client", "vitest/globals", "@testing-library/jest-dom"],
+    "types": [
+      "node",
+      "vite/client",
+      "vitest/globals",
+      "@testing-library/jest-dom"
+    ],
     "rootDir": "../.."
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "../../libs/ui/src/**/*.ts", "../../libs/ui/src/**/*.tsx"],
-  "exclude": ["../../libs/ui/src/**/*.spec.tsx", "../../libs/ui/src/test-setup.ts"],
-  "references": []
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "../../libs/ui/src/**/*.ts",
+    "../../libs/ui/src/**/*.tsx"
+  ],
+  "exclude": [
+    "../../libs/ui/src/**/*.spec.tsx",
+    "../../libs/ui/src/test-setup.ts"
+  ],
+  "references": [
+    {
+      "path": "../../libs/ui"
+    }
+  ]
 }

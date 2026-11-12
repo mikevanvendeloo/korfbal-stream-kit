@@ -1,23 +1,13 @@
 import http from 'node:http';
-import https from 'node:https';
 import supertest from 'supertest';
 import {afterAll, beforeAll} from 'vitest';
 import {PrismaClient} from '@prisma/client';
 import {useTestDatabase} from './test-database';
 import {TEST_ORGANIZATION_SLUG} from '../test-scenarios';
 
-// supertest listens on a random port on all interfaces ('::') and then connects to 127.0.0.1. When
-// another process (e.g. a Docker or kind port) holds that port on 127.0.0.1 only, the bind still
-// succeeds and the request reaches that process instead: random 401s, 'Parse Error: Expected HTTP/',
-// hangs. Connect over the loopback of the family the test server actually bound to.
-const {Test} = supertest as unknown as {Test: {prototype: {serverAddress: (app: any, path: string) => string; _server?: unknown}}};
-Test.prototype.serverAddress = function (this: {_server?: unknown}, app: any, path: string) {
-  if (!app.address()) this._server = app.listen(0);
-  const {port, family} = app.address();
-  const protocol = app instanceof https.Server ? 'https' : 'http';
-  const host = family === 'IPv6' ? '[::1]' : '127.0.0.1';
-  return `${protocol}://${host}:${port}${path}`;
-};
+// supertest (from 7.3) listens on 127.0.0.1 and connects there, so a port that another process (a
+// Docker or kind port) holds on 127.0.0.1 can no longer catch the request. Earlier versions bound
+// '::' and needed an override of serverAddress here; keep supertest at >= 7.3.
 
 // Every API request in the tests runs as the test organization unless the test chooses otherwise:
 // `.set('X-Organization', 'other')`, or `withoutOrganization(request(app).get(...))` (test-helpers.ts).

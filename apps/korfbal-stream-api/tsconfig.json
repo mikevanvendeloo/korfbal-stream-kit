@@ -1,5 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "files": [],
-  "references": [{ "path": "./tsconfig.app.json" }]
+  "references": [
+    {
+      "path": "../../libs/venue-protocol"
+    },
+    {
+      "path": "./tsconfig.app.json"
+    }
+  ]
 }
