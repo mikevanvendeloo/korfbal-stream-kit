@@ -13,7 +13,7 @@
     "api:build": "nx build @korfbal-stream-kit/korfbal-stream-api",
     "api:package": "nx package @korfbal-stream-kit/korfbal-stream-api",
     "api:serve": "npm run prisma:generate && dotenv -e apps/korfbal-stream-api/.env -- nx serve @korfbal-stream-kit/korfbal-stream-api --verbose",
-    "api:test": "nx test @korfbal-stream-kit/korfbal-stream-api",
+    "api:test": "npm run api:test:integration",
     "api:test-no-db": "REQUIRE_DB=false nx test @korfbal-stream-kit/korfbal-stream-api",
     "e2e": "playwright test --config apps/korfbal-stream-kit-e2e/playwright.config.ts",
     "api:test:integration": "REQUIRE_DB=true vitest run --config apps/korfbal-stream-api/vitest.config.ts",

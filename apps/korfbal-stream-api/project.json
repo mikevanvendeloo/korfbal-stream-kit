@@ -64,6 +64,7 @@
     },
     "test": {
       "executor": "nx:run-commands",
+      "inputs": ["default", "^production", {"env": "REQUIRE_DB"}],
       "options": {
         "command": "vitest run --config apps/korfbal-stream-api/vitest.config.ts",
         "cwd": "{workspaceRoot}"
