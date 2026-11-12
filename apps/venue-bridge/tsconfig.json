@@ -3,9 +3,6 @@
   "files": [],
   "references": [
     {
-      "path": "../../libs/venue-protocol"
-    },
-    {
       "path": "./tsconfig.app.json"
     }
   ]

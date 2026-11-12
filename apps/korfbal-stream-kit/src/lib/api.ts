@@ -1,4 +1,3 @@
-import {logger} from "nx/src/utils/logger";
 import {downloadFile} from "./download";
 
 function getApiBaseUrl() {
@@ -102,7 +101,6 @@ export type MatchSchedule = {
 export async function vmixSetTimer(seconds: number): Promise<{ ok: boolean; seconds: number; instance: string }> {
 
   const url = createUrl('/api/vmix/set-timer');
-  logger.info(`Setting vMix timer to ${JSON.stringify({seconds: seconds})} seconds`);
   const res = await fetch(url.toString(), {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -112,7 +110,6 @@ export async function vmixSetTimer(seconds: number): Promise<{ ok: boolean; seco
     const msg = await res.text();
     throw new Error(`Failed to set timer: ${res.status} ${msg}`);
   }
-  logger.info(res.statusText);
   return res.json();
 }
 
@@ -123,7 +120,6 @@ export async function fetchSponsors(params: {
   limit?: number
 }): Promise<Paginated<Sponsor>> {
   const url = createUrl('/api/sponsors');
-  logger.info(`Fetching sponsors: ${url}`);
   if (params.type) {
     if (Array.isArray(params.type)) {
       params.type.forEach(t => url.searchParams.append('type', t));
@@ -324,7 +320,7 @@ export async function extractError(res: Response): Promise<string> {
       return res.statusText;
     }
   } catch (e) {
-    logger.error(`Failed to extract error from response: ${JSON.stringify(res)}\n${e}`);
+    console.error('Failed to extract error from response', e);
   }
   return `Request failed (${res.status})`;
 }

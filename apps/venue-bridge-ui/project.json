@@ -1,9 +1,9 @@
 {
-  "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "name": "@korfbal-stream-kit/venue-bridge-ui",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
-  "root": "apps/venue-bridge-ui",
   "sourceRoot": "apps/venue-bridge-ui/src",
+  "tags": [],
   "targets": {
     "build": {
       "executor": "@nx/vite:build",
@@ -20,7 +20,7 @@
       }
     },
     "test": {
-      "executor": "@nx/vite:test",
+      "executor": "@nx/vitest:test",
       "options": {
         "passWithNoTests": false,
         "configFile": "apps/venue-bridge-ui/vite.config.ts"
@@ -32,6 +32,5 @@
         "lintFilePatterns": ["apps/venue-bridge-ui/**/*.{ts,tsx}"]
       }
     }
-  },
-  "tags": []
+  }
 }

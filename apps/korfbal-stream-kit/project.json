@@ -1,8 +1,9 @@
 {
-  "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "name": "@korfbal-stream-kit/korfbal-stream-kit",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "sourceRoot": "apps/korfbal-stream-kit/src",
+  "tags": [],
   "targets": {
     "build": {
       "executor": "@nx/vite:build",
@@ -32,7 +33,7 @@
       }
     },
     "test": {
-      "executor": "@nx/vite:test",
+      "executor": "@nx/vitest:test",
       "options": {
         "passWithNoTests": false,
         "reportsDirectory": "apps/korfbal-stream-kit/test-output/vitest",
@@ -42,9 +43,7 @@
     "lint": {
       "executor": "@nx/eslint:lint",
       "options": {
-        "lintFilePatterns": [
-          "apps/korfbal-stream-kit/**/*.{ts,tsx,js,jsx}"
-        ]
+        "lintFilePatterns": ["apps/korfbal-stream-kit/**/*.{ts,tsx,js,jsx}"]
       }
     },
     "typecheck": {
@@ -67,6 +66,5 @@
         "command": "docker run -p 80:80 korfbal-stream-kit:latest"
       }
     }
-  },
-  "tags": []
+  }
 }
