@@ -42,8 +42,8 @@ describe.runIf(runDb)('production attendance (integration)', () => {
     const groups = Object.fromEntries(mine(res.body.persons).map((p: AttendancePerson) => [p.name.slice(MARK.length + 1), p.group]));
     expect(groups).toEqual({Presentator: 'entertainment', Gemengd: 'crew', Runner: 'crew', Zonder: 'crew'});
     const presenter = mine(res.body.persons).find((p: AttendancePerson) => p.name.endsWith('Presentator'));
-    expect(presenter.productionPersonId).toEqual(expect.any(Number));
-    expect(presenter.skills.map((s: {code: string}) => s.code).sort()).toEqual([`${MARK}_COMM`, `${MARK}_PRES`]);
+    expect(presenter?.productionPersonId).toEqual(expect.any(Number));
+    expect(presenter?.skills.map((s: {code: string}) => s.code).sort()).toEqual([`${MARK}_COMM`, `${MARK}_PRES`]);
   });
 
   it('follows a renamed position category', async () => {

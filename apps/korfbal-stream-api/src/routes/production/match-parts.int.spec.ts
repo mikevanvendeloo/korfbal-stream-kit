@@ -84,7 +84,7 @@ describe.runIf(runDb)('match parts and venue clock travel with the item (integra
     show = await createProductionScenario(prisma, {items: scenarioItems, callSheet: true});
     const exported = (await request(app).get(`/api/production/${show.productionId}/export`)).body;
 
-    const importOf = async (data: unknown) => {
+    const importOf = async (data: object) => {
       const res = await request(app).post('/api/production/import').send(data);
       expect(res.status).toBe(200);
       productionIds.push(res.body.id);

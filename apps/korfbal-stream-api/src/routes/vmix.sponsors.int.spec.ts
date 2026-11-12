@@ -23,7 +23,7 @@ describe.runIf(runDb)('vMix sponsor data sources: enabled and type (integration)
   const marker = `vmixsp${Date.now()}`;
   const name = (n: string) => `${marker} ${n}`;
   const logo = (n: string) => `${marker}-${n}.png`;
-  let previousConfig: unknown;
+  let previousConfig: object;
   const ids: Record<string, number> = {};
 
   beforeAll(async () => {

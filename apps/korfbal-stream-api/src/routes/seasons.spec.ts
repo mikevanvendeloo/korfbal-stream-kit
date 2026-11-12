@@ -1,6 +1,6 @@
 import request from 'supertest';
 import app from '../main';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi, type MockInstance} from 'vitest';
 import * as prismaSvc from '../services/prisma';
 import {installSeasonMocks, SeasonMockState} from '../../test-helpers';
 import {ACTIVE_SEASON_ID_KEY} from '../services/season';
@@ -22,7 +22,7 @@ describe('Seasons API', () => {
     vi.restoreAllMocks();
   });
 
-  const seasonChangedEmits = (emit: ReturnType<typeof vi.spyOn>) =>
+  const seasonChangedEmits = (emit: MockInstance) =>
     emit.mock.calls.filter(([event]) => event === SEASON_CHANGED_EVENT).map(([, payload]) => payload);
 
   describe('GET /api/seasons', () => {

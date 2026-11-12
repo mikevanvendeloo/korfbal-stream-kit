@@ -14,7 +14,7 @@ import {getSetting, setSetting, SPONSOR_CAROUSEL_EXTRA_KEY} from '../services/ap
 const runDb = process.env.REQUIRE_DB === 'true';
 
 /** Supertest parser that keeps a binary body (a zip) as a Buffer. */
-function binary(res: NodeJS.ReadableStream, done: (err: Error | null, body: Buffer) => void) {
+function binary(res: request.Response, done: (err: Error | null, body: Buffer) => void) {
   const chunks: Buffer[] = [];
   res.on('data', (chunk: Buffer) => chunks.push(chunk));
   res.on('end', () => done(null, Buffer.concat(chunks)));
@@ -77,7 +77,7 @@ describe.runIf(runDb)('backup round trip into an organization with another slug 
     // The season's date is cleared, so the restore has to bring it back
     await prisma.season.update({where: {startYear: SEASON.startYear}, data: {indoorStartDate: null}});
     for (const entity of ENTITIES) {
-      const res = await asB(request(app).post(`/api/backup/${entity}/import`)).send(exported[entity]);
+      const res = await asB(request(app).post(`/api/backup/${entity}/import`)).send(exported[entity] as object);
       expect(res.status, entity).toBe(200);
     }
   });
@@ -102,7 +102,7 @@ describe.runIf(runDb)('backup round trip into an organization with another slug 
   it('sets the season\'s indoor start date when it had none, and never overwrites another date', async () => {
     expect((await prisma.season.findUnique({where: {startYear: SEASON.startYear}}))?.indoorStartDate?.toISOString().slice(0, 10)).toBe('2091-09-15');
     await prisma.season.update({where: {startYear: SEASON.startYear}, data: {indoorStartDate: new Date('2091-10-01')}});
-    await asB(request(app).post('/api/backup/settings/import')).send(exported.settings);
+    await asB(request(app).post('/api/backup/settings/import')).send(exported.settings as object);
     expect((await prisma.season.findUnique({where: {startYear: SEASON.startYear}}))?.indoorStartDate?.toISOString().slice(0, 10)).toBe('2091-10-01');
     // A season that doesn't exist here is not created
     const before = await prisma.season.count();

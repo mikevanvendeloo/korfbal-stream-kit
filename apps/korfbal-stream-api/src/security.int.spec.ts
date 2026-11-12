@@ -40,7 +40,7 @@ const A = 'sec-alpha';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
 
 /** Supertest parser that keeps a binary body (a zip) as a Buffer. */
-function binary(res: NodeJS.ReadableStream, done: (err: Error | null, body: Buffer) => void) {
+function binary(res: request.Response, done: (err: Error | null, body: Buffer) => void) {
   const chunks: Buffer[] = [];
   res.on('data', (chunk: Buffer) => chunks.push(chunk));
   res.on('end', () => done(null, Buffer.concat(chunks)));
@@ -495,7 +495,7 @@ describe.runIf(runDb)('secrets (integration)', () => {
       for (const route of ['matches', 'persons', 'positions', 'producties', 'settings', 'skills', 'sponsors', 'clubs']) {
         responses.push(await request(app).get(`/api/backup/${route}/export`));
       }
-      for (const res of responses) expect(res.text, res.req?.path).not.toContain(TOKEN);
+      for (const res of responses) expect(res.text, res.request?.url).not.toContain(TOKEN);
       expect(logged.join('\n')).not.toContain(TOKEN);
     } finally {
       spies.forEach((s) => s.mockRestore());

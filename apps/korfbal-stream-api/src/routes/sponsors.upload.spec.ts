@@ -27,7 +27,7 @@ async function makeWorkbookBuffer(rows: Array<Record<string, any>>): Promise<Buf
   }
 
   const buf = await workbook.xlsx.writeBuffer();
-  return buf as Buffer;
+  return buf as unknown as Buffer;
 }
 
 describe('Sponsors Excel upload API', () => {
