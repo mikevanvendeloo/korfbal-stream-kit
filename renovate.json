@@ -3,7 +3,7 @@
   "extends": ["config:recommended", ":dependencyDashboard"],
   "timezone": "Europe/Amsterdam",
   "schedule": ["before 7am on monday"],
-  "constraints": {"pnpm": "11"},
+  "constraints": {"pnpm": "12"},
   "minimumReleaseAge": "3 days",
   "platformAutomerge": true,
   "prConcurrentLimit": 10,
