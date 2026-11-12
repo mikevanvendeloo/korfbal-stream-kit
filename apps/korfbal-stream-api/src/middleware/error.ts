@@ -25,7 +25,7 @@ export function errorHandler(err: any, req: Request, res: Response<ApiErrorBody>
   if (err instanceof ZodError) {
     return res.status(400).json({
       error: 'Validation failed',
-      issues: err.errors.map((e) => ({ path: e.path, message: e.message, code: e.code })),
+      issues: err.issues.map((e) => ({ path: e.path, message: e.message, code: e.code })),
     });
   }
 

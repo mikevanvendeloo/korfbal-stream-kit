@@ -18,13 +18,13 @@ export const StatsRequestSchema = z.object({path: z.string().min(1).max(2000)});
 export type StatsRequest = z.infer<typeof StatsRequestSchema>;
 export const StatsAnswerSchema = z.object({
   status: z.number().int().min(100).max(599),
-  headers: z.record(z.string()),
+  headers: z.record(z.string(), z.string()),
   body: z.unknown(),
 });
 export type StatsAnswer = z.infer<typeof StatsAnswerSchema>;
 
 // vmix:call: one batch of function calls, each a set of vMix parameters (Function, Input, SelectedName, Value, ...)
-export const VmixCommandSchema = z.record(z.string().max(500)).refine((c) => typeof c.Function === 'string' && c.Function.length > 0, {message: 'Function is required'});
+export const VmixCommandSchema = z.record(z.string(), z.string().max(500)).refine((c) => typeof c.Function === 'string' && c.Function.length > 0, {message: 'Function is required'});
 export type VmixCommand = z.infer<typeof VmixCommandSchema>;
 export const VmixCallRequestSchema = z.object({
   function: z.enum(VMIX_FUNCTIONS),

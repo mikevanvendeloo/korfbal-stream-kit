@@ -1,8 +1,8 @@
 import {z} from 'zod';
 
 const EnvSchema = z.object({
-  API_URL: z.string({required_error: 'API_URL ontbreekt'}).trim().min(1, 'API_URL ontbreekt').url('API_URL is geen geldig adres'),
-  API_KEY: z.string({required_error: 'API_KEY ontbreekt'}).trim().min(1, 'API_KEY ontbreekt'),
+  API_URL: z.string({error: 'API_URL ontbreekt'}).trim().min(1, 'API_URL ontbreekt').url('API_URL is geen geldig adres'),
+  API_KEY: z.string({error: 'API_KEY ontbreekt'}).trim().min(1, 'API_KEY ontbreekt'),
   BRIDGE_NAME: z.string().trim().max(80).default('venue-bridge'),
   /** The address of this bridge's page on the venue network, shown in the kit (optional) */
   BRIDGE_PAGE_URL: z.string().trim().max(300).default(''),

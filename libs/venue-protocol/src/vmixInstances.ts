@@ -18,7 +18,7 @@ export const VmixTargetsSchema = z.object(
 
 export const VmixInstancesConfigSchema = z.object({
   instances: z.array(VmixInstanceSchema).max(10).default([]),
-  targets: VmixTargetsSchema.default({}),
+  targets: VmixTargetsSchema.prefault({}),
 }).superRefine((value, ctx) => {
   const names = value.instances.map((i) => i.name.toLowerCase());
   names.forEach((name, index) => {

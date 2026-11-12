@@ -37,7 +37,7 @@ export const MatchImportDateSchema = z
 // Query for POST /api/match/matches/schedule/import. Both values are passed on to the match schedule
 // provider, so only accept single, simple strings (a repeated query param arrives as an array and is rejected).
 export const MatchScheduleImportQuerySchema = z.object({
-  date: z.union([z.string(), z.undefined()]).transform((v) => v ?? DEFAULT_IMPORT_RANGE).pipe(MatchImportDateSchema),
+  date: z.string().optional().transform((v) => v ?? DEFAULT_IMPORT_RANGE).pipe(MatchImportDateSchema),
   // Forwarded as-is when present, including an empty value (upstream: no location filter)
   location: z
     .string()

@@ -52,7 +52,7 @@ positionsRouter.post('/positions', async (req, res, next) => {
     return res.status(201).json(created);
   } catch (err: any) {
     if (err?.code === 'P2002') return res.status(409).json({ error: 'Position name already exists' });
-    if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors?.[0]?.message || 'Invalid input' });
+    if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid input' });
     return next(err);
   }
 });
@@ -82,7 +82,7 @@ positionsRouter.put('/positions/:id', async (req, res, next) => {
     return res.json(updated);
   } catch (err: any) {
     if (err?.code === 'P2002') return res.status(409).json({ error: 'Position name already exists' });
-    if (err instanceof z.ZodError) return res.status(400).json({ error: err.errors?.[0]?.message || 'Invalid input' });
+    if (err instanceof z.ZodError) return res.status(400).json({ error: err.issues?.[0]?.message || 'Invalid input' });
     return next(err);
   }
 });

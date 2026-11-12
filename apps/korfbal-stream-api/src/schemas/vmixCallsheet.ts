@@ -20,7 +20,7 @@ const ColorFieldsSchema = {
   backgroundField: FieldName,
   /** Text fields whose text colour follows the state (vMix SetTextColour) */
   textColorFields: z.array(z.string().trim().min(1).max(200)).max(20).default([]),
-  colors: CallsheetColorsSchema.default({}),
+  colors: CallsheetColorsSchema.prefault({}),
 };
 
 export const VmixCallsheetPushSchema = z.object({
@@ -40,7 +40,7 @@ export const VmixCallsheetPushSchema = z.object({
     timerField: FieldName,
     startTimeField: FieldName,
     ...ColorFieldsSchema,
-  }).default({}),
+  }).prefault({}),
   next: z.object({
     titleField: FieldName,
     durationField: FieldName,
@@ -48,7 +48,7 @@ export const VmixCallsheetPushSchema = z.object({
     startsInField: FieldName,
     startTimeField: FieldName,
     ...ColorFieldsSchema,
-  }).default({}),
+  }).prefault({}),
 });
 
 export type VmixCallsheetPushConfig = z.infer<typeof VmixCallsheetPushSchema>;
