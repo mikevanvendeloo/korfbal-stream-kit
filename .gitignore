@@ -81,3 +81,7 @@ secrets.*.env
 /test-results/
 /streamz-test/
 /stats-test/
+
+.claude/worktrees
+.nx/polygraph
+.nx/self-healing
