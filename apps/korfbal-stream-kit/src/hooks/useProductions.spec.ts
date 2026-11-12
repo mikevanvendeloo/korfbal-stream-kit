@@ -2,14 +2,14 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { useProductionInterviews } from './useProductions';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { vi } from 'vitest';
+import { vi, type Mock } from 'vitest';
 import { useProductionTitles } from './useTitles';
 
 // Mock fetch and other hooks
 vi.mock('./useTitles');
 global.fetch = vi.fn();
 
-const mockUseProductionTitles = useProductionTitles as jest.Mock;
+const mockUseProductionTitles = useProductionTitles as Mock;
 
 describe('useProductionInterviews', () => {
   let queryClient: QueryClient;

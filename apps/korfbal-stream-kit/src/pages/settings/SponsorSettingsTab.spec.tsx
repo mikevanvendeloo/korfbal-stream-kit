@@ -1,9 +1,7 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SponsorSettingsTab from './SponsorSettingsTab';
 import { vi } from 'vitest';
-import { ALL_SPONSOR_TYPES } from '../SponsorsPage';
 
 // Mock API calls
 global.fetch = vi.fn();

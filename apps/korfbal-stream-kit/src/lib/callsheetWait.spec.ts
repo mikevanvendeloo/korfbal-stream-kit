@@ -45,7 +45,7 @@ describe('callsheetWait with the hall lane', () => {
     const wait = callsheetWait(rustHallDone, analysis, LED.id, rustHallDone[5].calculatedTime.getTime() - 60_000, null);
     expect(wait).toEqual({kind: 'waiting', next: rustHallDone[5], secondsLeft: 60});
     // Before: the statistics (order after the commentators) are over, so not "next"
-    const atCommentators = rustHallDone.map((e) => (e.id === 'r3' ? {...e, status: 'ACTIVE'} : e));
+    const atCommentators = rustHallDone.map((e) => (e.id === 'r3' ? {...e, status: 'ACTIVE' as const} : e));
     expect(callsheetWait(atCommentators, atCommentators[2], LED.id, Date.now(), null)).toMatchObject({kind: 'waiting', next: {id: 'r6'}});
   });
 });

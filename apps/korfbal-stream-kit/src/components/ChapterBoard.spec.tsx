@@ -6,7 +6,7 @@ const chapters = [{id: 'voor', name: 'Voorbereiding', subtitle: '−30:00 tot 0:
 const items = [{id: 'kabels', title: 'Kabels checken'}, {id: 'aftrap', title: 'Aftrap'}];
 const structure = [{id: 'voor', itemIds: ['kabels']}, {id: 'eerste', itemIds: ['aftrap']}];
 
-function renderBoard(overrides: Partial<Parameters<typeof ChapterBoard>[0]> = {}) {
+function renderBoard(overrides: Partial<Parameters<typeof ChapterBoard<string, (typeof items)[number]>>[0]> = {}) {
   const handlers = {
     onStructureChange: vi.fn(), onAddItem: vi.fn(), onAddChapter: vi.fn(), onRenameChapter: vi.fn(), onDeleteChapter: vi.fn(),
   };

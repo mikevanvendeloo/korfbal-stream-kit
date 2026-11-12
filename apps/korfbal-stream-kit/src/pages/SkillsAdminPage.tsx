@@ -64,7 +64,7 @@ function useDeleteSkill() {
 export default function SkillsAdminPage() {
   const [q, setQ] = React.useState('');
   const [typeFilter, setTypeFilter] = React.useState<SkillType | ''>('');
-  const { data, isLoading, error, refetch } = useSkills(q, typeFilter || undefined);
+  const { data, isLoading, error } = useSkills(q, typeFilter || undefined);
   const create = useCreateSkill();
   const update = useUpdateSkill();
   const del = useDeleteSkill();

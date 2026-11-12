@@ -21,10 +21,10 @@ function renderWithProviders(ui: React.ReactNode) {
   );
 }
 
-const mockData = {
+const mockData: api.Paginated<api.Sponsor> = {
   items: [
-    { id: 1, name: 'Ruitenheer', type: 'premium', websiteUrl: 'https://www.ruitenheer.nl', logoUrl: 'ruitenheer.png', createdAt: new Date().toISOString() },
-    { id: 2, name: 'M-Sports', type: 'zilver', websiteUrl: 'https://www.m-sports.com', logoUrl: 'm-sports.png', createdAt: new Date().toISOString() },
+    { id: 1, name: 'Ruitenheer', type: 'premium', websiteUrl: 'https://www.ruitenheer.nl', logoUrl: 'ruitenheer.png', enabled: true, createdAt: new Date().toISOString() },
+    { id: 2, name: 'M-Sports', type: 'zilver', websiteUrl: 'https://www.m-sports.com', logoUrl: 'm-sports.png', enabled: true, createdAt: new Date().toISOString() },
   ],
   page: 1,
   limit: 100,
@@ -36,7 +36,7 @@ describe('SponsorsPage', () => {
   beforeEach(() => {
     vi.spyOn(api, 'fetchSponsors').mockResolvedValue(mockData);
     vi.spyOn(api, 'uploadSponsorsExcel').mockResolvedValue({ ok: true, created: 2, updated: 0 });
-    vi.spyOn(api, 'createSponsor').mockImplementation(async (input) => ({ ...input, id: 3, logoUrl: '', createdAt: new Date().toISOString() }));
+    vi.spyOn(api, 'createSponsor').mockImplementation(async (input) => ({ ...input, id: 3, logoUrl: '', enabled: input.enabled ?? true, createdAt: new Date().toISOString() }));
     vi.spyOn(api, 'updateSponsor').mockImplementation(async (id, input) => ({ ...mockData.items[0], ...input }));
     vi.spyOn(api, 'uploadSponsorLogo').mockImplementation(async (id, file) => ({ ...mockData.items[0], logoUrl: file.name }));
     vi.spyOn(api, 'downloadAllSponsorLogos').mockResolvedValue();

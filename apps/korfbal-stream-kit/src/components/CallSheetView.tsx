@@ -68,24 +68,6 @@ export const CallSheetView = () => {
         };
     }, [showSettings]);
 
-    const handleApiCall = async (endpoint: string) => {
-        try {
-            const response = await fetch(`/api/show/${endpoint}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.error(`Failed to trigger ${endpoint}:`, errorData.error || 'Unknown error');
-            }
-        } catch (error) {
-            console.error(`API call to ${endpoint} failed:`, error);
-        }
-    };
-
     // Vind de geselecteerde positie voor de eerste kolom op basis van de URL
     const primaryPosition = useMemo(() => {
         if (!allPositions.length || !positionSlug || positionSlug === 'all') return null;

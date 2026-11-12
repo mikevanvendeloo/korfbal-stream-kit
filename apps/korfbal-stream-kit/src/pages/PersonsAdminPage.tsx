@@ -38,7 +38,6 @@ export default function PersonsAdminPage() {
   const [newSelectedSkillId, setNewSelectedSkillId] = React.useState<number>(0);
   const [newPendingSkillIds, setNewPendingSkillIds] = React.useState<number[]>([]);
 
-  const selectedPerson = React.useMemo(() => data?.items.find(p => p.id === skillsFor) || null, [data, skillsFor]);
   const displayNameForSkill = React.useCallback((skill: { name: string }) => {
     return skill.name;
   }, []);

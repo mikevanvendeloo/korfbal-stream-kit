@@ -143,7 +143,7 @@ export default function ProductionsAdminPage() {
               {(prods?.items || []).map((p) => (
                 <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-900">
                   <td className="p-2 border-b border-gray-200 dark:border-gray-800 whitespace-nowrap">
-                    {formatProductionTime(p.matchSchedule.date, p.liveTime)}
+                    {formatProductionTime(p.matchSchedule?.date ?? '', p.liveTime)}
                   </td>
                   <td className="p-2 border-b border-gray-200 dark:border-gray-800">
                     <div className="flex items-center gap-2">

@@ -23,7 +23,7 @@ export default function SponsorsPage() {
   const [selectedTypes, setSelectedTypes] = useState<SponsorType[]>([]);
   const { data, isLoading, isError, error, refetch } = useSponsors({ type: selectedTypes.length > 0 ? selectedTypes : undefined, limit: 100 });
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<null | { created: number; updated: number; total?: number; problems?: Array<{ row: number; reason: string }> }>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
