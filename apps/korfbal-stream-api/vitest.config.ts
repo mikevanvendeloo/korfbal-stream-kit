@@ -22,14 +22,9 @@ export default defineConfig({
     globalSetup: ['./src/test-global-setup.ts'],
     // Before every spec file
     setupFiles: ['./src/test-setup.ts'],
-    // All integration tests share one database: run the files one after another in a single process.
-    // (Vitest's default pool is 'forks', so a threads-only option has no effect.)
+    // All integration tests share one database: run the files one after another (one worker at a time,
+    // each file isolated in its own fork).
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
     fileParallelism: false,
   },
 });
