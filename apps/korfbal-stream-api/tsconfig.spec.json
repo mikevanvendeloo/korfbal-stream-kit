@@ -7,6 +7,15 @@
     "src/**/*.spec.ts",
     "src/**/*.test.ts",
     "src/**/*.int.spec.ts",
-    "src/vitest-env.d.ts"
+    "src/vitest-env.d.ts",
+    "test-helpers.ts",
+    "test-images.ts",
+    "test-scenarios.ts"
+  ],
+  "exclude": [],
+  "references": [
+    {
+      "path": "./tsconfig.app.json"
+    }
   ]
 }
