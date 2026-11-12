@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useManualMatches, useCreateManualMatch, useUpdateManualMatch, useDeleteManualMatch, ManualMatch, ManualMatchInput } from '../hooks/useManualMatches';
 import { MdAdd, MdDelete, MdEdit } from 'react-icons/md';
 import { Controller, useForm } from 'react-hook-form';

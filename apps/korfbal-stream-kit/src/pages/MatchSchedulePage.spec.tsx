@@ -71,7 +71,6 @@ function setupFetchMock() {
     }
     return { ok: false, status: 404 } as any;
   });
-  // @ts-expect-error Test
   global.fetch = mock;
   return { restore: () => (global.fetch = original), mock };
 }
@@ -79,15 +78,14 @@ function setupFetchMock() {
 // Helper to freeze today's date so component default is predictable
 const RealDate = Date;
 function mockNow(iso: string) {
-  // @ts-expect-error Test
   global.Date = class extends RealDate {
     constructor(...args: any[]) {
-      if (args.length) return new RealDate(...args) as any;
-      return new RealDate(iso) as any;
+      if (args.length) super(...(args as [number]));
+      else super(iso);
     }
-    static now() { return new RealDate(iso).getTime(); }
-    static UTC = RealDate.UTC;
-    static parse = RealDate.parse;
+    static override now() { return new RealDate(iso).getTime(); }
+    static override UTC = RealDate.UTC;
+    static override parse = RealDate.parse;
   } as any;
 }
 
@@ -159,7 +157,6 @@ it('triggers import with default params and refreshes the list', async () => {
     }
     return { ok: false, status: 404 } as any;
   }) as any;
-  // @ts-expect-error Test
   global.fetch = fetchMock;
 
   render(withQueryClient(

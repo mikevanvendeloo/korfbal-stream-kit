@@ -159,7 +159,7 @@ describe('useShowControls', () => {
   });
 
   it('sends each action to its own address on the server', async () => {
-    const fetchMock = vi.fn(async () => new Response('{}'));
+    const fetchMock = vi.fn(async (..._args: unknown[]) => new Response('{}'));
     vi.stubGlobal('fetch', fetchMock);
     const {result} = renderHook(() => useShowControls('47'));
     for (const action of ['start', 'next', 'previous', 'recalculate', 'reset', 'stop'] as const) {

@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "emitDeclarationOnly": false
+  },
+  "references": [
+    {
+      "path": "../../libs/venue-protocol/tsconfig.lib.json"
+    }
+  ]
+}

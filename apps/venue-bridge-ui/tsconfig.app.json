@@ -13,19 +13,10 @@
     ],
     "rootDir": "../.."
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "../../libs/ui/src/**/*.ts",
-    "../../libs/ui/src/**/*.tsx"
-  ],
-  "exclude": [
-    "../../libs/ui/src/**/*.spec.tsx",
-    "../../libs/ui/src/test-setup.ts"
-  ],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [
     {
-      "path": "../../libs/ui"
+      "path": "../../libs/ui/tsconfig.lib.json"
     }
   ]
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { MdPlayArrow, MdStop, MdTimer } from 'react-icons/md';
 
 export const TimeControls = () => {

@@ -7,7 +7,7 @@ import {
   useRolesReport,
 } from '../hooks/useReports';
 import {useProductions} from '../hooks/useProductions';
-import {createColumnHelper, flexRender, getCoreRowModel, useReactTable,} from '@tanstack/react-table';
+import {type ColumnDef, createColumnHelper, flexRender, getCoreRowModel, useReactTable,} from '@tanstack/react-table';
 import {downloadAsPng} from '../lib/download';
 import {MdClose, MdDownload, MdSchedule} from 'react-icons/md';
 import PlayerCard from '../components/PlayerCard';
@@ -141,7 +141,7 @@ function DailyOccupancyReport() {
     if (!data) return [];
     const helper = createColumnHelper<any>();
 
-    const cols = [
+    const cols: ColumnDef<any, any>[] = [
       helper.accessor('name', {
         header: 'Persoon',
         cell: info => info.getValue(),
@@ -517,7 +517,7 @@ function OccupancyByPositionTable({ date }: { date: string }) {
     if (!data) return [];
     const helper = createColumnHelper<any>();
 
-    const cols = [
+    const cols: ColumnDef<any, any>[] = [
       helper.accessor('name', {
         header: 'Positie',
         cell: info => {

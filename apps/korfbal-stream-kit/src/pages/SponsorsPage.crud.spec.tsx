@@ -72,7 +72,7 @@ describe('SponsorsPage CRUD', () => {
 
     // Verify that BV was stripped in the payload
     const post = calls.find((c) => c.method === 'POST' && c.url.includes('/sponsors'));
-    expect(JSON.parse(post.body).name).toBe('ACME');
+    expect(JSON.parse(post?.body as string).name).toBe('ACME');
   });
 
   it('can edit and delete a sponsor', async () => {

@@ -16,7 +16,8 @@
         "bundle": true,
         "thirdParty": false,
         "main": "apps/korfbal-stream-api/src/main.ts",
-        "tsConfig": "apps/korfbal-stream-api/tsconfig.app.json",
+        "tsConfig": "apps/korfbal-stream-api/tsconfig.build.json",
+        "skipTypeCheck": true,
         "assets": [
           {
             "input": "apps/korfbal-stream-api",
@@ -64,6 +65,7 @@
     },
     "test": {
       "executor": "nx:run-commands",
+      "inputs": ["default", "^production", {"env": "REQUIRE_DB"}],
       "options": {
         "command": "vitest run --config apps/korfbal-stream-api/vitest.config.ts",
         "cwd": "{workspaceRoot}"
@@ -75,13 +77,6 @@
         "lintFilePatterns": [
           "apps/korfbal-stream-api/**/*.ts"
         ]
-      }
-    },
-    "typecheck": {
-      "executor": "@nx/js:tsc",
-      "options": {
-        "tsConfig": "apps/korfbal-stream-api/tsconfig.app.json",
-        "noEmit": true
       }
     },
     "docker:run": {

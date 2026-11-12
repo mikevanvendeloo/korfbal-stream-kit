@@ -7,7 +7,7 @@ import {
   useSaveInterviewSelections
 } from '../hooks/useInterviews';
 
-type SelKey = `${InterviewSide}-${InterviewRole}`;
+type SelKey = `${Exclude<InterviewSide, 'NONE'>}-${InterviewRole}`;
 type Selection = Record<SelKey, { playerId: number | null }>;
 
 const keys: SelKey[] = ['AWAY-COACH', 'AWAY-PLAYER', 'HOME-COACH', 'HOME-PLAYER'];

@@ -37,7 +37,7 @@ export const ShowCallerView = () => {
     venueClock,
     systemTime,
     activeEventRemainingTime,
-    isLoading, error,
+    isLoading,
     autoAdvanceEventId,
     isConnected,
     timeSinceLastSync,
@@ -46,8 +46,6 @@ export const ShowCallerView = () => {
   } = useLiveState();
 
   const {fontSize, setFontSize} = useFontSize();
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const activeRowRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -211,9 +209,6 @@ export const ShowCallerView = () => {
 
   if (isLoading && allItems.length === 0) return <div
     className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-white flex items-center justify-center">Laden...</div>;
-  if (error) return <div
-    className="min-h-screen bg-white dark:bg-gray-950 text-red-600 dark:text-red-500 flex items-center justify-center">Error: {error}</div>;
-
   const isRelevantForMe = (event: ProductionEvent) => {
     if (selectedPositionId === -1) return true;
     return event.positions.length === 0 || event.positions.some(p => p.position.id === selectedPositionId);

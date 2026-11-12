@@ -1,4 +1,3 @@
-import React from 'react';
 import { useProduction } from '../hooks/useProductions';
 import { useClubs, Club } from '../hooks/useClubs';
 import ClubLogo from './ClubLogo';

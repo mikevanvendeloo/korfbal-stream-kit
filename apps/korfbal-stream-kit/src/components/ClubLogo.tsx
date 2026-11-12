@@ -1,4 +1,3 @@
-import React from 'react';
 import {createUrl} from '../lib/api';
 
 type ClubLogoSize = 'small' | 'medium' | 'large';

@@ -1,6 +1,6 @@
 import {vi} from 'vitest';
 import type React from 'react';
-import {render} from '@testing-library/react';
+import {render, type RenderResult} from '@testing-library/react';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {MemoryRouter} from 'react-router-dom';
 import type {Organization} from '../hooks/useOrganizations';
@@ -59,7 +59,7 @@ export function mockApi(handler: (call: ApiCall) => unknown) {
 }
 
 /** Renders a Beheer page with a fresh query client and a router. */
-export function renderPage(ui: React.ReactElement) {
+export function renderPage(ui: React.ReactElement): RenderResult {
   const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}, mutations: {retry: false}}});
   return render(<QueryClientProvider client={queryClient}><MemoryRouter>{ui}</MemoryRouter></QueryClientProvider>);
 }

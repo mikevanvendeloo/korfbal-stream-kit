@@ -30,6 +30,7 @@ export function useMatchSchedule(date: string, location: LocationFilter = 'HOME'
         if (timerRef.current) window.clearInterval(timerRef.current);
       };
     }
+    return undefined;
   }, [date, location, pollMs]);
 
   return { data, isLoading, isError: !!error, error, refetch: load };

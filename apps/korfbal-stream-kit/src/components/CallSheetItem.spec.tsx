@@ -10,18 +10,11 @@ vi.mock('../hooks/useFontSize', () => ({
 }));
 
 describe('CallSheetItem', () => {
-  const mockItem: ProductionEvent = {
-    id: 'event-1',
-    title: 'Test Event',
-    durationSec: 60,
+  const mockItem: ProductionEvent = showItem('event-1', 1, 'Test Event', {
     autoAdvance: true,
-    isInLivestream: true,
-    isInVenue: false,
-    status: 'WAITING',
-    order: 1,
     productionId: 1,
-    positions: []
-  };
+    positionList: [],
+  });
 
   it('should show "TIMER" badge when isAutoAdvanceScheduled is true', () => {
     render(<CallSheetItem item={mockItem} isAutoAdvanceScheduled={true} />);
