@@ -45,7 +45,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11
+          version: 12
           cache: true
 
       - name: Setup Node.js
@@ -101,12 +101,10 @@ jobs:
           echo "Sanitized Affected Apps JSON: $SANITIZED_APPS_JSON"
           # 3. Set the new, object-based JSON list as a step output
           echo "affected_apps_json=$SANITIZED_APPS_JSON" >> "$GITHUB_OUTPUT"
-  db-tests:
-    name: Integration & E2E tests
+  api-integration-tests:
+    name: API Integration Tests
     runs-on: ubuntu-latest
     if: github.event_name != 'workflow_dispatch' || !inputs.skip_ci_checks
-    # The separate test database from apps/korfbal-stream-api/.env.test (korfbal_stream_test);
-    # the tests refuse any database whose name doesn't end in _test.
     services:
       postgres:
         image: postgres:16-alpine
@@ -122,48 +120,66 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
         with:
-          version: 11
+          version: 12
           cache: true
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: 'pnpm'
+      - run: pnpm install
+      - run: pnpm prisma:generate
+      - run: pnpm run api:test:integration
 
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Generate Prisma Client
-        run: pnpm prisma:generate
-
-      # Migrates the test database itself (global setup)
-      - name: Run API integration tests
-        run: pnpm run api:test:integration
-
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
-
-      # Starts its own API (port 3335) and dev server (port 4300) on the test database
-      - name: Run e2e tests
-        run: pnpm run e2e
-
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: |
-            dist/.playwright/apps/korfbal-stream-kit-e2e/
-            apps/korfbal-stream-kit-e2e/test-output/
-          if-no-files-found: ignore
-          retention-days: 7
+  e2e-tests:
+      name: Playwright E2E Tests
+      runs-on: ubuntu-latest
+      if: github.event_name != 'workflow_dispatch' || !inputs.skip_ci_checks
+      services:
+        postgres:
+          image: postgres:16-alpine
+          env:
+            POSTGRES_USER: korfbal
+            POSTGRES_PASSWORD: korfbal
+            POSTGRES_DB: korfbal_stream_test
+          ports:
+            - 5432:5432
+          options: >-
+            --health-cmd "pg_isready -U korfbal -d korfbal_stream_test"
+            --health-interval 5s
+            --health-timeout 5s
+            --health-retries 10
+      steps:
+        - uses: actions/checkout@v5
+        - uses: pnpm/action-setup@v6
+          with:
+            version: 12
+            cache: true
+        - uses: actions/setup-node@v6
+          with:
+            node-version: '24'
+            cache: 'pnpm'
+        - run: pnpm install
+        - name: Install Playwright browser & system dependencies
+          run: |
+            echo 'Acquire::Retries "5";' | sudo tee /etc/apt/apt.conf.d/80-retries
+            sudo apt-get update
+            pnpm exec playwright install chromium
+            sudo env "PATH=$PATH" pnpm exec playwright install-deps chromium
+        - run: pnpm prisma:generate
+        - run: pnpm run e2e
+        - name: Upload Playwright report
+          if: failure()
+          uses: actions/upload-artifact@v4
+          with:
+            name: playwright-report
+            path: |
+              dist/.playwright/apps/korfbal-stream-kit-e2e/
+              apps/korfbal-stream-kit-e2e/test-output/
+            if-no-files-found: ignore
+            retention-days: 7
 
   preview-release-notes:
     name: Preview Release Notes
@@ -188,7 +204,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11
+          version: 12
           cache: true
 
       - name: Setup Node.js
@@ -330,7 +346,7 @@ jobs:
     # used to take 20-30 min under emulation, this builds it natively instead.
     runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     # This job only runs if the checks and the integration/e2e tests pass AND (it's a push to main/master OR manual dispatch)
-    needs: [ci-checks, db-tests, calculate-version]
+    needs: [ ci-checks, api-integration-tests, e2e-tests, calculate-version ]
     if: |
       always() &&
       (needs.ci-checks.result == 'success' || needs.ci-checks.result == 'skipped') &&
@@ -350,7 +366,7 @@ jobs:
         # when no apps are affected (e.g. a root-config-only change) - the actual
         # build/push step is skipped for that placeholder below.
         app: ${{ github.event_name == 'workflow_dispatch' && fromJson('[{"original":"korfbal-stream-api","sanitized":"korfbal-stream-api","image":"korfbal-stream-api"},{"original":"korfbal-stream-kit","sanitized":"korfbal-stream-kit","image":"korfbal-stream-kit"},{"original":"venue-bridge","sanitized":"venue-bridge","image":"streamz-kit-venue-bridge"}]') || (needs.ci-checks.outputs.affected_apps_json != '' && needs.ci-checks.outputs.affected_apps_json != '[]' && fromJson(needs.ci-checks.outputs.affected_apps_json)) || fromJson('[{"original":"none","sanitized":"none","image":"none"}]') }}
-        platform: [linux/amd64, linux/arm64]
+        platform: [ linux/amd64, linux/arm64 ]
 
     steps:
       - name: Checkout
@@ -459,7 +475,7 @@ jobs:
   merge:
     name: Merge & Push (${{ matrix.app.sanitized }})
     runs-on: ubuntu-latest
-    needs: [ci-checks, calculate-version, build]
+    needs: [ ci-checks, calculate-version, build ]
     if: |
       always() &&
       needs.build.result == 'success' &&
@@ -556,7 +572,7 @@ jobs:
     name: Create Git Tag
     runs-on: ubuntu-latest
     # This job runs after all builds are successful, only for automatic releases (not manual dispatch)
-    needs: [calculate-version, merge]
+    needs: [ calculate-version, merge ]
     if: |
       github.event_name == 'push' &&
       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
@@ -586,7 +602,7 @@ jobs:
         continue-on-error: true
         uses: pnpm/action-setup@v6
         with:
-          version: 11
+          version: 12
           cache: true
 
       - name: Setup Node.js

@@ -13,5 +13,16 @@
     "rootDir": "../.."
   },
   "include": ["src/**/*.ts", "../../libs/venue-protocol/src/**/*.ts"],
-  "exclude": ["src/**/*.spec.ts", "../../libs/**/*.spec.ts", "src/test-setup.ts", "src/test-global-setup.ts", "src/test-database.ts"]
+  "exclude": [
+    "src/**/*.spec.ts",
+    "../../libs/**/*.spec.ts",
+    "src/test-setup.ts",
+    "src/test-global-setup.ts",
+    "src/test-database.ts"
+  ],
+  "references": [
+    {
+      "path": "../../libs/venue-protocol"
+    }
+  ]
 }

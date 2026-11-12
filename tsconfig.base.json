@@ -19,7 +19,9 @@
     "customConditions": ["@korfbal-stream-kit/korfbal-stream-kit"],
     "paths": {
       "@korfbal-stream-kit/ui": ["./libs/ui/src/index.ts"],
-      "@korfbal-stream-kit/venue-protocol": ["./libs/venue-protocol/src/index.ts"]
+      "@korfbal-stream-kit/venue-protocol": [
+        "./libs/venue-protocol/src/index.ts"
+      ]
     }
   }
 }
