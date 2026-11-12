@@ -72,7 +72,7 @@
     "socket.io-client": "^4.8.4",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.19.0",
-    "zod": "^3.25.76"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
