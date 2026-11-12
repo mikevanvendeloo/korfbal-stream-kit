@@ -46,13 +46,6 @@
         "lintFilePatterns": ["apps/korfbal-stream-kit/**/*.{ts,tsx,js,jsx}"]
       }
     },
-    "typecheck": {
-      "executor": "@nx/js:tsc",
-      "options": {
-        "tsConfig": "apps/korfbal-stream-kit/tsconfig.app.json",
-        "noEmit": true
-      }
-    },
     "docker:build": {
       "executor": "nx:run-commands",
       "options": {

@@ -6,12 +6,9 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "lib": ["es2022", "dom"],
-    "declaration": false,
-    "emitDeclarationOnly": false,
-    "composite": false,
-    "noEmit": true,
-    "declarationMap": false,
     "types": ["vitest/globals", "@testing-library/jest-dom"],
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.lib.tsbuildinfo",
     "rootDir": "."
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]

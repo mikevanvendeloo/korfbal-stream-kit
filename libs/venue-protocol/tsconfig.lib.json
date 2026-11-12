@@ -4,12 +4,9 @@
     "module": "es2020",
     "target": "es2020",
     "moduleResolution": "bundler",
-    "declaration": false,
-    "emitDeclarationOnly": false,
-    "composite": false,
-    "noEmit": true,
-    "declarationMap": false,
     "types": ["node", "vitest/globals"],
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.lib.tsbuildinfo",
     "rootDir": "."
   },
   "include": ["src/**/*.ts"]

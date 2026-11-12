@@ -8,10 +8,11 @@
       "vite/client",
       "node",
       "vitest",
+      "@testing-library/jest-dom/vitest",
       "@nx/react/typings/cssmodule.d.ts",
       "@nx/react/typings/image.d.ts"
     ],
-    "lib": ["es2022", "dom"], // <-- Toegevoegd: "dom"
+    "lib": ["es2022", "dom", "dom.iterable"],
     "jsx": "react-jsx"
   },
   "include": [

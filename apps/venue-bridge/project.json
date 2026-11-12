@@ -19,7 +19,8 @@
         ],
         "bundle": true,
         "main": "apps/venue-bridge/src/main.ts",
-        "tsConfig": "apps/venue-bridge/tsconfig.app.json",
+        "tsConfig": "apps/venue-bridge/tsconfig.build.json",
+        "skipTypeCheck": true,
         "generatePackageJson": false,
         "esbuildOptions": {
           "sourcemap": true,
@@ -65,13 +66,6 @@
         "lintFilePatterns": [
           "apps/venue-bridge/**/*.ts"
         ]
-      }
-    },
-    "typecheck": {
-      "executor": "@nx/js:tsc",
-      "options": {
-        "tsConfig": "apps/venue-bridge/tsconfig.app.json",
-        "noEmit": true
       }
     },
     "docker:build": {

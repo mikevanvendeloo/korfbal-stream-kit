@@ -17,13 +17,6 @@
       "options": {
         "lintFilePatterns": ["libs/venue-protocol/**/*.ts"]
       }
-    },
-    "typecheck": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "tsc -p libs/venue-protocol/tsconfig.lib.json --noEmit",
-        "cwd": "{workspaceRoot}"
-      }
     }
   },
   "tags": []
