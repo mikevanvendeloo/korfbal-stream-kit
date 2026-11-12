@@ -8,7 +8,7 @@
     "test": "nx affected -t test",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx --max-warnings=0",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "nx run-many -t typecheck",
     "api:dev": "npm run prisma:generate && dotenv -e apps/korfbal-stream-api/.env -- nx dev @korfbal-stream-kit/korfbal-stream-api --verbose",
     "api:build": "nx build @korfbal-stream-kit/korfbal-stream-api",
     "api:package": "nx package @korfbal-stream-kit/korfbal-stream-api",
