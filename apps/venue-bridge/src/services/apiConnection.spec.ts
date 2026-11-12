@@ -77,7 +77,8 @@ describe('api connection', () => {
 
   it('sends readings to the API', async () => {
     await connect();
-    await waitFor(() => !!serverSocket);
+    // The server sees the socket before the client has its connect: a reading is only sent once the client is connected
+    await waitFor(() => !!serverSocket && connection.state.connected);
     const received: VenueReading[] = [];
     sock().on(VENUE_EVENTS.reading, (r: VenueReading) => received.push(r));
     const reading: VenueReading = {device: 'clock', ok: true, data: ['1', '2'], readAt: new Date().toISOString()};
