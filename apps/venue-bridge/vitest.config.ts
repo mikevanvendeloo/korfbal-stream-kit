@@ -15,7 +15,6 @@ export default defineConfig({
     globals: true,
     // Tests change the (module-level) configuration: one spec file at a time
     pool: 'forks',
-    poolOptions: {forks: {singleFork: true}},
     fileParallelism: false,
   },
 });
