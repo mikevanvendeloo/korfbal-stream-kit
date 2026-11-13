@@ -3,7 +3,7 @@ import app from '../main';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 import * as prismaSvc from '../services/prisma';
 import {installSeasonMocks, SeasonMockState} from '../../test-helpers';
-import {ACTIVE_SEASON_ID_KEY, getActiveSeason} from '../services/season';
+import {ACTIVE_SEASON_ID_KEY} from '../services/season';
 
 const prisma = (prismaSvc as any).prisma as any;
 

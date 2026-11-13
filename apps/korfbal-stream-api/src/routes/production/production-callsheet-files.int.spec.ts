@@ -8,7 +8,7 @@ const runDb = process.env.REQUIRE_DB === 'true';
 const MIN = 60_000;
 
 /** Supertest parser that keeps a binary body (an .xlsx) as a Buffer. */
-function binary(res: NodeJS.ReadableStream, done: (err: Error | null, body: Buffer) => void) {
+function binary(res: request.Response, done: (err: Error | null, body: Buffer) => void) {
   const chunks: Buffer[] = [];
   res.on('data', (chunk: Buffer) => chunks.push(chunk));
   res.on('end', () => done(null, Buffer.concat(chunks)));

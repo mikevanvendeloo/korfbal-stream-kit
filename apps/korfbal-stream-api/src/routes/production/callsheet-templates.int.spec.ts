@@ -31,13 +31,6 @@ describe.runIf(process.env.REQUIRE_DB === 'true')('CallSheetTemplate Excel Expor
     });
   });
 
-  const getBuffer = (res: any) => {
-    if (Buffer.isBuffer(res.body)) return res.body;
-    // supertest in some environments might not put binary in res.body automatically
-    // but vitest usually handles it if configured
-    return Buffer.from(res.body);
-  };
-
   it('should create, read, update and delete templates', async () => {
     const timestamp = Date.now() + Math.random();
     const testName = `Test CRUD Template ${timestamp}`;

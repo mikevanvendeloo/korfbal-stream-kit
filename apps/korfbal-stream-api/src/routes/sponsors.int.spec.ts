@@ -2,7 +2,7 @@ import request from 'supertest';
 import {execSync} from 'node:child_process';
 import app from '../main';
 import {beforeAll, describe, expect, it} from 'vitest';
-import {applyStandardSetToTestOrganization, testDb as prisma} from '../../test-helpers';
+import {applyStandardSetToTestOrganization} from '../../test-helpers';
 
 // Integration test against a real Postgres instance.
 // Requires DATABASE_URL to point to a running Postgres and that `prisma` CLI is available.

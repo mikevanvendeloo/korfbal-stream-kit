@@ -19,7 +19,7 @@ async function makeWorkbookBuffer(rows: Array<Record<string, any>>, sheetName = 
   }
 
   const buf = await workbook.xlsx.writeBuffer();
-  return buf as Buffer;
+  return buf as unknown as Buffer;
 }
 
 describe('Callsheet Excel import API', () => {
