@@ -1,10 +1,17 @@
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+  runtime      = "nodejs"
+}
+
+generator modelMetadata {
+  provider = "node apps/korfbal-stream-api/prisma/model-metadata-generator.cjs"
+  output   = "../src/generated/model-metadata"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Sponsor {
