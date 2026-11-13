@@ -1,7 +1,7 @@
 import {Router} from 'express';
 import {prisma} from '../services/prisma';
 import {z} from 'zod';
-import type {PositionCategory} from '@prisma/client';
+import type {PositionCategory} from '@korfbal-stream-kit/prisma';
 import {resolveSeasonId} from '../services/season';
 import {amsterdamDay, amsterdamDayRange} from '../utils/time';
 import {getDayPlanningSettings, planDay} from '../services/dayPlanning';

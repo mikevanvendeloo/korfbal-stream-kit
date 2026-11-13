@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type {PrismaClient} from '@prisma/client';
+import type {PrismaClient} from '@korfbal-stream-kit/prisma';
 import {getAssetsRoot} from './config';
 import {prismaUnscoped} from './prisma';
 import {isLogoFileName, ORGANIZATION_LOGO_DIR, SPONSOR_LOGO_DIR} from './sponsorLogos';

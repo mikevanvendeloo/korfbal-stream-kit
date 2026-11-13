@@ -1,4 +1,4 @@
-import type {Prisma} from '@prisma/client';
+import type {Prisma} from '@korfbal-stream-kit/prisma';
 import {getActiveProductionId} from './productionState';
 import {logger} from '../utils/logger';
 

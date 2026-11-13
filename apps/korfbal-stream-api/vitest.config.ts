@@ -8,7 +8,10 @@ process.env.TZ ||= 'UTC';
 
 export default defineConfig({
   resolve: {
-    alias: {'@korfbal-stream-kit/venue-protocol': fileURLToPath(new URL('../../libs/venue-protocol/src/index.ts', import.meta.url))},
+    alias: {
+      '@korfbal-stream-kit/venue-protocol': fileURLToPath(new URL('../../libs/venue-protocol/src/index.ts', import.meta.url)),
+      '@korfbal-stream-kit/prisma': fileURLToPath(new URL('./src/generated/prisma/client.ts', import.meta.url)),
+    },
   },
   test: {
     name: 'korfbal-stream-api-tests',

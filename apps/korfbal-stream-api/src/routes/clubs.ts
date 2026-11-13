@@ -6,7 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import {logger} from "../utils/logger";
 import {getAssetsRoot} from "../services/config";
-import {Season} from '@prisma/client';
+import {Season} from '@korfbal-stream-kit/prisma';
 import {resolveSeason, resolveSeasonId, seasonAssetDir} from '../services/season';
 import {clubAbbreviation, clubShortName, findImportClub} from '../utils/clubs';
 import {UpdateClubSchema} from '../schemas/club';

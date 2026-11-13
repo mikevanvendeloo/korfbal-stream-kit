@@ -1,4 +1,4 @@
-import {Prisma} from '@prisma/client';
+import {Prisma} from '@korfbal-stream-kit/prisma';
 import {getSetting, setSetting, VMIX_URL_KEY} from './appSettings';
 import {
   VMIX_FUNCTIONS,

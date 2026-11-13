@@ -2,7 +2,7 @@ import {Router} from 'express';
 import PDFDocument from 'pdfkit';
 import {z} from 'zod';
 import {prisma} from '../../services/prisma';
-import {PositionCategory} from '@prisma/client';
+import {PositionCategory} from '@korfbal-stream-kit/prisma';
 import {getProductionReportData, ProductionWithData} from "../../services/production";
 import {liveEnds, productionChapterTimings} from '../../services/productionTiming';
 import {logger} from "../../utils/logger";

@@ -1,9 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import { PrismaClientKnownRequestError, PrismaClientInitializationError } from '@prisma/client/runtime/library';
+import {Prisma} from '@korfbal-stream-kit/prisma';
 import { errorHandler } from './error';
 import { logger } from '../utils/logger';
+
+const {PrismaClientKnownRequestError, PrismaClientInitializationError} = Prisma;
 
 // Mock logger to prevent actual logging during tests
 vi.mock('../utils/logger', () => ({
@@ -58,6 +60,18 @@ describe('errorHandler', () => {
       expect(logger.error).toHaveBeenLastCalledWith('Database connection error', expect.objectContaining({ error: err }));
     }
     expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it('answers 503 for the ways the pg driver adapter reports an unreachable database', () => {
+    const refused = new PrismaClientKnownRequestError('connect ECONNREFUSED 127.0.0.1:5432', {code: 'ECONNREFUSED', clientVersion: '7.0.0'});
+    const wrongPassword = new PrismaClientKnownRequestError('Raw query failed', {code: 'P2010', clientVersion: '7.0.0', meta: {driverAdapterError: {cause: {kind: 'AuthenticationFailed'}}}});
+    const connectTimeout = Object.assign(new Error('Connection terminated due to connection timeout'), {clientVersion: '7.0.0'});
+
+    for (const err of [refused, wrongPassword, connectTimeout]) {
+      errorHandler(err, mockRequest as Request, mockResponse as Response, mockNext);
+      expect(mockResponse.status).toHaveBeenLastCalledWith(503);
+      expect(mockResponse.json).toHaveBeenLastCalledWith({ error: 'De database is niet bereikbaar. Probeer het later opnieuw.' });
+    }
   });
 
   it('answers 409 with a generic message for a unique constraint (P2002)', () => {

@@ -2,11 +2,12 @@
  * Seed-script om een volledige callsheet en de bijbehorende live events voor een specifieke productie te vullen.
  * Gebruik: tsx scripts/seed-callsheet.ts
  */
-import {Position, PrismaClient} from '@prisma/client';
+import {Position, PrismaClient} from '@korfbal-stream-kit/prisma';
 import {logger} from '../apps/korfbal-stream-api/src/utils/logger';
+import {createPrismaAdapter} from '../apps/korfbal-stream-api/src/services/prismaAdapter';
 import {v4 as uuidv4} from 'uuid';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({adapter: createPrismaAdapter()});
 
 // Helper om tijd (HH:MM:SS) om te zetten naar een numerieke order
 const timeToOrder = (time: string) => {

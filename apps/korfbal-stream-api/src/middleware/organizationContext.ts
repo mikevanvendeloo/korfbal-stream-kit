@@ -1,5 +1,5 @@
 import type {NextFunction, Request, RequestHandler, Response} from 'express';
-import type {Organization} from '@prisma/client';
+import type {Organization} from '@korfbal-stream-kit/prisma';
 import {prisma} from '../services/prisma';
 import {getOrganizationId, runWithOrganization} from '../services/organizationContext';
 import {clearApiKeyCache, findOrganizationByApiKey, ORGANIZATION_LOOKUP_TTL_MS} from '../services/apiKeys';

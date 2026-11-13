@@ -1,6 +1,6 @@
 import {AsyncLocalStorage} from 'node:async_hooks';
 import {randomUUID} from 'node:crypto';
-import {Prisma, PrismaClient} from '@prisma/client';
+import {Prisma, PrismaClient} from '@korfbal-stream-kit/prisma';
 
 /**
  * Runs `fn` in the organization context of the API (src/services/organizationContext.ts), through the

@@ -1,5 +1,6 @@
 import {test as base} from '@playwright/test';
-import {PrismaClient} from '@prisma/client';
+import {PrismaClient} from '@korfbal-stream-kit/prisma';
+import {createPrismaAdapter} from '../../../korfbal-stream-api/src/services/prismaAdapter';
 // Test-only: the e2e tests share the API's scenario builder, so there is one place for test data
 // eslint-disable-next-line @nx/enforce-module-boundaries
 import {
@@ -21,7 +22,7 @@ export const ORGANIZATION_STORAGE_KEY = 'organization';
  * integration tests (apps/korfbal-stream-api/test-scenarios.ts), on the TEST database
  * (playwright.config.ts refuses any other).
  */
-export const db = new PrismaClient({datasourceUrl: process.env['E2E_DATABASE_URL']});
+export const db = new PrismaClient({adapter: createPrismaAdapter(process.env['E2E_DATABASE_URL'])});
 export const apiUrl = process.env['E2E_API_URL'] ?? 'http://localhost:3335';
 
 /** Same rule as the app (PositionSelector): "Camera links" → "camera-links". */

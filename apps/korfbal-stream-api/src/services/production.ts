@@ -1,10 +1,10 @@
 import {prisma} from './prisma';
 import {currentOrganizationRef, withLogoSrc} from './sponsorLogos';
-import {PositionCategory, Prisma} from '@prisma/client';
+import {PositionCategory, Prisma} from '@korfbal-stream-kit/prisma';
 import {NotFoundError} from '../middleware/error';
 import {loadInterviewMoments} from './interviewMoments';
 
-const productionInclude = Prisma.validator<Prisma.ProductionInclude>()({
+const productionInclude = {
   matchSchedule: true,
   productionReport: true,
   productionPersons: { include: { person: true } },
@@ -38,7 +38,7 @@ const productionInclude = Prisma.validator<Prisma.ProductionInclude>()({
     },
     orderBy: { orderIndex: 'asc' }
   }
-});
+} satisfies Prisma.ProductionInclude;
 
 export type ProductionWithData = Prisma.ProductionGetPayload<{ include: typeof productionInclude }>;
 

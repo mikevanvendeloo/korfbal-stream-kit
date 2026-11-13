@@ -1,4 +1,4 @@
-import {Prisma, PrismaClient, Season} from '@prisma/client';
+import {Prisma, PrismaClient, Season} from '@korfbal-stream-kit/prisma';
 import {z} from 'zod';
 import {prisma} from './prisma';
 import {getSetting, setSetting} from './appSettings';

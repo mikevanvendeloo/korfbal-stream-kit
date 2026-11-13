@@ -1,5 +1,5 @@
 import {createHash, randomBytes} from 'node:crypto';
-import type {Organization, OrganizationApiKey} from '@prisma/client';
+import type {Organization, OrganizationApiKey} from '@korfbal-stream-kit/prisma';
 import {prisma, prismaUnscoped} from './prisma';
 import {logger} from '../utils/logger';
 import {requireOrganizationId} from './organizationContext';

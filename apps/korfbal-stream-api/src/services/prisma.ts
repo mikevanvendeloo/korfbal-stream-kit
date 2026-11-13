@@ -1,5 +1,6 @@
-import {PrismaClient} from '@prisma/client';
+import {PrismaClient} from '@korfbal-stream-kit/prisma';
 import {logger} from '../utils/logger';
+import {createPrismaAdapter} from './prismaAdapter';
 import {tenantScope} from './tenantScope';
 
 // Service wrapper around PrismaClient to centralize configuration & logging
@@ -8,6 +9,7 @@ class PrismaService {
 
   constructor() {
     this.prisma = new PrismaClient({
+      adapter: createPrismaAdapter(),
       log: [
         { emit: 'event', level: 'query' },
         { emit: 'event', level: 'error' },

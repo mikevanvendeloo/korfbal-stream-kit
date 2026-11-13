@@ -34,7 +34,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'npx prisma migrate deploy --schema=apps/korfbal-stream-api/prisma/schema.prisma && npx tsx apps/korfbal-stream-api/src/main.ts',
+      command: 'npx prisma migrate deploy && npx tsx apps/korfbal-stream-api/src/main.ts',
       url: `http://localhost:${API_PORT}/api/health`,
       // Never reuse whatever already listens on the port: it could be an API on another database
       reuseExistingServer: false,

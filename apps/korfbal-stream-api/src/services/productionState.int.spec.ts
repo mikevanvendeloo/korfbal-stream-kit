@@ -1,5 +1,5 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {PrismaClient} from '@prisma/client';
+import {PrismaClient} from '@korfbal-stream-kit/prisma';
 import * as productionState from './productionState';
 import {currentSeasonId, testDb as prisma, inTestOrganization} from '../../test-helpers';
 

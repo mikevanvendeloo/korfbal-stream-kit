@@ -1,4 +1,4 @@
-import {PrismaClient} from '@prisma/client';
+import {PrismaClient} from '@korfbal-stream-kit/prisma';
 import {logger, logger as defaultLogger} from '../utils/logger';
 
 // Normalize a match team label like "Fortuna/Ruitenheer 2" or

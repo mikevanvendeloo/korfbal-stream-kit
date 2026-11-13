@@ -1,6 +1,6 @@
 import {Router} from 'express';
 import path from 'node:path';
-import {Club, Organization, Prisma} from '@prisma/client';
+import {Club, Organization, Prisma} from '@korfbal-stream-kit/prisma';
 import {prisma} from '../services/prisma';
 import {getAssetsRoot} from '../services/config';
 import {createOrganizationWithStandardSet} from '../services/standardSet';

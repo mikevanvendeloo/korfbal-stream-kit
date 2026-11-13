@@ -1,7 +1,8 @@
 import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@korfbal-stream-kit/prisma';
+import { createPrismaAdapter } from '../src/services/prismaAdapter';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({adapter: createPrismaAdapter()});
 
 async function main() {
   const prods = await prisma.production.findMany({ select: { id: true } });

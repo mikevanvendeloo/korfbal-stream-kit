@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {createReadStream} from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {PrismaClient} from '@prisma/client';
+import {PrismaClient} from '@korfbal-stream-kit/prisma';
 import {prisma as defaultPrisma} from './prisma';
 import {getAssetsRoot} from './config';
 import {seasonAssetDir} from './season';

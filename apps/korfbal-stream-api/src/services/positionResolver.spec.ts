@@ -1,5 +1,5 @@
 import {describe, expect, it, vi} from 'vitest';
-import type {Position} from '@prisma/client';
+import type {Position} from '@korfbal-stream-kit/prisma';
 import {positionResolver} from './positions';
 
 const position = (id: number, name: string) => ({id, name}) as Position;
