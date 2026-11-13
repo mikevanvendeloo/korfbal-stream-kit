@@ -11,7 +11,7 @@ However, this tool shows potential to become a product that runs in the cloud fo
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Node.js 20, Express 4.22 (qs `extended` query parser), TypeScript 5.9, Prisma ORM |
+| Backend | Node.js 20, Express 4.22 (qs `extended` query parser), TypeScript 5.9, Prisma 7 ORM (pg driver adapter) |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS, TanStack Query, React Router v6 |
 | Database | PostgreSQL 16, Prisma migrations |
 | Testing | Vitest (backend unit + integration), Playwright (e2e) |
@@ -25,7 +25,8 @@ However, this tool shows potential to become a product that runs in the cloud fo
 # Infrastructure
 npm run db:up              # Start PostgreSQL (required before running tests/api)
 npm run db:down            # Stop PostgreSQL
-npm run prisma:migrate     # Run/create migrations
+npm run prisma:generate    # Generate the Prisma client into apps/korfbal-stream-api/src/generated (gitignored; run after install and schema changes)
+npm run prisma:migrate     # Run/create migrations (then generates)
 npm run prisma:seed        # Seed database
 npm run prisma:studio      # DB browser at http://localhost:5555
 
