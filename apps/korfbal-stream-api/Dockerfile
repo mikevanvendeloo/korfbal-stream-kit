@@ -33,21 +33,18 @@ RUN pnpm install
 # Kopieer de rest van de broncode
 COPY . .
 
-# Bouw de API.
+# Bouw de API. De Prisma Client (en de model-metadata voor de tenant-scope) wordt gegenereerd naar
+# apps/korfbal-stream-api/src/generated en meegebundeld in main.js; Prisma 7 heeft geen query-engine meer.
 RUN npx prisma generate
 RUN npx nx build korfbal-stream-api --prod --verbose
 
-# Transpile Prisma seed (TypeScript) naar JavaScript zodat de runtime-image
-# zonder ts-node/tsx kan seeden.
-# We compileren de seed scripts naar CJS output. rootDir is de API-app, want seed.ts importeert
-# ook services uit src/ (o.a. src/services/season.ts): output in dist-seed/prisma en dist-seed/src.
-RUN npx tsc apps/korfbal-stream-api/prisma/seed.ts \
-    --outDir /app/dist-seed \
-    --module commonjs \
-    --target ES2020 \
-    --esModuleInterop \
-    --skipLibCheck \
-    --rootDir apps/korfbal-stream-api
+# Bundel de Prisma seed (TypeScript) tot een enkel CJS-bestand zodat de runtime-image zonder ts-node/tsx
+# kan seeden. De seed importeert de gegenereerde client en services uit src/ (via tsconfig-paden): die gaan
+# mee in de bundel, npm-packages blijven extern (zitten in node_modules van de runtime-image).
+RUN npx esbuild apps/korfbal-stream-api/prisma/seed.ts \
+    --bundle --platform=node --format=cjs --target=node20 --packages=external \
+    --tsconfig=apps/korfbal-stream-api/tsconfig.json \
+    --outfile=/app/dist-seed/prisma/seed.js
 
 # ----------------------------------------------------------------
 
@@ -57,7 +54,7 @@ USER root
 ENV CI=true
 WORKDIR /app
 
-# OpenSSL is nodig voor de Prisma-engines (linux-musl-openssl-3.0.x)
+# OpenSSL is nodig voor de Prisma schema-engine (linux-musl-openssl-3.0.x)
 RUN apk add --no-cache openssl
 
 RUN npm i -g pnpm
@@ -69,12 +66,9 @@ COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 # Installeer ALLEEN productie-dependencies
 RUN pnpm install --prod
 
-# Genereer de Prisma Client voor dit platform
-COPY --from=builder /app/apps/korfbal-stream-api/prisma/schema.prisma ./prisma/schema.prisma
-RUN pnpm exec prisma generate --schema=./prisma/schema.prisma
-
-# Zet de Prisma-engines + OpenSSL-libs op een vaste plek: de runtime-image heeft geen shell,
-# waardoor Prisma zijn platform (openssl-versie) daar niet zelf kan detecteren.
+# Zet de Prisma schema-engine (voor `prisma migrate deploy`) + OpenSSL-libs op een vaste plek: de
+# runtime-image heeft geen shell, waardoor Prisma zijn platform (openssl-versie) daar niet zelf kan detecteren.
+# De query-engine bestaat in Prisma 7 niet meer: de API praat via de pg driver adapter met PostgreSQL.
 COPY apps/korfbal-stream-api/docker/collect-prisma-runtime.cjs /tmp/collect-prisma-runtime.cjs
 RUN node /tmp/collect-prisma-runtime.cjs /prisma-runtime
 
@@ -95,13 +89,13 @@ ENV APP_VERSION=${APP_VERSION}
 # Vaste, numerieke non-root user zodat bestandsrechten voorspelbaar zijn (ook op gemounte volumes)
 ARG APP_UID=1000
 
-ENV PRISMA_QUERY_ENGINE_LIBRARY=/app/prisma-runtime/libquery_engine.so.node \
-    PRISMA_SCHEMA_ENGINE_BINARY=/app/prisma-runtime/schema-engine \
+ENV PRISMA_SCHEMA_ENGINE_BINARY=/app/prisma-runtime/schema-engine \
     LD_LIBRARY_PATH=/app/prisma-runtime/lib
 
 WORKDIR /app
 
-# Productie-dependencies (incl. gegenereerde Prisma Client) en de Prisma-engines
+# Productie-dependencies (o.a. @prisma/client runtime, de pg driver adapter en de prisma CLI voor de
+# migrate-job) en de Prisma schema-engine
 COPY --from=prod-deps /app/package.json ./package.json
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /prisma-runtime ./prisma-runtime
@@ -109,16 +103,16 @@ COPY --from=prod-deps /prisma-runtime ./prisma-runtime
 # Kopieer de gebouwde JS-code en het prisma-schema
 COPY --from=builder /app/dist/apps/korfbal-stream-api .
 
-# Kopieer prisma folder (schema + migrations) zodat prisma migrate in de
-# container kan draaien zonder de volledige source checkout.
+# Kopieer prisma folder (schema + migrations) en prisma.config.ts (schema, migrations, DATABASE_URL uit de
+# omgeving) zodat prisma migrate in de container kan draaien zonder de volledige source checkout.
 COPY --from=builder /app/apps/korfbal-stream-api/prisma /app/apps/korfbal-stream-api/prisma
+COPY --from=builder /app/prisma.config.ts /app/prisma.config.ts
 
-# Kopieer de getranspilede seed (prisma/seed.js + de services uit src/ die hij importeert) naar
-# /app/seed; de onderlinge relatieve imports (../src/services/...) blijven zo kloppen.
+# Kopieer de gebundelde seed (prisma/seed.js) naar /app/seed.
 COPY --from=builder /app/dist-seed /app/seed
 
 # De standaardset (sjablonen, posities, skills) zit als TypeScript in src/standardSet en wordt
-# met de seed mee getranspileerd; er is geen losse JSON seed-data meer.
+# met de seed mee gebundeld; er is geen losse JSON seed-data meer.
 
 # Migratie + seed zonder shell (gebruikt door de migrate-job in docker-compose)
 COPY apps/korfbal-stream-api/docker/migrate-and-seed.cjs /app/seed/migrate-and-seed.cjs
@@ -126,9 +120,8 @@ COPY apps/korfbal-stream-api/docker/migrate-and-seed.cjs /app/seed/migrate-and-s
 # Schrijfbare paden voor de runtime-user
 COPY --from=prod-deps --chown=${APP_UID}:${APP_UID} /writable/ /app/
 
-# Build-time check (exec-form, er is geen shell): faalt de build als de Prisma-engines hun
-# libraries in deze image niet kunnen laden.
-RUN ["node", "-e", "require(process.env.PRISMA_QUERY_ENGINE_LIBRARY)"]
+# Build-time check (exec-form, er is geen shell): faalt de build als de Prisma schema-engine zijn
+# libraries in deze image niet kan laden.
 RUN ["/app/prisma-runtime/schema-engine", "--version"]
 
 USER ${APP_UID}:${APP_UID}
