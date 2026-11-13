@@ -33,6 +33,13 @@ type Data = Record<string, any>;
 
 const models = new Map<string, DmmfModel>(modelMetadata.map((m) => [m.name, m]));
 
+// The metadata is generated next to the client: a model the client has but the metadata lacks would
+// silently go unscoped, so refuse to start instead.
+const missingMetadata = Object.values(Prisma.ModelName).filter((name) => !models.has(name));
+if (missingMetadata.length > 0) {
+  throw new Error(`Model metadata is out of date (missing: ${missingMetadata.join(', ')}); run npm run prisma:generate`);
+}
+
 export const TENANT_MODELS: ReadonlySet<string> = new Set(
   [...models.values()].filter((m) => m.fields.some((f) => f.name === ORGANIZATION_FIELD)).map((m) => m.name),
 );
