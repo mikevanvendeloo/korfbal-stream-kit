@@ -16,7 +16,7 @@ import {contentDisposition} from '../utils/attachment';
 import {clubAbbreviation, clubColor} from '../utils/clubs';
 import {amsterdamDay} from '../utils/time';
 import {z} from 'zod';
-import {Prisma} from '@prisma/client';
+import {Prisma} from '@korfbal-stream-kit/prisma';
 import {
   ACTIVE_SEASON_ID_KEY,
   createSeasonIdResolver,

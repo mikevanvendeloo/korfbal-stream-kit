@@ -18,6 +18,8 @@
     "target": "es2022",
     "customConditions": ["@korfbal-stream-kit/korfbal-stream-kit"],
     "paths": {
+      "@korfbal-stream-kit/prisma": ["./apps/korfbal-stream-api/src/generated/prisma/client.ts"],
+      "@korfbal-stream-kit/prisma-enums": ["./apps/korfbal-stream-api/src/generated/prisma/enums.ts"],
       "@korfbal-stream-kit/ui": ["./libs/ui/src/index.ts"],
       "@korfbal-stream-kit/venue-protocol": [
         "./libs/venue-protocol/src/index.ts"

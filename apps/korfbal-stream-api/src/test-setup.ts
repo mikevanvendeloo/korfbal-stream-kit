@@ -1,8 +1,9 @@
 import http from 'node:http';
 import supertest from 'supertest';
 import {afterAll, beforeAll} from 'vitest';
-import {PrismaClient} from '@prisma/client';
+import {PrismaClient} from '@korfbal-stream-kit/prisma';
 import {useTestDatabase} from './test-database';
+import {createPrismaAdapter} from './services/prismaAdapter';
 import {TEST_ORGANIZATION_SLUG} from '../test-scenarios';
 
 // supertest (from 7.3) listens on 127.0.0.1 and connects there, so a port that another process (a
@@ -25,7 +26,7 @@ http.globalAgent = new http.Agent({keepAlive: false});
 // Before any other code connects: always the separate test database, never the dev one from .env
 useTestDatabase();
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({adapter: createPrismaAdapter()});
 
 // Unit tests (no database): the organization middleware still looks the slug up, so answer it here.
 if (process.env.REQUIRE_DB !== 'true') {

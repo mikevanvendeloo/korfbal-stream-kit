@@ -1,4 +1,4 @@
-import {Prisma} from '@prisma/client';
+import {Prisma} from '@korfbal-stream-kit/prisma';
 
 type TitlePartBackup = {
   sourceType: string;

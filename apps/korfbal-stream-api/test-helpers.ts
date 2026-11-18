@@ -1,4 +1,4 @@
-import {PrismaClient} from '@prisma/client';
+import {PrismaClient} from '@korfbal-stream-kit/prisma';
 import {vi} from 'vitest';
 import {ACTIVE_SEASON_ID_KEY, clearSeasonCache, ensureSeasonForDate, seasonNameForStartYear} from './src/services/season';
 import {clearSettingsCache} from './src/services/appSettings';

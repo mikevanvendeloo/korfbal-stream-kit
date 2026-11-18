@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState} from 'react';
 import {useLiveProductionId} from '../components/ActiveProductionRoute';
-import {EventStatus, TriggerSource} from '@prisma/client';
+import type {EventStatus, TriggerSource} from '@korfbal-stream-kit/prisma-enums';
 import {createUrl} from "../lib/api";
 import {getSharedSocket, SocketListener} from "../lib/socket";
 import {formatTime as formatAmsterdamTime, fromAmsterdamInput, todayAmsterdam} from '../lib/time';

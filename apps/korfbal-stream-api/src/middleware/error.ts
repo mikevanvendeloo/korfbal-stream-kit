@@ -1,8 +1,10 @@
 import {NextFunction, Request, Response} from 'express';
 import {ZodError} from 'zod';
 import {logger} from '../utils/logger';
-import {PrismaClientInitializationError, PrismaClientKnownRequestError} from '@prisma/client/runtime/library'; // Importeer de Prisma fouttypes
+import {Prisma} from '@korfbal-stream-kit/prisma';
 import {withoutApiKey} from './apiKey';
+
+const {PrismaClientInitializationError, PrismaClientKnownRequestError} = Prisma;
 
 export interface ApiErrorBody {
   error: string;
@@ -67,10 +69,22 @@ export function errorHandler(err: any, req: Request, res: Response<ApiErrorBody>
   return res.status(status).json({ error: message });
 }
 
+// With the pg driver adapter (Prisma 7) a database that can't be reached doesn't come as P1xxx any more:
+// a refused connection is a known request error whose code is the socket error, a wrong password or
+// missing database is P2010 with the adapter's error kind in the meta, and a connect timeout is a plain
+// Error from the pool.
+const CONNECTION_ERROR_CODES = new Set(['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN', 'EHOSTUNREACH', 'ENETUNREACH', 'EPIPE']);
+const UNAVAILABLE_ADAPTER_ERROR_KINDS = new Set([
+  'AuthenticationFailed', 'DatabaseAccessDenied', 'DatabaseDoesNotExist', 'DatabaseNotReachable', 'ConnectionClosed', 'SocketTimeout', 'TooManyConnections', 'TlsConnectionError',
+]);
+const CONNECTION_FAILED_MESSAGE = /connection terminated|connection timeout|timeout exceeded when trying to connect/i;
+
 function isDatabaseUnavailable(err: any, code: string | undefined): boolean {
   if (err instanceof PrismaClientInitializationError || err?.name === 'PrismaClientInitializationError') return true;
   const errorCode = code ?? (typeof err?.errorCode === 'string' ? err.errorCode : undefined);
-  return !!errorCode && /^P1\d{3}$/.test(errorCode);
+  if (errorCode && (/^P1\d{3}$/.test(errorCode) || CONNECTION_ERROR_CODES.has(errorCode))) return true;
+  if (UNAVAILABLE_ADAPTER_ERROR_KINDS.has(err?.meta?.driverAdapterError?.cause?.kind)) return true;
+  return typeof err?.clientVersion === 'string' && typeof err?.message === 'string' && CONNECTION_FAILED_MESSAGE.test(err.message);
 }
 
 /** Prisma's error classes, by name (see prismaErrorCode). */

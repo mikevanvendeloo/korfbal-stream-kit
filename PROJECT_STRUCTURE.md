@@ -13,6 +13,7 @@ apps/korfbal-stream-api/
 ├── prisma/
 │   ├── schema.prisma          # Prisma data model (PostgreSQL)
 │   ├── migrations/            # Prisma migrations (never edit the DB directly)
+│   ├── model-metadata-generator.cjs  # 2nd generator: model/relation metadata for tenantScope (Prisma 7 has no dmmf)
 │   └── seed.ts                # Deploy seed (npm run prisma:seed): only adds the current season and missing standard roles
 └── src/
     ├── main.ts                # Express app: router mounting, organization context, static assets, OpenAPI/Swagger, Socket.io init
@@ -60,6 +61,7 @@ apps/korfbal-stream-api/
     │       └── positions.ts                   # Positions CRUD + import/export
     ├── services/
     │   ├── prisma.ts                  # Shared PrismaClient wrapper
+    │   ├── prismaAdapter.ts           # pg driver adapter every PrismaClient needs (Prisma 7)
     │   ├── config.ts                  # Zod-validated env config, assets root
     │   ├── appSettings.ts             # Settings per organization (OrganizationSetting) + global keys (Setting), cached (also "not set")
     │   ├── ownClub.ts                 # Own club = Organization.clubId (get/set for club-config, placeholders, restore)

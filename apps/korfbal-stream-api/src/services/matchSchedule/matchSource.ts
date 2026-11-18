@@ -1,4 +1,4 @@
-import type {MatchSource} from '@prisma/client';
+import type {MatchSource} from '@korfbal-stream-kit/prisma';
 import {prisma} from '../prisma';
 import {requireOrganizationId} from '../organizationContext';
 import {getSetting, PRODUCTION_TEAM_NAMES_KEY} from '../appSettings';

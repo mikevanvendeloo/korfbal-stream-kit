@@ -1,4 +1,4 @@
-import {ProductionEvent} from '@prisma/client';
+import {ProductionEvent} from '@korfbal-stream-kit/prisma';
 import {emitToOrganization} from './socket';
 import {prisma, prismaUnscoped} from './prisma';
 import {bindOrganization, requireOrganizationId, runWithOrganization} from './organizationContext';

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../../services/prisma';
-import { PositionCategory } from '@prisma/client';
+import { PositionCategory } from '@korfbal-stream-kit/prisma';
 
 export const productionCrewRouter: Router = Router();
 

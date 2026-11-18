@@ -1,4 +1,4 @@
-import {Position, Prisma, PrismaClient} from '@prisma/client';
+import {Position, Prisma, PrismaClient} from '@korfbal-stream-kit/prisma';
 import {findPositionByName} from '../domain/positionSkill';
 
 type Db = PrismaClient | Prisma.TransactionClient;

@@ -1,4 +1,4 @@
-import {Organization, Position, Prisma} from '@prisma/client';
+import {Organization, Position, Prisma} from '@korfbal-stream-kit/prisma';
 import {prisma} from './prisma';
 import {runWithOrganization} from './organizationContext';
 import {findPositionByName} from '../domain/positionSkill';

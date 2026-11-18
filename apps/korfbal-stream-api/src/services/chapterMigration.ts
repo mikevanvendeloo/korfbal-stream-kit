@@ -1,4 +1,4 @@
-import type {Prisma} from '@prisma/client';
+import type {Prisma} from '@korfbal-stream-kit/prisma';
 import {placeItemsInChapters, segmentWindows, sequentialStarts, type ChapterWindow, type Placement} from './chapters';
 
 /**
