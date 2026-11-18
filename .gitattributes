@@ -1,0 +1,3 @@
+# Windows-scripts: cmd heeft CRLF nodig
+*.cmd text eol=crlf
+*.bat text eol=crlf
