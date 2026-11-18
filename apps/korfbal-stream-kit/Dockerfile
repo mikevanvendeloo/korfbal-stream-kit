@@ -26,6 +26,9 @@ COPY nx.json ./
 RUN pnpm install
 
 COPY . .
+# De Kit verwijst naar het tsconfig-project van de API (gedeelde types), dus Nx bouwt de API mee; die heeft de
+# gegenereerde Prisma-client nodig (apps/korfbal-stream-api/src/generated, niet in git). Geen database nodig.
+RUN npx prisma generate
 RUN pnpm nx build korfbal-stream-kit --prod
 # ----------------------------------------------------------------
 
