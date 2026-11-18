@@ -7,7 +7,8 @@
   die veranderd zijn, dus API, Kit en bridge kunnen elk een andere versie hebben.
   De gekozen versies komen in streamz.local.env, zodat start.cmd daarna dezelfde versies start.
   Verandert de API-versie, dan maakt het script eerst een backup van de database in backups\
-  (terugzetten naar een oudere versie draait de migraties niet terug).
+  (terugzetten naar een oudere versie draait de migraties niet terug). De database-image (postgres:16-alpine)
+  wordt ook opgehaald, zodat de laatste 16.x-patch erin komt.
 
 .EXAMPLE
   .\upgrade.ps1                                  # alles naar de laatste release
@@ -105,7 +106,8 @@ if ($doStreamz) {
   Set-StreamzConfigValue $configPath 'STREAMZ_API_VERSION' $target['api']
   Set-StreamzConfigValue $configPath 'STREAMZ_KIT_VERSION' $target['kit']
   try {
-    Invoke-Compose ($streamzArgs + @('pull', 'migrate-streamz', 'korfbal-streamz-api', 'korfbal-streamz-kit'))
+    # Ook postgres:16-alpine: die tag volgt de laatste 16.x-patch (beveiligingsupdates), nooit een nieuwe major
+    Invoke-Compose ($streamzArgs + @('pull', 'streamz-db', 'migrate-streamz', 'korfbal-streamz-api', 'korfbal-streamz-kit'))
     Invoke-Compose ($streamzArgs + @('up', '-d'))
   } catch {
     Write-Host ''
