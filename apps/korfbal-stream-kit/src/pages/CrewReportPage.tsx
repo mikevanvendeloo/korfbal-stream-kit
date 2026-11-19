@@ -7,6 +7,7 @@ import PlayerCard from '../components/PlayerCard';
 import html2canvas from 'html2canvas';
 import {MdDownload, MdLiveTv, MdLocationOn, MdSync} from 'react-icons/md';
 import {formatTime as formatAmsterdamTime} from '../lib/time';
+import {toast} from '../lib/toast';
 
 export default function CrewReportPage() {
   const params = useParams<{ id: string }>();
@@ -39,7 +40,7 @@ export default function CrewReportPage() {
       link.click();
     } catch (err) {
       console.error('Failed to generate PNG', err);
-      alert('Kon PNG niet genereren');
+      toast.error('Kon PNG niet genereren');
     }
   };
 

@@ -12,6 +12,7 @@ import {atAmsterdamTime, formatTime} from '../lib/time';
 import {saveCallSheetAsTemplate} from '../lib/chaptersApi';
 import DraaiboekFileActions from '../components/DraaiboekFileActions';
 import {promptDialog} from '../lib/dialogs';
+import {toast} from '../lib/toast';
 
 // Amsterdam time, whatever the device's zone
 const timeLocal = (iso?: string | null) => formatTime(iso);
@@ -95,7 +96,7 @@ export default function ProductionDetailPage() {
     setErr(null);
     try {
       await saveCallSheetAsTemplate(callSheet.id, name);
-      alert('Draaiboek-template aangemaakt.');
+      toast.success('Draaiboek-template aangemaakt.');
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Opslaan als template mislukt');
     }

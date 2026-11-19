@@ -51,5 +51,6 @@ Onder **tandwiel → Tools → QR-generator** maak je een QR-code voor een webad
 ## Goed om te weten
 
 - Veel wijzigingen in Beheer worden **direct bewaard**, zonder knop *Opslaan*.
-- Verwijderen vraagt lang niet altijd om bevestiging. Bij producties, posities en personen kun je het niet ongedaan maken.
+- Verwijderen vraagt lang niet altijd om bevestiging. Bij producties, posities en personen kun je het niet ongedaan maken. Vraagt de Kit het wel, dan staat de actie op de knop (bijvoorbeeld **Verwijderen**, rood als iets verdwijnt); **Annuleren** of Esc laat alles zoals het was.
+- Een melding na een actie (zoals *Import geslaagd*) verschijnt rechtsonder, op de telefoon onderaan, en verdwijnt na een paar seconden. Een foutmelding blijft langer staan; sluit hem met **×**.
 - Sommige schermen en foutmeldingen zijn (deels) Engels.
