@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
   Start (of herstart) de venue-bridge op Windows: naast de dev-omgeving, of met -Prod in de zaal.
-  Zet API_URL, API_KEY, BRIDGE_NAME en eventueel BRIDGE_PAGE_URL in de omgeving of in een env-file (-EnvFile).
+  De bridge leest API_URL, API_KEY, BRIDGE_NAME, BRIDGE_PAGE_URL en LOG_LEVEL uit een env-bestand: -EnvFile, anders
+  streamz.local.env (-Prod) of localtest.local.env naast de compose-bestanden.
   In de zaal is start.cmd (RUN_BRIDGE=true in streamz.local.env) de gewone weg; localtest: start-localtest.cmd.
 
 .EXAMPLE
@@ -43,7 +44,12 @@ if ($Prod) {
 
 New-Item -ItemType Directory -Force -Path $data | Out-Null
 $envArgs = @()
-if ($EnvFile) { $envArgs = @('--env-file', (Resolve-Path $EnvFile).Path) }
+if ($EnvFile) {
+  $envPath = (Resolve-Path $EnvFile).Path
+  $envArgs = @('--env-file', $envPath)
+  # The compose files read the bridge settings from this file too (env_file)
+  $env:BRIDGE_ENV_FILE = $envPath
+}
 
 Push-Location $dist
 try {

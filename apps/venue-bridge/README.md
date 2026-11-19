@@ -13,7 +13,7 @@ De bridge belt zelf naar de API (uitgaand, via `API_URL`); er hoeft geen poort v
 
 ## Startinstellingen
 
-Alleen wat de bridge nodig heeft om de API te bereiken, met omgevingsvariabelen:
+Alleen wat de bridge nodig heeft om de API te bereiken, met omgevingsvariabelen. Zet `API_URL`, `API_KEY`, `BRIDGE_NAME`, `BRIDGE_PAGE_URL` en `LOG_LEVEL` in één env-bestand: de compose-bestanden in `distribution/` lezen het met `env_file` (`streamz.local.env`, bij localtest `localtest.local.env`, een ander met `BRIDGE_ENV_FILE=<pad>`). Zie ook `DOCKERHUB.md` voor `docker run`.
 
 | Variabele | Standaard | Betekenis |
 |---|---|---|

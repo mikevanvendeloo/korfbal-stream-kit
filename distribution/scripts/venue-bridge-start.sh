@@ -38,7 +38,12 @@ fi
 
 mkdir -p "${DATA}"
 ENV_FILE=()
-[[ -n "${VENUE_BRIDGE_ENV_FILE:-}" ]] && ENV_FILE=(--env-file "${VENUE_BRIDGE_ENV_FILE}")
+if [[ -n "${VENUE_BRIDGE_ENV_FILE:-}" ]]; then
+  ENV_FILE=(--env-file "${VENUE_BRIDGE_ENV_FILE}")
+  # The compose files read the bridge settings from this file too (env_file)
+  BRIDGE_ENV_FILE="$(cd "$(dirname "${VENUE_BRIDGE_ENV_FILE}")" && pwd)/$(basename "${VENUE_BRIDGE_ENV_FILE}")"
+  export BRIDGE_ENV_FILE
+fi
 
 cd "${DIST}"
 VARIANT_FILE=()

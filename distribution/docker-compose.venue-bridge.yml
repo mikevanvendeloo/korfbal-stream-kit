@@ -20,19 +20,19 @@ services:
     restart: unless-stopped
     networks:
       - korfbal-network
+    # Alle instellingen van de bridge staan in een env-bestand naast dit bestand: standaard streamz.local.env (niet
+    # ingecheckt, voorbeeld: streamz.local.env.example), een ander met BRIDGE_ENV_FILE=<pad>. API_URL, API_KEY,
+    # BRIDGE_NAME, BRIDGE_PAGE_URL en LOG_LEVEL. Zonder dat bestand start de bridge niet.
+    env_file:
+      - path: ${BRIDGE_ENV_FILE:-streamz.local.env}
+        required: true
+    # Vast, niet in te stellen
     environment:
       TZ: Europe/Amsterdam
       NODE_ENV: production
       PORT: 3340
-      API_URL: ${API_URL:?Zet API_URL (het adres van Streamz)}
-      API_KEY: ${API_KEY:?Zet API_KEY (een API-sleutel van de organisatie)}
-      BRIDGE_NAME: ${BRIDGE_NAME:-venue-bridge}
-      # Optioneel: het adres van de pagina van de bridge op het netwerk van de zaal (link in de Kit)
-      BRIDGE_PAGE_URL: ${BRIDGE_PAGE_URL:-}
       STATS_DIR: /stats
       COPY_DIR: /data
-      # debug: elke stap bij het lezen van de statistieken (opnieuw gelezen, ongewijzigd, overgeslagen, kopie)
-      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       # De opgeslagen configuratie en de lokale kopie van de database
       - ./data/venue-bridge:/data
