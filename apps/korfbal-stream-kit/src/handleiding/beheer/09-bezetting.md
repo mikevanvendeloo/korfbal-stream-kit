@@ -11,7 +11,7 @@ Op **Beschikbaarheid** (*Aanwezigheid crew*) vink je aan wie er bij deze product
 
 De groep volgt de categorie van de posities bij [Stamgegevens → Posities](/admin/handleiding/stamgegevens). Zet je een positie in een andere categorie, dan verhuizen de personen met die skill mee. Achter elke groep staat hoeveel personen er aanwezig zijn; onderaan het totaal.
 
-> Iemand **aanvinken** wordt direct bewaard. Iemand **uitvinken** gebeurt pas bij **Opslaan**: tot dan staat er *afmelden* bij de naam, en boven de knoppen staat hoeveel personen worden afgemeld. Bij Opslaan verdwijnen ook hun posities in deze productie: de productie-brede posities en die per hoofdstuk bij Bezetting. Vink je iemand weer aan of klik je op **Annuleren**, dan blijft hij aanwezig en houdt hij zijn posities. Opslaan brengt je daarna terug naar het draaiboek.
+> Iemand **aanvinken** wordt direct bewaard. Iemand **uitvinken** gebeurt pas bij **Opslaan**: tot dan staat er *afmelden* bij de naam, en boven de knoppen staat hoeveel personen worden afgemeld. Bij Opslaan verdwijnen ook hun posities in deze productie: de productie-brede posities en die per hoofdstuk bij Bezetting. Vink je iemand weer aan of klik je op **Annuleren**, dan blijft hij aanwezig en houdt hij zijn posities. Opslaan brengt je daarna naar het tabblad **Bezetting**, de volgende stap: daar deel je de posities in ([Bezetting](#bezetting)). **Annuleren** brengt je terug naar het draaiboek.
 
 Alleen aanwezige personen kun je op het tabblad Bezetting een positie geven.
 
