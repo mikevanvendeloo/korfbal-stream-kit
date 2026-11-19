@@ -51,6 +51,13 @@ When another production is activated, the API SHALL sync the statistics database
 - **WHEN** a production of team 2 is active and another production is activated
 - **THEN** the bridge is asked for the matches of team 2 once more and changed tables of team 2 are stored
 
+### Requirement: Sync now
+`POST /api/stats/season/sync` SHALL sync at once, one team after the other: with `?team=` (1–99) that team, otherwise the team of the active production and every team with kept matches. It SHALL answer `{results: [{team, database, at, stored}]}`; the season answer SHALL list those teams in `teams`. LIVE Statistieken tab Seizoen SHALL offer it as "Nu bijwerken" with a choice of team.
+
+#### Scenario: Team 2 after its production
+- **WHEN** team 2 has kept matches, the production of team 1 is active and "Nu bijwerken" is pressed for all teams
+- **THEN** the databases of team 1 and team 2 are read and the changed team 2 match is stored
+
 ### Requirement: Figures from the stored rows
 The figures of a stored match SHALL be derived from its stored rows with the same derivation as the live match analysis. When the derivation changes, matches stored before SHALL get the new figures from their rows without the database.
 

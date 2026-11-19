@@ -47,6 +47,8 @@ Op het tabblad **Seizoen** staan de cijfers van het eigen team over het hele sei
 
 Streamz bewaart elke wedstrijd van het eigen team uit het Access-bestand van de statistiek-pc zodra de venue-bridge het bestand kan lezen (via de share, robocopy of zijn lokale kopie), en werkt de lopende wedstrijd elke minuut bij. Zo blijven de cijfers er ook na de wedstrijd en als de statistiek-pc of de bridge er niet meer is: dit tabblad werkt ook als de bridge offline is. Wedstrijden van een ander team van de club (bijvoorbeeld *Fortuna2* in het bestand van het eerste) en van andere clubs telt Streamz niet mee. Een wedstrijd die niet op de statistiek-pc is bijgehouden, ontbreekt.
 
+Met **Nu bijwerken** leest Streamz het Access-bestand meteen, zonder op de volgende minuut te wachten. Kies **Alle teams** (het team van de actieve productie en elk team waarvan al wedstrijden bewaard zijn), een team, of **Ander team…** voor een team dat nog nooit is bijgewerkt. Doe dit na een wedstrijd van een ander team voordat de statisticus de pc afsluit: zo komt de eindstand er ook in als er al een andere productie actief is. Rechtsonder zie je per team wat er is bijgewerkt, of dat het bestand niet bereikbaar was.
+
 Staat er *Wedstrijden worden niet bijgewerkt*, dan kan de bridge het bestand niet lezen (alleen de live pagina, *Database gebruiken* uit, of de share niet bereikbaar) of is hij offline. De bewaarde wedstrijden blijven dan gewoon zichtbaar.
 
 ## Verbinding met de statistiek-pc

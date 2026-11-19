@@ -27,7 +27,7 @@ const totals = (attacks: number) => ({
   attemptsPerAttack: 1.81, byAttempts: [17, 48, 32, 16, 7, 7], turnovers: {steal: 6, balOver: 10, schotklok: 1, onnodigeFout: 4, total: 21},
 });
 const SEASON = {
-  season: {id: 3, name: '2026-2027', from: '2026-07-01'}, team: 1, database: 'offline', lastSyncAt: '2026-11-19T19:00:00.000Z',
+  season: {id: 3, name: '2026-2027', from: '2026-07-01'}, team: 1, teams: [1, 2], database: 'offline', lastSyncAt: '2026-11-19T19:00:00.000Z',
   matches: [
     {table: 'Fortuna KZ_31_10_2026', date: '2026-10-31', ownTeam: 'Fortuna/Ruitenheer', opponent: 'KZ/Keukensale.com', score: {own: 17, opponent: 12}, attacks: 54, withoutAttempt: 7,
       attemptsPerAttack: 1.76, attackGoalPct: 31, turnovers: 12, syncedAt: '2026-11-19T19:00:00.000Z',
@@ -93,6 +93,28 @@ describe('StatisticsPage', () => {
     const totalsTable = screen.getByRole('table', {name: 'Teamcijfers seizoen'});
     expect(within(totalsTable).getAllByText('0: 17 · 1: 48 · 2: 32 · 3: 16 · 4: 7 · 5+: 7')).toHaveLength(2);
     expect(screen.queryByText('De venue-bridge is offline')).toBeNull();
+  });
+
+  it('"Nu bijwerken" syncs all teams or one team and reports per team', async () => {
+    const {calls} = api((call) => {
+      if (call.path.startsWith('/api/stats/season/sync')) {
+        return {results: call.path.endsWith('team=2')
+          ? [{team: 2, database: 'unavailable', at: '', stored: 0}]
+          : [{team: 1, database: 'ok', at: '', stored: 1}, {team: 2, database: 'ok', at: '', stored: 0}]};
+      }
+      return call.path === '/api/stats/season' ? SEASON : {};
+    });
+    renderPage(<StatisticsPage/>);
+    fireEvent.click(await screen.findByRole('tab', {name: 'Seizoen'}));
+    fireEvent.click(await screen.findByRole('button', {name: 'Nu bijwerken'}));
+    expect((await screen.findByTestId('toast-success')).textContent).toContain('Team 1: 1 wedstrijd bijgewerkt');
+    expect(screen.getByTestId('toast-success').textContent).toContain('Team 2: geen wijzigingen');
+    expect(calls.find((c) => c.method === 'POST')?.path).toBe('/api/stats/season/sync');
+
+    fireEvent.change(screen.getByLabelText('Team bijwerken'), {target: {value: '2'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Nu bijwerken'}));
+    expect((await screen.findByTestId('toast-error')).textContent).toContain('Team 2: statistiekenbestand niet bereikbaar');
+    expect(calls.filter((c) => c.method === 'POST').map((c) => c.path)).toEqual(['/api/stats/season/sync', '/api/stats/season/sync?team=2']);
   });
 
   it('says when the season has no matches yet', async () => {

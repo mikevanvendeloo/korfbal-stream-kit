@@ -144,8 +144,17 @@ export type SeasonOverview = {
   team: number;
   database: 'ok' | 'unavailable' | 'offline';
   lastSyncAt: string | null;
+  teams: number[];
   matches: SeasonMatch[];
   topScorers: SeasonTopScorer[];
   totals: {own: SeasonTeamTotals; opponent: SeasonTeamTotals};
 };
 export const fetchSeason = () => getJson<SeasonOverview>('/api/stats/season');
+
+/** "Nu bijwerken": the API reads the statistics database(s) now; per team the state and the matches stored. */
+export type SeasonSyncResult = {team: number; database: 'ok' | 'unavailable' | 'offline'; at: string; stored: number};
+export async function syncSeason(team?: number): Promise<SeasonSyncResult[]> {
+  const res = await fetch(createUrl(`/api/stats/season/sync${team ? `?team=${team}` : ''}`), {method: 'POST'});
+  if (!res.ok) throw new Error(await extractError(res));
+  return (await res.json()).results;
+}
