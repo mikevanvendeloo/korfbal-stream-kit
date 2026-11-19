@@ -7,7 +7,7 @@ import {logger} from '../../utils/logger';
 import {requireOrganizationId, runWithOrganization} from '../organizationContext';
 import {connectedOrganizationIds, hasBridge} from '../venueBridge';
 import {BridgeOfflineError, bridgeGet} from './statsBridge';
-import {ownClubNames, resolveStatsTeam} from './statsTeam';
+import {ownClubNames, resolveStatsTeam, type StatsTeam} from './statsTeam';
 
 /**
  * Keeps the own team's matches from the statistics database (see openspec/specs/season-statistics). The API pulls:
@@ -61,17 +61,22 @@ const fromDatabase = (headers: Record<string, string>) => {
   return (source === 'share' || source === 'copy') && !headers['x-stats-database'];
 };
 
-/** One sync for the organization in the context; a running sync is shared. */
-export function syncStatsMatches(): Promise<SyncState> {
+/**
+ * One sync for the organization in the context, for the team of the active production; a running sync is shared.
+ * With `team` (the last sync of a production that is switched off), it runs after a running sync, for that team.
+ */
+export function syncStatsMatches(team?: StatsTeam): Promise<SyncState> {
   const orgId = requireOrganizationId('statistics sync');
   const busy = running.get(orgId);
-  if (busy) return busy;
-  const job = sync(orgId).finally(() => running.delete(orgId));
+  if (busy && !team) return busy;
+  const job = (busy ? busy.catch(() => null) : Promise.resolve(null))
+    .then(() => sync(orgId, team))
+    .finally(() => { if (running.get(orgId) === job) running.delete(orgId); });
   running.set(orgId, job);
   return job;
 }
 
-async function sync(orgId: number): Promise<SyncState> {
+async function sync(orgId: number, chosenTeam?: StatsTeam): Promise<SyncState> {
   const done = (database: SyncState['database'], stored = 0): SyncState => {
     const state = {database, at: new Date().toISOString(), stored};
     states.set(orgId, state);
@@ -79,7 +84,7 @@ async function sync(orgId: number): Promise<SyncState> {
   };
   if (!hasBridge(orgId)) return done('offline');
   try {
-    const team = await resolveStatsTeam();
+    const team = chosenTeam ?? await resolveStatsTeam();
     const teamNumber = Number(team.value);
     const clubNames = await ownClubNames();
 
@@ -168,4 +173,15 @@ export function syncSoon(organizationId: number, delayMs = 10_000): void {
     void runWithOrganization(organizationId, () => syncStatsMatches()).catch((err: unknown) =>
       logger.warn('Statistics sync failed', {organizationId, error: (err as Error)?.message}));
   }, delayMs).unref();
+}
+
+/**
+ * The last sync of a production that is switched off: its team's database once more, so the actions entered at the end
+ * of the match are kept too (afterwards the sync follows the new production's team). In the background; never throws.
+ */
+export function syncFinalForTeam(team: StatsTeam): Promise<void> {
+  return syncStatsMatches(team).then(
+    () => undefined,
+    (err: unknown) => { logger.warn('Final statistics sync failed', {organizationId: requireOrganizationId('statistics sync'), error: (err as Error)?.message}); },
+  );
 }

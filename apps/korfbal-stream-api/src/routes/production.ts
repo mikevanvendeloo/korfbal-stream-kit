@@ -29,6 +29,8 @@ import {productionCrewRouter} from './production/production-crew';
 import {productionExportImportRouter} from './production/production-export-import';
 import {productionEventsRouter} from './production/production-events';
 import {callsheetControlsRouter} from './production/callsheet-controls';
+import {clearStatsTeamCache, resolveStatsTeam} from '../services/stats/statsTeam';
+import {syncFinalForTeam} from '../services/stats/statsSync';
 
 export const productionRouter: Router = Router();
 
@@ -64,6 +66,9 @@ async function activateProduction(id: number) {
   if (currentProductionId && currentProductionId !== id) {
     await productionStateService.stopProduction(currentProductionId);
   }
+  // The team of the production that is switched off: its statistics database gets one last sync below
+  const previous = await prisma.production.findFirst({where: {isActive: true}, select: {id: true}});
+  const previousTeam = previous && previous.id !== id ? await resolveStatsTeam() : null;
 
   await prisma.$transaction([
     prisma.production.updateMany({ where: { isActive: true }, data: { isActive: false } }),
@@ -72,6 +77,8 @@ async function activateProduction(id: number) {
 
   // LIVE always shows the active production: open callsheets and show callers switch to it
   emitToOrganization('active_production_changed', {productionId: id});
+  clearStatsTeamCache();
+  if (previousTeam) void syncFinalForTeam(previousTeam);
   return prisma.production.findUnique({ where: { id }, include: { matchSchedule: true } });
 }
 

@@ -44,6 +44,13 @@ The API SHALL sync the matches of a connected bridge when it connects and every 
 - **WHEN** no bridge is connected for the organization
 - **THEN** no sync runs and the stored matches stay available
 
+### Requirement: Last sync when the production changes
+When another production is activated, the API SHALL sync the statistics database of the team of the production that was active once more, in the background, after a sync that is running, so actions entered at the end of that match are kept as well.
+
+#### Scenario: Fortuna 2 switched off
+- **WHEN** a production of team 2 is active and another production is activated
+- **THEN** the bridge is asked for the matches of team 2 once more and changed tables of team 2 are stored
+
 ### Requirement: Figures from the stored rows
 The figures of a stored match SHALL be derived from its stored rows with the same derivation as the live match analysis. When the derivation changes, matches stored before SHALL get the new figures from their rows without the database.
 

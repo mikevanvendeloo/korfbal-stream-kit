@@ -1,8 +1,9 @@
 import request from 'supertest';
-import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest';
+import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi} from 'vitest';
 import {VENUE_EVENTS, type ActionRow} from '@korfbal-stream-kit/venue-protocol';
 import app from '../main';
 import {ensureOrganization, testDb as prisma, withoutOrganization} from '../../test-helpers';
+import {createProductionScenario} from '../../test-scenarios';
 import {runWithOrganization} from '../services/organizationContext';
 import {getActiveSeason} from '../services/season';
 import {clearStatsBridgeCache} from '../services/stats/statsBridge';
@@ -172,6 +173,20 @@ describe.runIf(runDb)('season statistics: keeping matches and the season overvie
     expect(res.status, res.text).toBe(200);
     expect(res.body.topScorers[0]).toMatchObject({name: 'A1', goals: 1});
     expect((await inA(() => prisma.statsMatch.findFirstOrThrow())).derivationVersion).toBeGreaterThan(0);
+  });
+
+  it('syncs the database of a production that is switched off once more, for its own team', async () => {
+    await createProductionScenario(prisma, {organizationId: orgA, active: true, match: {homeTeamName: 'Fortuna/Ruitenheer 2', awayTeamName: 'DVO 2'}});
+    const next = await createProductionScenario(prisma, {organizationId: orgA, match: {homeTeamName: 'Fortuna/Ruitenheer 1', awayTeamName: 'KZ 1'}});
+    clearStatsTeamCache();
+    const d = tableDate(from, 7);
+    tables = {[`DVO2 Fortuna2_${d.name}`]: match('Fortuna/Ruitenheer', 'DVO/Transus', [shot(10, 'A1', true), theirs(20)])};
+
+    const res = await asA(request(app).post(`/api/production/${next.productionId}/activate`));
+    expect(res.status, res.text).toBe(200);
+    await vi.waitFor(async () => expect(await inA(() => prisma.statsMatch.count({where: {team: 2}}))).toBe(1));
+    const paths = (bridge?.requestsOf(VENUE_EVENTS.statsRequest) ?? []).map((p) => (p as {path: string}).path);
+    expect(paths).toContain('/matches?team=2');
   });
 
   it('keeps the organizations apart and needs a key or an organization', async () => {
