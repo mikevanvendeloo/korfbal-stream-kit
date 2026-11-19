@@ -128,7 +128,8 @@ export default function ProductionAttendancePage() {
     }
     setSuccessMsg('Aanwezigheid opgeslagen!');
     setTimeout(() => {
-      navigate(adminPaths.production(productionId));
+      // The next step after who comes: who does what (Bezetting)
+      navigate(adminPaths.production(productionId, 'bezetting'));
     }, 1000);
   }
 

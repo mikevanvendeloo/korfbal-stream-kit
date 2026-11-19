@@ -16,6 +16,8 @@ function renderWithProviders(ui: React.ReactNode, {route = '/admin/producties/1/
         <MemoryRouter initialEntries={[route]}>
           <Routes>
             <Route path="/admin/producties/:id/beschikbaarheid" element={ui}/>
+            <Route path="/admin/producties/:id/bezetting" element={<h1>Bezetting-pagina</h1>}/>
+            <Route path="/admin/producties/:id" element={<h1>Draaiboek-pagina</h1>}/>
           </Routes>
         </MemoryRouter>
       </QueryClientProvider>
@@ -173,5 +175,17 @@ describe('ProductionAttendancePage', () => {
     renderWithProviders(<ProductionAttendancePage/>);
     fireEvent.click(await screen.findByText('Opslaan'));
     expect(await screen.findByText('Aanwezigheid opgeslagen!')).toBeInTheDocument();
+  });
+
+  it('goes on to Bezetting after Opslaan', async () => {
+    renderWithProviders(<ProductionAttendancePage/>);
+    fireEvent.click(await screen.findByText('Opslaan'));
+    expect(await screen.findByRole('heading', {name: 'Bezetting-pagina'}, {timeout: 3000})).toBeInTheDocument();
+  });
+
+  it('goes back to the draaiboek on Annuleren', async () => {
+    renderWithProviders(<ProductionAttendancePage/>);
+    fireEvent.click(await screen.findByText('Annuleren'));
+    expect(await screen.findByRole('heading', {name: 'Draaiboek-pagina'})).toBeInTheDocument();
   });
 });
