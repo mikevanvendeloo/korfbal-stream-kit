@@ -836,6 +836,11 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
         description: 'Eén regel per speler die gescoord heeft, per ploeg de meeste doelpunten eerst: team (home/away), teamName, rank, name, sex, goals, attempts, goalPct. Filter in vMix op team en rank voor een top 3.'
       },
       {
+        name: 'Statistieken: topscorers seizoen',
+        url: `${statsUrl}/season/top-scorers`,
+        description: 'De topscorers van de eigen club over het seizoen (vanaf de start van de zaalcompetitie), uit de bewaarde wedstrijden: rank, name, goals, attempts, goalPct ("14%"), matches. Met &limit=5 alleen de top 5.'
+      },
+      {
         name: 'Statistieken: spelers van de lopende wedstrijd',
         url: `${statsUrl}/current/players`,
         description: 'Eén regel per speler van de wedstrijd met de laatste actie (uit het statistiekenbestand, anders de live pagina): naam, gescoord/pogingen per schottype, percentage, rebound, aangeef.'

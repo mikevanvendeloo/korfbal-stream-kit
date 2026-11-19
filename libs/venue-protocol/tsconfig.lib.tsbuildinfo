@@ -1,0 +1,1 @@
+{"root":["./src/config.ts","./src/events.ts","./src/index.ts","./src/reading.ts","./src/requests.ts","./src/time.ts","./src/venueprotocol.spec.ts","./src/vmixinstances.ts"],"version":"5.9.3"}

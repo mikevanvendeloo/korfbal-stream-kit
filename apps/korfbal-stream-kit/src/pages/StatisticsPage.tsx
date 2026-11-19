@@ -2,6 +2,7 @@ import {useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {formatTime} from '../lib/time';
 import StatsConnectionStatus from '../components/StatsConnectionStatus';
+import SeasonStats from '../components/SeasonStats';
 import {useStatsConnection} from '../hooks/useStatsConnection';
 import {fetchLiveStats, fetchMatchPlayers, fetchStatsMatches, fetchTeamStats, fetchTopScorers, type PercentageRow, type StatsDatabaseState, type TeamStatsRow, type TopScorerRow, type PlayerStats, type StatsTeam} from '../lib/statsApi';
 
@@ -233,9 +234,9 @@ function MatchTab() {
 }
 
 export default function StatisticsPage() {
-  const [tab, setTab] = useState<'live' | 'teams' | 'scorers' | 'match'>('live');
+  const [tab, setTab] = useState<'live' | 'teams' | 'scorers' | 'match' | 'season'>('live');
   const connection = useStatsConnection(true);
-  // The bridge is its own app: when it is offline there is nothing to show, and the tables would only fail
+  // The bridge is its own app: when it is offline the live tabs have nothing to show (the season tab does)
   const bridgeOffline = connection.data?.bridge.ok === false;
   const tabClass = (active: boolean) => `px-3 py-2 whitespace-nowrap border-b-2 ${active ? 'border-red-600 font-semibold' : 'border-transparent text-gray-600 dark:text-gray-300'}`;
   return (
@@ -244,16 +245,17 @@ export default function StatisticsPage() {
       <div className="mb-4">
         <StatsConnectionStatus auto/>
       </div>
-      {bridgeOffline && <p role="alert" className="p-4 rounded-md border border-red-200 bg-red-50 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">De venue-bridge is offline</p>}
-      {!bridgeOffline && <>
       <div role="tablist" className="flex gap-2 mb-4 overflow-x-auto border-b border-gray-200 dark:border-gray-800">
         <button type="button" role="tab" aria-selected={tab === 'live'} className={tabClass(tab === 'live')} onClick={() => setTab('live')}>Live</button>
         <button type="button" role="tab" aria-selected={tab === 'teams'} className={tabClass(tab === 'teams')} onClick={() => setTab('teams')}>Teamstatistieken</button>
         <button type="button" role="tab" aria-selected={tab === 'scorers'} className={tabClass(tab === 'scorers')} onClick={() => setTab('scorers')}>Topscorers</button>
         <button type="button" role="tab" aria-selected={tab === 'match'} className={tabClass(tab === 'match')} onClick={() => setTab('match')}>Wedstrijd uit database</button>
+        <button type="button" role="tab" aria-selected={tab === 'season'} className={tabClass(tab === 'season')} onClick={() => setTab('season')}>Seizoen</button>
       </div>
-      {tab === 'live' ? <LiveTab/> : tab === 'teams' ? <TeamsTab/> : tab === 'scorers' ? <TopScorersTab/> : <MatchTab/>}
-      </>}
+      {/* The season comes from the matches the API keeps: also without the bridge */}
+      {tab === 'season' ? <SeasonStats/>
+        : bridgeOffline ? <p role="alert" className="p-4 rounded-md border border-red-200 bg-red-50 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">De venue-bridge is offline</p>
+        : tab === 'live' ? <LiveTab/> : tab === 'teams' ? <TeamsTab/> : tab === 'scorers' ? <TopScorersTab/> : <MatchTab/>}
     </div>
   );
 }

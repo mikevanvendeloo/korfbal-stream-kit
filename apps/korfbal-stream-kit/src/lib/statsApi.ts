@@ -124,3 +124,28 @@ export async function setMatchStatsConfig(config: MatchStatsConfig): Promise<Mat
   if (!res.ok) throw new Error(await extractError(res));
   return res.json();
 }
+
+/** The season from the matches the API keeps (GET /api/stats/season); also without the bridge. */
+export type SeasonTurnovers = {steal: number; balOver: number; schotklok: number; onnodigeFout: number; total: number};
+export type SeasonTeamTotals = {
+  matches: number; goals: number; attempts: number; goalPct: number | null;
+  attacks: number; withGoal: number; attackGoalPct: number | null; withoutAttempt: number;
+  attemptsPerAttack: number | null; byAttempts: number[]; turnovers: SeasonTurnovers;
+};
+export type SeasonVak = {vak: 1 | 2; attacks: number; withGoal: number; withoutAttempt: number; turnovers: number};
+export type SeasonMatch = {
+  table: string; date: string; ownTeam: string | null; opponent: string | null; score: {own: number; opponent: number};
+  attacks: number; withoutAttempt: number; attemptsPerAttack: number | null; attackGoalPct: number | null; turnovers: number;
+  vakken: SeasonVak[]; syncedAt: string;
+};
+export type SeasonTopScorer = {rank: number; name: string; goals: number; attempts: number; goalPct: number | null; matches: number; strafworpGoals: number};
+export type SeasonOverview = {
+  season: {id: number; name: string; from: string};
+  team: number;
+  database: 'ok' | 'unavailable' | 'offline';
+  lastSyncAt: string | null;
+  matches: SeasonMatch[];
+  topScorers: SeasonTopScorer[];
+  totals: {own: SeasonTeamTotals; opponent: SeasonTeamTotals};
+};
+export const fetchSeason = () => getJson<SeasonOverview>('/api/stats/season');

@@ -4,3 +4,4 @@ export * from './reading';
 export * from './config';
 export * from './requests';
 export * from './time';
+export * from './matchStats';

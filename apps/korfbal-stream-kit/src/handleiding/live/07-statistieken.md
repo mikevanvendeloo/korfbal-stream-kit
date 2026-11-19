@@ -37,11 +37,23 @@ Op het tabblad **Topscorers** staan de ploegen naast elkaar, met per ploeg de sp
 
 Op het tabblad **Wedstrijd uit database** kies je bij **Wedstrijd** een wedstrijd uit het Access-bestand van de statistiek-pc (nieuwste eerst). Je ziet per ploeg de totalen per speler over de hele wedstrijd, met het **%** van het totaal.
 
+## Seizoen
+
+Op het tabblad **Seizoen** staan de cijfers van het eigen team over het hele seizoen: vanaf de start van de zaalcompetitie van het actieve seizoen (Beheer, Instellingen), voor het team van de actieve productie.
+
+- **Topscorers eigen club**: per speler de doelpunten, de pogingen met het percentage en in hoeveel wedstrijden ze schoten. Een speler telt als één speler zolang de naam in de statistieken precies hetzelfde gespeld is.
+- **Teamcijfers**: voor het eigen team en de tegenstanders samen: doelpunten en pogingen, aanvallen, aanvallen met doelpunt, **aanvallen zonder schot**, **schoten per aanval**, hoeveel aanvallen 0, 1, 2, 3, 4 of 5+ schoten hadden, en het balverlies per soort.
+- **Gebaseerd op … wedstrijden**: de wedstrijden waar de cijfers uit komen, nieuwste eerst, met uitslag en per wedstrijd de aanvallen, zonder schot, schoten per aanval, het percentage met doelpunt, het balverlies en per vak de aanvallen / zonder doelpunt / zonder schot.
+
+Streamz bewaart elke wedstrijd van het eigen team uit het Access-bestand van de statistiek-pc zodra de venue-bridge het bestand kan lezen (via de share, robocopy of zijn lokale kopie), en werkt de lopende wedstrijd elke minuut bij. Zo blijven de cijfers er ook na de wedstrijd en als de statistiek-pc of de bridge er niet meer is: dit tabblad werkt ook als de bridge offline is. Wedstrijden van een ander team van de club (bijvoorbeeld *Fortuna2* in het bestand van het eerste) en van andere clubs telt Streamz niet mee. Een wedstrijd die niet op de statistiek-pc is bijgehouden, ontbreekt.
+
+Staat er *Wedstrijden worden niet bijgewerkt*, dan kan de bridge het bestand niet lezen (alleen de live pagina, *Database gebruiken* uit, of de share niet bereikbaar) of is hij offline. De bewaarde wedstrijden blijven dan gewoon zichtbaar.
+
 ## Verbinding met de statistiek-pc
 
 Bovenaan staat of de venue-bridge en de statistiek-pc bereikbaar zijn; dat wordt elke 15 seconden opnieuw getest, en met **Verbinding testen** meteen:
 
-- **Venue-bridge**: *online* of *offline*. Is de bridge offline, dan zie je *De venue-bridge is offline* in plaats van de tabellen; de rest van Streamz werkt gewoon door. Controleer dan of de bridge in de zaal draait (zie Beheer, Instellingen, Venue, en het hoofdstuk *Venue-bridge in de zaal*).
+- **Venue-bridge**: *online* of *offline*. Is de bridge offline, dan zie je *De venue-bridge is offline* in plaats van de tabellen (het tabblad **Seizoen** werkt wel); de rest van Streamz werkt gewoon door. Controleer dan of de bridge in de zaal draait (zie Beheer, Instellingen, Venue, en het hoofdstuk *Venue-bridge in de zaal*).
 - **Netwerk**: de pc staat aan en zit op het netwerk (de bridge kan de gedeelde map van de pc bereiken).
 - **Database op de share**: het bestand WEDSTRIJDEN.mdb is te lezen. Staat de database uit op de bridge, dan staat er *Database: uitgeschakeld (alleen de statistiekenpagina)*.
 - **Statistiekenpagina**: de pagina van de pc antwoordt.

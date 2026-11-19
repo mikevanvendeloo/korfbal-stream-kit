@@ -89,6 +89,20 @@ describe('statistics routes', () => {
       expect(current.body[0]).toMatchObject({source: 'share', vak: null});
     });
 
+    it('lists each table with its action count and last action, and gives all rows of one table', async () => {
+      const list = await request(app).get('/matches');
+      const entry = list.body.find((m: {table: string}) => m.table === TABLE);
+      expect(entry.actionCount).toBeGreaterThan(100);
+      expect(typeof entry.lastActionAt).toBe('number');
+      const rows = await request(app).get(`/matches/${encodeURIComponent(TABLE)}/rows`);
+      expect(rows.status).toBe(200);
+      expect(rows.headers['x-stats-source']).toBe('share');
+      // Also the definition and lineup rows (optelveld 0), which the analysis needs
+      expect(rows.body.some((r: {aktnummer: number}) => r.aktnummer === 8000)).toBe(true);
+      expect(rows.body.length).toBeGreaterThan(entry.actionCount);
+      expect((await request(app).get('/matches/spelersover/rows')).status).toBe(404);
+    });
+
     it('answers team statistics (one flat row per team, with the attack figures of the page) and top scorers', async () => {
       mockPage();
       const res = await request(app).get('/team-stats');
@@ -176,6 +190,8 @@ describe('statistics routes', () => {
       const list = await request(app).get('/matches');
       expect(list.status).toBe(200);
       expect(list.body).toEqual([{table: 'live', home: 'Fortuna/Ruitenheer', away: 'KZ/Keukensale.com', date: '2026-10-31', source: 'page'}]);
+      // Rows only from the database file, never from the page
+      expect((await request(app).get('/matches/live/rows')).status).toBe(503);
       const players = await request(app).get('/matches/live/players');
       expect(players.body.source).toBe('page');
       expect(players.body.players.find((p: {name: string}) => p.name === 'Roos van Groen')).toMatchObject({team: 'home', afstand: '3/7'});

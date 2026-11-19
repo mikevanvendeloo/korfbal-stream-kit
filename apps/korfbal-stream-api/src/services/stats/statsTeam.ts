@@ -20,17 +20,22 @@ export function ownTeamName(home: string, away: string, productionTeamNames: str
   return null;
 }
 
-async function resolve(): Promise<StatsTeam> {
-  const production = await prisma.production.findFirst({where: {isActive: true}, include: {matchSchedule: true}});
-  const match = production?.matchSchedule;
-  if (!match) return DEFAULT_TEAM;
-  const [productionTeamNames, clubId, organization] = await Promise.all([
-    getSetting<string[]>(PRODUCTION_TEAM_NAMES_KEY),
+/** The names that identify the own club in team names: the own club's name and short name and the organization's name. */
+export async function ownClubNames(): Promise<string[]> {
+  const [clubId, organization] = await Promise.all([
     getOwnClubId(),
     prisma.organization.findUnique({where: {id: requireOrganizationId('statistics team')}, select: {name: true}}),
   ]);
   const club = clubId ? await prisma.club.findUnique({where: {id: clubId}, select: {name: true, shortName: true}}) : null;
-  const own = ownTeamName(match.homeTeamName, match.awayTeamName, productionTeamNames || [], [club?.name ?? '', club?.shortName ?? '', organization?.name ?? '']);
+  return [club?.name ?? '', club?.shortName ?? '', organization?.name ?? ''].filter(Boolean);
+}
+
+async function resolve(): Promise<StatsTeam> {
+  const production = await prisma.production.findFirst({where: {isActive: true}, include: {matchSchedule: true}});
+  const match = production?.matchSchedule;
+  if (!match) return DEFAULT_TEAM;
+  const [productionTeamNames, clubNames] = await Promise.all([getSetting<string[]>(PRODUCTION_TEAM_NAMES_KEY), ownClubNames()]);
+  const own = ownTeamName(match.homeTeamName, match.awayTeamName, productionTeamNames || [], clubNames);
   const number = own ? trailingNumber(own) : null;
   return number ? {value: String(Number(number)), from: 'production'} : DEFAULT_TEAM;
 }

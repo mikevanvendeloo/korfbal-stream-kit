@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {sendApiError} from '../services/apiErrorCodes';
 import {BridgeOfflineError, bridgeGet, statsTeam, withTeamSource} from '../services/stats/statsBridge';
 import {requireOrganizationId} from '../services/organizationContext';
+import {seasonOverview} from '../services/stats/season';
 
 /**
  * Match statistics from the statistics PC, through the venue-bridge (its own app at the venue: a failing PC or
@@ -109,6 +110,18 @@ statsRouter.get('/current/players', wrap(async (_req, res) => forward(res, '/cur
 // GET /api/stats/team-stats and /top-scorers: flat rows per team / per player of the current match
 statsRouter.get('/team-stats', wrap(async (_req, res) => forward(res, '/team-stats')));
 statsRouter.get('/top-scorers', wrap(async (_req, res) => forward(res, '/top-scorers')));
+
+// GET /api/stats/season: the season of the active season for the production's team, from the matches the API keeps
+// (services/stats/statsSync.ts), so also without the bridge or the database
+statsRouter.get('/season', wrap(async (_req, res) => res.json(await seasonOverview())));
+
+// GET /api/stats/season/top-scorers: the own club's season top scorers as flat rows for vMix (?limit=1..50)
+const SeasonTopQuery = z.object({limit: z.coerce.number().int().min(1).max(50).optional()});
+statsRouter.get('/season/top-scorers', wrap(async (req, res) => {
+  const {limit} = SeasonTopQuery.parse({limit: req.query.limit});
+  const rows = (await seasonOverview()).topScorers.slice(0, limit ?? 50);
+  return res.json(rows.map((p) => ({rank: p.rank, name: p.name, goals: p.goals, attempts: p.attempts, goalPct: p.goalPct === null ? '–' : `${p.goalPct}%`, matches: p.matches})));
+}));
 
 // GET /api/stats/analysis: the analysis of the current match for the analist (database only; the bridge answers 503 without it)
 statsRouter.get('/analysis', wrap(async (_req, res) => forward(res, '/analysis')));
