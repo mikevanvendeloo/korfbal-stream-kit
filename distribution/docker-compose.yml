@@ -2,13 +2,18 @@
 # Een release bouwt alleen de apps die veranderd zijn, dus API en kit hebben elk hun eigen versie: neem per app
 # de laatste tag die op Docker Hub bestaat. De migrate-job draait altijd dezelfde versie als de API.
 #
-#   Starten met de versies hieronder:  docker compose -f docker-compose-prod.yml up -d
-#   Andere versie (upgrade/terug):     STREAMZ_API_VERSION=2026.10.15 STREAMZ_KIT_VERSION=2026.10.15 docker compose -f docker-compose-prod.yml up -d
-#   Blijvend upgraden: pas de standaardversies in de image-regels aan en commit.
-#   Bestaat een tag?                   docker manifest inspect mvanvendeloo/korfbal-stream-api:2026.10.15
+# Deze map (distribution/) is in zijn geheel naar een productiemachine te kopiëren; de data (dbdata/, storage/,
+# uploads/, backups/) komt naast dit bestand. Zie README.md.
 #
-# Bij een upgrade draait de migrate-job eerst de nieuwe migraties; controleren: docker compose -f docker-compose-prod.yml logs migrate-streamz
-# Terug naar een oudere versie draait geen migraties terug: maak eerst een backup.
+#   Windows:                            start.cmd / upgrade.cmd (versies in streamz.local.env)
+#   Starten:                            docker compose --env-file streamz.local.env up -d
+#   Andere versie (upgrade/terug):      STREAMZ_API_VERSION=2026.10.15 STREAMZ_KIT_VERSION=2026.10.15 docker compose up -d
+#   Bestaat een tag?                    docker manifest inspect mvanvendeloo/korfbal-stream-api:2026.10.15
+#
+# Bij een upgrade draait de migrate-job eerst de nieuwe migraties; controleren: docker compose logs migrate-streamz
+# Terug naar een oudere versie draait geen migraties terug: maak eerst een backup (upgrade.cmd doet dat).
+name: streamz
+
 # Docker keeps the console log of a container in a file; without a limit it grows until the disk is full
 x-logging: &logging
   driver: json-file

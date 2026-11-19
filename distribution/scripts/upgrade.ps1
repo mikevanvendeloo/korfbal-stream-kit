@@ -32,6 +32,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'common.ps1')
+$AssumeYes = [bool]$Yes
 Initialize-Tls
 
 $configPath = Resolve-ConfigPath $ConfigFile
@@ -79,6 +80,11 @@ if (-not $Yes) {
 }
 
 Confirm-Docker
+if ($doStreamz) {
+  Confirm-ProductionData
+  Confirm-NoOtherProject "korfbal-streamz-api" "streamz"
+}
+if ($doBridge) { Confirm-NoOtherProject "venue-bridge" "venue-bridge" }
 
 if ($doStreamz) {
   $streamzArgs = Get-StreamzArgs $configPath
@@ -117,7 +123,7 @@ if ($doStreamz) {
     Write-Host 'Terugzetten naar de vorige versie:'
     $prevApi = if ($oldApi) { $oldApi } else { '<vorige versie>' }
     $prevKit = if ($oldKit) { $oldKit } else { '<vorige versie>' }
-    Write-Host "  scripts\streamz\upgrade.cmd -Only streamz -Api $prevApi -Kit $prevKit -SkipBackup"
+    Write-Host "  upgrade.cmd -Only streamz -Api $prevApi -Kit $prevKit -SkipBackup"
     if ($backupFile) { Write-Host "  Database-backup van voor de upgrade: $backupFile" }
     throw
   }

@@ -11,17 +11,21 @@
   .\start.ps1                    # alles wat in streamz.local.env aan staat
   .\start.ps1 -Only bridge       # alleen de venue-bridge
   .\start.ps1 -NoBrowser
+  .\start.ps1 -Yes               # niet vragen, ook niet bij een nieuwe (lege) database
 #>
 [CmdletBinding()]
 param(
   [ValidateSet('all', 'streamz', 'bridge')]
   [string]$Only = 'all',
   [string]$ConfigFile,
-  [switch]$NoBrowser
+  [switch]$NoBrowser,
+  # Niet vragen (ook niet bij een nieuwe, lege database)
+  [switch]$Yes
 )
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'common.ps1')
+$AssumeYes = [bool]$Yes
 
 $configPath = Resolve-ConfigPath $ConfigFile
 $cfg = Read-StreamzConfig $configPath
@@ -34,10 +38,12 @@ if (-not $runStreamz -and -not $runBridge) {
 Confirm-Docker
 
 if ($runStreamz) {
+  Confirm-ProductionData
+  Confirm-NoOtherProject "korfbal-streamz-api" "streamz"
   if (-not (Test-Path (Join-Path $Root 'secrets.prod.env'))) {
     throw 'secrets.prod.env ontbreekt (zie secrets.prod.env.example).'
   }
-  Write-Host "Streamz starten (API $($cfg['STREAMZ_API_VERSION']), Kit $($cfg['STREAMZ_KIT_VERSION']); leeg = standaard uit docker-compose-prod.yml)..."
+  Write-Host "Streamz starten (API $($cfg['STREAMZ_API_VERSION']), Kit $($cfg['STREAMZ_KIT_VERSION']); leeg = standaard uit docker-compose.yml)..."
   Invoke-Compose ((Get-StreamzArgs $configPath) + @('up', '-d'))
   Wait-Http 'http://localhost:3333/api/health' 'De API' | Out-Null
 }
@@ -46,10 +52,11 @@ if ($runBridge) {
   if (-not $cfg['API_URL'] -or -not $cfg['API_KEY']) {
     throw "Zet API_URL en API_KEY in $configPath voor de venue-bridge."
   }
+  Confirm-NoOtherProject "venue-bridge" "venue-bridge"
   New-Item -ItemType Directory -Force -Path (Join-Path $Root 'data\venue-bridge') | Out-Null
   if ($cfg['BRIDGE_VARIANT'] -eq 'windows-robocopy' -and
       -not (Get-ScheduledTask -TaskName 'Streamz statistics sync' -ErrorAction SilentlyContinue)) {
-    Write-Warning 'De robocopy-taak ontbreekt: de statistieken worden niet gekopieerd. Eenmalig: scripts\venue-bridge\sync-stats.ps1 -Install'
+    Write-Warning "De robocopy-taak ontbreekt: de statistieken worden niet gekopieerd. Eenmalig: scripts\sync-stats.ps1 -Install -Source '\\<pc>\<share>'"
   }
   Write-Host "Venue-bridge starten (versie $($cfg['STREAMZ_BRIDGE_VERSION']), variant $($cfg['BRIDGE_VARIANT']))..."
   Invoke-Compose ((Get-BridgeArgs $configPath $cfg) + @('up', '-d', 'venue-bridge'))

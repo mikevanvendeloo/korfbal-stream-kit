@@ -52,3 +52,6 @@ Thumbs.db
 **/.env.*.local
 **/secrets.env
 **/secrets.*.env
+
+# Compose-bestanden, scripts en productiedata: niet nodig in een image
+/distribution

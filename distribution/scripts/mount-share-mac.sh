@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Mount de share van de statistiek-pc op de Mac, voor de venue-bridge (compose/variants/mac.yml).
+# Mount de share van de statistiek-pc op de Mac, voor de venue-bridge (variants/mac.yml).
 #
-#   scripts/venue-bridge/mount-share-mac.sh                       # //GUEST@10.12.0.63/KL2627 op /Volumes/KL2627
-#   scripts/venue-bridge/mount-share-mac.sh 10.12.0.63 KL2627 /Volumes/KL2627
-#   scripts/venue-bridge/mount-share-mac.sh --unmount
+#   scripts/mount-share-mac.sh                       # //GUEST@10.12.0.63/KL2627 op /Volumes/KL2627
+#   scripts/mount-share-mac.sh 10.12.0.63 KL2627 /Volumes/KL2627
+#   scripts/mount-share-mac.sh --unmount
 #
 # Idempotent: staat de share er al, dan gebeurt er niets. Staat de pc uit, dan komt er een melding en een
 # afsluitcode 1 (geen hangende mount: mount_smbfs krijgt een tijdslimiet).

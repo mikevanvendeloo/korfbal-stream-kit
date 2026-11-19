@@ -3,7 +3,7 @@
 # daarna alleen de migraties (geen seed: die zou personen, sponsors en templates uit de backup aanpassen).
 #
 #   npm run db:restore-backup                       # npm run dev: database 'korfbal' op localhost:5432
-#   npm run docker:restore-backup                   # Docker-dev-stack (docker-compose.yml), localhost:5434
+#   npm run docker:restore-backup                   # Docker-dev-stack (distribution/docker-compose-dev.yml), localhost:5434
 #   ... -- /pad/naar/dump.sql                       # andere backup (standaard ../2025-2026-backup/streamz-2025.sql)
 #   ./scripts/restore-backup.sh --target npm -y     # zonder bevestigen
 #
@@ -26,8 +26,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$TARGET" in
-  npm)    COMPOSE=(docker compose -f docker-compose-db.yml); WHERE="database van npm run dev (docker-compose-db.yml, localhost:5432)" ;;
-  docker) COMPOSE=(docker compose); WHERE="Docker-dev-stack (docker-compose.yml, project korfbal-dev, localhost:5434)" ;;
+  npm)    COMPOSE=(docker compose -f distribution/docker-compose-db.yml); WHERE="database van npm run dev (docker-compose-db.yml, localhost:5432)" ;;
+  docker) COMPOSE=(docker compose -f distribution/docker-compose-dev.yml); WHERE="Docker-dev-stack (docker-compose-dev.yml, project korfbal-dev, localhost:5434)" ;;
   *) echo "Kies --target npm of --target docker" >&2; exit 1 ;;
 esac
 
@@ -46,10 +46,10 @@ fi
 if [[ "$TARGET" == docker ]]; then
   echo "== monitoring en localtest stoppen (localtest gebruikt dezelfde poorten 80 en 5050)"
   # Monitoring eerst: hij hangt aan het netwerk van localtest
-  docker compose -f docker-compose-monitoring.yml down
-  docker compose -f docker-compose-localtest.yml down
+  docker compose -f distribution/docker-compose-monitoring.yml down
+  docker compose -f distribution/docker-compose-localtest.yml down
   echo "== App van de stack stoppen"
-  docker compose stop korfbal-streamz-api korfbal-streamz-kit 2>/dev/null || true
+  "${COMPOSE[@]}" stop korfbal-streamz-api korfbal-streamz-kit 2>/dev/null || true
 else
   echo "Stop eerst npm run dev / api:dev als die draait: de database wordt met FORCE weggegooid."
 fi
@@ -67,12 +67,12 @@ grep -v ' OWNER TO ' "$SQL" | "${COMPOSE[@]}" exec -T db psql -q -U korfbal -d k
 
 if [[ "$TARGET" == docker ]]; then
   echo "== Migraties (zonder seed) en app starten"
-  SKIP_SEED=true docker compose up -d --build
-  docker compose logs migrate-streamz | tail -n 5
+  SKIP_SEED=true docker compose -f distribution/docker-compose-dev.yml up -d --build
+  docker compose -f distribution/docker-compose-dev.yml logs migrate-streamz | tail -n 5
   cat <<'EOF'
 
 Klaar: http://localhost
-Start de stack hierna met:  SKIP_SEED=true docker compose up -d
+Start de stack hierna met:  SKIP_SEED=true docker compose -f distribution/docker-compose-dev.yml up -d
 (zonder SKIP_SEED past de seed personen, sponsors en templates uit de backup aan)
 EOF
 else

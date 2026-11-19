@@ -1,18 +1,20 @@
 # Lokale testomgeving: de lokaal gebouwde (hardened) images tegen een database die bij de eerste
 # start automatisch uit een SQL-backup (pg_dump) wordt gevuld. Staat los van de dev-stack (eigen projectnaam en
-# volumes), maar gebruikt dezelfde poorten 80 en 5050 als docker-compose.yml: draai ze nooit tegelijk. De
+# volumes), maar gebruikt dezelfde poorten 80 en 5050 als docker-compose-dev.yml: draai ze nooit tegelijk. De
 # dev-database voor npm run dev (docker-compose-db.yml, 5432) kan er wel naast draaien.
 #
+#   Met de bridge en localtest.local.env: ./start-localtest.sh (Windows: start-localtest.cmd)
+#   Of met de hand, in distribution/:
 #   Starten (bouwt de images):   docker compose -f docker-compose-localtest.yml up -d --build
 #   Terug naar het startpunt:    docker compose -f docker-compose-localtest.yml down -v
 #                                docker compose -f docker-compose-localtest.yml up -d
-#   Andere backup:               LOCALTEST_SQL=/pad/naar/dump.sql docker compose -f docker-compose-localtest.yml up -d
+#   Andere backup (relatief aan distribution/): LOCALTEST_SQL=/pad/naar/dump.sql docker compose -f docker-compose-localtest.yml up -d
 #   Andere afbeeldingenmap:      LOCALTEST_STORAGE=/pad/naar/storage docker compose -f docker-compose-localtest.yml up -d
 #
 # Frontend: http://localhost   API: http://localhost:3334   Postgres: localhost:5433 (fortuna/streamz)
 # pgadmin:  http://localhost:5050   Grafana: http://localhost:3000
 # `down -v` wist alleen de database van deze testomgeving. Afbeeldingen (spelers, sponsors, clubs) staan op je
-# eigen schijf in ./storage, dus die blijven bij down/up en stroomuitval gewoon staan.
+# eigen schijf in storage/ in de root van de repo, dus die blijven bij down/up en stroomuitval gewoon staan.
 name: korfbal-localtest
 
 # Docker keeps the console log of a container in a file; without a limit it grows until the disk is full
@@ -39,7 +41,7 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
       # Wordt alleen ingelezen als het db-volume nog leeg is (eerste start of na `down -v`).
-      - ${LOCALTEST_SQL:-../2025-2026-backup/streamz-2025.sql}:/docker-entrypoint-initdb.d/10-restore.sql:ro
+      - ${LOCALTEST_SQL:-../../2025-2026-backup/streamz-2025.sql}:/docker-entrypoint-initdb.d/10-restore.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U fortuna -d streamz"]
       interval: 5s
@@ -54,7 +56,7 @@ services:
   # herstelde personen/sponsors/templates bijwerken.
   migrate-streamz:
     build:
-      context: .
+      context: ..
       dockerfile: apps/korfbal-stream-api/Dockerfile
     image: korfbal-stream-api:localtest
     networks:
@@ -101,7 +103,7 @@ services:
     volumes:
       # Bind-mount naar je eigen schijf; de API (uid 1000) moet erin kunnen schrijven. Op macOS regelt
       # Docker Desktop dat; op Linux eenmalig: sudo chown -R 1000:1000 storage
-      - ${LOCALTEST_STORAGE:-./storage}:/app/storage
+      - ${LOCALTEST_STORAGE:-../storage}:/app/storage
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3333/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       interval: 10s
@@ -115,7 +117,7 @@ services:
 
   korfbal-streamz-kit:
     build:
-      context: .
+      context: ..
       dockerfile: apps/korfbal-stream-kit/Dockerfile
     image: korfbal-stream-kit:localtest
     logging: *logging

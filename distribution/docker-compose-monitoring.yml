@@ -1,7 +1,7 @@
 # Monitoring (Prometheus, Grafana, cAdvisor, Postgres-exporter) voor localtest. Koppelt aan het netwerk
 # korfbal-network dat docker-compose-localtest.yml aanmaakt, dus:
-#   1. docker compose -f docker-compose-localtest.yml up -d --build
-#   2. docker compose -f docker-compose-monitoring.yml up -d
+#   1. ./start-localtest.sh   (of: docker compose -f docker-compose-localtest.yml up -d --build, in distribution/)
+#   2. docker compose -f docker-compose-monitoring.yml up -d   (in distribution/)
 #   Stoppen in omgekeerde volgorde (eerst monitoring down, dan localtest down).
 # Grafana: http://localhost:3000   Prometheus: http://localhost:9090   cAdvisor: http://localhost:8081
 name: korfbal-monitoring
