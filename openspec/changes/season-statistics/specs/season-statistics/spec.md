@@ -101,13 +101,13 @@ Stored matches SHALL belong to one organization: the season routes SHALL only us
 - **WHEN** organization A has stored matches and organization B asks `/api/stats/season`
 - **THEN** B gets none of A's matches
 
-### Requirement: LIVE Statistieken card Seizoen
-LIVE Statistieken SHALL show a card "Seizoen" with the own club's top scorers, the team figures (own and opponents) and the list of matches the figures are based on, readable at 360 px wide. It SHALL refresh every 60 seconds and say "Wedstrijden worden niet bijgewerkt: het statistiekenbestand is niet bereikbaar" when `database` is not `'ok'`.
+### Requirement: LIVE Statistieken tab Seizoen
+LIVE Statistieken SHALL have a tab "Seizoen", also usable while the bridge is offline, with the own club's top scorers, the team figures (own and opponents) and the list of matches the figures are based on, readable at 360 px wide. It SHALL refresh every 60 seconds and say "Wedstrijden worden niet bijgewerkt: het statistiekenbestand is niet bereikbaar" when `database` is `'unavailable'` (and "… de venue-bridge is offline." when `'offline'`).
 
-#### Scenario: Season card
-- **WHEN** two matches of the season are stored
-- **THEN** the card lists both matches and the top scorers over both
+#### Scenario: Season tab
+- **WHEN** two matches of the season are stored and the bridge is offline
+- **THEN** the tab lists both matches and the top scorers over both
 
 #### Scenario: Database not readable
 - **WHEN** the season answers `database: 'unavailable'`
-- **THEN** the card still shows the stored figures and the message that the matches are not updated
+- **THEN** the tab still shows the stored figures and the message that the matches are not updated

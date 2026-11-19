@@ -22,6 +22,23 @@ const api = (handler: (call: {path: string}) => unknown, status: unknown = BRIDG
 
 const LIVE = {home: team('A', 1, 'x'), away: team('B', 2, 'y'), clock: null};
 
+const totals = (attacks: number) => ({
+  matches: 2, goals: 40, attempts: 230, goalPct: 17, attacks, withGoal: 40, attackGoalPct: 31, withoutAttempt: 17,
+  attemptsPerAttack: 1.81, byAttempts: [17, 48, 32, 16, 7, 7], turnovers: {steal: 6, balOver: 10, schotklok: 1, onnodigeFout: 4, total: 21},
+});
+const SEASON = {
+  season: {id: 3, name: '2026-2027', from: '2026-07-01'}, team: 1, database: 'offline', lastSyncAt: '2026-11-19T19:00:00.000Z',
+  matches: [
+    {table: 'Fortuna KZ_31_10_2026', date: '2026-10-31', ownTeam: 'Fortuna/Ruitenheer', opponent: 'KZ/Keukensale.com', score: {own: 17, opponent: 12}, attacks: 54, withoutAttempt: 7,
+      attemptsPerAttack: 1.76, attackGoalPct: 31, turnovers: 12, syncedAt: '2026-11-19T19:00:00.000Z',
+      vakken: [{vak: 1, attacks: 32, withGoal: 8, withoutAttempt: 5, turnovers: 24}, {vak: 2, attacks: 22, withGoal: 9, withoutAttempt: 2, turnovers: 13}]},
+    {table: 'Fortuna DOS46_24_10_2026', date: '2026-10-24', ownTeam: 'Fortuna/Ruitenheer', opponent: 'DOS 46/VDK Groep', score: {own: 23, opponent: 15}, attacks: 73, withoutAttempt: 10,
+      attemptsPerAttack: 1.85, attackGoalPct: 32, turnovers: 12, vakken: [], syncedAt: '2026-11-19T19:00:00.000Z'},
+  ],
+  topScorers: [{rank: 1, name: 'Nik van der Steen', goals: 8, attempts: 57, goalPct: 14, matches: 2, strafworpGoals: 1}],
+  totals: {own: totals(127), opponent: totals(126)},
+};
+
 const matchPlayers = (extra: object) => ({
   readAt: '2026-10-31T20:03:00.000Z', team: null, teams: {own: 'Fortuna/Ruitenheer', opponent: 'KZ/Keukensale.com'}, players: [
     {team: 'home', teamName: 'Fortuna/Ruitenheer', name: 'Roos van Groen', afstand: '3/7', doorloop: '0/1', kortSchot: '0/0', vrijeBal: '0/0', strafworp: '0/0', totaal: '3/8', percentage: 37.5, rebound: '1/1', aangeef: 0},
@@ -57,8 +74,33 @@ describe('StatisticsPage', () => {
     renderPage(<StatisticsPage/>);
     expect((await screen.findByRole('alert')).textContent).toBe('De venue-bridge is offline');
     expect(screen.getByText('Venue-bridge: offline')).toBeTruthy();
-    expect(screen.queryByRole('tab')).toBeNull();
     expect(screen.queryByText(/Stand:/)).toBeNull();
+  });
+
+  it('shows the season from the kept matches, also with the bridge offline', async () => {
+    api((call) => (call.path === '/api/stats/season' ? SEASON : {}), {bridge: {ok: false, ms: null}});
+    renderPage(<StatisticsPage/>);
+    fireEvent.click(await screen.findByRole('tab', {name: 'Seizoen'}));
+    expect(await screen.findByText('Gebaseerd op 2 wedstrijden')).toBeTruthy();
+    expect(screen.getByText('Wedstrijden worden niet bijgewerkt: de venue-bridge is offline.')).toBeTruthy();
+    const scorers = screen.getByRole('region', {name: 'Topscorers seizoen'});
+    expect(within(scorers).getByText('Nik van der Steen')).toBeTruthy();
+    expect(within(scorers).getByText('8/57 (14%) · 2 wedstr.')).toBeTruthy();
+    const matches = within(screen.getByRole('table', {name: 'Wedstrijden seizoen'})).getAllByRole('row');
+    expect(matches[1].textContent).toContain('31-10-2026');
+    expect(matches[1].textContent).toContain('17–12');
+    expect(matches[1].textContent).toContain('32 / 24 / 5');
+    const totalsTable = screen.getByRole('table', {name: 'Teamcijfers seizoen'});
+    expect(within(totalsTable).getAllByText('0: 17 · 1: 48 · 2: 32 · 3: 16 · 4: 7 · 5+: 7')).toHaveLength(2);
+    expect(screen.queryByText('De venue-bridge is offline')).toBeNull();
+  });
+
+  it('says when the season has no matches yet', async () => {
+    api((call) => (call.path === '/api/stats/season' ? {...SEASON, database: 'ok', matches: [], topScorers: []} : {}));
+    renderPage(<StatisticsPage/>);
+    fireEvent.click(await screen.findByRole('tab', {name: 'Seizoen'}));
+    expect(await screen.findByText('Nog geen wedstrijden van dit seizoen bewaard.')).toBeTruthy();
+    expect(screen.queryByText(/niet bijgewerkt/)).toBeNull();
   });
 
   it('shows score, clock and the vak tables of both teams, in a scroll container', async () => {

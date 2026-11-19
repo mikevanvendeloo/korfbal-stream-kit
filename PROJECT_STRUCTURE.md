@@ -475,6 +475,8 @@ A hoofdstuk is `{id, productionId, name, orderIndex, minDurationSec}` (Minimale 
 | GET | /api/stats/team-stats | Two flat rows (home, away) of team statistics |
 | GET | /api/stats/top-scorers | Top scorers per team with rank |
 | GET | /api/stats/analysis | Match analysis for the analist (database only) |
+| GET | /api/stats/season | Season of the own team from the kept matches (StatsMatch): match list, own top scorers, team totals |
+| GET | /api/stats/season/top-scorers | vMix datasource: season top scorers of the own club (`?limit=`) |
 
 ### Settings (`/api/settings`)
 

@@ -10,12 +10,12 @@ The statistics of a match (scorers, attacks, turnovers) are only read live from 
 - The match analysis adds per attack figure: attacks without a shot and the number of attacks per number of shots (0, 1, 2, 3, 4, 5+).
 - New `GET /api/stats/season`: the season of the active season (from its `indoorStartDate`) for the team of the active production: the list of matches it is based on, the own club's top scorers and the team figures (attacks, without a shot, shots per attack, goal %, turnovers by kind and per vak per match), all from the stored matches, so also without the database.
 - New vMix datasource `GET /api/stats/season/top-scorers` (feed route): one flat row per own player.
-- LIVE Statistieken gets a card "Seizoen" with the top scorers, the team figures and the match list, and says when the matches are not being updated (database not readable).
+- LIVE Statistieken gets a tab "Seizoen" (also with the bridge offline) with the top scorers, the team figures and the match list, and says when the matches are not being updated (database not readable).
 
 ## Capabilities
 
 ### New Capabilities
-- `season-statistics`: keeping the matches from the statistics database in the API, choosing the own team's matches, the season overview, its API routes, the vMix datasource and the card on LIVE Statistieken.
+- `season-statistics`: keeping the matches from the statistics database in the API, choosing the own team's matches, the season overview, its API routes, the vMix datasource and the tab on LIVE Statistieken.
 
 ### Modified Capabilities
 - `match-analysis`: the attack figures also give the attacks without a shot and the distribution of shots per attack; the derivation lives in `libs/venue-protocol`.
@@ -25,4 +25,4 @@ The statistics of a match (scorers, attacks, turnovers) are only read live from 
 - `libs/venue-protocol`: new `matchStats/` (moved from `apps/venue-bridge/src/services/matchActions.ts`, `matchAnalysis.ts`).
 - Venue-bridge: `/matches` also gives `actionCount` and `lastActionAt`; new `/matches/:table/rows` (all rows, database only).
 - API: Prisma model `StatsMatch` + migration; `services/stats/statsSync.ts`, `services/stats/season.ts`; routes in `routes/stats.ts` (`/season`, `/season/top-scorers`), vMix datasource list, leak and security tests, backup coverage.
-- Kit: `StatisticsPage` card "Seizoen", `lib/statsApi.ts`; handleiding LIVE Statistieken and Beheer vMix.
+- Kit: `StatisticsPage` tab "Seizoen" (`components/SeasonStats.tsx`), `lib/statsApi.ts`; handleiding LIVE Statistieken and Beheer vMix.
