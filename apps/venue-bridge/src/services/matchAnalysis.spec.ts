@@ -54,6 +54,12 @@ describe('analyseMatch on the fixture of 31-10-2026', () => {
     expect(a.attacks.own.total.attempts).toBe(attemptsOf('own'));
     expect(a.attacks.opponent.total.attempts).toBe(attemptsOf('opponent'));
     expect(a.attacks.own.total.withGoal + a.attacks.own.total.turnovers).toBe(a.attacks.own.total.attacks);
+    for (const side of ['own', 'opponent'] as const) {
+      const t = a.attacks[side].total;
+      expect(t.byAttempts.reduce((s, n) => s + n, 0)).toBe(t.attacks);
+      expect(t.byAttempts[0]).toBe(t.withoutAttempt);
+      expect(a.attacks[side].firstHalf.withoutAttempt + a.attacks[side].secondHalf.withoutAttempt).toBe(t.withoutAttempt);
+    }
   });
 
   it('splits the possessions over the vakken; vakken and possessions without a vak add up to the team', () => {
@@ -119,6 +125,16 @@ describe('analyseMatch on small matches', () => {
     expect(m.droughts.opponent).toEqual({seconds: 40, from: 0, to: 40});
     expect(m.vakken[0].attack.total).toMatchObject({attacks: 1, withGoal: 1, attempts: 2, attemptsPerAttack: 2, goalPct: 100});
     expect(m.vakken[1].defence.total.attacks).toBe(1);
+  });
+
+  it('counts the attacks without an attempt and the attacks per number of attempts', () => {
+    const shot = (t: number) => act(t, 2001, 'A', 'A1', 'T1', 'AFSTAND SCHOT');
+    const swap = (t: number) => act(t, 2950, 'V', 'B1', 'U1', 'Pass');
+    // Own attacks with 0, 1, 1 and 6 attempts, each ended by an opponent possession
+    const m = analyseMatch([...base, act(0, 4300, 'A'), act(1, 2021, 'A', 'A1', 'T1', 'BAL OVER -'), swap(2),
+      shot(10), swap(11), shot(20), swap(21), ...[30, 31, 32, 33, 34, 35].map(shot), swap(40)]);
+    expect(m.attacks.own.total).toMatchObject({attacks: 4, attempts: 8, withoutAttempt: 1, byAttempts: [1, 2, 0, 0, 0, 1]});
+    expect(m.vakken[0].attack.total.byAttempts).toEqual([1, 2, 0, 0, 0, 1]);
   });
 
   it('finds a run of three and none of two', () => {
