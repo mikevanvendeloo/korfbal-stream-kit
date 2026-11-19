@@ -206,3 +206,31 @@ function Test-TagExists([string]$Repo, [string]$Tag) {
     return $false
   }
 }
+
+# --- Database backup and restore (backup.cmd, restore.cmd, upgrade.cmd) ---
+
+$DbUser = 'fortuna'
+$DbName = 'streamz'
+
+function Test-DatabaseRunning([string[]]$StreamzArgs) {
+  [bool](Get-ComposeOutput ($StreamzArgs + @('ps', '--status', 'running', '-q', 'streamz-db')))
+}
+
+# pg_dump of the running database to backups\streamz-<label>-<time>.sql (plain SQL); the path, or $null when the
+# database container does not run
+function Backup-StreamzDatabase([string[]]$StreamzArgs, [string]$Label = 'backup') {
+  if (-not (Test-DatabaseRunning $StreamzArgs)) { return $null }
+  $backupDir = Join-Path $Root 'backups'
+  New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
+  $safe = ($Label -replace '[^A-Za-z0-9._-]', '_')
+  $file = Join-Path $backupDir ("streamz-{0}-{1}.sql" -f $safe, (Get-Date -Format 'yyyyMMdd-HHmmss'))
+  Write-Host "Backup van de database naar $file ..."
+  # Out-Null: docker output would otherwise become part of the return value
+  Invoke-Compose ($StreamzArgs + @('exec', '-T', 'streamz-db', 'pg_dump', '-U', $DbUser, '-d', $DbName, '-f', '/tmp/streamz-backup.sql')) | Out-Null
+  Invoke-Compose ($StreamzArgs + @('cp', 'streamz-db:/tmp/streamz-backup.sql', $file)) | Out-Null
+  Invoke-Compose ($StreamzArgs + @('exec', '-T', 'streamz-db', 'rm', '-f', '/tmp/streamz-backup.sql')) | Out-Null
+  $size = (Get-Item $file).Length
+  if ($size -lt 1000) { throw "De backup $file is verdacht klein ($size bytes)." }
+  Write-Host ("Backup klaar: {0:N1} MB" -f ($size / 1MB))
+  return $file
+}

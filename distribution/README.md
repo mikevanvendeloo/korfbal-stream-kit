@@ -11,6 +11,7 @@ nodig. De naam van die map maakt niet uit: de projectnamen (`streamz`, `venue-br
 | `docker-compose.yml` | **Productie**: database, API en Kit, images van Docker Hub (project `streamz`) |
 | `docker-compose.venue-bridge.yml` + `variants/` | **De venue-bridge** in de zaal, image van Docker Hub (project `venue-bridge`); de variant bepaalt waar de statistieken vandaan komen |
 | `start.cmd`, `upgrade.cmd` | Windows: starten en upgraden (dubbelklikken). De PowerShell staat in `scripts/` |
+| `backup.cmd`, `restore.cmd` | Windows: backup van de database maken en terugzetten (zie *Backup en restore*) |
 | `streamz.local.env.example` | Instellingen voor `start.cmd`/`upgrade.cmd`: wat er draait, versies, de bridge |
 | `secrets.prod.env.example` | Geheimen van de database en de API |
 | `scripts/sync-stats.ps1` | Windows: kopieert de share van de statistiek-pc naar een lokale map (variant `windows-robocopy`) |
@@ -40,6 +41,25 @@ Voor een upgrade van de API maakt het script eerst een backup in `backups\`.
 
 Start Streamz altijd via `start.cmd` (of `docker compose --env-file streamz.local.env up -d`): een kale
 `docker compose up -d` neemt de standaardversies uit `docker-compose.yml`.
+
+## Backup en restore (Windows)
+
+**Backup**: `backup.cmd` maakt met `pg_dump` een backup van de draaiende database in `backups\streamz-backup-<datum-tijd>.sql`.
+
+- `backup.cmd -Label voor-seizoen` geeft een eigen naam (`backups\streamz-voor-seizoen-...sql`).
+- `backup.cmd -WithFiles` zet er een zip van de afbeeldingen (`storage\`, `uploads\`) naast; die zitten niet in de database.
+- `upgrade.cmd` maakt zelf al een backup als de API-versie verandert.
+
+Kopieer de map `backups\` af en toe naar een andere schijf: een backup op dezelfde pc helpt niet als die pc stuk gaat.
+
+**Restore**: `restore.cmd` zet de nieuwste backup uit `backups\` terug, of een ander bestand: `restore.cmd backups\streamz-backup-20261120-101500.sql`. Het script:
+
+1. vraagt om bevestiging (typ `ja`; `-Yes` slaat dat over);
+2. maakt eerst een backup van de huidige database (`backups\streamz-voor-restore-...sql`; `-SkipBackup` slaat dat over);
+3. stopt de API en de Kit, maakt de database leeg en leest de backup in;
+4. start Streamz weer; de migratie-job brengt een backup van een oudere versie op het schema van deze versie.
+
+Streamz is daarbij een paar minuten niet bereikbaar: doe het niet tijdens een uitzending. Mislukt het inlezen, dan zegt het script hoe je de backup van stap 2 terugzet. Een backup van een andere installatie past ook (de eigenaar-regels worden overgeslagen). De afbeeldingen zet je met de hand terug: pak de zip uit in deze map.
 
 ## Overstappen van de oude indeling
 
