@@ -32,6 +32,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'common.ps1')
+$AssumeYes = [bool]$Yes
 Initialize-Tls
 
 $configPath = Resolve-ConfigPath $ConfigFile

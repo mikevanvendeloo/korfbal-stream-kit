@@ -1,7 +1,8 @@
 # Streamz installeren en starten
 
 Deze map bevat alles om Streamz en de venue-bridge te draaien: de compose-bestanden, de start- en upgradescripts en
-voorbeelden van de instellingen. Kopieer hem in zijn geheel naar een machine met Docker; de broncode is niet nodig.
+voorbeelden van de instellingen. Kopieer de inhoud naar een eigen map op een machine met Docker, bijvoorbeeld `C:\streamz`; de broncode is niet
+nodig. De naam van die map maakt niet uit: de projectnamen (`streamz`, `venue-bridge`) staan vast in de compose-bestanden.
 
 ## Wat er in staat
 
@@ -22,7 +23,7 @@ mappen mee als je naar een andere machine verhuist.
 
 ## Nieuwe machine (Windows)
 
-1. Installeer Docker Desktop en kopieer deze map, bijvoorbeeld naar `C:\streamz`.
+1. Installeer Docker Desktop en kopieer de inhoud van deze map naar bijvoorbeeld `C:\streamz`.
 2. Kopieer `secrets.prod.env.example` naar `secrets.prod.env` en vul hem in (alleen als Streamz hier draait).
 3. Kopieer `streamz.local.env.example` naar `streamz.local.env` en vul hem in:
    - `RUN_STREAMZ` / `RUN_BRIDGE`: wat er op deze pc draait.
@@ -44,14 +45,16 @@ Start Streamz altijd via `start.cmd` (of `docker compose --env-file streamz.loca
 
 Tot deze map stonden de compose-bestanden en de data in de root van de repo (`docker-compose-prod.yml`, `dbdata/`,
 `storage/`, `uploads/`, `backups/`, `secrets.prod.env`), met een projectnaam naar die map. `start.cmd` en
-`upgrade.cmd` weigeren te starten zolang dat zo is, zodat Streamz nooit met een lege database start. Eenmalig:
+`upgrade.cmd` beschermen je daarbij: ze weigeren te starten zolang de oude containers draaien (de poorten botsen), en
+staat er nog geen `dbdata` in de nieuwe map, dan vragen ze eerst of je echt met een lege database wilt beginnen.
+Antwoord dan "n" als je nog moet verhuizen. Eenmalig:
 
 1. Kijk hoe het oude project heet en stop het (de data blijft staan):
    `docker ps --format "{{.Names}}  {{.Label \"com.docker.compose.project\"}}"`, dan `docker compose -p <naam> down`.
    Draait er een bridge in het project `compose`: `docker compose -p compose down`.
-2. Verplaats uit de root van de repo naar `distribution\`: `dbdata`, `storage`, `uploads`, `backups`,
+2. Verplaats uit de root van de oude installatie naar de nieuwe map (bijv. `C:\streamz`): `dbdata`, `storage`, `uploads`, `backups`,
    `secrets.prod.env` en, als hij er is, `streamz.local.env`. Een bridge-kopie stond in
-   `apps\venue-bridge\compose\data\venue-bridge` of `data\venue-bridge`: verplaats die naar `distribution\data\venue-bridge`.
+   `apps\venue-bridge\compose\data\venue-bridge` of `data\venue-bridge`: verplaats die naar `data\venue-bridge` in de nieuwe map.
 3. Start met `start.cmd`.
 
 ## Ontwikkelen

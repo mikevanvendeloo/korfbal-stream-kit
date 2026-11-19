@@ -120,6 +120,13 @@ function Confirm-ProductionData {
       "Stop de oude containers en verplaats dbdata, storage, uploads, backups en secrets.prod.env (en data\venue-bridge) " +
       "naar $Root. Zie README.md in die map.")
   }
+  # Een nieuwe machine heeft nog geen dbdata, een vergeten verhuizing ook: dan eerst vragen
+  if (-not (Test-Path (Join-Path $Root 'dbdata')) -and -not $script:AssumeYes) {
+    Write-Warning "Er is nog geen database in $Root\dbdata: Streamz begint dan met een lege database."
+    Write-Host 'Verhuis je van een oudere installatie? Stop dan hier en verplaats eerst dbdata, storage, uploads en backups (README.md).'
+    $answer = Read-Host 'Met een lege database beginnen? (j/n)'
+    if (@('j', 'ja', 'y', 'yes') -notcontains $answer.Trim().ToLowerInvariant()) { throw 'Gestopt.' }
+  }
 }
 
 # Draait de service al in een ander compose-project (de installatie van voor distribution/, localtest of dev),

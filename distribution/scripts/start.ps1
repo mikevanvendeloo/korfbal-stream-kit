@@ -11,17 +11,21 @@
   .\start.ps1                    # alles wat in streamz.local.env aan staat
   .\start.ps1 -Only bridge       # alleen de venue-bridge
   .\start.ps1 -NoBrowser
+  .\start.ps1 -Yes               # niet vragen, ook niet bij een nieuwe (lege) database
 #>
 [CmdletBinding()]
 param(
   [ValidateSet('all', 'streamz', 'bridge')]
   [string]$Only = 'all',
   [string]$ConfigFile,
-  [switch]$NoBrowser
+  [switch]$NoBrowser,
+  # Niet vragen (ook niet bij een nieuwe, lege database)
+  [switch]$Yes
 )
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'common.ps1')
+$AssumeYes = [bool]$Yes
 
 $configPath = Resolve-ConfigPath $ConfigFile
 $cfg = Read-StreamzConfig $configPath
