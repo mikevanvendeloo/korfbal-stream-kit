@@ -14,6 +14,7 @@ import {SortableContext, sortableKeyboardCoordinates, useSortable, verticalListS
 import {CSS} from '@dnd-kit/utilities';
 import {ChevronDown, ChevronRight, FilePenLine, GripVertical, Plus, Save, Trash2, X} from 'lucide-react';
 import {ChapterId, chapterOfItem, keepLinkedTogether, linkedMoveNotice, moveChapter, moveItem, removeChapter, Structure} from '../lib/chapterStructure';
+import {confirmDialog} from '../lib/dialogs';
 
 /**
  * The hoofdstukken of a draaiboek as blocks (openspec/changes/chapters D4): drag items within and
@@ -203,7 +204,7 @@ function ChapterBlock<C extends ChapterId>({chapterKey, chapter, itemIds, others
 
   async function remove() {
     if (itemIds.length === 0) {
-      if (window.confirm(`Hoofdstuk "${chapter.name}" verwijderen?`)) await onDelete(null);
+      if (await confirmDialog(`Hoofdstuk "${chapter.name}" verwijderen?`, {confirmLabel: 'Verwijderen', danger: true})) await onDelete(null);
       return;
     }
     setDeleting(true);

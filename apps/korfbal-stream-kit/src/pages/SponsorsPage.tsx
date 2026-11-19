@@ -14,6 +14,7 @@ import {Sponsor, uploadSponsorsExcel} from '../lib/api';
 import {MdAdd, MdDownload, MdRefresh, MdUploadFile} from 'react-icons/md';
 import SponsorFormModal from '../components/SponsorFormModal';
 import {downloadExport} from '../lib/download';
+import {confirmDialog} from '../lib/dialogs';
 
 export type SponsorType = 'premium' | 'goud' | 'zilver' | 'brons' | 'event';
 
@@ -90,7 +91,7 @@ export default function SponsorsPage() {
   async function handleDeleteSponsor(s: { id: number }) {
     setActionError(null);
     try {
-      if (confirm(`Sponsor ‘${(s as any).name ?? s.id}’ verwijderen?`)) {
+      if (await confirmDialog(`Sponsor ‘${(s as any).name ?? s.id}’ verwijderen?`, {confirmLabel: 'Verwijderen', danger: true})) {
         await del.mutateAsync(s.id);
       }
     } catch (e: any) {

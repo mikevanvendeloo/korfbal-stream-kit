@@ -60,15 +60,13 @@ describe('ClubsPage', () => {
   });
 
   it('can delete a club and switch selection to next', async () => {
-    // auto-confirm window.confirm
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
-
     renderWithProviders(<ClubsPage />);
     await waitFor(() => expect(screen.queryByText('Kies club')).toBeInTheDocument());
 
     // Delete current (LDODK)
     const delBtn = await screen.findByRole('button', { name: 'Verwijder club' });
     fireEvent.click(delBtn);
+    fireEvent.click(await screen.findByTestId('app-dialog-confirm'));
 
     // After delete, header should eventually show the next club (Fortuna)
     await waitFor(async () => {

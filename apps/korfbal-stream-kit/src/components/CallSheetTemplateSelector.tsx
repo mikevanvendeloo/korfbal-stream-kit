@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react';
 import {CallSheetTemplate, useCallSheetTemplates} from '../hooks/useCallSheetTemplates';
 import {Button, Card, CardContent, CardHeader, CardTitle} from '@korfbal-stream-kit/ui';
 import {MdCheckCircle, MdErrorOutline, MdRefresh, MdViewList} from 'react-icons/md';
+import {confirmDialog} from '../lib/dialogs';
 
 interface CallSheetTemplateSelectorProps {
   productionId: number;
@@ -30,7 +31,7 @@ export function CallSheetTemplateSelector({
   const handleApply = async () => {
     if (!selectedId) return;
 
-    if (!window.confirm('Weet je zeker dat je het huidige draaiboek wilt overschrijven met dit nieuwe template? Alle huidige items en tijden worden gewist.')) {
+    if (!(await confirmDialog('Weet je zeker dat je het huidige draaiboek wilt overschrijven met dit nieuwe template? Alle huidige items en tijden worden gewist.', {confirmLabel: 'Overschrijven', danger: true}))) {
       return;
     }
 

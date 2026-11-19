@@ -155,8 +155,8 @@ test.describe('Seizoen instellingen', () => {
     await expect(page.getByTestId('fill-season')).toContainText('2025/2026');
     await expect(page.getByTestId('fill-season').getByText(/Spelers: 40 nieuw/)).toHaveCount(0);
 
-    page.once('dialog', (d) => d.accept());
     await page.getByRole('button', { name: 'Verwijder seizoen 2026/2027' }).click();
+    await page.getByTestId('app-dialog-confirm').click();
     await expect(page.getByTestId('season-row-2')).toHaveCount(0);
   });
 });

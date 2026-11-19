@@ -7,6 +7,7 @@ import {MATCH_SOURCE_PROVIDERS, MatchSource, MatchSourceInput, MatchSourceProvid
 import {adminPaths} from '../lib/adminPaths';
 import {ErrorBox, OrganizationLogoField, SuccessBox} from './OrganizationsAdminPage';
 import {MatchImportError} from '../lib/api';
+import {confirmDialog} from '../lib/dialogs';
 
 const sectionClass = 'bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700';
 const headingClass = 'text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-100 dark:border-gray-700 pb-2';
@@ -87,7 +88,7 @@ export function MatchSourceForm({source}: { source: MatchSource }) {
           Token: <strong>{source.hasApiToken ? 'ingesteld' : 'niet ingesteld'}</strong>
           {source.hasApiToken && (
             <button type="button" className="ml-3 text-red-600 dark:text-red-400 underline disabled:opacity-50" disabled={save.isPending}
-                    onClick={() => window.confirm('Het token verwijderen?') && void submit({provider: source.provider, baseUrl: source.baseUrl, isEnabled: source.isEnabled, apiToken: null}, 'Token verwijderd.')}>
+                    onClick={async () => (await confirmDialog('Het token verwijderen?', {confirmLabel: 'Verwijderen', danger: true})) && void submit({provider: source.provider, baseUrl: source.baseUrl, isEnabled: source.isEnabled, apiToken: null}, 'Token verwijderd.')}>
               Token verwijderen
             </button>
           )}

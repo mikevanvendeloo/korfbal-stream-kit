@@ -2,6 +2,7 @@ import React from 'react';
 import {MdDownload, MdSaveAlt, MdUpload} from 'react-icons/md';
 import {downloadExport} from '../lib/download';
 import {DraaiboekImportResult, useImportDraaiboek, useSaveCallSheetAsTemplate} from '../hooks/useCallsheet';
+import {confirmDialog, promptDialog} from '../lib/dialogs';
 
 const BUTTON = 'px-3 py-1 border rounded flex items-center gap-1 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 
@@ -27,8 +28,9 @@ export default function DraaiboekFileActions({productionId, callSheetId}: { prod
   async function handleFile(file: File) {
     if (!callSheetId) return;
     setResult(null);
-    const confirmed = window.confirm(
+    const confirmed = await confirmDialog(
       `Het draaiboek van deze productie wordt vervangen door dat uit ${file.name}. De huidige items gaan verloren. Doorgaan?`,
+      {confirmLabel: 'Overschrijven', danger: true},
     );
     if (!confirmed) return;
     try {
@@ -41,7 +43,7 @@ export default function DraaiboekFileActions({productionId, callSheetId}: { prod
   async function handleSaveAsTemplate() {
     if (!callSheetId) return;
     setResult(null);
-    const name = window.prompt('Naam van het nieuwe template')?.trim();
+    const name = (await promptDialog('Naam van het nieuwe template', {confirmLabel: 'Aanmaken'}))?.trim();
     if (!name) return;
     try {
       const template = await saveAsTemplate.mutateAsync({callSheetId, name});

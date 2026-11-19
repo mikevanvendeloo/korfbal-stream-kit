@@ -73,7 +73,6 @@ describe('SeasonSettingsTab', () => {
       }
       return json({error: 'not found'}, 404);
     }) as unknown as typeof fetch;
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
   const renderComponent = () => {
@@ -269,6 +268,7 @@ describe('SeasonSettingsTab', () => {
   it('deletes an empty, non-active season', async () => {
     renderComponent();
     fireEvent.click(await screen.findByRole('button', {name: 'Verwijder seizoen 2027/2028'}));
+    fireEvent.click(await screen.findByTestId('app-dialog-confirm'));
     await waitFor(() => expect(screen.queryByTestId('season-row-3')).not.toBeInTheDocument());
     expect(calls.some(c => c.url.includes('/api/seasons/3') && c.method === 'DELETE')).toBe(true);
   });

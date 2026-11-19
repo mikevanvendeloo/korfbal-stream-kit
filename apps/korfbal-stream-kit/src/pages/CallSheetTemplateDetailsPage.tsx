@@ -13,6 +13,7 @@ import PositionPicker, {PickerPosition} from '../components/PositionPicker';
 import {appendItem, buildStructure, formatRelative, Structure} from '../lib/chapterStructure';
 import {parallelLanes} from '../lib/lanes';
 import {addTemplateChapter, deleteTemplateChapter, saveTemplateStructure, updateTemplateChapter} from '../lib/chaptersApi';
+import {confirmDialog} from '../lib/dialogs';
 
 const asItem = (item: CallSheetTemplateItem): DraaiboekItemData => ({
   id: item.id, cue: item.cue ?? '', title: item.title, note: item.note, durationSec: item.durationSec,
@@ -93,8 +94,8 @@ export default function CallSheetTemplateDetailsPage() {
     setOpenItem(newItem.id);
   });
 
-  const handleDeleteItem = (itemId: string) => {
-    if (window.confirm('Item verwijderen?')) void run(async () => {
+  const handleDeleteItem = async (itemId: string) => {
+    if (await confirmDialog('Item verwijderen?', {confirmLabel: 'Verwijderen', danger: true})) void run(async () => {
       if (!(await deleteTemplateItem(itemId))) throw new Error('Verwijderen mislukt');
     });
   };

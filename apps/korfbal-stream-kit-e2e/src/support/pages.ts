@@ -14,8 +14,8 @@ const seconds = (text: string | null) => {
   return m * 60 + s;
 };
 
-/** Confirms the next browser dialog (stop, restart, reset ask first). */
-const confirmNextDialog = (page: Page) => page.once('dialog', (dialog) => dialog.accept());
+/** Confirms the kit's own dialog (stop, restart, reset ask first); call it after the click that opens it. */
+const confirmAppDialog = (page: Page) => page.getByTestId('app-dialog-confirm').click();
 
 export class LiveNav {
   constructor(private readonly page: Page) {}
@@ -110,8 +110,8 @@ export class ShowCallerPhone {
   setRemaining = (sec: 15 | 30 | 60) => this.now.getByRole('button', {name: `Resterend ${sec} seconden`}).click();
 
   async stop() {
-    confirmNextDialog(this.page);
     await this.controls.getByRole('button', {name: 'Einde show'}).click();
+    await confirmAppDialog(this.page);
   }
 
   async remainingSeconds() {
@@ -144,8 +144,8 @@ export class ShowCallerWide {
     this.page.getByRole('group', {name: 'Resterend instellen'}).getByRole('button', {name: `Resterend ${sec} seconden`}).click();
 
   async stop() {
-    confirmNextDialog(this.page);
     await this.page.getByRole('button', {name: 'Einde show'}).click();
+    await confirmAppDialog(this.page);
   }
 
   async remainingSeconds() {
@@ -276,8 +276,8 @@ export class OrganizationPage {
   }
 
   async revoke(name: string) {
-    this.page.once('dialog', (dialog) => dialog.accept());
     await this.keyRow(name).getByRole('button', {name: `Sleutel ${name} intrekken`}).click();
+    await confirmAppDialog(this.page);
   }
 }
 

@@ -48,11 +48,12 @@ describe('DraaiboekFileActions', () => {
   });
 
   it('imports only after the confirmation, then shows the result and refreshes the draaiboek', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const {invalidate} = renderActions(5);
     chooseFile(draaiboekFile());
 
-    expect(confirm.mock.calls[0][0]).toMatch(/^Het draaiboek van deze productie wordt vervangen/);
+    expect(await screen.findByTestId('app-dialog')).toHaveTextContent(/Het draaiboek van deze productie wordt vervangen/);
+    expect(calls).toEqual([]);
+    fireEvent.click(screen.getByTestId('app-dialog-confirm'));
     expect(await screen.findByRole('status')).toHaveTextContent('12 items geïmporteerd; nieuwe hoofdstuk: Nabeschouwing.');
     const post = calls.find((c) => c.method === 'POST');
     expect(post?.path).toBe('/api/production/callsheets/5/import-json');
@@ -62,10 +63,11 @@ describe('DraaiboekFileActions', () => {
   });
 
   it('saves the draaiboek as a template under the asked name, and shows the server error', async () => {
-    const prompt = vi.spyOn(window, 'prompt').mockReturnValue('  Mijn template ');
     answer = () => json(201, {id: 9, name: 'Mijn template'});
     renderActions(5);
     fireEvent.click(screen.getByRole('button', {name: /Opslaan als template/}));
+    fireEvent.change(await screen.findByRole('textbox'), {target: {value: '  Mijn template '}});
+    fireEvent.click(screen.getByTestId('app-dialog-confirm'));
     expect(await screen.findByRole('status')).toHaveTextContent('Template "Mijn template" opgeslagen');
     const post = calls.find((c) => c.method === 'POST');
     expect(post?.path).toBe('/api/production/callsheets/5/save-as-template');
@@ -73,26 +75,30 @@ describe('DraaiboekFileActions', () => {
 
     answer = () => json(409, {error: 'Er bestaat al een template met deze naam'});
     fireEvent.click(screen.getByRole('button', {name: /Opslaan als template/}));
+    fireEvent.change(await screen.findByRole('textbox'), {target: {value: 'Mijn template'}});
+    fireEvent.click(screen.getByTestId('app-dialog-confirm'));
     expect(await screen.findByRole('alert')).toHaveTextContent('Er bestaat al een template met deze naam');
-    prompt.mockReturnValue(null);
     const before = calls.length;
     fireEvent.click(screen.getByRole('button', {name: /Opslaan als template/}));
+    fireEvent.click(await screen.findByTestId('app-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('app-dialog')).toBeNull());
     expect(calls.length).toBe(before);
   });
 
-  it('leaves the draaiboek alone when the confirmation is cancelled', () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('leaves the draaiboek alone when the confirmation is cancelled', async () => {
     renderActions(5);
     chooseFile(draaiboekFile());
+    fireEvent.click(await screen.findByTestId('app-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('app-dialog')).toBeNull());
     expect(calls).toEqual([]);
     expect(screen.queryByRole('status')).toBeNull();
   });
 
   it('shows the API message when the file is refused', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     answer = () => json(400, {error: 'Ongeldig draaiboekbestand: items ontbreken'});
     renderActions(5);
     chooseFile(draaiboekFile());
+    fireEvent.click(await screen.findByTestId('app-dialog-confirm'));
     expect(await screen.findByRole('alert')).toHaveTextContent('Ongeldig draaiboekbestand: items ontbreken');
   });
 

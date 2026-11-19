@@ -62,9 +62,9 @@ describe('OrganizationsAdminPage', () => {
 
   it('deactivates after a confirm', async () => {
     const {calls} = api();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderPage(<OrganizationsAdminPage/>);
     fireEvent.click(await screen.findByRole('button', {name: 'KNKV deactiveren'}));
+    fireEvent.click(await screen.findByTestId('app-dialog-confirm'));
     await waitFor(() => expect(calls.find((c) => c.method === 'PUT')).toMatchObject({path: '/api/organizations/2', body: {isActive: false}}));
   });
 

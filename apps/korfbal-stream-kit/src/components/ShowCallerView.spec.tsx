@@ -1,4 +1,4 @@
-import {fireEvent, render, screen} from '@testing-library/react';
+import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {MemoryRouter, Route, Routes} from 'react-router-dom';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {ShowCallerView} from './ShowCallerView';
@@ -100,8 +100,7 @@ describe('ShowCallerView', () => {
     expect(controls.previous).toHaveBeenCalledTimes(2);
   });
 
-  it('runs the actions in the settings menu, asking first before resetting or stopping', () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('runs the actions in the settings menu, asking first before resetting or stopping', async () => {
     renderView();
     const openMenu = () => fireEvent.click(screen.getByTitle('Instellingen'));
 
@@ -111,13 +110,13 @@ describe('ShowCallerView', () => {
 
     openMenu();
     fireEvent.click(screen.getByRole('button', {name: 'Draaiboek Resetten'}));
-    expect(controls.reset).toHaveBeenCalledOnce();
+    fireEvent.click(await screen.findByTestId('app-dialog-confirm'));
+    await waitFor(() => expect(controls.reset).toHaveBeenCalledOnce());
 
     openMenu();
     fireEvent.click(screen.getByRole('button', {name: /Stream Stoppen/i}));
-    expect(controls.stop).toHaveBeenCalledOnce();
-    expect(confirm).toHaveBeenCalledTimes(2);
-    confirm.mockRestore();
+    fireEvent.click(await screen.findByTestId('app-dialog-confirm'));
+    await waitFor(() => expect(controls.stop).toHaveBeenCalledOnce());
   });
 
   it('sets the remaining time of the current item with Zet 15s / 30s / 60s', () => {
@@ -128,21 +127,22 @@ describe('ShowCallerView', () => {
     expect(controls.setRemaining).toHaveBeenCalledWith(60);
   });
 
-  it('stops the show with the red button, after confirming', () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+  it('stops the show with the red button, after confirming', async () => {
     renderView();
     fireEvent.click(screen.getByRole('button', {name: 'Einde show'}));
+    fireEvent.click(await screen.findByTestId('app-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('app-dialog')).toBeNull());
     expect(controls.stop).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', {name: 'Einde show'}));
-    expect(controls.stop).toHaveBeenCalledOnce();
-    confirm.mockRestore();
+    fireEvent.click(await screen.findByTestId('app-dialog-confirm'));
+    await waitFor(() => expect(controls.stop).toHaveBeenCalledOnce());
   });
 
-  it('asks before restarting a running show, but starts a new one right away', () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('asks before restarting a running show, but starts a new one right away', async () => {
     const {unmount} = renderView();
     fireEvent.click(screen.getByTitle('Herstart Show'));
-    expect(confirm).toHaveBeenCalledOnce();
+    fireEvent.click(await screen.findByTestId('app-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('app-dialog')).toBeNull());
     expect(controls.start).not.toHaveBeenCalled();
     unmount();
 
@@ -150,11 +150,10 @@ describe('ShowCallerView', () => {
     renderView();
     fireEvent.click(screen.getByTitle('Start Show'));
     expect(controls.start).toHaveBeenCalledOnce();
-    expect(confirm).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId('app-dialog')).toBeNull();
     // Nothing to stop or shorten before the start
     expect(screen.queryByRole('button', {name: 'Einde show'})).toBeNull();
     expect((screen.getByRole('button', {name: 'Resterend 30 seconden'}) as HTMLButtonElement).disabled).toBe(true);
-    confirm.mockRestore();
   });
 
   it('shows a failed action on screen', () => {

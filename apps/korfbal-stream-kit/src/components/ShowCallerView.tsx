@@ -16,6 +16,7 @@ import {InterviewPhotosToggle} from "./InterviewPhotosToggle";
 import {chapterTimes, currentChapter, minutesSeconds} from "../lib/liveChapters";
 import {formatTime} from "../lib/time";
 import {blockIndexes, hallLaneState, parallelLanes} from "../lib/lanes";
+import {confirmDialog} from '../lib/dialogs';
 
 // Helper om een naam om te zetten naar een URL-vriendelijke slug
 const toSlug = (name: string) => {
@@ -377,8 +378,8 @@ export const ShowCallerView = () => {
                             Tijden herberekenen
                           </button>
                           <button
-                            onClick={() => {
-                              if (window.confirm('Weet je zeker dat je het draaiboek wilt resetten naar de originele tijden?')) {
+                            onClick={async () => {
+                              if (await confirmDialog('Weet je zeker dat je het draaiboek wilt resetten naar de originele tijden?', {confirmLabel: 'Resetten', danger: true})) {
                                 handleReset();
                                 setShowSettings(false);
                               }
@@ -389,8 +390,8 @@ export const ShowCallerView = () => {
                           </button>
                           {activeEvent && (
                             <button
-                              onClick={() => {
-                                if (window.confirm('Weet je zeker dat je de show wilt stoppen? Websocket broadcasts worden gestopt voor deze productie.')) {
+                              onClick={async () => {
+                                if (await confirmDialog('Weet je zeker dat je de show wilt stoppen? Websocket broadcasts worden gestopt voor deze productie.', {confirmLabel: 'Stoppen', danger: true})) {
                                   handleStop();
                                   setShowSettings(false);
                                 }
@@ -433,9 +434,9 @@ export const ShowCallerView = () => {
                   <SkipBack className="w-5 h-5 fill-current" />
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     // Restarting a running show jumps back to the first item for everyone
-                    if (!activeEvent || window.confirm('De show opnieuw beginnen bij het eerste item?')) handleStart();
+                    if (!activeEvent || await confirmDialog('De show opnieuw beginnen bij het eerste item?', {confirmLabel: 'Opnieuw beginnen'})) handleStart();
                   }}
                   disabled={isProcessing}
                   title={activeEvent ? "Herstart Show" : "Start Show"}
@@ -457,8 +458,8 @@ export const ShowCallerView = () => {
                 </button>
                 {activeEvent && (
                   <button
-                    onClick={() => {
-                      if (window.confirm('Weet je zeker dat je de show wilt stoppen?')) handleStop();
+                    onClick={async () => {
+                      if (await confirmDialog('Weet je zeker dat je de show wilt stoppen?', {confirmLabel: 'Stoppen', danger: true})) handleStop();
                     }}
                     disabled={isProcessing}
                     title="Einde show"

@@ -65,14 +65,16 @@ describe('ShowCallerPhone', () => {
     expect(props.controls.setRemaining).toHaveBeenCalledWith(30);
   });
 
-  it('stops the show from the bottom bar, after confirming', () => {
-    vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+  it('stops the show from the bottom bar, after confirming', async () => {
     const props = renderPhone();
     const stop = within(screen.getByRole('navigation', {name: 'Show bediening'})).getByRole('button', {name: 'Einde show'});
     fireEvent.click(stop);
+    fireEvent.click(await screen.findByTestId('app-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('app-dialog')).toBeNull());
     expect(props.controls.stop).not.toHaveBeenCalled();
     fireEvent.click(stop);
-    expect(props.controls.stop).toHaveBeenCalledOnce();
+    fireEvent.click(await screen.findByTestId('app-dialog-confirm'));
+    await waitFor(() => expect(props.controls.stop).toHaveBeenCalledOnce());
   });
 
   it('offers Start show before the show begins, with the first item as next', () => {
@@ -86,16 +88,17 @@ describe('ShowCallerPhone', () => {
     expect(screen.queryByRole('group', {name: 'Resterend instellen'})).toBeNull();
   });
 
-  it('asks before restarting the show', () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+  it('asks before restarting the show', async () => {
     const props = renderPhone();
     fireEvent.click(screen.getByRole('button', {name: 'Show Caller menu'}));
     fireEvent.click(screen.getByRole('menuitem', {name: 'Herstart show'}));
+    fireEvent.click(await screen.findByTestId('app-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('app-dialog')).toBeNull());
     expect(props.controls.start).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', {name: 'Show Caller menu'}));
     fireEvent.click(screen.getByRole('menuitem', {name: 'Herstart show'}));
-    expect(confirm).toHaveBeenCalledTimes(2);
-    expect(props.controls.start).toHaveBeenCalledOnce();
+    fireEvent.click(await screen.findByTestId('app-dialog-confirm'));
+    await waitFor(() => expect(props.controls.start).toHaveBeenCalledOnce());
   });
 
   it('can show every later item instead of only this position', () => {
