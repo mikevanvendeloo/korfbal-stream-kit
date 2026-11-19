@@ -1,7 +1,7 @@
 import express, {NextFunction, Request, Response, Router, type Express} from 'express';
 import {z} from 'zod';
 import {logger} from './logger';
-import {derivePlayerStats, teamNamesOf} from './services/matchActions';
+import {derivePlayerStats, isAction, lastActionAt, teamNamesOf} from './services/matchActions';
 import {getLiveStats} from './services/liveStats';
 import {DatabaseUnavailableError, listStatsMatches, readMatchActions, readStatsPlayers, type Sourced} from './services/mdbFile';
 import {derivedPlayerRows, livePlayerRows, pagePlayersAsDerived} from './services/flatRows';
@@ -98,7 +98,15 @@ export function createStatsRouter(): Router {
   // The match tables; without a usable database one entry for the live page
   app.get('/matches', wrap(async (req, res) => {
     try {
-      return sendSourced(res, await listStatsMatches(teamOf(req)));
+      const team = teamOf(req);
+      const list = await listStatsMatches(team);
+      // Per table how many actions it has and when the last was entered: the API syncs only tables that changed
+      const data = [];
+      for (const m of list.data) {
+        const rows = (await readMatchActions(team, m.table)).data;
+        data.push({...m, actionCount: rows.filter(isAction).length, lastActionAt: lastActionAt(rows)});
+      }
+      return sendSourced(res, {...list, data});
     } catch (err) {
       if (!(err instanceof DatabaseUnavailableError)) throw err;
       const page = await pageOrOffline();
@@ -106,6 +114,13 @@ export function createStatsRouter(): Router {
       setSourceHeaders(res, 'page', readAt, null, databaseReason(err));
       return res.json([{table: 'live', home: page.home.name, away: page.away.name, date: page.date, source: 'page'}]);
     }
+  }));
+
+  // All rows of one match table (also the definition and lineup rows), for the API to keep. Database only: without it 503,
+  // never the page, so a match is only stored from the database file itself.
+  app.get('/matches/:table/rows', wrap(async (req, res) => {
+    const table = TableParam.parse(req.params.table);
+    return sendSourced(res, await readMatchActions(teamOf(req), table));
   }));
 
   app.get('/matches/:table/actions', wrap(async (req, res) => {
