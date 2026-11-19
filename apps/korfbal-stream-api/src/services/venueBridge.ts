@@ -34,6 +34,11 @@ export function hasBridge(organizationId: number): boolean {
   return bridges.has(organizationId);
 }
 
+/** The organizations with a connected bridge (for background work such as the statistics sync). */
+export function connectedOrganizationIds(): number[] {
+  return [...bridges.keys()];
+}
+
 /** Registers the connection; a previous one of the organization is returned (and must be disconnected by the caller). */
 export function setBridge(organizationId: number, connection: BridgeConnection): BridgeConnection | undefined {
   const previous = bridges.get(organizationId);

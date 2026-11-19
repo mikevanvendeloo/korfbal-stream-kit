@@ -746,6 +746,7 @@ model Organization {
   settings                          OrganizationSetting[]
   matchSource                       MatchSource?
   apiKeys                           OrganizationApiKey[]
+  statsMatches                      StatsMatch[]
 }
 
 /// Settings of one organization (vMix, sponsor filters, scoreboard, club config). Installation-wide
@@ -786,4 +787,33 @@ model OrganizationApiKey {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
+}
+
+/// A match of the own team from the statistics database (WEDSTRIJDEN.mdb), kept by the API so its figures stay
+/// available after the match and without the statistics PC. Synced from the venue-bridge (services/stats/statsSync.ts).
+model StatsMatch {
+  id                Int          @id @default(autoincrement())
+  organizationId    Int          @default(dbgenerated("missing_organization_id()"))
+  /// Team number of the database (F{team}/WEDSTRIJDEN.mdb)
+  team              Int
+  /// The match table's name in the database, e.g. "Fortuna DOS46_24_10_2026"
+  tableName         String
+  /// The date in the table name
+  matchDate         DateTime     @db.Date
+  ownTeam           String?
+  opponentTeam      String?
+  /// Number of action rows and the last action's time when synced: a table is fetched again only when they change
+  actionCount       Int
+  lastActionAt      BigInt?
+  /// All rows of the table (definition, lineup and action rows), normalized
+  rows              Json
+  /// The figures derived from `rows` (analysis and players), with the version of the derivation that made them
+  figures           Json
+  derivationVersion Int
+  syncedAt          DateTime     @updatedAt
+  createdAt         DateTime     @default(now())
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, team, tableName])
+  @@index([organizationId, team, matchDate])
 }

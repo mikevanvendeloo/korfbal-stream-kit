@@ -158,6 +158,8 @@ const ROUTES: Record<string, Probe> = {
   'GET /api/stats/matches': {device: 'asks the own organization\'s venue-bridge'},
   'GET /api/stats/matches/:table/actions': {device: 'asks the own organization\'s venue-bridge'},
   'GET /api/stats/matches/:table/players': {device: 'asks the own organization\'s venue-bridge'},
+  'GET /api/stats/season': {read: () => '/api/stats/season', control: false},
+  'GET /api/stats/season/top-scorers': {read: () => '/api/stats/season/top-scorers', control: false},
   'GET /api/stats/players': {device: 'asks the own organization\'s venue-bridge'},
   'GET /api/venue-bridge/status': {device: 'the own organization\'s venue-bridge state (security.int.spec.ts)'},
   'GET /api/seasons': GLOBAL,

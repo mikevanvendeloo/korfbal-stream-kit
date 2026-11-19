@@ -9,6 +9,7 @@ import {runWithOrganization} from './organizationContext';
 import {getBridge, removeBridge, setBridge} from './venueBridge';
 import {bridgeConnected, bridgeDisconnected, recordReading} from './venueData';
 import {pushVenueConfigNow} from './venueConfig';
+import {syncSoon} from './stats/statsSync';
 
 /** A little over the 10 MB the API accepts for a statistics answer; only this server takes messages that large. */
 export const VENUE_BRIDGE_MAX_BUFFER_BYTES = 11 * 1024 * 1024;
@@ -78,6 +79,8 @@ export function registerVenueBridgeSocket(httpServer: HttpServer): SocketIOServe
     logger.info('Venue-bridge connected', {organizationId, name: getBridge(organizationId)?.name});
     bridgeConnected(organizationId);
     void pushVenueConfigNow(organizationId).catch((err: unknown) => logger.warn('Sending the venue configuration failed', {organizationId, error: (err as Error)?.message}));
+    // Keep the matches of the statistics database once the bridge has its configuration (not in tests: they sync explicitly)
+    if (!process.env.VITEST) syncSoon(organizationId);
 
     socket.on(VENUE_EVENTS.reading, (payload: unknown) => {
       if (getBridge(organizationId)?.socket.id !== socket.id) return;

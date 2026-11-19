@@ -38,6 +38,7 @@ import {organizationsRouter} from './routes/organizations';
 import {matchSourceRouter} from './routes/matchSource';
 import {applyStandardSetWhereMissing} from './services/standardSet';
 import {migrateLogoStorage} from './services/logoStorage';
+import {startStatsSyncLoop} from './services/stats/statsSync';
 
 const app: Express = express();
 
@@ -410,6 +411,8 @@ if (process.env.NODE_ENV !== 'test') {
     await migrateLogoStorage().catch((err) => {
       logger.error('Moving logos into the slug directories failed', err as any);
     });
+    // Keep the matches of the statistics databases of the connected bridges, every minute
+    startStatsSyncLoop();
     httpServer.listen(port, () => {
       logger.info(`🚀 API Server running on http://localhost:${port}`);
       logger.info(`📊 Health check: http://localhost:${port}/api/health`);
