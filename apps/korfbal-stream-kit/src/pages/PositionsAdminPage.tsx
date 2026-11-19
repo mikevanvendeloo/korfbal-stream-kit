@@ -7,7 +7,7 @@ import {
   usePositionsCatalog,
   useUpdatePosition
 } from '../hooks/usePositions';
-import {useQuery} from '@tanstack/react-query';
+import {useQuery, useQueryClient} from '@tanstack/react-query';
 import IconButton from '../components/IconButton';
 import {MdAdd, MdDelete, MdDownload, MdDragIndicator, MdEdit, MdUploadFile} from 'react-icons/md';
 import {createUrl, extractError} from '../lib/api';
@@ -15,6 +15,7 @@ import {closestCenter, DndContext, DragEndEvent, PointerSensor, useSensor, useSe
 import {arrayMove, SortableContext, useSortable, verticalListSortingStrategy} from '@dnd-kit/sortable';
 import {CSS} from '@dnd-kit/utilities';
 import {todayAmsterdam} from '../lib/time';
+import {toast} from '../lib/toast';
 
 type Skill = { id: number; code: string; name: string };
 
@@ -71,6 +72,7 @@ export default function PositionsAdminPage() {
   const create = useCreatePosition();
   const update = useUpdatePosition();
   const del = useDeletePosition();
+  const queryClient = useQueryClient();
 
   const [err, setErr] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<null | {
@@ -172,8 +174,9 @@ export default function PositionsAdminPage() {
         });
         const result = await res.json();
         if (result.ok) {
-          alert(`Import geslaagd: ${result.created} nieuw, ${result.updated} bijgewerkt`);
-          window.location.reload();
+          toast.success(`Import geslaagd: ${result.created} nieuw, ${result.updated} bijgewerkt`);
+          // Fetch the positions (and what uses them) again instead of reloading the page, which would drop the toast
+          await queryClient.invalidateQueries();
         } else {
           setErr('Import mislukt: ' + (result.error || 'Onbekende fout'));
         }

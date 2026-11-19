@@ -15,6 +15,7 @@ import {adminPaths} from '../lib/adminPaths';
 import StaffingBadge from '../components/StaffingBadge';
 import {downloadExport} from '../lib/download';
 import {formatDate, formatDateTime, formatTime} from '../lib/time';
+import {toast} from '../lib/toast';
 
 // Amsterdam time, whatever the device's zone: "14-11-2026 19:30"
 function formatMatchDate(date: string): string {
@@ -88,7 +89,7 @@ export default function ProductionsAdminPage() {
         const json = JSON.parse(event.target?.result as string);
         await importProd.mutateAsync(json);
         setErrorMsg(null);
-        alert('Productie succesvol geïmporteerd!');
+        toast.success('Productie succesvol geïmporteerd!');
       } catch (err: any) {
         setErrorMsg('Import mislukt: ' + (err?.message || 'Ongeldig bestand'));
       } finally {

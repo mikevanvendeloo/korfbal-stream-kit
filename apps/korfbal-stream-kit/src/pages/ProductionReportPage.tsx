@@ -18,6 +18,7 @@ import SponsorField from '../components/SponsorField';
 // A plain link can't send X-Organization (401): downloads go through fetch
 import {downloadExport} from '../lib/download';
 import {formatDateTime, formatTime} from '../lib/time';
+import {toast} from '../lib/toast';
 
 const categoryLabels: Record<PositionCategory, string> = {
   [PositionCategory.ENTERTAINMENT]: 'Entertainment',
@@ -87,9 +88,9 @@ export default function ProductionReportPage() {
         interviewRationale: interviewRationale || null,
         remarks: remarks || null,
       });
-      alert('Positie overzicht opgeslagen!');
+      toast.success('Positie overzicht opgeslagen!');
     } catch (err: any) {
-      alert('Fout bij opslaan: ' + (err?.message || String(err)));
+      toast.error('Fout bij opslaan: ' + (err?.message || String(err)));
     }
   };
 
@@ -102,7 +103,7 @@ export default function ProductionReportPage() {
       setWhatsappCopied(true);
       setTimeout(() => setWhatsappCopied(false), 2000);
     } catch (err: any) {
-      alert('Fout bij kopiëren: ' + (err?.message || String(err)));
+      toast.error('Fout bij kopiëren: ' + (err?.message || String(err)));
     }
   };
 

@@ -17,6 +17,7 @@ import PlayerCard, {PhotoCard} from '../components/PlayerCard';
 import ClubLogo from '../components/ClubLogo';
 import {MdAdd} from 'react-icons/md';
 import {confirmDialog} from '../lib/dialogs';
+import {toast} from '../lib/toast';
 
 function DeleteClubButton({slug, clubs, onDeleted}: {
   slug: string;
@@ -44,7 +45,7 @@ function DeleteClubButton({slug, clubs, onDeleted}: {
           onDeleted(nextSlug);
         } catch (e) {
 
-          alert((e as any)?.message || 'Verwijderen mislukt');
+          toast.error((e as any)?.message || 'Verwijderen mislukt');
         } finally {
           setBusy(false);
         }
@@ -288,7 +289,7 @@ export default function ClubsPage() {
       const result = await uploadImage.mutateAsync(file);
       setPlayerPhotoUrl(result.filename);
     } catch (err: any) {
-      alert('Foto uploaden mislukt: ' + (err?.message || 'Unknown error'));
+      toast.error('Foto uploaden mislukt: ' + (err?.message || 'onbekende fout'));
     } finally {
       setUploadingPhoto(false);
     }

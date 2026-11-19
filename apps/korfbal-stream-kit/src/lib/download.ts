@@ -1,4 +1,5 @@
 import html2canvas from 'html2canvas';
+import {toast} from './toast';
 
 export async function downloadAsPng(elementId: string, filename: string) {
   const element = document.getElementById(elementId);
@@ -34,7 +35,7 @@ export async function downloadAsPng(elementId: string, filename: string) {
     link.click();
   } catch (err) {
     console.error('Failed to generate PNG:', err);
-    alert('Kon afbeelding niet genereren.');
+    toast.error('Kon afbeelding niet genereren.');
   } finally {
     // Remove temporary class and restore original styles
     element.classList.remove('exporting');
@@ -88,7 +89,7 @@ export async function downloadFromApi(path: string, fallbackName: string): Promi
   downloadFile(await res.blob(), fileNameFromDisposition(res.headers.get('content-disposition')) ?? fallbackName);
 }
 
-/** `downloadFromApi` for a button: a failure is shown in an alert. */
+/** `downloadFromApi` for a button: a failure is shown in a toast. */
 export function downloadExport(path: string, fallbackName: string): Promise<void> {
-  return downloadFromApi(path, fallbackName).catch((err: Error) => window.alert(err.message));
+  return downloadFromApi(path, fallbackName).catch((err: Error) => toast.error(err.message));
 }
