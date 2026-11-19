@@ -1,16 +1,19 @@
-# De venue-bridge in de zaal: de image van Docker Hub in een vaste versie. Dit bestand staat los van de rest van
-# Streamz; de bridge belt zelf naar de API in de cloud.
+# De venue-bridge in de zaal: de image van Docker Hub in een vaste versie. Een eigen project (venue-bridge), los
+# van Streamz: de bridge belt zelf naar de API, in de cloud of op een pc in de zaal.
 #
-#   API_URL=https://streamz.example.nl API_KEY=<sleutel> BRIDGE_NAME="Zaal Fortuna" \
-#   STREAMZ_BRIDGE_VERSION=2026.11.1 docker compose \
-#       -f apps/venue-bridge/compose/docker-compose.venue-bridge.prod.yml \
-#       -f apps/venue-bridge/compose/variants/<variant>.yml up -d venue-bridge
+#   Windows: start.cmd / upgrade.cmd (RUN_BRIDGE=true, instellingen in streamz.local.env)
+#   Anders:  docker compose --env-file streamz.local.env -f docker-compose.venue-bridge.yml \
+#                -f variants/<variant>.yml up -d venue-bridge
+#            (of scripts/venue-bridge-start.sh <variant> met PROD=1)
 #
-# (staat de API in dezelfde Docker-omgeving, voeg dan -f docker-compose-prod.yml vooraan toe en gebruik
-# API_URL=http://korfbal-streamz-api:3333)
+# API_URL: het adres van Streamz, zonder /api. Draait de API op dezelfde pc (Docker Desktop):
+# http://host.docker.internal:3333; anders http://<ip>:3333 of https://<domein>.
 #
 # Alles over de zaal (adressen, statistiekeninstellingen, vMix-pc's) stel je in de Kit in bij Beheer > Instellingen >
-# Venue; zie docker-compose.venue-bridge.yml voor de varianten en de ./data-map.
+# Venue. De varianten (variants/) bepalen waar /stats vandaan komt; ./data/venue-bridge (naast dit bestand) bewaart
+# de ontvangen configuratie en de lokale kopie van de database.
+name: venue-bridge
+
 services:
   venue-bridge:
     image: mvanvendeloo/streamz-kit-venue-bridge:${STREAMZ_BRIDGE_VERSION:-latest}
@@ -42,7 +45,7 @@ services:
       timeout: 5s
       retries: 3
 
-# Zonder een docker-compose-prod.yml ervoor bestaat dit netwerk nog niet
+# Het eigen netwerk van dit project (venue-bridge_korfbal-network)
 networks:
   korfbal-network:
     driver: bridge

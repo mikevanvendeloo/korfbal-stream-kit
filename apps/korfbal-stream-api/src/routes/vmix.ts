@@ -777,7 +777,7 @@ vmixRouter.get('/endpoints', async (req, res, next) => {
 
     const port = process.env.PORT || 3000; // Assuming default port if not set
     // If HOST_IP is set, use it. Otherwise, use the detected IP which might be internal docker IP.
-    // Ideally, the user sets HOST_IP in docker-compose.
+    // Ideally, the user sets HOST_IP in secrets.prod.env (distribution/).
     const displayHost = process.env.HOST_IP || hostIp;
 
     const baseUrl = `http://${displayHost}:${port}/api/vmix`;

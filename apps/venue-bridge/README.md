@@ -80,25 +80,28 @@ In de Kit bij **Beheer, Organisatie-instellingen, API-sleutels**, bijvoorbeeld *
 
 ### 2. Kies hoe de bridge bij de statistiek-pc komt (de variant)
 
-De bridge leest de statistieken in de container altijd uit de map **`/stats`** (`STATS_DIR`), en alleen-lezen. Welke map van de host of van het netwerk daar komt, bepaalt de variant in `compose/variants/`:
+De bridge leest de statistieken in de container altijd uit de map **`/stats`** (`STATS_DIR`), en alleen-lezen. Welke map van de host of van het netwerk daar komt, bepaalt de variant in `distribution/variants/`:
 
 | Variant | Wat er op `/stats` komt | Wanneer |
 |---|---|---|
-| `mac.yml` | De op de Mac gemounte share: `${STATS_SOURCE_DIR:-/Volumes/KL2627}`. Mount hem eerst met `scripts/venue-bridge/mount-share-mac.sh` (`//GUEST@10.12.0.63/KL2627`) | Bridge op een Mac |
-| `windows-robocopy.yml` | Een lokale map: `${STATS_SOURCE_DIR:-C:/streamz/stats}`. `scripts/venue-bridge/sync-stats.ps1` kopieert daar elke 5 seconden de gewijzigde bestanden van `\\10.12.0.63\KL2627` naartoe (`-Install`: start bij het inloggen) | Bridge op Windows: een share die hangt, hangt dan alleen robocopy |
-| `cifs.yml` | Het Docker-volume `stats-share`: Docker mount zelf de share `${STATS_CIFS_DEVICE:-//10.12.0.63/KL2627}` als gast. Staat de pc uit, dan start de bridge niet | Bridge op Linux |
+| `mac.yml` | De op de Mac gemounte share: `${STATS_SOURCE_DIR:-/Volumes/KL2627}`. Mount hem eerst met `distribution/scripts/mount-share-mac.sh` (`//GUEST@10.12.0.63/KL2627`) | Bridge op een Mac |
+| `windows-robocopy.yml` | Een lokale map: `${STATS_SOURCE_DIR:-C:/streamz/stats}`. `distribution/scripts/sync-stats.ps1` kopieert daar elke 5 seconden de gewijzigde bestanden van `\\10.12.0.63\KL2627` naartoe (`-Install`: start bij het inloggen) | Bridge op Windows: een share die hangt, hangt dan alleen robocopy |
+| `cifs.yml` | Het Docker-volume `stats-share`: Docker mount zelf de share `${STATS_CIFS_DEVICE:-//10.12.0.63/KL2627}` als gast (anders inloggegevens in `STATS_CIFS_OPTIONS`). Staat de pc uit, dan start de bridge niet. Docker onthoudt de opties van een eenmaal gemaakt volume: na een wijziging eerst `docker volume rm venue-bridge_stats-share` | Bridge op Linux (op Windows liever robocopy: gasttoegang staat daar meestal uit) |
 | `page-only.yml` | Niets (`STATS_DIR` leeg) | Alleen de statistiekenpagina op een http(s)-adres, geen database |
-| geen variant (alleen bij ontwikkelen) | `compose/local-html`, met een opgeslagen pagina | Testen zonder statistiek-pc |
+| geen variant (alleen bij ontwikkelen) | `distribution/local-html`, met een opgeslagen pagina | Testen zonder statistiek-pc |
 
 In de prod-compose zonder variant is `/stats` leeg: dan werkt alleen een statistiekenpagina op een http(s)-adres. Een andere map geef je mee met `STATS_SOURCE_DIR` (mac, robocopy) of `STATS_CIFS_DEVICE` (cifs).
 
-Daarnaast komt `./data/venue-bridge` van de host op **`/data`**: daar bewaart de bridge de ontvangen configuratie en de lokale kopie van de database (`COPY_DIR`). Die map moet van uid 1000 zijn (`sudo chown -R 1000:1000 data/venue-bridge`; Docker Desktop regelt dat zelf).
+Daarnaast komt `data/venue-bridge` (in productie naast de compose-bestanden in `distribution/`, bij ontwikkelen in de root van de repo) van de host op **`/data`**: daar bewaart de bridge de ontvangen configuratie en de lokale kopie van de database (`COPY_DIR`). Die map moet van uid 1000 zijn (`sudo chown -R 1000:1000 data/venue-bridge`; Docker Desktop regelt dat zelf).
 
 ### 3. Start de bridge
 
-Zet de startinstellingen in een env-file die je niet incheckt, bijvoorbeeld `venue-bridge.env`:
+Kopieer de map `distribution/` naar de pc van de bridge (zie `distribution/README.md`). Zet de startinstellingen in `streamz.local.env` (kopie van `streamz.local.env.example`, niet ingecheckt):
 
 ```bash
+RUN_STREAMZ=false          # true als Streamz op dezelfde pc draait
+RUN_BRIDGE=true
+BRIDGE_VARIANT=<variant uit stap 2>
 API_URL=https://streamz.example.nl
 API_KEY=<sleutel uit stap 1>
 BRIDGE_NAME=Zaal Fortuna
@@ -107,19 +110,21 @@ STREAMZ_BRIDGE_VERSION=2026.11.1
 # LOG_LEVEL=debug   # tijdelijk, voor meer detail in docker logs (zie Problemen oplossen)
 ```
 
-Start hem met de variant uit stap 2:
+`API_URL` is het adres van Streamz zonder `/api`. Draait de API op dezelfde pc: `http://host.docker.internal:3333` (Docker Desktop), anders `http://<ip>:3333`. `BRIDGE_PAGE_URL` is het adres van deze pc op het netwerk van de zaal (niet `localhost`): de Kit toont er een link naar.
+
+Start hem:
 
 ```bash
-PROD=1 VENUE_BRIDGE_ENV_FILE=./venue-bridge.env scripts/venue-bridge/start.sh <variant>
-# Windows: scripts\venue-bridge\start.ps1 <variant> -Prod
+# Windows: start.cmd (upgrade.cmd haalt een nieuwe versie)
+PROD=1 VENUE_BRIDGE_ENV_FILE=streamz.local.env scripts/venue-bridge-start.sh <variant>   # Mac/Linux, in distribution/
 ```
 
-Dat is hetzelfde als:
+Dat is hetzelfde als (in `distribution/`):
 
 ```bash
-docker compose --env-file ./venue-bridge.env \
-  -f apps/venue-bridge/compose/docker-compose.venue-bridge.prod.yml \
-  -f apps/venue-bridge/compose/variants/<variant>.yml up -d venue-bridge
+docker compose --env-file streamz.local.env \
+  -f docker-compose.venue-bridge.yml \
+  -f variants/<variant>.yml up -d venue-bridge
 ```
 
 De image is `mvanvendeloo/streamz-kit-venue-bridge`. Poort 3340 staat open op het netwerk van de zaal en de container herstart vanzelf (`restart: unless-stopped`). Zie [Startinstellingen](#startinstellingen) voor alle variabelen.
@@ -165,13 +170,13 @@ Bij elke vraag om statistieken:
 
 `npm run bridge:dev` (leest de omgevingsvariabelen), tests `npm run bridge:test`, build `nx build @korfbal-stream-kit/venue-bridge` (bouwt eerst de pagina uit `apps/venue-bridge-ui` naar `dist/apps/venue-bridge/public`). De pagina draait ook los met `nx serve @korfbal-stream-kit/venue-bridge-ui` (stuurt `/bridge` door naar `localhost:3340`).
 
-Naast de dev-omgeving: zet `API_KEY` (een sleutel van de organisatie) in een env-file en gebruik `docker-compose.venue-bridge.yml` (de bridge op `korfbal-network` tegen `http://korfbal-streamz-api:3333`):
+Naast localtest: `distribution/start-localtest.sh` (Windows: `start-localtest.cmd`) start localtest en de bridge samen, met `distribution/localtest.local.env`. Naast de dev-omgeving: zet `API_KEY` (een sleutel van de organisatie) in een env-file en gebruik `distribution/docker-compose.venue-bridge-dev.yml` (de bridge op `korfbal-network` tegen `http://korfbal-streamz-api:3333`):
 
 ```bash
-VENUE_BRIDGE_ENV_FILE=./venue-bridge.env scripts/venue-bridge/start.sh
+VENUE_BRIDGE_ENV_FILE=$PWD/venue-bridge.env distribution/scripts/venue-bridge-start.sh
 ```
 
-Standaard staat dan de opgeslagen pagina `compose/local-html/tweede-scherm.html` in `/stats`. Stel in de Kit bij Instellingen, Venue, Statistieken de pagina `tweede-scherm.html` in en zet *Database gebruiken* uit; dan werkt alles zonder statistiek-pc. Controleer met `curl http://localhost:3340/bridge/status`. In de Kit staat dan *Bron: live pagina (database uit)*.
+Standaard staat dan de opgeslagen pagina `distribution/local-html/tweede-scherm.html` in `/stats`. Stel in de Kit bij Instellingen, Venue, Statistieken de pagina `tweede-scherm.html` in en zet *Database gebruiken* uit; dan werkt alles zonder statistiek-pc. Controleer met `curl http://localhost:3340/bridge/status`. In de Kit staat dan *Bron: live pagina (database uit)*.
 
 ## Migratie van de statistics-bridge
 

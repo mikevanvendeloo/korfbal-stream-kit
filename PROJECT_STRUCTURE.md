@@ -6,6 +6,17 @@ Use this to locate backend packages, frontend components/pages, and API routes f
 
 ---
 
+## Distribution
+
+`distribution/` — everything to run Streamz, copied as a whole to a production machine (README.md there):
+`docker-compose.yml` (production), `docker-compose.venue-bridge.yml` + `variants/` (venue-bridge), `start.cmd` /
+`upgrade.cmd` (Windows; PowerShell in `scripts/`, plus `sync-stats.ps1`, `mount-share-mac.sh`, `venue-bridge-start.*`),
+the `*.env.example` templates, and the dev files (`docker-compose-dev.yml`, `-db.yml`, `-localtest.yml`,
+`-monitoring.yml`, `docker-compose.venue-bridge-dev.yml`, `start-localtest.*`, `local-html/`, `monitoring/`,
+`servers*.json`). Details: docs/claude/docker.md.
+
+---
+
 ## Backend
 
 ```

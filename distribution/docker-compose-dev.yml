@@ -1,12 +1,12 @@
 # De hele app lokaal in Docker, gebouwd uit je eigen code. Eigen projectnaam en database-volume: staat los van
 # de dev-database voor npm run dev en de tests (docker-compose-db.yml) en van localtest.
 #
-#   Starten:            docker compose up -d --build
+#   Starten:            docker compose -f distribution/docker-compose-dev.yml up -d --build   (vanuit de root)
 #                       Altijd met --build: de migrate-job draait de migraties die in het image zitten. Zonder
 #                       --build krijg je het image van de vorige keer, zonder nieuwe migraties.
-#   Migraties nakijken: docker compose logs migrate-streamz
-#   Stoppen:            docker compose down        (database blijft staan)
-#   Opnieuw beginnen:   docker compose down -v     (wist de database van deze stack; de seed vult hem weer)
+#   Migraties nakijken: docker compose -f distribution/docker-compose-dev.yml logs migrate-streamz
+#   Stoppen:            docker compose -f distribution/docker-compose-dev.yml down        (database blijft staan)
+#   Opnieuw beginnen:   docker compose -f distribution/docker-compose-dev.yml down -v     (wist de database van deze stack; de seed vult hem weer)
 #
 # App: http://localhost   API: http://localhost:3333   Postgres: localhost:5434   pgAdmin: http://localhost:5050
 # Gebruikt dezelfde poorten 80 en 5050 als localtest: draai ze nooit tegelijk. Poort 3333 is ook die van
@@ -43,7 +43,7 @@ services:
   # Eénmalige migratie/seed job. Draait bij 'up' en stopt na succes.
   migrate-streamz:
     build:
-      context: .
+      context: ..
       dockerfile: apps/korfbal-stream-api/Dockerfile
     # Eén image voor migrate en API, zodat ze altijd dezelfde code en migraties hebben
     image: korfbal-stream-api:dev
@@ -89,8 +89,8 @@ services:
     ports:
       - "3333:3333"
     volumes:
-      - ./storage:/app/storage
-      - ./uploads:/app/uploads
+      - ../storage:/app/storage
+      - ../uploads:/app/uploads
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3333/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       interval: 60s
@@ -99,7 +99,7 @@ services:
 
   korfbal-streamz-kit:
     build:
-      context: .
+      context: ..
       dockerfile: apps/korfbal-stream-kit/Dockerfile
     image: korfbal-stream-kit:dev
     logging: *logging

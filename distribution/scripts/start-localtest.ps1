@@ -1,14 +1,14 @@
 <#
 .SYNOPSIS
   Start de localtest-omgeving (docker-compose-localtest.yml) en de venue-bridge (gebouwd uit de lokale code),
-  met de instellingen uit localtest.local.env. Windows-variant van scripts/localtest/start.sh.
+  met de instellingen uit localtest.local.env (naast start-localtest.cmd). Windows-variant van start-localtest.sh.
 
 .EXAMPLE
-  .\start.ps1                  # bouwt en start Streamz en (RUN_BRIDGE=true) de bridge
-  .\start.ps1 -Only bridge     # alleen de bridge (bijv. na het invullen van API_KEY)
-  .\start.ps1 -NoBuild         # de al gebouwde images
-  .\start.ps1 -Reset           # database terug naar de backup (down -v) en dan starten
-  .\start.ps1 -Stop            # alles stoppen (de database blijft bewaard)
+  .\start-localtest.ps1                  # bouwt en start Streamz en (RUN_BRIDGE=true) de bridge
+  .\start-localtest.ps1 -Only bridge     # alleen de bridge (bijv. na het invullen van API_KEY)
+  .\start-localtest.ps1 -NoBuild         # de al gebouwde images
+  .\start-localtest.ps1 -Reset           # database terug naar de backup (down -v) en dan starten
+  .\start-localtest.ps1 -Stop            # alles stoppen (de database blijft bewaard)
 #>
 [CmdletBinding()]
 param(
@@ -21,7 +21,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot '..\streamz\common.ps1')
+. (Join-Path $PSScriptRoot 'common.ps1')
 
 if (-not $ConfigFile) { $ConfigFile = Join-Path $Root 'localtest.local.env' }
 if (-not (Test-Path $ConfigFile)) {
@@ -31,7 +31,7 @@ $configPath = (Resolve-Path $ConfigFile).Path
 $cfg = Read-StreamzConfig $configPath
 
 $base = @('--env-file', $configPath, '-f', (Join-Path $Root 'docker-compose-localtest.yml'))
-$bridgeFiles = @('-f', (Join-Path $Root 'apps\venue-bridge\compose\docker-compose.venue-bridge.yml'))
+$bridgeFiles = @('-f', (Join-Path $Root 'docker-compose.venue-bridge-dev.yml'))
 $variant = $cfg['BRIDGE_VARIANT']
 if ($variant) {
   $file = Join-Path $VariantDir "$variant.yml"
@@ -78,9 +78,9 @@ if ($runBridge) {
   if (-not $cfg['API_KEY']) {
     Write-Host ''
     Write-Host 'De bridge start nog niet: API_KEY is leeg. Maak in de Kit (http://localhost) bij Beheer > Organisatie-instellingen >'
-    Write-Host "API-sleutels een sleutel, zet hem in $configPath en draai: scripts\localtest\start.cmd -Only bridge"
+    Write-Host "API-sleutels een sleutel, zet hem in $configPath en draai: start-localtest.cmd -Only bridge"
   } else {
-    New-Item -ItemType Directory -Force -Path (Join-Path $Root 'data\venue-bridge') | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $RepoRoot 'data\venue-bridge') | Out-Null
     $label = if ($variant) { $variant } else { 'opgeslagen pagina' }
     Write-Host "Venue-bridge starten ($label)..."
     Invoke-Compose ($base + $bridgeFiles + @('up', '-d') + $build + @('venue-bridge'))

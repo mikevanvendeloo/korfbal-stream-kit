@@ -1,19 +1,19 @@
-# De venue-bridge naast de dev-omgeving (docker-compose.yml of docker-compose-localtest.yml): een bridge op
+# De venue-bridge naast de dev-omgeving (docker-compose-dev.yml of docker-compose-localtest.yml): een bridge op
 # korfbal-network die zich met de dev-API verbindt, zoals de bridge in een zaal dat met de echte API doet.
 #
 #   1. Maak in de Kit bij Beheer > Organisatie-instellingen > API-sleutels een sleutel "venue-bridge dev".
 #   2. Zet hem in een env-file die niet wordt ingecheckt, bijvoorbeeld venue-bridge.env:
 #        API_KEY=<de sleutel>
 #        BRIDGE_NAME=dev
-#   3. docker compose --env-file venue-bridge.env -f docker-compose.yml \
-#        -f apps/venue-bridge/compose/docker-compose.venue-bridge.yml \
-#        -f apps/venue-bridge/compose/variants/<variant>.yml up -d --build venue-bridge
-#      (of scripts/venue-bridge/start.sh <variant>; localtest: -f docker-compose-localtest.yml in plaats van docker-compose.yml)
+#   3. (in distribution/) docker compose --env-file venue-bridge.env -f docker-compose-dev.yml \
+#        -f docker-compose.venue-bridge-dev.yml \
+#        -f variants/<variant>.yml up -d --build venue-bridge
+#      (of scripts/venue-bridge-start.sh <variant>; localtest: start-localtest.sh, met localtest.local.env)
 #
 # Alle instellingen van de zaal (adressen van scorebord, schotklok en vMix, de statistiekeninstellingen) staan in
 # de Kit bij Beheer > Instellingen > Venue; de bridge krijgt ze van de API en bewaart ze in /data.
 #
-# STANDAARD (zonder variant): de opgeslagen pagina compose/local-html/tweede-scherm.html staat in /stats. Vul bij
+# STANDAARD (zonder variant): de opgeslagen pagina local-html/tweede-scherm.html staat in /stats. Vul bij
 # Instellingen > Venue > Statistieken als pagina `tweede-scherm.html` in en zet "Database gebruiken" uit. Zo werkt de
 # bridge zonder statistiek-pc. Voor de echte bron kies je één variant (variants/):
 #   mac.yml              de share staat gemount op de Mac (/Volumes/KL2627)
@@ -21,12 +21,12 @@
 #   cifs.yml             de container mount de share zelf (start niet als de pc uit staat)
 #   page-only.yml        geen share: alleen een http(s)-adres als pagina
 #
-# De map ./data/venue-bridge (de opgeslagen configuratie en de kopie van de database) moet van uid 1000 zijn:
-#   mkdir -p data/venue-bridge && sudo chown -R 1000:1000 data/venue-bridge   (Docker Desktop: niet nodig)
+# De map data/venue-bridge in de root van de repo (de opgeslagen configuratie en de kopie van de database) moet van uid 1000 zijn:
+#   (in de root) mkdir -p data/venue-bridge && sudo chown -R 1000:1000 data/venue-bridge   (Docker Desktop: niet nodig)
 services:
   venue-bridge:
     build:
-      context: .
+      context: ..
       dockerfile: apps/venue-bridge/Dockerfile
     image: streamz-kit-venue-bridge:dev
     restart: unless-stopped
@@ -36,7 +36,7 @@ services:
       TZ: Europe/Amsterdam
       NODE_ENV: production
       PORT: 3340
-      # De dev-API op korfbal-network (de servicenaam in docker-compose.yml)
+      # De dev-API op korfbal-network (de servicenaam in docker-compose-dev.yml)
       API_URL: ${API_URL:-http://korfbal-streamz-api:3333}
       API_KEY: ${API_KEY:?Zet API_KEY (een API-sleutel van de organisatie) in de omgeving of een env-file}
       BRIDGE_NAME: ${BRIDGE_NAME:-venue-bridge-dev}
@@ -47,9 +47,9 @@ services:
       # debug: elke stap bij het lezen van de statistieken (opnieuw gelezen, ongewijzigd, overgeslagen, kopie)
       LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
-      - ./data/venue-bridge:/data
+      - ../data/venue-bridge:/data
       # Standaard de map met de opgeslagen pagina; een variant mount hier de echte share
-      - ${VENUE_BRIDGE_PAGES_DIR:-./apps/venue-bridge/compose/local-html}:/stats:ro
+      - ${VENUE_BRIDGE_PAGES_DIR:-./local-html}:/stats:ro
     # Op het netwerk van de zaal: de pagina en de reserve-API zijn bereikbaar op http://<bridge>:3340
     ports:
       - "3340:3340"

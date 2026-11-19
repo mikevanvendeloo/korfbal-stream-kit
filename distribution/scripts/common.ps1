@@ -1,10 +1,12 @@
-# Gedeelde functies voor start.ps1 en upgrade.ps1 (dot-source). Alleen ASCII: Windows PowerShell 5.1 leest
+# Gedeelde functies voor de scripts in distribution/ (dot-source). Alleen ASCII: Windows PowerShell 5.1 leest
 # een bestand zonder BOM als ANSI.
 
-$Root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$ProdCompose = Join-Path $Root 'docker-compose-prod.yml'
-$BridgeCompose = Join-Path $Root 'apps\venue-bridge\compose\docker-compose.venue-bridge.prod.yml'
-$VariantDir = Join-Path $Root 'apps\venue-bridge\compose\variants'
+# De map distribution/ (compose-bestanden, env-bestanden, productiedata) en, in een checkout, de repo erboven
+$Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$RepoRoot = Split-Path -Parent $Root
+$ProdCompose = Join-Path $Root 'docker-compose.yml'
+$BridgeCompose = Join-Path $Root 'docker-compose.venue-bridge.yml'
+$VariantDir = Join-Path $Root 'variants'
 $Repos = @{
   api    = 'mvanvendeloo/korfbal-stream-api'
   kit    = 'mvanvendeloo/korfbal-stream-kit'
@@ -110,7 +112,32 @@ function Get-StreamzArgs([string]$ConfigPath) {
   @('--env-file', $ConfigPath, '-f', $ProdCompose)
 }
 
-# Hetzelfde project als scripts\venue-bridge\start.ps1 -Prod
+# Voor de verhuizing naar distribution/ stond de productiedata in de root van de repo. Zonder deze controle zou
+# Streamz na een update met een lege database starten.
+function Confirm-ProductionData {
+  if ((Test-Path (Join-Path $RepoRoot 'dbdata')) -and -not (Test-Path (Join-Path $Root 'dbdata'))) {
+    throw ("De database staat nog in $RepoRoot\dbdata, maar Streamz verwacht hem nu in $Root\dbdata. " +
+      "Stop de oude containers en verplaats dbdata, storage, uploads, backups en secrets.prod.env (en data\venue-bridge) " +
+      "naar $Root. Zie README.md in die map.")
+  }
+}
+
+# Draait de service al in een ander compose-project (de installatie van voor distribution/, localtest of dev),
+# dan botsen de poorten: eerst dat project stoppen.
+function Confirm-NoOtherProject([string]$Service, [string]$Project) {
+  $old = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    $projects = & docker ps --filter "label=com.docker.compose.service=$Service" --format '{{.Label "com.docker.compose.project"}}' 2>$null
+  } finally { $ErrorActionPreference = $old }
+  $other = @($projects | Where-Object { $_ -and $_ -ne $Project } | Select-Object -Unique)
+  if ($other.Count -gt 0) {
+    throw ("$Service draait al in het compose-project '$($other -join "', '")' (een oudere installatie, localtest of dev). " +
+      "Stop dat eerst: docker compose -p $($other[0]) down")
+  }
+}
+
+# Een eigen project (name: venue-bridge in het compose-bestand), los van Streamz
 function Get-BridgeArgs([string]$ConfigPath, $Cfg) {
   $variant = $Cfg['BRIDGE_VARIANT']
   $list = @('--env-file', $ConfigPath, '-f', $BridgeCompose)

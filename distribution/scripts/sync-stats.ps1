@@ -3,7 +3,7 @@
   Houdt een lokale map gelijk met de share van de statistiek-pc (robocopy), voor de venue-bridge op Windows.
 
 .DESCRIPTION
-  De bridge leest een lokale map (compose/variants/windows-robocopy.yml mount C:/streamz/stats). Zo hangt
+  De bridge leest een lokale map (variants/windows-robocopy.yml mount C:/streamz/stats). Zo hangt
   of vertraagt een share die niet antwoordt de bridge niet: robocopy probeert het één keer (/R:0 /W:0) en
   het script wacht dan gewoon tot de volgende ronde. Alleen gewijzigde bestanden worden gekopieerd.
 

@@ -1,4 +1,4 @@
-# Mac: de share van de statistiek-pc staat gemount in /Volumes/KL2627 (scripts/venue-bridge/mount-share-mac.sh).
+# Mac: de share van de statistiek-pc staat gemount in /Volumes/KL2627 (scripts/mount-share-mac.sh).
 # Docker Desktop mag die map delen (Settings > Resources > File sharing, standaard staat /Volumes erbij).
 # Staat de pc uit, dan is de map leeg of weg: alleen de bridge merkt het, en gebruikt de lokale kopie.
 services:

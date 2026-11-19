@@ -74,6 +74,7 @@ See **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** for the full project tree a
 - **`apps/korfbal-stream-api`** — Express + Prisma + PostgreSQL backend, port 3333. Routes under `/api/`, Swagger UI at `/api/docs`.
 - **`apps/korfbal-stream-kit`** — React 19 + Vite + TanStack Query frontend, port 4200. LIVE at `/`, Beheer under `/admin/*` (URLs from `lib/adminPaths.ts`).
 - **`apps/korfbal-stream-kit-e2e`** — Playwright e2e tests.
+- **`distribution/`** — every compose file (production `docker-compose.yml`, dev `docker-compose-dev.yml`, db, localtest, monitoring, venue-bridge), the start/upgrade scripts and the `*.env.example` templates; copied as a whole to a production machine. See docs/claude/docker.md.
 - **`apps/venue-bridge`** — the one part at the venue (own Docker image, port 3340, no database): reads the scoreboard, shot clock and statistics PC, carries out vMix commands and connects out to the API with an API key; configured by the API, with a fallback API for when the cloud is out of reach. **`libs/venue-protocol`** — the shared events, zod schemas, time parser and shot clock colour rule (alias `@korfbal-stream-kit/venue-protocol`). See docs/claude/live-and-devices.md.
 
 ## Core Rules

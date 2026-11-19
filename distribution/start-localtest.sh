@@ -2,16 +2,19 @@
 # Start de localtest-omgeving (docker-compose-localtest.yml: de lokaal gebouwde images tegen een backup) en de
 # venue-bridge (gebouwd uit de lokale code), met de instellingen uit localtest.local.env.
 #
-#   scripts/localtest/start.sh                 # bouwt en start Streamz en (RUN_BRIDGE=true) de bridge
-#   scripts/localtest/start.sh --only bridge   # alleen de bridge (bijv. na het invullen van API_KEY)
-#   scripts/localtest/start.sh --no-build      # de al gebouwde images
-#   scripts/localtest/start.sh --reset         # database terug naar de backup (down -v) en dan starten
-#   scripts/localtest/start.sh --stop          # alles stoppen (de database blijft bewaard)
+#   ./start-localtest.sh                 # bouwt en start Streamz en (RUN_BRIDGE=true) de bridge
+#   ./start-localtest.sh --only bridge   # alleen de bridge (bijv. na het invullen van API_KEY)
+#   ./start-localtest.sh --no-build      # de al gebouwde images
+#   ./start-localtest.sh --reset         # database terug naar de backup (down -v) en dan starten
+#   ./start-localtest.sh --stop          # alles stoppen (de database blijft bewaard)
 #
-# Draai nooit tegelijk met docker-compose.yml (dezelfde poorten 80 en 5050).
+# Draai nooit tegelijk met docker-compose-dev.yml (dezelfde poorten 80 en 5050). Relatieve paden in
+# localtest.local.env gaan vanaf deze map (distribution/).
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Deze map (distribution/) en de repo erboven
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(dirname "${ROOT}")"
 CONFIG="${LOCALTEST_ENV_FILE:-${ROOT}/localtest.local.env}"
 ONLY=all
 BUILD=(--build)
@@ -58,14 +61,14 @@ wait_http() {
 
 cd "${ROOT}"
 BASE=(--env-file "${CONFIG}" -f docker-compose-localtest.yml)
-BRIDGE_FILES=(-f apps/venue-bridge/compose/docker-compose.venue-bridge.yml)
+BRIDGE_FILES=(-f docker-compose.venue-bridge-dev.yml)
 VARIANT="$(cfg BRIDGE_VARIANT)"
 if [[ -n "${VARIANT}" ]]; then
-  if [[ ! -f "apps/venue-bridge/compose/variants/${VARIANT}.yml" ]]; then
-    echo "Onbekende BRIDGE_VARIANT '${VARIANT}' (kies uit: $(ls apps/venue-bridge/compose/variants | sed 's/\.yml$//' | tr '\n' ' '))" >&2
+  if [[ ! -f "variants/${VARIANT}.yml" ]]; then
+    echo "Onbekende BRIDGE_VARIANT '${VARIANT}' (kies uit: $(ls variants | sed 's/\.yml$//' | tr '\n' ' '))" >&2
     exit 1
   fi
-  BRIDGE_FILES+=(-f "apps/venue-bridge/compose/variants/${VARIANT}.yml")
+  BRIDGE_FILES+=(-f "variants/${VARIANT}.yml")
 fi
 
 if [[ -n "${STOP}" ]]; then
@@ -85,7 +88,7 @@ if [[ -n "${RUN_STREAMZ}" ]]; then
     echo "Database terugzetten naar de backup (down -v)..."
     API_KEY="${API_KEY:-unused}" docker compose "${BASE[@]}" "${BRIDGE_FILES[@]}" down -v
   fi
-  SQL="$(cfg LOCALTEST_SQL)"; SQL="${SQL:-../2025-2026-backup/streamz-2025.sql}"
+  SQL="$(cfg LOCALTEST_SQL)"; SQL="${SQL:-../../2025-2026-backup/streamz-2025.sql}"
   [[ -f "${SQL}" ]] || echo "Let op: de backup ${SQL} bestaat niet; een nieuwe database begint dan leeg." >&2
   echo "Streamz localtest starten..."
   docker compose "${BASE[@]}" up -d "${BUILD[@]}"
@@ -96,9 +99,9 @@ if [[ -n "${RUN_BRIDGE}" ]]; then
   if [[ -z "$(cfg API_KEY)" ]]; then
     echo
     echo "De bridge start nog niet: API_KEY is leeg. Maak in de Kit (http://localhost) bij Beheer > Organisatie-instellingen >"
-    echo "API-sleutels een sleutel, zet hem in ${CONFIG} en draai: scripts/localtest/start.sh --only bridge"
+    echo "API-sleutels een sleutel, zet hem in ${CONFIG} en draai: ./start-localtest.sh --only bridge"
   else
-    mkdir -p data/venue-bridge
+    mkdir -p "${REPO}/data/venue-bridge"
     echo "Venue-bridge starten (${VARIANT:-opgeslagen pagina})..."
     docker compose "${BASE[@]}" "${BRIDGE_FILES[@]}" up -d "${BUILD[@]}" venue-bridge
     wait_http http://localhost:3340/health 'De venue-bridge'
