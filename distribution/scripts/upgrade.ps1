@@ -94,19 +94,9 @@ if ($doStreamz) {
   # Backup van de database als de API (en dus mogelijk het schema) verandert
   $backupFile = $null
   if (-not $SkipBackup -and $oldApi -ne $target['api']) {
-    $running = Get-ComposeOutput ($streamzArgs + @('ps', '--status', 'running', '-q', 'streamz-db'))
-    if ($running) {
-      $backupDir = Join-Path $Root 'backups'
-      New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
-      $label = if ($oldApi) { $oldApi } else { 'standaard' }
-      $backupFile = Join-Path $backupDir ("streamz-{0}-{1}.sql" -f $label, (Get-Date -Format 'yyyyMMdd-HHmmss'))
-      Write-Host "Backup van de database naar $backupFile ..."
-      Invoke-Compose ($streamzArgs + @('exec', '-T', 'streamz-db', 'pg_dump', '-U', 'fortuna', '-d', 'streamz', '-f', '/tmp/streamz-upgrade.sql'))
-      Invoke-Compose ($streamzArgs + @('cp', 'streamz-db:/tmp/streamz-upgrade.sql', $backupFile))
-      Invoke-Compose ($streamzArgs + @('exec', '-T', 'streamz-db', 'rm', '-f', '/tmp/streamz-upgrade.sql'))
-    } else {
-      Write-Warning 'De database draait niet; geen backup gemaakt.'
-    }
+    $label = if ($oldApi) { $oldApi } else { 'standaard' }
+    $backupFile = Backup-StreamzDatabase $streamzArgs $label
+    if (-not $backupFile) { Write-Warning 'De database draait niet; geen backup gemaakt.' }
   }
 
   Set-StreamzConfigValue $configPath 'STREAMZ_API_VERSION' $target['api']
