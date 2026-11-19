@@ -33,6 +33,13 @@ A table SHALL be kept only when the definition row (`aktnummer` 8000) has the ow
 - **WHEN** the database has the table `DVO DOS46_01_11_2026` whose definition row names neither team as the own club
 - **THEN** that table is not stored
 
+### Requirement: Only matches of the season
+A match table dated before the start of the active season (its `indoorStartDate`, without one 1 July of its start year) SHALL be neither fetched nor kept.
+
+#### Scenario: Match before the indoor start
+- **WHEN** the active season starts on 2026-11-07 and the database has the table `Fortuna DOS46_24_10_2026`
+- **THEN** that table is not fetched and not stored
+
 ### Requirement: Sync moment
 The API SHALL sync the matches of a connected bridge when it connects and every 60 seconds, for the team of the organization's active production (team 1 without one). A table SHALL be fetched again only when its number of rows or its last action time differs from the stored match; one sync per organization SHALL run at a time.
 

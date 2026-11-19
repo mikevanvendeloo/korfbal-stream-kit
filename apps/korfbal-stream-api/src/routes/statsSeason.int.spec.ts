@@ -144,6 +144,9 @@ describe.runIf(runDb)('season statistics: keeping matches and the season overvie
       [`Fortuna DVO_${before.name}`]: match('Fortuna/Ruitenheer', 'DVO/Transus', [shot(10, 'A3', true), theirs(20)]),
     };
     await sync();
+    // The match before the season start is neither fetched nor kept
+    expect(rowsAsked().some((p) => p.includes(encodeURIComponent(`Fortuna DVO_${before.name}`)))).toBe(false);
+    expect(await inA(() => prisma.statsMatch.count())).toBe(2);
     bridge?.close();
     bridge = null;
     clearVenueData();

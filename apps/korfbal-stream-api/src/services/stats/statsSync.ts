@@ -8,6 +8,8 @@ import {requireOrganizationId, runWithOrganization} from '../organizationContext
 import {connectedOrganizationIds, hasBridge} from '../venueBridge';
 import {BridgeOfflineError, bridgeGet} from './statsBridge';
 import {ownClubNames, resolveStatsTeam, type StatsTeam} from './statsTeam';
+import {seasonStart} from './seasonRange';
+import {getActiveSeason} from '../season';
 
 /**
  * Keeps the own team's matches from the statistics database (see openspec/specs/season-statistics). The API pulls:
@@ -88,6 +90,8 @@ async function sync(orgId: number, chosenTeam?: StatsTeam): Promise<SyncState> {
   if (!hasBridge(orgId)) return done('offline');
   try {
     const clubNames = await ownClubNames();
+    // Only matches of the active season: older tables in the database are never fetched or kept
+    const from = seasonStart(await getActiveSeason());
 
     const list = await bridgeGet(`/matches?team=${team.value}`);
     if (list.status !== 200 || !fromDatabase(list.headers) || !Array.isArray(list.body)) return done('unavailable');
@@ -103,7 +107,7 @@ async function sync(orgId: number, chosenTeam?: StatsTeam): Promise<SyncState> {
       if (!entry.success) continue;
       const {table, actionCount, lastActionAt} = entry.data;
       const name = parseMatchTableName(table);
-      if (!name?.date) continue;
+      if (!name?.date || name.date < from) continue;
       // Cheap check on the name first: another team number of the own club is never fetched
       if (!isOwnTeamTable(table, teamNumber, clubNames)) continue;
       const fingerprint = `${actionCount}:${lastActionAt ?? ''}`;

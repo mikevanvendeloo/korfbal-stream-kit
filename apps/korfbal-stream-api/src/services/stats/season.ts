@@ -6,6 +6,7 @@ import {getActiveSeason} from '../season';
 import {requireOrganizationId} from '../organizationContext';
 import {hasBridge} from '../venueBridge';
 import {resolveStatsTeam} from './statsTeam';
+import {seasonStart} from './seasonRange';
 import {lastSyncState, syncStatsMatches, type SyncState} from './statsSync';
 
 /** The season overview from the stored matches (see openspec/specs/season-statistics). */
@@ -38,10 +39,7 @@ const wholePct = (part: number, whole: number) => (whole > 0 ? Math.round((100 *
 const perAttack = (attempts: number, attacks: number) => (attacks > 0 ? Math.round((attempts / attacks) * 100) / 100 : null);
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
-/** The first day of the season: the indoor start, else 1 July of the start year. */
-export function seasonStart(season: {startYear: number; indoorStartDate: Date | null}): string {
-  return season.indoorStartDate ? isoDate(season.indoorStartDate) : `${season.startYear}-07-01`;
-}
+export {seasonStart};
 
 const emptyTotals = (): SeasonTeamTotals => ({
   matches: 0, goals: 0, attempts: 0, goalPct: null, attacks: 0, withGoal: 0, attackGoalPct: null, withoutAttempt: 0,
