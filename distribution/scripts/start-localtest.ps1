@@ -32,6 +32,8 @@ $cfg = Read-StreamzConfig $configPath
 
 $base = @('--env-file', $configPath, '-f', (Join-Path $Root 'docker-compose-localtest.yml'))
 $bridgeFiles = @('-f', (Join-Path $Root 'docker-compose.venue-bridge-dev.yml'))
+# The compose file reads the bridge settings from the same file (env_file)
+$env:BRIDGE_ENV_FILE = $configPath
 $variant = $cfg['BRIDGE_VARIANT']
 if ($variant) {
   $file = Join-Path $VariantDir "$variant.yml"
@@ -43,11 +45,9 @@ if ($variant) {
 }
 $build = if ($NoBuild) { @() } else { @('--build') }
 
-# down met de bridge-bestanden erbij (zelfde project); API_KEY mag dan leeg zijn
+# down met de bridge-bestanden erbij (zelfde project), zodat ook de bridge stopt
 function Invoke-Down([string[]]$Extra) {
-  $had = Test-Path Env:API_KEY
-  if (-not $had) { $env:API_KEY = 'unused' }
-  try { Invoke-Compose ($base + $bridgeFiles + @('down') + $Extra) } finally { if (-not $had) { Remove-Item Env:API_KEY } }
+  Invoke-Compose ($base + $bridgeFiles + @('down') + $Extra)
 }
 
 Confirm-Docker

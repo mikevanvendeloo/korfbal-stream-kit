@@ -62,6 +62,8 @@ wait_http() {
 cd "${ROOT}"
 BASE=(--env-file "${CONFIG}" -f docker-compose-localtest.yml)
 BRIDGE_FILES=(-f docker-compose.venue-bridge-dev.yml)
+# The compose file reads the bridge settings from the same file (env_file)
+export BRIDGE_ENV_FILE="${CONFIG}"
 VARIANT="$(cfg BRIDGE_VARIANT)"
 if [[ -n "${VARIANT}" ]]; then
   if [[ ! -f "variants/${VARIANT}.yml" ]]; then
@@ -72,8 +74,8 @@ if [[ -n "${VARIANT}" ]]; then
 fi
 
 if [[ -n "${STOP}" ]]; then
-  # Met de bridge-bestanden erbij, zodat ook de bridge (zelfde project) stopt; API_KEY mag leeg zijn
-  API_KEY="${API_KEY:-unused}" docker compose "${BASE[@]}" "${BRIDGE_FILES[@]}" down
+  # Met de bridge-bestanden erbij, zodat ook de bridge (zelfde project) stopt
+  docker compose "${BASE[@]}" "${BRIDGE_FILES[@]}" down
   exit 0
 fi
 
@@ -86,7 +88,7 @@ if [[ "${ONLY}" == streamz ]] || { [[ "${ONLY}" == all ]] && [[ ! "${RUN_BRIDGE}
 if [[ -n "${RUN_STREAMZ}" ]]; then
   if [[ -n "${RESET}" ]]; then
     echo "Database terugzetten naar de backup (down -v)..."
-    API_KEY="${API_KEY:-unused}" docker compose "${BASE[@]}" "${BRIDGE_FILES[@]}" down -v
+    docker compose "${BASE[@]}" "${BRIDGE_FILES[@]}" down -v
   fi
   SQL="$(cfg LOCALTEST_SQL)"; SQL="${SQL:-../../2025-2026-backup/streamz-2025.sql}"
   [[ -f "${SQL}" ]] || echo "Let op: de backup ${SQL} bestaat niet; een nieuwe database begint dan leeg." >&2

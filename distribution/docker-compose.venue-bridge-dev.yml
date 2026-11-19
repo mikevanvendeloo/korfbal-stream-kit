@@ -2,10 +2,9 @@
 # korfbal-network die zich met de dev-API verbindt, zoals de bridge in een zaal dat met de echte API doet.
 #
 #   1. Maak in de Kit bij Beheer > Organisatie-instellingen > API-sleutels een sleutel "venue-bridge dev".
-#   2. Zet hem in een env-file die niet wordt ingecheckt, bijvoorbeeld venue-bridge.env:
-#        API_KEY=<de sleutel>
-#        BRIDGE_NAME=dev
-#   3. (in distribution/) docker compose --env-file venue-bridge.env -f docker-compose-dev.yml \
+#   2. Zet hem in een env-bestand dat niet wordt ingecheckt: localtest.local.env (voorbeeld: localtest.local.env.example)
+#      of een eigen bestand, bijvoorbeeld venue-bridge.env, met API_URL, API_KEY, BRIDGE_NAME, BRIDGE_PAGE_URL, LOG_LEVEL.
+#   3. (in distribution/) BRIDGE_ENV_FILE=venue-bridge.env docker compose --env-file venue-bridge.env -f docker-compose-dev.yml \
 #        -f docker-compose.venue-bridge-dev.yml \
 #        -f variants/<variant>.yml up -d --build venue-bridge
 #      (of scripts/venue-bridge-start.sh <variant>; localtest: start-localtest.sh, met localtest.local.env)
@@ -32,20 +31,20 @@ services:
     restart: unless-stopped
     networks:
       - korfbal-network
+    # Alle instellingen van de bridge staan in een env-bestand naast dit bestand: standaard localtest.local.env
+    # (voorbeeld: localtest.local.env.example), een ander met BRIDGE_ENV_FILE=<pad>. API_URL, API_KEY, BRIDGE_NAME,
+    # BRIDGE_PAGE_URL en LOG_LEVEL. Zonder dat bestand start de bridge niet.
+    env_file:
+      - path: ${BRIDGE_ENV_FILE:-localtest.local.env}
+        required: true
     environment:
       TZ: Europe/Amsterdam
       NODE_ENV: production
       PORT: 3340
-      # De dev-API op korfbal-network (de servicenaam in docker-compose-dev.yml)
+      # Een lege API_URL in het env-bestand: de dev-API op korfbal-network (de servicenaam in docker-compose-dev.yml)
       API_URL: ${API_URL:-http://korfbal-streamz-api:3333}
-      API_KEY: ${API_KEY:?Zet API_KEY (een API-sleutel van de organisatie) in de omgeving of een env-file}
-      BRIDGE_NAME: ${BRIDGE_NAME:-venue-bridge-dev}
-      # Het adres van de pagina van de bridge op het netwerk van de zaal; de Kit toont er een link naar
-      BRIDGE_PAGE_URL: ${BRIDGE_PAGE_URL:-http://localhost:3340}
       STATS_DIR: /stats
       COPY_DIR: /data
-      # debug: elke stap bij het lezen van de statistieken (opnieuw gelezen, ongewijzigd, overgeslagen, kopie)
-      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - ../data/venue-bridge:/data
       # Standaard de map met de opgeslagen pagina; een variant mount hier de echte share

@@ -27,9 +27,9 @@ mappen mee als je naar een andere machine verhuist.
 2. Kopieer `secrets.prod.env.example` naar `secrets.prod.env` en vul hem in (alleen als Streamz hier draait).
 3. Kopieer `streamz.local.env.example` naar `streamz.local.env` en vul hem in:
    - `RUN_STREAMZ` / `RUN_BRIDGE`: wat er op deze pc draait.
-   - Voor de bridge: `API_URL` (het adres van Streamz zonder `/api`; op dezelfde pc `http://host.docker.internal:3333`),
+   - Voor de bridge (de container leest deze waarden rechtstreeks uit dit bestand): `API_URL` (het adres van Streamz zonder `/api`; op dezelfde pc `http://host.docker.internal:3333`),
      `API_KEY` (Beheer > Organisatie-instellingen > API-sleutels), `BRIDGE_NAME`, `BRIDGE_PAGE_URL`
-     (`http://<ip van deze pc>:3340`, niet `localhost`) en `BRIDGE_VARIANT`.
+     (`http://<ip van deze pc>:3340`, niet `localhost`), `LOG_LEVEL` en `BRIDGE_VARIANT`.
 4. Bij `BRIDGE_VARIANT=windows-robocopy` eenmalig de kopieertaak, met het UNC-pad van de share (geen schijfletter):
    `scripts\sync-stats.ps1 -Install -Source '\\192.168.1.20\KL2627'`. Vraagt de share om een wachtwoord:
    eerst `cmdkey /add:192.168.1.20 /user:<naam> /pass:<wachtwoord>`.

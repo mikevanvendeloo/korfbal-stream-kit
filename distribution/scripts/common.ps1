@@ -146,6 +146,8 @@ function Confirm-NoOtherProject([string]$Service, [string]$Project) {
 
 # Een eigen project (name: venue-bridge in het compose-bestand), los van Streamz
 function Get-BridgeArgs([string]$ConfigPath, $Cfg) {
+  # The compose file reads the bridge settings from the same file (env_file)
+  $env:BRIDGE_ENV_FILE = $ConfigPath
   $variant = $Cfg['BRIDGE_VARIANT']
   $list = @('--env-file', $ConfigPath, '-f', $BridgeCompose)
   if ($variant) {
