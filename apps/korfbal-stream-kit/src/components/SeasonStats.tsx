@@ -1,5 +1,8 @@
-import {useQuery} from '@tanstack/react-query';
-import {fetchSeason, type SeasonMatch, type SeasonTeamTotals} from '../lib/statsApi';
+import {useState} from 'react';
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import {fetchSeason, syncSeason, type SeasonMatch, type SeasonSyncResult, type SeasonTeamTotals} from '../lib/statsApi';
+import {promptDialog} from '../lib/dialogs';
+import {toast} from '../lib/toast';
 import {formatDateTime} from '../lib/time';
 
 const POLL_MS = 60_000;
@@ -103,6 +106,58 @@ function Matches({matches}: {matches: SeasonMatch[]}) {
   );
 }
 
+const SYNC_PROBLEM: Record<'unavailable' | 'offline', string> = {
+  unavailable: 'statistiekenbestand niet bereikbaar',
+  offline: 'venue-bridge offline',
+};
+
+/** One line per team: what "Nu bijwerken" did. */
+function syncSummary(results: SeasonSyncResult[]) {
+  return results.map((r) => `Team ${r.team}: ${r.database !== 'ok' ? SYNC_PROBLEM[r.database]
+    : r.stored === 0 ? 'geen wijzigingen' : r.stored === 1 ? '1 wedstrijd bijgewerkt' : `${r.stored} wedstrijden bijgewerkt`}`).join('\n');
+}
+
+/**
+ * "Nu bijwerken": reads the statistics database(s) now, also of a team whose production is no longer active (the
+ * statistician goes offline soon after the match). All teams: the active one and every team with kept matches.
+ */
+function SyncNow({teams}: {teams: number[]}) {
+  const queryClient = useQueryClient();
+  const [choice, setChoice] = useState('all');
+  const sync = useMutation({
+    mutationFn: (team?: number) => syncSeason(team),
+    onSuccess: (results) => {
+      const text = syncSummary(results);
+      if (results.some((r) => r.database !== 'ok')) toast.error(text); else toast.success(text);
+      void queryClient.invalidateQueries({queryKey: ['stats', 'season']});
+    },
+    onError: (err) => toast.error(`Bijwerken mislukt: ${(err as Error).message}`),
+  });
+  async function run() {
+    if (choice === 'other') {
+      const answer = await promptDialog('Welk team bijwerken? (het teamnummer, bijvoorbeeld 2)', {inputMode: 'numeric', confirmLabel: 'Bijwerken'});
+      const team = Number(answer);
+      if (!answer || !Number.isInteger(team) || team < 1 || team > 99) return;
+      sync.mutate(team);
+    } else sync.mutate(choice === 'all' ? undefined : Number(choice));
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <label className="sr-only" htmlFor="season-sync-team">Team bijwerken</label>
+      <select id="season-sync-team" value={choice} onChange={(e) => setChoice(e.target.value)}
+        className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800">
+        <option value="all">Alle teams ({teams.join(', ')})</option>
+        {teams.map((t) => <option key={t} value={String(t)}>Team {t}</option>)}
+        <option value="other">Ander team…</option>
+      </select>
+      <button type="button" onClick={() => void run()} disabled={sync.isPending}
+        className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60">
+        {sync.isPending ? 'Bijwerken…' : 'Nu bijwerken'}
+      </button>
+    </div>
+  );
+}
+
 /**
  * The season of the own team from the matches the API keeps (also without the bridge or the statistics file):
  * top scorers, team figures and the matches they are based on.
@@ -115,6 +170,7 @@ export default function SeasonStats() {
   return (
     <div className="min-w-0 space-y-6">
       <div>
+        <div className="mb-2"><SyncNow teams={data.teams ?? [data.team]}/></div>
         <p className="text-sm text-gray-600 dark:text-gray-300">
           Seizoen {data.season.name}, vanaf {dutchDate(data.season.from)}, team {data.team}
           {data.lastSyncAt && <> · bijgewerkt {formatDateTime(data.lastSyncAt)}</>}

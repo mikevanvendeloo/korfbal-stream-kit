@@ -8,6 +8,8 @@ import {requireOrganizationId, runWithOrganization} from '../organizationContext
 import {connectedOrganizationIds, hasBridge} from '../venueBridge';
 import {BridgeOfflineError, bridgeGet} from './statsBridge';
 import {ownClubNames, resolveStatsTeam, type StatsTeam} from './statsTeam';
+import {seasonStart} from './seasonRange';
+import {getActiveSeason} from '../season';
 
 /**
  * Keeps the own team's matches from the statistics database (see openspec/specs/season-statistics). The API pulls:
@@ -18,7 +20,7 @@ import {ownClubNames, resolveStatsTeam, type StatsTeam} from './statsTeam';
 export const SYNC_INTERVAL_MS = 60_000;
 const MAX_ROWS = 20_000;
 
-export type SyncState = {database: 'ok' | 'unavailable' | 'offline'; at: string; stored: number};
+export type SyncState = {team: number; database: 'ok' | 'unavailable' | 'offline'; at: string; stored: number};
 
 const ListEntry = z.object({
   table: z.string().min(1).max(200),
@@ -40,7 +42,8 @@ const RowSchema = z.object({
 });
 const RowsSchema = z.array(RowSchema).max(MAX_ROWS);
 
-const states = new Map<number, SyncState>();
+/** The last sync attempt per organization and team: `orgId|team` */
+const states = new Map<string, SyncState>();
 const running = new Map<number, Promise<SyncState>>();
 /** Tables that are not the own team's, per organization: `team|table` -> fingerprint, so they are not fetched again. */
 const skipped = new Map<number, Map<string, string>>();
@@ -51,9 +54,9 @@ export function clearStatsSync(): void {
   skipped.clear();
 }
 
-/** The last sync attempt of the organization in the context; null before the first. */
-export function lastSyncState(): SyncState | null {
-  return states.get(requireOrganizationId('statistics sync')) ?? null;
+/** The last sync attempt of the organization in the context for a team; null before the first. */
+export function lastSyncState(team: number): SyncState | null {
+  return states.get(`${requireOrganizationId('statistics sync')}|${team}`) ?? null;
 }
 
 const fromDatabase = (headers: Record<string, string>) => {
@@ -77,16 +80,18 @@ export function syncStatsMatches(team?: StatsTeam): Promise<SyncState> {
 }
 
 async function sync(orgId: number, chosenTeam?: StatsTeam): Promise<SyncState> {
+  const team = chosenTeam ?? await resolveStatsTeam();
+  const teamNumber = Number(team.value);
   const done = (database: SyncState['database'], stored = 0): SyncState => {
-    const state = {database, at: new Date().toISOString(), stored};
-    states.set(orgId, state);
+    const state = {team: teamNumber, database, at: new Date().toISOString(), stored};
+    states.set(`${orgId}|${teamNumber}`, state);
     return state;
   };
   if (!hasBridge(orgId)) return done('offline');
   try {
-    const team = chosenTeam ?? await resolveStatsTeam();
-    const teamNumber = Number(team.value);
     const clubNames = await ownClubNames();
+    // Only matches of the active season: older tables in the database are never fetched or kept
+    const from = seasonStart(await getActiveSeason());
 
     const list = await bridgeGet(`/matches?team=${team.value}`);
     if (list.status !== 200 || !fromDatabase(list.headers) || !Array.isArray(list.body)) return done('unavailable');
@@ -102,7 +107,7 @@ async function sync(orgId: number, chosenTeam?: StatsTeam): Promise<SyncState> {
       if (!entry.success) continue;
       const {table, actionCount, lastActionAt} = entry.data;
       const name = parseMatchTableName(table);
-      if (!name?.date) continue;
+      if (!name?.date || name.date < from) continue;
       // Cheap check on the name first: another team number of the own club is never fetched
       if (!isOwnTeamTable(table, teamNumber, clubNames)) continue;
       const fingerprint = `${actionCount}:${lastActionAt ?? ''}`;

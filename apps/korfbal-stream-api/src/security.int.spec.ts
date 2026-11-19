@@ -1055,6 +1055,8 @@ describe.runIf(runDb)('live state per organization (integration)', () => {
     for (const [organizationId, show] of [[orgA, a], [orgB, b]] as const) {
       if (!show) continue;
       await runWithOrganization(organizationId, () => liveState.stopProduction(liveState.getActiveProductionId() ?? show.productionId));
+      // Leave no live state behind for later tests (they count the background rounds)
+      liveState.discardLiveState(organizationId);
       await runWithOrganization(organizationId, () => prisma.production.deleteMany({where: {matchScheduleId: show.matchId}}));
       await show.cleanup();
     }
@@ -1615,6 +1617,8 @@ describe.runIf(runDb)('switching an organization off (integration)', () => {
   afterAll(async () => {
     if (show) {
       await runWithOrganization(organizationId, () => liveState.stopProduction(liveState.getActiveProductionId() ?? show.productionId));
+      // Switched on again at the end of the test: leave no live state behind for later tests
+      liveState.discardLiveState(organizationId);
       await runWithOrganization(organizationId, () => prisma.production.deleteMany({where: {matchScheduleId: show.matchId}}));
       await show.cleanup();
     }
@@ -1818,6 +1822,8 @@ describe.runIf(runDb)('background loops follow the live state in memory (integra
       await setSetting('vmixInstances', {instances: [{id: 'pc', name: 'PC', url: 'http://10.9.9.9:8088'}], targets: {}});
       await setSetting('vmixCallsheetPush', {enabled: true, input: 'IdleInput', positions: [], current: {titleField: 'Titel.Text'}});
     });
+    // A round is measured without any show live: no live state left by earlier tests in this file
+    for (const other of liveState.liveOrganizationIds()) if (other !== organizationId) liveState.discardLiveState(other);
     bridge = await connectFakeBridge(await createBridgeKey(organizationId));
   });
 

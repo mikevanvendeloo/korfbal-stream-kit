@@ -33,6 +33,13 @@ A table SHALL be kept only when the definition row (`aktnummer` 8000) has the ow
 - **WHEN** the database has the table `DVO DOS46_01_11_2026` whose definition row names neither team as the own club
 - **THEN** that table is not stored
 
+### Requirement: Only matches of the season
+A match table dated before the start of the active season (its `indoorStartDate`, without one 1 July of its start year) SHALL be neither fetched nor kept.
+
+#### Scenario: Match before the indoor start
+- **WHEN** the active season starts on 2026-11-07 and the database has the table `Fortuna DOS46_24_10_2026`
+- **THEN** that table is not fetched and not stored
+
 ### Requirement: Sync moment
 The API SHALL sync the matches of a connected bridge when it connects and every 60 seconds, for the team of the organization's active production (team 1 without one). A table SHALL be fetched again only when its number of rows or its last action time differs from the stored match; one sync per organization SHALL run at a time.
 
@@ -50,6 +57,13 @@ When another production is activated, the API SHALL sync the statistics database
 #### Scenario: Fortuna 2 switched off
 - **WHEN** a production of team 2 is active and another production is activated
 - **THEN** the bridge is asked for the matches of team 2 once more and changed tables of team 2 are stored
+
+### Requirement: Sync now
+`POST /api/stats/season/sync` SHALL sync at once, one team after the other: with `?team=` (1–99) that team, otherwise the team of the active production and every team with kept matches. It SHALL answer `{results: [{team, database, at, stored}]}`; the season answer SHALL list those teams in `teams`. LIVE Statistieken tab Seizoen SHALL offer it as "Nu bijwerken" with a choice of team.
+
+#### Scenario: Team 2 after its production
+- **WHEN** team 2 has kept matches, the production of team 1 is active and "Nu bijwerken" is pressed for all teams
+- **THEN** the databases of team 1 and team 2 are read and the changed team 2 match is stored
 
 ### Requirement: Figures from the stored rows
 The figures of a stored match SHALL be derived from its stored rows with the same derivation as the live match analysis. When the derivation changes, matches stored before SHALL get the new figures from their rows without the database.

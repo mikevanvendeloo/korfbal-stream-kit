@@ -6,7 +6,8 @@ import {getActiveSeason} from '../season';
 import {requireOrganizationId} from '../organizationContext';
 import {hasBridge} from '../venueBridge';
 import {resolveStatsTeam} from './statsTeam';
-import {lastSyncState} from './statsSync';
+import {seasonStart} from './seasonRange';
+import {lastSyncState, syncStatsMatches, type SyncState} from './statsSync';
 
 /** The season overview from the stored matches (see openspec/specs/season-statistics). */
 
@@ -25,6 +26,8 @@ export type SeasonMatch = {
 export type SeasonOverview = {
   season: {id: number; name: string; from: string};
   team: number;
+  /** The team of the active production and every team with kept matches: what "Nu bijwerken" syncs */
+  teams: number[];
   database: 'ok' | 'unavailable' | 'offline';
   lastSyncAt: string | null;
   matches: SeasonMatch[];
@@ -36,10 +39,7 @@ const wholePct = (part: number, whole: number) => (whole > 0 ? Math.round((100 *
 const perAttack = (attempts: number, attacks: number) => (attacks > 0 ? Math.round((attempts / attacks) * 100) / 100 : null);
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
-/** The first day of the season: the indoor start, else 1 July of the start year. */
-export function seasonStart(season: {startYear: number; indoorStartDate: Date | null}): string {
-  return season.indoorStartDate ? isoDate(season.indoorStartDate) : `${season.startYear}-07-01`;
-}
+export {seasonStart};
 
 const emptyTotals = (): SeasonTeamTotals => ({
   matches: 0, goals: 0, attempts: 0, goalPct: null, attacks: 0, withGoal: 0, attackGoalPct: null, withoutAttempt: 0,
@@ -121,14 +121,33 @@ export async function seasonOverview(): Promise<SeasonOverview> {
     });
   }
 
-  const state = lastSyncState();
+  const state = lastSyncState(teamNumber);
   return {
     season: {id: season.id, name: season.name, from},
     team: teamNumber,
+    teams: await knownTeams(teamNumber),
     database: !hasBridge(orgId) ? 'offline' : state?.database ?? 'unavailable',
     lastSyncAt: state?.at ?? null,
     matches,
     topScorers: topScorersOf(all),
     totals: {own: finishTotals(own), opponent: finishTotals(opponent)},
   };
+}
+
+/** The team of the active production and every team with kept matches, ascending. */
+export async function knownTeams(activeTeam: number): Promise<number[]> {
+  const stored = await prisma.statsMatch.findMany({distinct: ['team'], select: {team: true}});
+  return [...new Set([activeTeam, ...stored.map((s) => s.team)])].sort((a, b) => a - b);
+}
+
+/**
+ * "Nu bijwerken": sync one team, or the active production's team and every team with kept matches, one after the
+ * other (each after a running sync). The answer per team: the database state and how many matches were stored.
+ */
+export async function syncTeamsNow(team?: number): Promise<SyncState[]> {
+  const active = Number((await resolveStatsTeam()).value);
+  const teams = team !== undefined ? [team] : await knownTeams(active);
+  const results: SyncState[] = [];
+  for (const t of teams) results.push(await syncStatsMatches({value: String(t), from: t === active ? 'production' : 'default'}));
+  return results;
 }

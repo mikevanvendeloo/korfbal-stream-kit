@@ -3,7 +3,7 @@ import {z} from 'zod';
 import {sendApiError} from '../services/apiErrorCodes';
 import {BridgeOfflineError, bridgeGet, statsTeam, withTeamSource} from '../services/stats/statsBridge';
 import {requireOrganizationId} from '../services/organizationContext';
-import {seasonOverview} from '../services/stats/season';
+import {seasonOverview, syncTeamsNow} from '../services/stats/season';
 
 /**
  * Match statistics from the statistics PC, through the venue-bridge (its own app at the venue: a failing PC or
@@ -114,6 +114,14 @@ statsRouter.get('/top-scorers', wrap(async (_req, res) => forward(res, '/top-sco
 // GET /api/stats/season: the season of the active season for the production's team, from the matches the API keeps
 // (services/stats/statsSync.ts), so also without the bridge or the database
 statsRouter.get('/season', wrap(async (_req, res) => res.json(await seasonOverview())));
+
+// POST /api/stats/season/sync: "Nu bijwerken": sync now (?team=N one team, else the active team and every team with kept
+// matches), so a match can be kept after the production changed; answers per team the state and the stored count
+const SyncQuery = z.object({team: z.coerce.number().int().min(1).max(99).optional()});
+statsRouter.post('/season/sync', wrap(async (req, res) => {
+  const {team} = SyncQuery.parse({team: req.query.team});
+  return res.json({results: await syncTeamsNow(team)});
+}));
 
 // GET /api/stats/season/top-scorers: the own club's season top scorers as flat rows for vMix (?limit=1..50)
 const SeasonTopQuery = z.object({limit: z.coerce.number().int().min(1).max(50).optional()});

@@ -144,6 +144,9 @@ describe.runIf(runDb)('season statistics: keeping matches and the season overvie
       [`Fortuna DVO_${before.name}`]: match('Fortuna/Ruitenheer', 'DVO/Transus', [shot(10, 'A3', true), theirs(20)]),
     };
     await sync();
+    // The match before the season start is neither fetched nor kept
+    expect(rowsAsked().some((p) => p.includes(encodeURIComponent(`Fortuna DVO_${before.name}`)))).toBe(false);
+    expect(await inA(() => prisma.statsMatch.count())).toBe(2);
     bridge?.close();
     bridge = null;
     clearVenueData();
@@ -187,6 +190,28 @@ describe.runIf(runDb)('season statistics: keeping matches and the season overvie
     await vi.waitFor(async () => expect(await inA(() => prisma.statsMatch.count({where: {team: 2}}))).toBe(1));
     const paths = (bridge?.requestsOf(VENUE_EVENTS.statsRequest) ?? []).map((p) => (p as {path: string}).path);
     expect(paths).toContain('/matches?team=2');
+  });
+
+  it('"Nu bijwerken" syncs the active team and every team with kept matches, or one team', async () => {
+    const d = tableDate(from, 7);
+    // A team 2 match was kept before (its production was active then)
+    tables = {[`DVO2 Fortuna2_${d.name}`]: match('Fortuna/Ruitenheer', 'DVO/Transus', [shot(10, 'A1', true), theirs(20)])};
+    await runWithOrganization(orgA, () => syncStatsMatches({value: '2', from: 'production'}));
+    tables[`DVO2 Fortuna2_${d.name}`] = [...tables[`DVO2 Fortuna2_${d.name}`], shot(30, 'A2', true), theirs(40)];
+    clearStatsBridgeCache();
+
+    const all = await asA(request(app).post('/api/stats/season/sync'));
+    expect(all.status, all.text).toBe(200);
+    expect(all.body.results.map((r: {team: number; database: string}) => [r.team, r.database])).toEqual([[1, 'ok'], [2, 'ok']]);
+    expect(all.body.results[1].stored).toBe(1);
+    const kept = await inA(() => prisma.statsMatch.findFirstOrThrow({where: {team: 2}}));
+    expect((kept.figures as {analysis: {score: {own: number}}}).analysis.score.own).toBe(2);
+
+    const one = await asA(request(app).post('/api/stats/season/sync?team=2'));
+    expect(one.body.results.map((r: {team: number}) => r.team)).toEqual([2]);
+    expect((await asA(request(app).post('/api/stats/season/sync?team=0'))).status).toBe(400);
+    expect((await asA(request(app).get('/api/stats/season'))).body.teams).toEqual([1, 2]);
+    expect((await withoutOrganization(request(app).post('/api/stats/season/sync'))).status).toBe(401);
   });
 
   it('keeps the organizations apart and needs a key or an organization', async () => {
