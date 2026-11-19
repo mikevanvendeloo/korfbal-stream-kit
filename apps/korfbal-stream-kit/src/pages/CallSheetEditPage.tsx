@@ -20,6 +20,7 @@ import {parallelLanes} from '../lib/lanes';
 import {usePositionsCatalog} from '../hooks/usePositions';
 import {adminPaths} from '../lib/adminPaths';
 import {formatTime} from '../lib/time';
+import {confirmDialog} from '../lib/dialogs';
 
 const asItem = (it: CallSheetItem): DraaiboekItemData => ({
   id: it.id, cue: it.cue ?? '', title: it.title, note: it.note ?? null, durationSec: it.durationSec,
@@ -92,8 +93,8 @@ export default function CallSheetEditPage() {
     setOpenItem(created.id);
   });
 
-  const handleItemDelete = (id: string) => {
-    if (confirm('Item verwijderen?')) void run(() => deleteItem.mutateAsync(id));
+  const handleItemDelete = async (id: string) => {
+    if (await confirmDialog('Item verwijderen?', {confirmLabel: 'Verwijderen', danger: true})) void run(() => deleteItem.mutateAsync(id));
   };
 
   async function handleHeaderUpdate(e: React.FormEvent<HTMLFormElement>) {
@@ -162,7 +163,7 @@ export default function CallSheetEditPage() {
         </div>
         <div className="flex items-end">
           <button
-            onClick={() => { if(confirm('Dit overschrijft de huidige live-events. Weet je het zeker?')) syncToEvents.mutateAsync() }}
+            onClick={async () => { if (await confirmDialog('Dit overschrijft de huidige live-events. Weet je het zeker?', {confirmLabel: 'Overschrijven', danger: true})) syncToEvents.mutateAsync() }}
             disabled={syncToEvents.isPending}
             className="w-full px-4 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 shadow-lg h-full min-h-[70px]"
             title="Pas deze callsheet toe op de live view (overschrijft bestaande events)"

@@ -6,6 +6,7 @@ import {Input} from '../components/ui/input';
 import {Link} from 'react-router-dom';
 import {adminPaths} from '../lib/adminPaths';
 import {downloadExport} from '../lib/download';
+import {confirmDialog} from '../lib/dialogs';
 
 export default function CallSheetTemplatesPage() {
   const { fetchTemplates, createTemplate, deleteTemplate, importTemplate, importTemplateJson, loading, error } = useCallSheetTemplates();
@@ -36,7 +37,7 @@ export default function CallSheetTemplatesPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (window.confirm('Weet je zeker dat je dit draaiboek wilt verwijderen?')) {
+    if (await confirmDialog('Weet je zeker dat je dit draaiboek wilt verwijderen?', {confirmLabel: 'Verwijderen', danger: true})) {
       const ok = await deleteTemplate(id);
       if (ok) loadTemplates();
     }

@@ -55,9 +55,9 @@ describe('ChapterBoard', () => {
   });
 
   it('deletes an empty hoofdstuk after a confirmation', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const handlers = renderBoard({structure: [{id: 'voor', itemIds: []}, {id: 'eerste', itemIds: ['kabels', 'aftrap']}]});
     fireEvent.click(screen.getByRole('button', {name: 'Hoofdstuk Voorbereiding verwijderen'}));
+    fireEvent.click(await screen.findByTestId('app-dialog-confirm'));
     await waitFor(() => expect(handlers.onDeleteChapter).toHaveBeenCalledWith('voor', [{id: 'eerste', itemIds: ['kabels', 'aftrap']}]));
   });
 });

@@ -16,6 +16,7 @@ import {
 import PlayerCard, {PhotoCard} from '../components/PlayerCard';
 import ClubLogo from '../components/ClubLogo';
 import {MdAdd} from 'react-icons/md';
+import {confirmDialog} from '../lib/dialogs';
 
 function DeleteClubButton({slug, clubs, onDeleted}: {
   slug: string;
@@ -31,7 +32,7 @@ function DeleteClubButton({slug, clubs, onDeleted}: {
       className="px-3 py-1 border rounded bg-red-600 text-white disabled:opacity-60 disabled:cursor-not-allowed"
       onClick={async () => {
         if (!slug) return;
-        const ok = window.confirm('Weet je zeker dat je deze club wilt verwijderen? Dit verwijdert ook alle spelers van deze club.');
+        const ok = await confirmDialog('Weet je zeker dat je deze club wilt verwijderen? Dit verwijdert ook alle spelers van deze club.', {confirmLabel: 'Verwijderen', danger: true});
         if (!ok) return;
         setBusy(true);
         try {
@@ -269,7 +270,7 @@ export default function ClubsPage() {
   }
 
   async function handleDeletePlayer(player: any) {
-    if (!confirm(`Weet je zeker dat je ${player.name} wilt verwijderen?`)) return;
+    if (!(await confirmDialog(`Weet je zeker dat je ${player.name} wilt verwijderen?`, {confirmLabel: 'Verwijderen', danger: true}))) return;
     setMsg(null);
     try {
       await deletePlayer.mutateAsync(player.id);

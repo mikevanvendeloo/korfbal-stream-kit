@@ -11,6 +11,7 @@ import {downloadExport} from '../lib/download';
 import {atAmsterdamTime, formatTime} from '../lib/time';
 import {saveCallSheetAsTemplate} from '../lib/chaptersApi';
 import DraaiboekFileActions from '../components/DraaiboekFileActions';
+import {promptDialog} from '../lib/dialogs';
 
 // Amsterdam time, whatever the device's zone
 const timeLocal = (iso?: string | null) => formatTime(iso);
@@ -89,7 +90,7 @@ export default function ProductionDetailPage() {
   const handleSaveAsTemplate = async () => {
     const callSheet = callSheets?.[0];
     if (!callSheet) return;
-    const name = window.prompt('Naam voor de nieuwe draaiboek-template:');
+    const name = await promptDialog('Naam voor de nieuwe draaiboek-template:', {confirmLabel: 'Aanmaken'});
     if (!name) return;
     setErr(null);
     try {

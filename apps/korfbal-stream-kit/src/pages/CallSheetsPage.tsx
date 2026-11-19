@@ -2,6 +2,7 @@ import React from 'react';
 import {Link, useParams} from 'react-router-dom';
 import {useCallSheets, useCreateCallSheet, useDeleteCallSheet} from '../hooks/useCallsheet';
 import {adminPaths} from '../lib/adminPaths';
+import {confirmDialog} from '../lib/dialogs';
 
 export default function CallSheetsPage() {
   const params = useParams<{ id: string }>();
@@ -27,7 +28,7 @@ export default function CallSheetsPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('Callsheet verwijderen?')) return;
+    if (!(await confirmDialog('Callsheet verwijderen?', {confirmLabel: 'Verwijderen', danger: true}))) return;
     setErr(null);
     try {
       await delCS.mutateAsync(id);

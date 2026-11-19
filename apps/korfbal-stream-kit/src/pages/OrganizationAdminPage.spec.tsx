@@ -114,13 +114,13 @@ describe('OrganizationAdminPage', () => {
 
   it('lists the API keys by name and prefix, and revokes one after a confirm', async () => {
     const {calls} = api();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderInOrganization(<OrganizationAdminPage/>);
     const table = await screen.findByRole('table', {name: 'API-sleutels'});
     const row = within(table).getByText('vMix stream-pc').closest('tr') as HTMLElement;
     expect(row).toHaveTextContent('sk_Xy12…');
     expect(row).toHaveTextContent('Nooit');
     fireEvent.click(within(row).getByRole('button', {name: 'Sleutel vMix stream-pc intrekken'}));
+    fireEvent.click(await screen.findByTestId('app-dialog-confirm'));
     await waitFor(() => expect(calls.some((c) => c.method === 'DELETE' && c.path === '/api/organization/api-keys/1')).toBe(true));
   });
 

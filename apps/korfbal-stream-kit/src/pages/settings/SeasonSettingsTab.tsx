@@ -13,6 +13,7 @@ import {useImportLeagueTeams} from '../../hooks/useClubs';
 import MatchImportForm from '../../components/MatchImportForm';
 import DateInputNL from '../../components/DateInputNL';
 import {formatDate as formatAmsterdamDate} from '../../lib/time';
+import {confirmDialog} from '../../lib/dialogs';
 
 const cardClass = 'bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700';
 const cardTitleClass = 'text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-100 dark:border-gray-700 pb-2';
@@ -114,7 +115,7 @@ function SeasonListSection({seasons}: { seasons: SeasonDto[] }) {
   }
 
   async function handleDelete(s: SeasonDto) {
-    if (!window.confirm(`Seizoen ${s.name} verwijderen?`)) return;
+    if (!(await confirmDialog(`Seizoen ${s.name} verwijderen?`, {confirmLabel: 'Verwijderen', danger: true}))) return;
     setError(null);
     try {
       await del.mutateAsync(s.id);

@@ -40,10 +40,11 @@ describe('ProductionDetailPage hoofdstukken', () => {
   });
 
   it('saves the draaiboek as a new template from the callsheet', async () => {
-    vi.spyOn(window, 'prompt').mockReturnValue('Kopie');
     vi.spyOn(window, 'alert').mockImplementation(() => undefined);
     renderPage();
     fireEvent.click(screen.getByRole('button', {name: 'Sla het draaiboek op als template'}));
+    fireEvent.change(within(await screen.findByTestId('app-dialog')).getByRole('textbox'), {target: {value: 'Kopie'}});
+    fireEvent.click(screen.getByTestId('app-dialog-confirm'));
     await waitFor(() => expect(saveCallSheetAsTemplate).toHaveBeenCalledWith(7, 'Kopie'));
   });
 });

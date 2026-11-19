@@ -113,10 +113,9 @@ describe('SponsorsPage CRUD', () => {
     });
 
     // Delete
-    // Mock confirm to auto-accept
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const delBtns = screen.getAllByLabelText('Delete sponsor');
     fireEvent.click(delBtns[0]);
+    fireEvent.click(await screen.findByTestId('app-dialog-confirm'));
 
     await waitFor(() => {
       expect(calls.some((c) => c.url.endsWith('/sponsors/1') && c.method === 'DELETE')).toBe(true);

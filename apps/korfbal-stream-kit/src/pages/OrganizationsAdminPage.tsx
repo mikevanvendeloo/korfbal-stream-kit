@@ -14,6 +14,7 @@ import {
 } from '../hooks/useOrganizations';
 import {adminPaths} from '../lib/adminPaths';
 import {ORGANIZATION_SLUG_PATTERN} from '../lib/organization';
+import {confirmDialog} from '../lib/dialogs';
 
 /** "Fortuna/Ruitenheer" → "fortuna-ruitenheer": the slug rule of the API (lowercase, digits, dashes). */
 export function suggestSlug(name: string): string {
@@ -169,9 +170,9 @@ export default function OrganizationsAdminPage() {
   const activeCount = organizations?.filter((o) => o.isActive).length ?? 0;
   const clubName = (id: number | null) => clubs.find((c) => c.id === id)?.name ?? '—';
 
-  function toggleActive(organization: Organization) {
+  async function toggleActive(organization: Organization) {
     setActionError(null);
-    if (organization.isActive && !window.confirm(`${organization.name} deactiveren? De organisatie verdwijnt van het startscherm, en wie haar gebruikt moet opnieuw kiezen.`)) return;
+    if (organization.isActive && !(await confirmDialog(`${organization.name} deactiveren? De organisatie verdwijnt van het startscherm, en wie haar gebruikt moet opnieuw kiezen.`, {confirmLabel: 'Deactiveren', danger: true}))) return;
     update.mutate({id: organization.id, isActive: !organization.isActive}, {onError: (err) => setActionError(err.message)});
   }
 

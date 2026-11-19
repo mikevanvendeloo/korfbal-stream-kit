@@ -9,6 +9,7 @@ import {useInterviewPhotos} from '../hooks/useInterviewPhotos';
 import {formatTime} from '../lib/time';
 import {chapterName, currentChapter, minutesSeconds} from '../lib/liveChapters';
 import {hallLaneState} from '../lib/lanes';
+import {confirmDialog, type ConfirmOptions} from '../lib/dialogs';
 
 type TimedEvent = ProductionEvent & { calculatedTime: Date | null };
 type Remaining = { minutes: string; seconds: string; isNegative: boolean; rawSeconds: number } | null;
@@ -98,9 +99,9 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
   // Volgend goes on to a samenkomstpunt while the hall item still runs: pressing it ends that item
   const hallBusy = lane.endsHallItem ? `Zaal nog ${minutesSeconds(venueRemaining?.rawSeconds ?? 0)} bezig` : null;
 
-  const confirmThen = (question: string, action: () => void) => () => {
+  const confirmThen = (question: string, action: () => void, options?: ConfirmOptions) => async () => {
     setMenuOpen(false);
-    if (window.confirm(question)) action();
+    if (await confirmDialog(question, options)) action();
   };
 
   return (
@@ -137,12 +138,12 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
           </button>
           {active && (
             <button role="menuitem" className="w-full text-left px-4 py-3 text-orange-700 dark:text-orange-400"
-                    onClick={confirmThen('De show opnieuw beginnen bij het eerste item?', controls.start)}>
+                    onClick={confirmThen('De show opnieuw beginnen bij het eerste item?', controls.start, {confirmLabel: 'Opnieuw beginnen'})}>
               Herstart show
             </button>
           )}
           <button role="menuitem" className="w-full text-left px-4 py-3 text-red-700 dark:text-red-400"
-                  onClick={confirmThen('Weet je zeker dat je het draaiboek wilt resetten naar de originele tijden?', controls.reset)}>
+                  onClick={confirmThen('Weet je zeker dat je het draaiboek wilt resetten naar de originele tijden?', controls.reset, {confirmLabel: 'Resetten', danger: true})}>
             Draaiboek resetten
           </button>
         </div>
@@ -278,7 +279,7 @@ export function ShowCallerPhone(props: ShowCallerPhoneProps) {
            className="fixed bottom-0 inset-x-0 z-30 grid grid-cols-4 gap-2 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/95 dark:bg-gray-900/95 backdrop-blur border-t border-gray-200 dark:border-gray-800">
         {active ? (
           <>
-            <button type="button" onClick={confirmThen('Weet je zeker dat je de show wilt stoppen?', controls.stop)} disabled={controls.isProcessing}
+            <button type="button" onClick={confirmThen('Weet je zeker dat je de show wilt stoppen?', controls.stop, {confirmLabel: 'Stoppen', danger: true})} disabled={controls.isProcessing}
                     aria-label="Einde show"
                     className="h-16 rounded-2xl flex flex-col items-center justify-center bg-red-600 text-white text-xs font-bold active:scale-95 disabled:opacity-50">
               <Square className="w-5 h-5 fill-current"/>Stop

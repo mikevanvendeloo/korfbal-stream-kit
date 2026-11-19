@@ -7,6 +7,7 @@ import {
 } from '../lib/api';
 import {MdDelete, MdFileDownload, MdRefresh, MdUploadFile} from 'react-icons/md';
 import FallbackImage from '../components/FallbackImage';
+import {confirmDialog} from '../lib/dialogs';
 
 export default function SponsorSlidesPage() {
   const [players, setPlayers] = useState<PlayerImage[]>([]);
@@ -78,8 +79,7 @@ export default function SponsorSlidesPage() {
   }
 
   async function onDeletePlayer(p: PlayerImage) {
-    // eslint-disable-next-line no-restricted-globals
-    if (!confirm(`Verwijder speler ‘${p.subject}’`)) return;
+    if (!(await confirmDialog(`Verwijder speler ‘${p.subject}’`, {confirmLabel: 'Verwijderen', danger: true}))) return;
     try {
       await deletePlayerImage(p.id);
       await loadPlayers();

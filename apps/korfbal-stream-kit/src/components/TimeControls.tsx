@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { MdPlayArrow, MdStop, MdTimer } from 'react-icons/md';
+import {promptDialog} from '../lib/dialogs';
 
 export const TimeControls = () => {
   const [countdown, setCountdown] = useState(300); // Default 5 minuten
@@ -21,8 +22,8 @@ export const TimeControls = () => {
 
   const handleStart = () => handleApiCall('start');
   const handleStop = () => handleApiCall('stop');
-  const handleSetCountdown = () => {
-    const seconds = parseInt(prompt('Voer aantal seconden in voor countdown:', String(countdown)) || '0', 10);
+  const handleSetCountdown = async () => {
+    const seconds = parseInt((await promptDialog('Voer aantal seconden in voor countdown:', {defaultValue: String(countdown), inputMode: 'numeric'})) || '0', 10);
     if (seconds > 0) {
       setCountdown(seconds);
       handleApiCall('countdown', { seconds });
