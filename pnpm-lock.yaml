@@ -244,8 +244,8 @@ importers:
         specifier: ^2.8.8
         version: 2.8.8
       react-refresh:
-        specifier: ^0.10.0
-        version: 0.10.0
+        specifier: ^0.19.0
+        version: 0.19.0
       supertest:
         specifier: ^7.3.2
         version: 7.3.2(supports-color@8.1.1)
@@ -6259,12 +6259,12 @@ packages:
     peerDependencies:
       react: '*'
 
-  react-refresh@0.10.0:
-    resolution: {integrity: sha512-PgidR3wST3dDYKr6b4pJoqQFpPGNKDSCDx4cZoshjXipw3LzO7mG1My2pwEzz2JVkF+inx3xRpDeQLFQGH/hsQ==}
-    engines: {node: '>=0.10.0'}
-
   react-refresh@0.17.0:
     resolution: {integrity: sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==}
+    engines: {node: '>=0.10.0'}
+
+  react-refresh@0.19.0:
+    resolution: {integrity: sha512-5HdstYgoJBbBofjapO5qCPcovECJCBfvjLb+iTcsmqDFVMRdqy0qs7iiInBJTUXmIFc2bjoc5b2HVLp2zRtYhQ==}
     engines: {node: '>=0.10.0'}
 
   react-router-dom@6.30.6:
@@ -14449,9 +14449,9 @@ snapshots:
       qrcode-generator: 2.0.4
       react: 19.3.1
 
-  react-refresh@0.10.0: {}
-
   react-refresh@0.17.0: {}
+
+  react-refresh@0.19.0: {}
 
   react-router-dom@6.30.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
     dependencies:
